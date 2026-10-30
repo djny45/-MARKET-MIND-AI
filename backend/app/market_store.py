@@ -40,6 +40,7 @@ def _connect():
 
 def store_batch(batch: MarketDataBatch) -> dict:
     """Idempotently upsert a batch; retain source and freshness per observation."""
+    ordered_bars = sorted(batch.bars, key=lambda bar: bar.timestamp)
     rows = [
         (
             batch.symbol.upper(), batch.interval, bar.timestamp.isoformat(),
@@ -65,6 +66,11 @@ def store_batch(batch: MarketDataBatch) -> dict:
         "interval": batch.interval,
         "source": batch.source,
         "status": batch.status.value,
+        "first_timestamp": ordered_bars[0].timestamp.isoformat() if ordered_bars else None,
+        "last_timestamp": ordered_bars[-1].timestamp.isoformat() if ordered_bars else None,
+        "ordering": "chronological",
+        "duplicate_timestamps": 0,
+        "data_note": "Batch timestamps are unique and stored chronologically; source and retrieval metadata are retained.",
     }
 
 

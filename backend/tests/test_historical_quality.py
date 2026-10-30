@@ -40,6 +40,26 @@ class HistoricalQualityTests(unittest.TestCase):
         self.assertTrue(any(item["bar_index"] == 25 and item["volume"] == 900 for item in volume_flags))
         self.assertEqual(next(item for item in price_flags if item["bar_index"] == 25)["previous_close"], 102.4)
 
+    def test_timestamp_integrity_reports_invalid_duplicate_and_out_of_order(self):
+        bars = self.bars(4)
+        bars[1]["timestamp"] = bars[0]["timestamp"]
+        bars[2]["timestamp"] = "not-a-timestamp"
+        bars[3]["timestamp"] = "2025-12-31T23:59:00+00:00"
+        result = build_historical_quality_diagnostics({"interval": "15m", "bars": bars})
+        integrity = result["timestamp_integrity"]
+        self.assertEqual(integrity["invalid_timestamp_count"], 1)
+        self.assertEqual(integrity["duplicate_timestamp_count"], 1)
+        self.assertEqual(integrity["duplicate_timestamps"][0]["first_bar_index"], 0)
+        self.assertEqual(integrity["out_of_order_count"], 1)
+        self.assertEqual(integrity["out_of_order_timestamps"][0]["bar_index"], 3)
+        self.assertEqual(len(bars), 4)
+
+    def test_equivalent_timezone_instants_are_duplicates(self):
+        bars = self.bars(2)
+        bars[1]["timestamp"] = "2026-01-01T01:00:00+01:00"
+        result = build_historical_quality_diagnostics({"interval": "1h", "bars": bars})
+        self.assertEqual(result["timestamp_integrity"]["duplicate_timestamp_count"], 1)
+
     def test_unsupported_interval_does_not_infer_spacing(self):
         result = build_historical_quality_diagnostics({"interval": "weekly", "bars": self.bars(4)})
         self.assertEqual(result["timestamp_spacing"]["status"], "unsupported_interval")

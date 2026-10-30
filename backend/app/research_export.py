@@ -9,7 +9,7 @@ def build_research_evidence_bundle(symbol, interval, history, deep_report=None):
     """Assemble reproducible inputs and diagnostics while retaining source provenance."""
     quality = build_historical_quality_diagnostics(history)
     comparison = compare_source_observations(history)
-    timeline = build_research_timeline(history, min(1000, len(history.get("bars", []))))
+    timeline = build_research_timeline(history, max(1, min(1000, len(history.get("bars", [])))))
     return {
         "schema_version": "1.0",
         "report_type": "historical_research_evidence",

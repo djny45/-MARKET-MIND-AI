@@ -90,3 +90,10 @@
 .timeline-indicators>b{grid-column:1/-1;font:8px 'DM Mono';letter-spacing:.5px;color:#d6a34e}
 .timeline-indicators span{display:flex;flex-direction:column;gap:3px;font:8px 'DM Mono';color:#82909d}
 .timeline-indicators strong{font:9px 'DM Mono';color:#dce3e9;overflow-wrap:anywhere}
+
+.aligned-comparison{display:grid;gap:7px;margin-top:10px;padding:9px;background:#151d25;border:1px solid #39434e;border-radius:5px}
+.aligned-comparison>b{font:8px 'DM Mono';letter-spacing:.5px;color:#d6a34e}
+.aligned-comparison>small{font:8px/1.5 'DM Mono';color:#8996a2;overflow-wrap:anywhere}
+.aligned-row{display:grid;grid-template-columns:36px repeat(2,minmax(0,1fr));gap:5px;padding:6px 0;border-bottom:1px solid #2a333d}
+.aligned-row>b{font:9px 'DM Mono';color:#e0b46e}
+.aligned-row span{font:8px 'DM Mono';color:#c2cbd4;overflow-wrap:anywhere}

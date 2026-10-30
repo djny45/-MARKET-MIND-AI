@@ -10,9 +10,9 @@ This roadmap is a plan, not a claim that these features already exist. Mark an i
 - [ ] Add CI for linting, type checks, tests, and dependency scanning.
 
 ## Phase 1 — Data and API foundation
-- [ ] Define canonical instrument, quote, bar, event, and document schemas.
-- [ ] Implement provider-adapter interface and provider capability registry.
-- [ ] Add ingestion timestamps, delay labels, source provenance, and data-quality flags.
+- [x] Define canonical OHLCV bar and market-data batch schemas (instrument/event/document schemas remain open).
+- [x] Implement provider-adapter protocol and retain the provider capability registry; live adapters remain pending.
+- [x] Add retrieval timestamps, synthetic status labels, source provenance, and OHLCV validation for the fixture contract.
 - [ ] Add historical data storage and retention configuration.
 - [ ] Add API health, readiness, and provider-status endpoints.
 

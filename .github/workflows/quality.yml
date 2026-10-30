@@ -1,0 +1,42 @@
+name: Quality checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r backend/requirements.txt
+      - run: python -m compileall -q backend/app
+      - run: |
+          cd backend
+          python - <<'PY'
+          from app.workflow import execute_workflow
+          nodes = [
+              {"id": "input", "type": "market_input", "data": {"values": [100, 101, 103, 102]}},
+              {"id": "quality", "type": "data_quality", "data": {}},
+              {"id": "returns", "type": "returns", "data": {}},
+          ]
+          result = execute_workflow(nodes, [
+              {"source": "input", "target": "quality"},
+              {"source": "quality", "target": "returns"},
+          ], {})
+          assert result["status"] == "completed"
+          assert result["results"]["quality"]["quality"]["status"] == "pass"
+          PY
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: cd frontend && npm install && npm run build

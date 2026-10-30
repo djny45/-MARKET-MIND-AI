@@ -104,3 +104,11 @@ Each OHLCV field range includes valid, missing and invalid value counts. Non-num
 ## Downloadable research evidence bundle
 
 The endpoint `GET /api/research/export?symbol=BTCUSD&interval=1h&limit=500` returns a downloadable JSON file named for the selected symbol and interval. The bundle contains the stored OHLCV observations with per-observation source, status and retrieval timestamps; a scope summary; timestamp, spacing and robust outlier diagnostics; exact-UTC cross-source comparisons; the historical event timeline; and explicit methodology limitations. The export preserves the observations as stored and does not rank providers, infer missing bars, or certify source authenticity. Empty history can be exported as an empty evidence bundle. The endpoint accepts only supported intervals and limits between 1 and 5,000 observations.
+
+
+
+## Downloadable research evidence bundle
+
+The Research dashboard provides a JSON download through `GET /api/research/export?symbol=BTCUSD&interval=1h&limit=500`. Schema version 1.1 retains the selected stored observations, per-observation provenance, timestamp integrity and spacing diagnostics, robust outlier results, exact-time source comparisons, and the descriptive event timeline. Empty history is exportable and remains explicitly empty.
+
+The bundle includes a SHA-256 integrity digest over the complete canonical JSON bundle excluding the integrity field itself. To verify it, remove the `integrity` property, serialize the remaining object as UTF-8 JSON with sorted keys and compact separators, and compute SHA-256 over those bytes. This detects accidental changes after export; it does not authenticate the data provider, certify licensing, or prove when the observations were created. The export contains historical evidence only and no forecasts, directional recommendations, or orders.

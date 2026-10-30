@@ -122,3 +122,19 @@ API: `GET /api/research/chart?symbol=BTCUSD&interval=1d&limit=500`. At least two
 ### Candlestick shape observations
 
 The stored-chart report also labels selected geometric candle formations: doji-like candles, hammer-like and shooting-star-like shapes, bullish/bearish engulfing shapes, and inside bars. Labels are based on OHLC geometry and are included as observations, not predictive signals. A candle shape alone does not establish direction, probability, or a trading edge. Review the surrounding bars, interval, data provenance, and sample limitations.
+
+### Choose single-timeframe or multi-timeframe mode
+
+The terminal supports both modes; single-timeframe remains the default.
+
+Single timeframe:
+```bash
+PYTHONPATH=. python terminal_chart_report.py --symbol BTCUSD --mode single --interval 1h --limit 500
+```
+
+Multi-timeframe:
+```bash
+PYTHONPATH=. python terminal_chart_report.py --symbol BTCUSD --mode multi --intervals 15m,1h,4h,1d --limit 500
+```
+
+The multi-timeframe API is `GET /api/research/timeframes?symbol=BTCUSD&intervals=15m,1h,4h,1d&limit=500`. Select any supported subset. Missing or insufficient intervals are reported explicitly; no bars are invented or interpolated. Each interval is analyzed independently, and the comparison is descriptive rather than a synchronized trade signal. Both modes remain research-only with execution disabled.

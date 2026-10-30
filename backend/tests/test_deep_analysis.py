@@ -33,6 +33,16 @@ class DeepAnalysisTests(unittest.TestCase):
         self.assertTrue(result["duplicate_timestamps"])
         self.assertTrue(result["invalid_ohlc_indices"])
 
+    def test_malformed_numeric_history_keeps_quality_report_available(self):
+        history = {"bars": [
+            {"timestamp": f"2026-01-0{i}T00:00:00+00:00", "open": 10, "high": 11,
+             "low": 9, "close": close, "volume": 100}
+            for i, close in enumerate([10, "bad", 12], start=1)
+        ]}
+        report = build_deep_analysis_report("BTCUSD", {"1h": history})
+        self.assertEqual(report["timeframes"]["1h"]["market_diagnostics"]["status"], "invalid_data")
+        self.assertEqual(report["timeframes"]["1h"]["chart_research"]["status"], "unavailable_invalid_or_incomplete_data")
+
     def test_insufficient_timeframe_is_reported(self):
         result = build_deep_analysis_report("TEST", {"15m": history(count=1)})
         self.assertEqual(result["coverage"]["timeframes_with_insufficient_bars"], ["15m"])

@@ -1,23 +1,39 @@
-"""Print a descriptive report for bars already stored in the local SQLite database."""
+"""Print single- or multi-timeframe descriptive research from local stored bars."""
 import argparse
 import json
 
 from app.market_store import get_bars
 from app.chart_research import build_chart_report
+from app.multi_timeframe import build_multi_timeframe_report, SUPPORTED_INTERVALS
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="MARKET-MIND-AI stored-chart research report")
+    parser = argparse.ArgumentParser(description="MARKET-MIND-AI chart research report")
     parser.add_argument("--symbol", required=True)
-    parser.add_argument("--interval", default="1d")
+    parser.add_argument("--mode", choices=("single", "multi"), default="single")
+    parser.add_argument("--interval", default="1d", choices=SUPPORTED_INTERVALS)
+    parser.add_argument("--intervals", default="15m,1h,4h,1d")
     parser.add_argument("--limit", type=int, default=500)
     args = parser.parse_args()
-    history = get_bars(args.symbol, args.interval, args.limit)
+
     try:
-        report = build_chart_report(history)
+        if args.mode == "single":
+            report = build_chart_report(get_bars(args.symbol, args.interval, args.limit))
+            title = "SINGLE-TIMEFRAME"
+        else:
+            intervals = [item.strip() for item in args.intervals.split(",") if item.strip()]
+            if not intervals or len(intervals) > 4 or any(item not in SUPPORTED_INTERVALS for item in intervals):
+                parser.error("--intervals must be a comma-separated subset of 15m,1h,4h,1d")
+            histories = {
+                interval: get_bars(args.symbol, interval, args.limit)
+                for interval in intervals
+            }
+            report = build_multi_timeframe_report(args.symbol, histories)
+            title = "MULTI-TIMEFRAME"
     except ValueError as exc:
         parser.error(str(exc))
-    print("MARKET-MIND-AI | DESCRIPTIVE CHART RESEARCH | EXECUTION DISABLED")
+
+    print(f"MARKET-MIND-AI | {title} DESCRIPTIVE RESEARCH | EXECUTION DISABLED")
     print(json.dumps(report, indent=2))
 
 

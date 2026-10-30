@@ -128,7 +128,8 @@ For manual setup, see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 | GET | `/api/market-data/sample` | Explicitly synthetic OHLCV fixture for UI and integration tests |
 | POST | `/api/market-data/store` | Store normalized bars with source, status and retrieval metadata |
 | GET | `/api/market-data/history` | Retrieve stored bars with provenance metadata |
-| GET | `/api/research/chart` | Descriptive indicator and recent-range report from stored bars |
+| GET | `/api/research/chart` | Single-timeframe descriptive report from stored bars |
+| GET | `/api/research/timeframes` | Optional multi-timeframe comparison across stored 15m, 1h, 4h and 1d bars |
 | POST | `/api/workflows/execute` | Execute a directed research graph |
 
 ## Repository structure

@@ -68,6 +68,7 @@ export default function App() {
  const [researchTimeline,setResearchTimeline] = useState<any[]>([])
  const [timelineBusy,setTimelineBusy] = useState(false)
  const [timelineError,setTimelineError] = useState('')
+ const [selectedTimelineEvent,setSelectedTimelineEvent] = useState<any>(null)
  const [instrumentQuery,setInstrumentQuery] = useState('')
  const [instrumentResults,setInstrumentResults] = useState<any[]>([])
  const [newsItems,setNewsItems] = useState<any[]>([])
@@ -158,12 +159,21 @@ export default function App() {
       <div className="research-timeline">
        <div className="timeline-heading"><b>HISTORICAL EVENT TIMELINE</b><small>{timelineBusy?'LOADING…':researchTimeline.length+' OBSERVATIONS'}</small></div>
        {timelineError&&<small className="news-error">{timelineError}</small>}
-       {researchTimeline.slice().reverse().slice(0,40).map((event:any)=><div className="timeline-event" key={event.index+'-'+event.timestamp}>
+       {researchTimeline.slice().reverse().slice(0,40).map((event:any)=><button type="button" className={selectedTimelineEvent?.index===event.index?'timeline-event selected':'timeline-event'} key={event.index+'-'+event.timestamp} onClick={()=>setSelectedTimelineEvent(event)}>
         <time>{event.timestamp||'Timestamp unavailable'}</time>
         <div><b>O {event.open} · H {event.high} · L {event.low} · C {event.close}</b><small>Volume {event.volume} · close change {event.close_change_pct===null?'—':event.close_change_pct+'%'}</small>
         {event.observations?.map((observation:any,index:number)=><small key={index} className="timeline-observation">{observation.type.replaceAll('_',' ')}{observation.labels?' · '+observation.labels.join(', '):''}{observation.price?' · '+observation.price:''}</small>)}
         <small>{event.source} · {event.status} · retrieved {event.retrieved_at||'unknown'}</small></div>
-       </div>)}
+       </button>)}
+       {selectedTimelineEvent&&<div className="timeline-inspector">
+        <div className="timeline-heading"><b>SELECTED OBSERVATION</b><button className="soft-btn" onClick={()=>setSelectedTimelineEvent(null)}>CLEAR</button></div>
+        <span>{selectedTimelineEvent.timestamp||'Timestamp unavailable'} · BAR #{selectedTimelineEvent.index}</span>
+        <div className="timeline-values"><span>OPEN <b>{selectedTimelineEvent.open}</b></span><span>HIGH <b>{selectedTimelineEvent.high}</b></span><span>LOW <b>{selectedTimelineEvent.low}</b></span><span>CLOSE <b>{selectedTimelineEvent.close}</b></span><span>VOLUME <b>{selectedTimelineEvent.volume}</b></span><span>CHANGE <b>{selectedTimelineEvent.close_change_pct===null?'—':selectedTimelineEvent.close_change_pct+'%'}</b></span></div>
+        <small>Source: {selectedTimelineEvent.source} · Status: {selectedTimelineEvent.status}</small>
+        <small>Retrieved: {selectedTimelineEvent.retrieved_at||'timestamp unavailable'}</small>
+        <small>Observation labels: {selectedTimelineEvent.observations?.length?selectedTimelineEvent.observations.map((x:any)=>x.type.replaceAll('_',' ')).join(', '):'None recorded for this bar'}</small>
+        <small>Historical inspection only. This selection does not produce a forecast or trade instruction.</small>
+       </div>}
        <small className="timeline-disclaimer">Historical descriptive observations only. Candle labels and confirmed pivots are not predictive signals.</small>
       </div>
       <button className="soft-btn research-json" onClick={()=>setResult(researchReport)}>OPEN FULL RESEARCH JSON</button>

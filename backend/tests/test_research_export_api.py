@@ -19,6 +19,10 @@ class ResearchEvidenceExportApiTests(unittest.TestCase):
                 "timestamp": "2026-01-01T00:00:00Z", "source": "local-csv",
                 "status": "historical", "retrieved_at": "2026-01-02T00:00:00Z",
                 "open": 100, "high": 105, "low": 99, "close": 103, "volume": 1200,
+            }, {
+                "timestamp": "2026-01-01T01:00:00Z", "source": "local-csv",
+                "status": "historical", "retrieved_at": "2026-01-02T00:00:00Z",
+                "open": 103, "high": 106, "low": 102, "close": 104, "volume": 1300,
             }],
         }
         with patch("app.main.market_store.get_bars", return_value=history) as get_bars:

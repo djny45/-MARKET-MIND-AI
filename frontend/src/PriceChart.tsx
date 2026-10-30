@@ -1,18 +1,19 @@
 import { useEffect, useRef } from 'react'
-import { createChart, ColorType, CandlestickSeries, LineSeries, type IChartApi, type ISeriesApi, type Time } from 'lightweight-charts'
+import { createChart, ColorType, CandlestickSeries, LineSeries, createSeriesMarkers, type IChartApi, type ISeriesApi, type ISeriesMarkersPluginApi, type Time } from 'lightweight-charts'
 
 type Bar = {timestamp:string;open:number;high:number;low:number;close:number;source?:string;status?:string;retrieved_at?:string}
 type Cluster = {side:string;mean_price:number;lower_price:number;upper_price:number;touch_count:number;pivot_timestamps:(string|null)[]}
-type Props = {values?:number[];bars?:Bar[];selectedCluster?:Cluster|null;interval?:string;retrievedAt?:string|null}
+type Props = {values?:number[];bars?:Bar[];selectedCluster?:Cluster|null;selectedTimestamp?:string|null;interval?:string;retrievedAt?:string|null}
 function toTime(value:string):Time {
  const date=new Date(value)
  return Math.floor(date.getTime()/1000) as Time
 }
-export default function PriceChart({values=[],bars=[],selectedCluster=null,interval='',retrievedAt=null}:Props) {
+export default function PriceChart({values=[],bars=[],selectedCluster=null,selectedTimestamp=null,interval='',retrievedAt=null}:Props) {
  const host=useRef<HTMLDivElement|null>(null)
  const chartRef=useRef<IChartApi|null>(null)
  const lineRef=useRef<ISeriesApi<'Line'>|null>(null)
  const candleRef=useRef<ISeriesApi<'Candlestick'>|null>(null)
+ const markersRef=useRef<ISeriesMarkersPluginApi<Time>|null>(null)
  useEffect(()=>{
   if(!host.current) return
   const chart=createChart(host.current,{
@@ -26,15 +27,18 @@ export default function PriceChart({values=[],bars=[],selectedCluster=null,inter
   const candle=chart.addSeries(CandlestickSeries,{upColor:'#62b58e',downColor:'#d77970',borderUpColor:'#62b58e',borderDownColor:'#d77970',wickUpColor:'#62b58e',wickDownColor:'#d77970'})
   const line=chart.addSeries(LineSeries,{color:'#d6a34e',lineWidth:2,priceLineVisible:false,lastValueVisible:true})
   chartRef.current=chart;candleRef.current=candle;lineRef.current=line
+  markersRef.current=createSeriesMarkers(candle,[])
   const resize=new ResizeObserver(entries=>{for(const entry of entries){chart.applyOptions({width:entry.contentRect.width,height:entry.contentRect.height})}})
   resize.observe(host.current)
-  return ()=>{resize.disconnect();chart.remove();chartRef.current=null;candleRef.current=null;lineRef.current=null}
+  return ()=>{resize.disconnect();chart.remove();chartRef.current=null;candleRef.current=null;lineRef.current=null;markersRef.current=null}
  },[])
  useEffect(()=>{
   if(!chartRef.current||!candleRef.current||!lineRef.current)return
   if(bars.length){
    const sorted=[...bars].filter(b=>Number.isFinite(Date.parse(b.timestamp))).sort((a,b)=>Date.parse(a.timestamp)-Date.parse(b.timestamp))
    candleRef.current.setData(sorted.map(b=>({time:toTime(b.timestamp),open:b.open,high:b.high,low:b.low,close:b.close})))
+   const selected=selectedTimestamp?sorted.find(b=>toTime(b.timestamp)===toTime(selectedTimestamp)):undefined
+   markersRef.current?.setMarkers(selected?[{time:toTime(selected.timestamp),position:'aboveBar',color:'#e0b46a',shape:'circle',text:'Selected'}]:[])
    lineRef.current.setData([])
    if(selectedCluster&&sorted.length){
     const first=toTime(sorted[0].timestamp),last=toTime(sorted[sorted.length-1].timestamp)
@@ -42,6 +46,7 @@ export default function PriceChart({values=[],bars=[],selectedCluster=null,inter
    }
    chartRef.current.timeScale().fitContent()
   } else if(values.length){
+   markersRef.current?.setMarkers([])
    candleRef.current.setData([])
    const now=new Date()
    lineRef.current.setData(values.map((value,index)=>{
@@ -50,7 +55,7 @@ export default function PriceChart({values=[],bars=[],selectedCluster=null,inter
    }))
    chartRef.current.timeScale().fitContent()
   }
- },[values,bars,selectedCluster])
+ },[values,bars,selectedCluster,selectedTimestamp])
  const source=bars.length?Array.from(new Set(bars.map(b=>b.source||'unknown'))).join(', '):'manual / synthetic input'
  const status=bars.length?Array.from(new Set(bars.map(b=>b.status||'unknown'))).join(', '):'not historical market data'
  return <div className="chart-shell"><div className="chart-heading"><div><b>{bars.length?'STORED OHLCV HISTORY':'PRICE SERIES'}</b><span> · {interval||'SAMPLE INPUT'}</span></div><small>{bars.length?source+' · '+status+' · RETRIEVED '+(retrievedAt||'timestamp unavailable'):'NOT A LIVE QUOTE'}</small></div><div ref={host} className="chart-host"/></div>

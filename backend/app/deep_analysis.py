@@ -82,14 +82,24 @@ def build_deep_analysis_report(symbol: str, histories: dict, multi_timeframe_rep
     timeframe_reports = {}
     for interval, history in histories.items():
         bars = history.get("bars", [])
+        try:
+            market_diagnostics = build_market_diagnostics(bars)
+        except (KeyError, TypeError, ValueError):
+            market_diagnostics = {"status": "invalid_data", "limitations": ["Numeric close and volume observations must be valid."]}
         timeframe_reports[interval] = {
             "data_quality": build_data_quality_report(history),
-            "market_diagnostics": build_market_diagnostics(bars),
+            "market_diagnostics": market_diagnostics,
             "chart_research": None,
         }
         if len(bars) >= 2:
             from .chart_research import build_chart_report
-            timeframe_reports[interval]["chart_research"] = build_chart_report(history)
+            try:
+                timeframe_reports[interval]["chart_research"] = build_chart_report(history)
+            except (KeyError, TypeError, ValueError):
+                timeframe_reports[interval]["chart_research"] = {
+                    "status": "unavailable_invalid_or_incomplete_data",
+                    "note": "Chart calculations were skipped; inspect the accompanying data-quality report.",
+                }
 
     return {
         "mode": "integrated_deep_descriptive_research",

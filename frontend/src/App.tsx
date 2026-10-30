@@ -38,7 +38,11 @@ function TerminalNode({data,selected}: {data:NodeData;selected:boolean}) {
 }
 const nodeTypes = {market:TerminalNode,worker:TerminalNode,brain:TerminalNode,output:TerminalNode}
 const palette = [
- ['market_input','Market Input','data'],['data_quality','Data Quality','validation'],['sma','Moving Average','technical'],['returns','Returns Analysis','quant'],['volatility','Realized Volatility','quant'],['research_summary','Research Summary','intelligence']
+ ['market_input','Market Data Input','data'],['data_quality','Data Quality','validation'],
+ ['sma','Simple Moving Average','technical'],['ema','Exponential Moving Average','technical'],
+ ['rsi','Relative Strength Index','technical'],['macd','MACD','technical'],
+ ['bollinger','Bollinger Bands','technical'],['returns','Returns Analysis','quant'],
+ ['volatility','Realized Volatility','quant'],['research_summary','Research Summary','intelligence']
 ]
 export default function App() {
  const [nodes,setNodes,onNodesChange] = useNodesState<Node<NodeData>>(initialNodes)
@@ -55,12 +59,12 @@ export default function App() {
  const addNode = (type:string,label:string,category:string) => {
   const id = `node_${Date.now()}`
   const nodeType = type==='market_input'?'market':type==='research_summary'?'output':'worker'
-  setNodes(ns=>[...ns,{id,type:nodeType,position:{x:180+Math.random()*500,y:100+Math.random()*450},data:{label,subtitle:`Node · ${type}`,category,period:20}}])
+  setNodes(ns=>[...ns,{id,type:nodeType,position:{x:180+Math.random()*500,y:100+Math.random()*450},data:{label,subtitle:`Node · ${type}`,category,period:20,nodeType:type}}])
  }
  const run = async()=> {
   setBusy(true);setResult(null)
   const parsed = values.split(',').map(v=>Number(v.trim())).filter(Number.isFinite)
-  const mapped = nodes.map(n=>({...n,type: n.id==='feed'?'market_input':n.id==='quality'?'data_quality':n.id==='trend'?'sma':n.id==='vol'?'volatility':n.id==='report'?'research_summary':(n.data as NodeData).category==='technical'?'sma':(n.data as NodeData).category==='quant'?'volatility':'research_summary',data:{period:(n.data as NodeData).period||20}}))
+  const mapped = nodes.map(n=>({...n,type: n.id==='feed'?'market_input':n.id==='quality'?'data_quality':n.id==='trend'?'sma':n.id==='vol'?'volatility':n.id==='report'?'research_summary':(n.data as any).nodeType || ((n.data as NodeData).category==='technical'?'sma':(n.data as NodeData).category==='quant'?'volatility':'research_summary'),data:{period:(n.data as NodeData).period||20}}))
   try {
    const response=await fetch(API+'/api/workflows/execute',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nodes:mapped,edges:edges.map(e=>({source:e.source,target:e.target})),inputs:{data:parsed}})})
    const body=await response.json();if(!response.ok)throw new Error(body.detail||'Execution failed')

@@ -4,6 +4,10 @@ services:
     ports:
       - "8000:8000"
     restart: unless-stopped
+    volumes:
+      - market_mind_data:/data
+    environment:
+      - MARKET_MIND_DB=/data/market_mind.db
   web:
     image: node:22-alpine
     working_dir: /workspace
@@ -16,3 +20,6 @@ services:
       - "5173:5173"
     depends_on:
       - api
+
+volumes:
+  market_mind_data:

@@ -94,7 +94,7 @@ For manual setup, see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 |---|---|---|
 | GET | `/api/health` | Service health and execution boundary |
 | GET | `/api/nodes` | Supported workflow node definitions |
-| GET | `/api/workers` | Worker profile catalogue |
+| GET | `/api/workers` | Worker profile catalogue |\n| GET | `/api/instruments?q=` | Search reference instrument metadata |\n| GET | `/api/news` | Fetch configured official RSS headlines |\n| POST | `/api/news/ingest` | Trigger RSS ingestion |\n| POST | `/api/indicators` | Calculate deterministic indicator series |
 | POST | `/api/workflows/execute` | Execute a directed research graph |
 
 ## Repository structure

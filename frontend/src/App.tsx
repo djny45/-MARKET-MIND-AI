@@ -150,6 +150,15 @@ export default function App() {
       <div className="research-metric"><small>HIGH / LOW CLUSTERS</small><b>{researchReport.dashboard?.historical_price_clusters?.confirmed_swing_high_cluster_count??0} / {researchReport.dashboard?.historical_price_clusters?.confirmed_swing_low_cluster_count??0}</b></div>
       {researchReport.dashboard?.market_breadth_latest&&<div className="research-metric"><small>ADVANCING / DECLINING</small><b>{researchReport.dashboard.market_breadth_latest.advancing} / {researchReport.dashboard.market_breadth_latest.declining}</b></div>}
       <div className="research-frames">{(researchReport.dashboard?.timeframes||[]).map((item:any)=><div key={item.interval}><b>{item.interval}</b><span>{item.status==='available'?item.moving_average_regime:'INSUFFICIENT DATA'}</span><small>RSI {item.rsi14??'—'} · ATR {item.atr14??'—'}</small></div>)}</div>
+      {researchReport.cross_timeframe?.aligned_indicator_comparison&&<div className="aligned-comparison">
+       <b>EXACT-TIMESTAMP INDICATOR COMPARISON</b>
+       <small>{researchReport.cross_timeframe.aligned_indicator_comparison.status.replaceAll('_',' ')} · {researchReport.cross_timeframe.aligned_indicator_comparison.common_timestamp_count} shared timestamps</small>
+       <small>Latest common timestamp: {researchReport.cross_timeframe.aligned_indicator_comparison.latest_common_timestamp||'Unavailable'}</small>
+       {researchReport.cross_timeframe.aligned_indicator_comparison.latest_common_observation&&Object.entries(researchReport.cross_timeframe.aligned_indicator_comparison.latest_common_observation).map(([interval,context]:[string,any])=><div className="aligned-row" key={interval}>
+        <b>{interval}</b><span>Close {context.close}</span><span>SMA20 {context.sma20??'—'}</span><span>RSI14 {context.rsi14??'—'}</span><span>MACD {context.macd}</span><span>Signal {context.macd_signal}</span>
+       </div>)}
+       <small>Exact timestamp matches only; no interpolation or forward-filling. These are historical calculations, not signals.</small>
+      </div>}
       <div className="research-cluster-tools">
        <label>CHART TIMEFRAME</label><select value={researchInterval} onChange={async e=>{const interval=e.target.value;setResearchInterval(interval);setSelectedCluster(null);try{const r=await fetch(API+'/api/market-data/history?'+new URLSearchParams({symbol:researchSymbol.trim(),interval,limit:'500'}).toString());const d=await r.json();setResearchBars(r.ok?(d.bars||[]):[]);setHistoryMeta(r.ok?{source:d.source,status:d.status,retrieved_at:d.retrieved_at}:null)}catch{setResearchBars([]);setHistoryMeta(null)}}}>{researchIntervals.split(',').map(x=>x.trim()).filter(Boolean).map(x=><option key={x} value={x}>{x}</option>)}</select>
        <small>{researchBars.length} stored bars · {historyMeta?.source||'source unavailable'} · {historyMeta?.status||'status unavailable'}</small>

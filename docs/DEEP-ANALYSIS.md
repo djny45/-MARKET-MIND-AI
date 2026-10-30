@@ -48,3 +48,8 @@ Each timeline event includes the indicator values calculated at that historical 
 ## Exact-timestamp multi-timeframe indicator comparison
 
 When at least two intervals are requested, the deep report includes `cross_timeframe.aligned_indicator_comparison`. It intersects the exact stored timestamp strings present in every analyzed timeframe and reports the latest shared observation with independently calculated SMA(20), RSI(14), and MACD values. The shared timestamp count and alignment status are included. No interpolation, forward-fill, nearest-neighbour matching, or inferred bar alignment is performed. If there is no exact overlap, the latest comparison remains null and the status explains why. Indicator warm-up values remain null when insufficient history exists.
+
+
+## Synchronized historical event markers
+
+Selecting an event in the Research timeline now places a marker on the matching timestamp in the stored OHLCV candlestick chart. Matching uses the chart's normalized timestamp resolution; if the selected timestamp is not present in the loaded chart history, no marker is drawn. Changing the selected event updates or clears the marker. The marker is a navigation aid for historical inspection only.

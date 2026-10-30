@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Protocol
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class DataStatus(str, Enum):
@@ -67,6 +67,36 @@ class MarketDataBatch(BaseModel):
     retrieved_at: datetime
     bars: list[OHLCVBar] = Field(max_length=5000)
     warnings: list[str] = Field(default_factory=list)
+
+    @field_validator("symbol")
+    @classmethod
+    def normalize_symbol(cls, value: str) -> str:
+        normalized = value.strip().upper()
+        if not normalized:
+            raise ValueError("symbol cannot be blank")
+        return normalized
+
+    @field_validator("interval")
+    @classmethod
+    def validate_interval(cls, value: str) -> str:
+        if value not in {"15m", "1h", "4h", "1d"}:
+            raise ValueError("interval must be one of 15m, 1h, 4h, 1d")
+        return value
+
+    @field_validator("source")
+    @classmethod
+    def normalize_source(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("source cannot be blank")
+        return normalized
+
+    @model_validator(mode="after")
+    def reject_duplicate_timestamps(self):
+        timestamps = [bar.timestamp for bar in self.bars]
+        if len(timestamps) != len(set(timestamps)):
+            raise ValueError("batch contains duplicate bar timestamps")
+        return self
 
     @field_validator("retrieved_at")
     @classmethod

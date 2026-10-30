@@ -16,6 +16,7 @@ from . import market_store
 from .setup_report import build_setup_report
 from .chart_research import build_chart_report
 from .multi_timeframe import build_multi_timeframe_report, SUPPORTED_INTERVALS
+from .deep_analysis import build_deep_analysis_report
 
 app = FastAPI(title="MARKET-MIND-AI API", version="0.2.0",
  description="Multi-market, evidence-first research pipeline. No brokerage execution.")
@@ -194,6 +195,47 @@ def market_data_history(symbol: str, interval: str = "1d", limit: int = 500):
  if not interval.strip() or len(interval) > 16:
   raise HTTPException(status_code=400, detail="interval must contain 1 to 16 characters")
  return market_store.get_bars(symbol, interval, limit)
+
+
+@app.get("/api/research/deep")
+def research_deep(
+ symbol: str,
+ intervals: str = "15m,1h,4h,1d",
+ limit: int = 500,
+ compare_symbols: str = "",
+ breadth_symbols: str = "",
+):
+ """Return integrated descriptive research and dashboard from stored bars."""
+ if not symbol.strip() or len(symbol) > 32:
+  raise HTTPException(status_code=400, detail="symbol must contain 1 to 32 characters")
+ requested = [item.strip() for item in intervals.split(",") if item.strip()]
+ if not requested or len(requested) > 4 or any(item not in SUPPORTED_INTERVALS for item in requested):
+  raise HTTPException(status_code=400, detail="intervals must be a comma-separated subset of 15m,1h,4h,1d")
+ safe_limit = max(1, min(limit, 5000))
+ histories = {item: market_store.get_bars(symbol, item, safe_limit) for item in requested}
+ primary_interval = requested[0]
+ multi_report = None
+ if len(requested) > 1:
+  try:
+   multi_report = build_multi_timeframe_report(symbol, histories)
+  except ValueError:
+   multi_report = None
+ correlation_histories = None
+ if compare_symbols.strip():
+  names = sorted({symbol.strip().upper()} | {item.strip().upper() for item in compare_symbols.split(",") if item.strip()})
+  if len(names) < 2 or len(names) > 12:
+   raise HTTPException(status_code=400, detail="compare_symbols must add at least one symbol; maximum 12 total")
+  correlation_histories = {name: market_store.get_bars(name, primary_interval, safe_limit) for name in names}
+ breadth_histories = None
+ if breadth_symbols.strip():
+  names = sorted({symbol.strip().upper()} | {item.strip().upper() for item in breadth_symbols.split(",") if item.strip()})
+  if len(names) < 2 or len(names) > 30:
+   raise HTTPException(status_code=400, detail="breadth_symbols must add at least one symbol; maximum 30 total")
+  breadth_histories = {name: market_store.get_bars(name, primary_interval, safe_limit) for name in names}
+ try:
+  return build_deep_analysis_report(symbol, histories, multi_report, correlation_histories, breadth_histories)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 @app.post("/api/workflows/execute")
 def run_workflow(request: WorkflowRequest):

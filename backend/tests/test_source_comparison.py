@@ -36,6 +36,21 @@ class SourceComparisonTests(unittest.TestCase):
         self.assertEqual(result["invalid_timestamp_count"], 1)
         self.assertEqual(result["invalid_timestamps"][0]["bar_index"], 3)
 
+    def test_missing_and_malformed_numeric_values_do_not_break_ranges(self):
+        bars = self.bars()
+        bars[1]["close"] = "not-a-number"
+        bars[2]["close"] = None
+        bars[1]["volume"] = float("nan")
+        result = compare_source_observations({"symbol": "BTCUSD", "interval": "1h", "bars": bars})
+        close = result["comparisons"][0]["field_ranges"]["close"]
+        volume = result["comparisons"][0]["field_ranges"]["volume"]
+        self.assertEqual(close["valid_value_count"], 1)
+        self.assertEqual(close["missing_value_count"], 1)
+        self.assertEqual(close["invalid_value_count"], 1)
+        self.assertIsNone(close["absolute_spread"])
+        self.assertEqual(volume["invalid_value_count"], 1)
+        self.assertEqual(volume["valid_value_count"], 1)
+
     def test_same_source_duplicate_instant_is_reported(self):
         bars = self.bars()
         bars.append({**bars[0], "timestamp": "2026-01-01T01:00:00Z", "close": 106})

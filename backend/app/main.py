@@ -11,6 +11,7 @@ from .news import ingest_news
 from . import indicators
 from .performance import performance_metrics
 from . import workspace
+from .market_data import SyntheticFixtureAdapter
 
 app = FastAPI(title="MARKET-MIND-AI API", version="0.2.0",
  description="Multi-market, evidence-first research pipeline. No brokerage execution.")
@@ -123,6 +124,16 @@ def remove_named_workflow(workflow_id: str):
  if not workspace.delete_workflow(workflow_id):
   raise HTTPException(status_code=404,detail="Workflow not found")
  return {"deleted":True,"id":workflow_id}
+
+
+@app.get("/api/market-data/sample")
+async def sample_market_data(symbol: str = "BTCUSD", interval: str = "1d", limit: int = 5):
+ """Return a clearly labelled synthetic fixture for UI and integration testing."""
+ try:
+  batch = await SyntheticFixtureAdapter().get_bars(symbol, interval, limit)
+  return batch.model_dump(mode="json")
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 @app.post("/api/workflows/execute")
 def run_workflow(request: WorkflowRequest):

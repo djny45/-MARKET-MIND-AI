@@ -21,3 +21,11 @@
 .news-item small{display:block;margin-top:7px;color:#8793a0;font:8px 'DM Mono';line-height:1.5}
 .news-error{font-size:9px;line-height:1.5;color:#d7a36b}
 @media(max-width:1100px){.instrument-search>input{width:140px}.chart-shell{height:150px}}
+
+/* Saved-workspace controls and synthetic sample-data action */
+.workspace-title,.workspace-select{max-width:170px;min-width:115px;background:#0b1015;border:1px solid #303943;border-radius:4px;padding:8px;color:#cbd4dc;font:9px 'DM Mono';outline:none}
+.workspace-select{max-width:150px;cursor:pointer}
+.workspace-title:focus,.workspace-select:focus,.instrument-search>input:focus,.data-strip input:focus{border-color:#a98245}
+.data-strip .soft-btn{white-space:nowrap;flex-shrink:0}
+@media(max-width:1250px){.toolbar{gap:8px;padding:0 10px}.toolbar-actions{gap:7px}.workspace-title{max-width:125px}.workspace-select{max-width:125px}.instrument-search>input{width:120px}}
+@media(max-width:950px){.toolbar{height:auto;min-height:52px;flex-wrap:wrap;padding:8px 10px}.toolbar-actions{flex-wrap:wrap}.data-strip{flex-wrap:wrap}.data-strip>div{flex:1;min-width:250px}}

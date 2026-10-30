@@ -42,17 +42,17 @@ class HistoricalCSVImportTests(unittest.TestCase):
             parse_historical_csv(bad, "BTC", "1d", "upload")
 
     def test_rejects_duplicate_normalized_headers(self):
-        duplicate = "timestamp,open,high,low,close,volume, OPEN\\n2026-01-01T00:00:00Z,10,12,9,11,100,10"
+        duplicate = "timestamp,open,high,low,close,volume, OPEN\n2026-01-01T00:00:00Z,10,12,9,11,100,10"
         with self.assertRaisesRegex(ValueError, "duplicate column names"):
             parse_historical_csv(duplicate, "BTC", "1d", "upload")
 
     def test_rejects_row_with_extra_or_missing_columns(self):
-        malformed = "timestamp,open,high,low,close,volume\\n2026-01-01T00:00:00Z,10,12,9,11,100,extra"
+        malformed = "timestamp,open,high,low,close,volume\n2026-01-01T00:00:00Z,10,12,9,11,100,extra"
         with self.assertRaisesRegex(ValueError, "column count does not match"):
             parse_historical_csv(malformed, "BTC", "1d", "upload")
 
     def test_rejects_non_finite_numeric_values(self):
-        malformed = "timestamp,open,high,low,close,volume\\n2026-01-01T00:00:00Z,10,12,9,11,nan"
+        malformed = "timestamp,open,high,low,close,volume\n2026-01-01T00:00:00Z,10,12,9,11,nan"
         with self.assertRaisesRegex(ValueError, "finite numbers"):
             parse_historical_csv(malformed, "BTC", "1d", "upload")
 

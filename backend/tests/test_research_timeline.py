@@ -35,3 +35,22 @@ def test_invalid_limit_rejected():
     import pytest
     with pytest.raises(ValueError):
         build_research_timeline({"bars": sample_bars()}, limit=1001)
+
+
+
+def test_timeline_indicator_context_respects_warmup_periods():
+    bars = []
+    for i in range(35):
+        close = 100 + i * 0.7 + (i % 3) * 0.2
+        bars.append({"timestamp": f"2026-02-{i+1:02d}T00:00:00Z",
+                     "open": close - 0.1, "high": close + 0.5,
+                     "low": close - 0.5, "close": close,
+                     "volume": 1000, "source": "fixture", "status": "synthetic"})
+    report = build_research_timeline({"bars": bars})
+    early = report["events"][0]["indicator_context"]
+    mature = report["events"][-1]["indicator_context"]
+    assert early["sma20"] is None
+    assert early["rsi14"] is None
+    assert mature["sma20"] is not None
+    assert mature["rsi14"] is not None
+    assert set(mature) == {"sma20", "rsi14", "macd", "macd_signal", "macd_histogram"}

@@ -40,6 +40,7 @@ class SourceComparisonTests(unittest.TestCase):
         bars = self.bars()
         bars[1]["close"] = "not-a-number"
         bars[2]["close"] = None
+        bars.append({**bars[1], "source": "provider-c", "close": None, "volume": 8})
         bars[1]["volume"] = float("nan")
         result = compare_source_observations({"symbol": "BTCUSD", "interval": "1h", "bars": bars})
         close = result["comparisons"][0]["field_ranges"]["close"]
@@ -49,7 +50,7 @@ class SourceComparisonTests(unittest.TestCase):
         self.assertEqual(close["invalid_value_count"], 1)
         self.assertIsNone(close["absolute_spread"])
         self.assertEqual(volume["invalid_value_count"], 1)
-        self.assertEqual(volume["valid_value_count"], 1)
+        self.assertEqual(volume["valid_value_count"], 2)
 
     def test_same_source_duplicate_instant_is_reported(self):
         bars = self.bars()

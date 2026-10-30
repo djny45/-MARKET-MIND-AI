@@ -76,3 +76,12 @@
 .timeline-event small{font:8px/1.5 'DM Mono';color:#8996a2;overflow-wrap:anywhere}
 .timeline-event .timeline-observation{color:#d6ae69}
 .timeline-disclaimer{line-height:1.6}
+
+.timeline-event{width:100%;text-align:left;background:transparent;border-left:2px solid transparent;border-top:0;border-right:0;border-bottom:1px solid #252e37;cursor:pointer;color:inherit}
+.timeline-event:hover,.timeline-event.selected{background:#1b242d;border-left-color:#d6a34e}
+.timeline-inspector{display:grid;gap:7px;padding:9px;margin-top:7px;background:#151d25;border:1px solid #39424c;border-radius:5px}
+.timeline-inspector>span,.timeline-inspector>small{font:8px/1.5 'DM Mono';color:#9aa7b5;overflow-wrap:anywhere}
+.timeline-values{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.timeline-values span{display:flex;justify-content:space-between;gap:6px;font:8px 'DM Mono';color:#8795a2}
+.timeline-values b{color:#e0b46e}
+.timeline-heading button{font-size:8px;padding:3px 6px}

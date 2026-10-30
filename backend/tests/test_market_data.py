@@ -52,6 +52,13 @@ class MarketDataContractTests(unittest.TestCase):
                 bars=[bar, bar],
             )
 
+    def test_bar_rejects_low_above_high_even_when_open_and_close_are_lower(self):
+        with self.assertRaises(ValidationError):
+            OHLCVBar(
+                timestamp="2026-01-01T00:00:00Z", open=8, high=9,
+                low=10, close=8.5, volume=100,
+            )
+
     def test_batch_rejects_unlabelled_extra_fields(self):
         with self.assertRaises(ValidationError):
             MarketDataBatch(

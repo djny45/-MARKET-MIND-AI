@@ -52,6 +52,7 @@ The platform is designed for multi-asset research across equities, ETFs, indices
 | Async in-process event bus and latency architecture | Added |
 | Normalized OHLCV contract, timezone validation, provider adapter protocol and synthetic fixture | Added |
 | SQLite market-bar history with idempotent upserts and provenance retention | Added |
+| User-defined educational setup geometry and risk/reward calculator | Added; no signal generation or execution |
 | Interactive sample-series chart using Lightweight Charts | Added |
 | Workflow diagrams and graph usage guide | Added |
 | Unit tests for branching DAG execution and cycle rejection | Added |
@@ -121,6 +122,7 @@ For manual setup, see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 | GET | `/api/news` | Fetch configured official RSS headlines |
 | POST | `/api/news/ingest` | Trigger RSS ingestion |
 | POST | `/api/indicators` | Calculate deterministic indicator series |
+| POST | `/api/research/setup` | Calculate hypothetical entry/stop/target geometry and risk/reward from user-supplied levels |
 | POST | `/api/analytics/performance` | Historical return, drawdown, volatility, Sharpe, Sortino and optional benchmark statistics |
 | GET | `/api/market-data/sample` | Explicitly synthetic OHLCV fixture for UI and integration tests |
 | POST | `/api/market-data/store` | Store normalized bars with source, status and retrieval metadata |

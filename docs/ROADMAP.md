@@ -19,7 +19,7 @@ This roadmap is a plan, not a claim that these features already exist. Mark an i
 ## Phase 2 — Terminal user experience
 - [ ] Build multi-panel workspace shell.
 - [ ] Add global instrument search and watchlists.
-- [ ] Add chart workspace with supported intervals and indicator overlays.
+- [x] Add stored-data research modes for single and multi-timeframe comparison (chart workspace overlays remain open).
 - [ ] Add market overview, heatmaps, and screeners.
 - [ ] Add saved layouts and keyboard navigation.
 

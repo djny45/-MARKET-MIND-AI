@@ -82,7 +82,7 @@ export default function App() {
  const runDeepResearch = async()=> {
   setResearchBusy(true);setResearchError('');setResearchReport(null)
   try {
-   const params = new URLSearchParams({symbol:researchSymbol.trim(),intervals:researchIntervals,limit:'500',compare_symbols:researchCompare})
+   const params = new URLSearchParams({symbol:researchSymbol.trim(),intervals:researchIntervals,limit:'500',compare_symbols:researchCompare,breadth_symbols:researchCompare})
    const response = await fetch(API+'/api/research/deep?'+params.toString())
    const body = await response.json()
    if(!response.ok)throw new Error(body.detail||'Deep research unavailable')
@@ -119,7 +119,7 @@ export default function App() {
     <div className="side-label">DEEP RESEARCH <span>DESCRIPTIVE</span></div>
     <label>INSTRUMENT</label><input value={researchSymbol} onChange={e=>setResearchSymbol(e.target.value.toUpperCase())} aria-label="Research symbol"/>
     <label>TIMEFRAMES</label><select value={researchIntervals} onChange={e=>setResearchIntervals(e.target.value)} aria-label="Research timeframes"><option value="15m,1h,4h,1d">15m · 1h · 4h · 1d</option><option value="15m,1h">15m · 1h</option><option value="1h,4h,1d">1h · 4h · 1d</option><option value="1h">1h only</option><option value="4h">4h only</option><option value="1d">1d only</option></select>
-    <label>COMPARE SYMBOLS</label><input value={researchCompare} onChange={e=>setResearchCompare(e.target.value)} aria-label="Comparison symbols"/>
+    <label>COMPARE / BREADTH SYMBOLS</label><input value={researchCompare} onChange={e=>setResearchCompare(e.target.value)} aria-label="Comparison symbols"/>
     <button className="run-btn research-run" onClick={runDeepResearch} disabled={researchBusy||!researchSymbol.trim()}>{researchBusy?'ANALYZING…':'RUN DEEP RESEARCH'}</button>
     <small className="research-note">Uses locally stored observations only. No live-price claim, forecasts or execution.</small>
     {researchError&&<p className="news-error">{researchError}</p>}

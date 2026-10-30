@@ -45,10 +45,10 @@ The platform is designed for multi-asset research across equities, ETFs, indices
 | 550 worker profiles / 20 departments | Generated templates; not 550 completed agents |
 | Docker Compose development setup | Added |
 | CI quality workflow | Added; run status visible in GitHub Actions |
-| Live market-data connectors | Planned |
-| Persistent workspaces and worker memory | Planned |
-| Full institutional analytics and advanced charting | Planned |
-| Production-ready AI orchestration | Planned |
+| Market taxonomy and provider capability registry | Added |
+| Configurable RSS news ingestion | Added |
+| SMA, EMA, RSI, MACD, Bollinger and realized-volatility library | Added |
+| Async in-process event bus and latency architecture | Added |
 
 ## Visual workflow model
 

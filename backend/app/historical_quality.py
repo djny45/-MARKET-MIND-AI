@@ -45,7 +45,9 @@ def build_historical_quality_diagnostics(history):
             delta = current - previous
             if delta > expected * 1.5:
                 spacing.append({"from_index": previous_index, "to_index": current_index,
-                                "elapsed_seconds": delta, "expected_interval_seconds": expected,\n                                "from_timestamp": bars[previous_index].get("timestamp"),\n                                "to_timestamp": bars[current_index].get("timestamp"),
+                                "elapsed_seconds": delta, "expected_interval_seconds": expected,
+                                "from_timestamp": bars[previous_index].get("timestamp"),
+                                "to_timestamp": bars[current_index].get("timestamp"),
                                 "interval_multiples": round(delta / expected, 3)})
     returns = []
     return_indices = []

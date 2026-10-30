@@ -30,6 +30,7 @@ The platform is designed for multi-asset research across equities, ETFs, indices
 - **Deterministic analytics:** numerical calculations are performed by tested code; language models may explain, summarize, and route research.
 - **Governed improvement:** worker changes are tested, versioned, reviewed, and reversible.
 - **Provider-neutral data layer:** connectors are modular and must respect provider terms, licences, rate limits, and redistribution rules.
+- **Synthetic data is labelled:** the sample endpoint is a deterministic development fixture, never a live or historical price feed.
 - **Research only:** no paper trading, brokerage credentials, order routing, or automated execution.
 
 ## Current implementation
@@ -48,7 +49,11 @@ The platform is designed for multi-asset research across equities, ETFs, indices
 | Market taxonomy and searchable instrument reference directory | Added |
 | Configurable RSS news ingestion and terminal news panel | Added |
 | SMA, EMA, RSI, MACD, Bollinger and realized-volatility library | Added |
-| Async in-process event bus and latency architecture | Added |\n| Interactive sample-series chart using Lightweight Charts | Added |\n| Workflow diagrams and graph usage guide | Added |\n| Unit tests for branching DAG execution and cycle rejection | Added |
+| Async in-process event bus and latency architecture | Added |
+| Normalized OHLCV contract, timezone validation, provider adapter protocol and synthetic fixture | Added |
+| Interactive sample-series chart using Lightweight Charts | Added |
+| Workflow diagrams and graph usage guide | Added |
+| Unit tests for branching DAG execution and cycle rejection | Added |
 
 ## Visual workflow model
 
@@ -66,7 +71,23 @@ flowchart LR
 
 Workers are intended to be independently inspectable and reusable. The graph engine executes supported nodes in topological order and rejects cyclic or unsupported workflows.
 
-## System flow diagrams\n\n### End-to-end research pipeline\n\n![Research pipeline](docs/assets/research-pipeline.svg)\n\n### Specialist worker network\n\n![Worker network](docs/assets/worker-network.svg)\n\n### Low-latency engineering model\n\n![Low-latency model](docs/assets/low-latency-model.svg)\n\nMore detail: [workflow guide](docs/WORKFLOW-GUIDE.md), [low-latency architecture](docs/LOW-LATENCY-ARCHITECTURE.md), and [algorithm catalogue](docs/ALGORITHMS.md).\n\n## Run locally
+## System flow diagrams
+
+### End-to-end research pipeline
+
+![Research pipeline](docs/assets/research-pipeline.svg)
+
+### Specialist worker network
+
+![Worker network](docs/assets/worker-network.svg)
+
+### Low-latency engineering model
+
+![Low-latency model](docs/assets/low-latency-model.svg)
+
+More detail: [workflow guide](docs/WORKFLOW-GUIDE.md), [low-latency architecture](docs/LOW-LATENCY-ARCHITECTURE.md), and [algorithm catalogue](docs/ALGORITHMS.md).
+
+## Run locally
 
 ### Requirements
 
@@ -94,7 +115,13 @@ For manual setup, see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 |---|---|---|
 | GET | `/api/health` | Service health and execution boundary |
 | GET | `/api/nodes` | Supported workflow node definitions |
-| GET | `/api/workers` | Worker profile catalogue |\n| GET | `/api/instruments?q=` | Search reference instrument metadata |\n| GET | `/api/news` | Fetch configured official RSS headlines |\n| POST | `/api/news/ingest` | Trigger RSS ingestion |\n| POST | `/api/indicators` | Calculate deterministic indicator series |\n| POST | `/api/analytics/performance` | Historical return, drawdown, volatility, Sharpe, Sortino and optional benchmark statistics |
+| GET | `/api/workers` | Worker profile catalogue |
+| GET | `/api/instruments?q=` | Search reference instrument metadata |
+| GET | `/api/news` | Fetch configured official RSS headlines |
+| POST | `/api/news/ingest` | Trigger RSS ingestion |
+| POST | `/api/indicators` | Calculate deterministic indicator series |
+| POST | `/api/analytics/performance` | Historical return, drawdown, volatility, Sharpe, Sortino and optional benchmark statistics |
+| GET | `/api/market-data/sample` | Explicitly synthetic OHLCV fixture for UI and integration tests |
 | POST | `/api/workflows/execute` | Execute a directed research graph |
 
 ## Repository structure

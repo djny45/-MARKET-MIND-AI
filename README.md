@@ -53,6 +53,7 @@ The platform is designed for multi-asset research across equities, ETFs, indices
 | Normalized OHLCV contract, timezone validation, provider adapter protocol and synthetic fixture | Added |
 | SQLite market-bar history with idempotent upserts and provenance retention | Added |
 | User-defined educational setup geometry and risk/reward calculator | Added; no signal generation or execution |
+| Deterministic descriptive chart report over stored OHLCV | Added; SMA, RSI, MACD, Bollinger, ATR and recent range references |
 | Interactive sample-series chart using Lightweight Charts | Added |
 | Workflow diagrams and graph usage guide | Added |
 | Unit tests for branching DAG execution and cycle rejection | Added |
@@ -127,6 +128,7 @@ For manual setup, see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 | GET | `/api/market-data/sample` | Explicitly synthetic OHLCV fixture for UI and integration tests |
 | POST | `/api/market-data/store` | Store normalized bars with source, status and retrieval metadata |
 | GET | `/api/market-data/history` | Retrieve stored bars with provenance metadata |
+| GET | `/api/research/chart` | Descriptive indicator and recent-range report from stored bars |
 | POST | `/api/workflows/execute` | Execute a directed research graph |
 
 ## Repository structure

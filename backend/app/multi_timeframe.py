@@ -2,11 +2,25 @@
 from .chart_research import build_chart_report
 from . import indicators
 
+def _is_iso_timestamp(value: str) -> bool:
+    from datetime import datetime
+    try:
+        datetime.fromisoformat(value.replace('Z', '+00:00'))
+        return True
+    except ValueError:
+        return False
+
+
 SUPPORTED_INTERVALS = ("15m", "1h", "4h", "1d")
 
 
 def _aligned_indicator_context(histories: dict[str, dict], intervals: list[str]) -> dict:
     """Compare indicator observations only at exact shared bar timestamps."""
+    if len(intervals) < 2:
+        return {"method": "exact_timestamp_intersection_no_interpolation",
+                "common_timestamp_count": 0, "latest_common_timestamp": None,
+                "latest_common_observation": None, "status": "insufficient_timeframes",
+                "note": "At least two analyzed timeframes are required for cross-timeframe comparison."}
     timestamp_maps = {}
     contexts = {}
     for interval in intervals:
@@ -35,7 +49,7 @@ def _aligned_indicator_context(histories: dict[str, dict], intervals: list[str])
                 "common_timestamp_count": 0, "latest_common_timestamp": None,
                 "latest_common_observation": None, "status": "insufficient_data"}
     common = set.intersection(*(set(values) for values in timestamp_maps.values()))
-    ordered = sorted(common)
+    ordered = sorted(common, key=lambda value: __import__('datetime').datetime.fromisoformat(value.replace('Z', '+00:00')) if _is_iso_timestamp(value) else value)
     if not ordered:
         return {"method": "exact_timestamp_intersection_no_interpolation",
                 "common_timestamp_count": 0, "latest_common_timestamp": None,

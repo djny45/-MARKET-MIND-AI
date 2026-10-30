@@ -39,8 +39,8 @@ class SourceComparisonTests(unittest.TestCase):
     def test_missing_and_malformed_numeric_values_do_not_break_ranges(self):
         bars = self.bars()
         bars[1]["close"] = "not-a-number"
-        bars[2]["close"] = None
-        bars.append({**bars[1], "source": "provider-c", "close": None, "volume": 8})
+        bars[0]["close"] = None
+        bars.append({**bars[1], "source": "provider-c", "close": 105, "volume": 8})
         bars[1]["volume"] = float("nan")
         result = compare_source_observations({"symbol": "BTCUSD", "interval": "1h", "bars": bars})
         close = result["comparisons"][0]["field_ranges"]["close"]

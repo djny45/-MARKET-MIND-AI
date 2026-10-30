@@ -14,6 +14,7 @@ from . import workspace
 from .market_data import SyntheticFixtureAdapter, MarketDataBatch
 from . import market_store
 from .setup_report import build_setup_report
+from .chart_research import build_chart_report
 
 app = FastAPI(title="MARKET-MIND-AI API", version="0.2.0",
  description="Multi-market, evidence-first research pipeline. No brokerage execution.")
@@ -157,6 +158,17 @@ async def sample_market_data(symbol: str = "BTCUSD", interval: str = "1d", limit
 def store_market_data(batch: MarketDataBatch):
  """Persist normalized observations while retaining source and status metadata."""
  return market_store.store_batch(batch)
+
+@app.get("/api/research/chart")
+def research_chart(symbol: str, interval: str = "1d", limit: int = 500):
+ """Analyze stored OHLCV descriptively; no signal generation or execution."""
+ if not symbol.strip() or len(symbol) > 32:
+  raise HTTPException(status_code=400, detail="symbol must contain 1 to 32 characters")
+ history = market_store.get_bars(symbol, interval, limit)
+ try:
+  return build_chart_report(history)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 @app.get("/api/market-data/history")
 def market_data_history(symbol: str, interval: str = "1d", limit: int = 500):

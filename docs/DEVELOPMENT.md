@@ -58,3 +58,16 @@ The header instrument finder queries `GET /api/instruments?q=<text>`. Results ar
 The chart uses the user-entered sample close series and Lightweight Charts. Its time axis is illustrative and the panel is explicitly labelled **SAMPLE INPUT DATA — NOT A LIVE QUOTE**. It must not be interpreted as historical exchange data.
 
 Select **NEWS** in the sidebar and fetch the configured official RSS feeds. The panel displays publisher headlines, publication timestamps and links. A failed feed is reported rather than silently treated as a complete news result. Publisher availability and terms must be verified for deployment.
+
+## Saved research workspaces
+
+Use the terminal's workspace name field and **SAVE GRAPH** to persist the current React Flow nodes and edges. Choose an item from **LOAD WORKSPACE** to restore it. The API stores graph JSON in SQLite.
+
+Endpoints:
+- `GET /api/workspaces` — list saved graphs.
+- `POST /api/workspaces` — create a saved graph.
+- `GET /api/workspaces/{id}` — load one graph.
+- `PUT /api/workspaces/{id}` — update an existing graph.
+- `DELETE /api/workspaces/{id}` — delete a graph.
+
+Docker Compose mounts a named volume at `/data` and sets `MARKET_MIND_DB=/data/market_mind.db`, so saved graphs persist across container recreation. The workspace API is currently a single-user development feature; add authentication and per-user authorization before exposing it to a public network.

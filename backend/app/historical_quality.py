@@ -39,6 +39,22 @@ def build_historical_quality_diagnostics(history):
     expected = INTERVAL_SECONDS.get(interval)
     parsed = [_timestamp(bar.get("timestamp")) for bar in bars]
     valid_pairs = [(i, value) for i, value in enumerate(parsed) if value is not None]
+    invalid_timestamps = [{"bar_index": i, "timestamp": bars[i].get("timestamp")}
+                          for i, value in enumerate(parsed) if value is None]
+    seen_timestamps = {}
+    duplicate_timestamps = []
+    for i, value in valid_pairs:
+        if value in seen_timestamps:
+            duplicate_timestamps.append({"bar_index": i, "first_bar_index": seen_timestamps[value],
+                                          "timestamp": bars[i].get("timestamp")})
+        else:
+            seen_timestamps[value] = i
+    out_of_order_timestamps = []
+    for (previous_index, previous), (current_index, current) in zip(valid_pairs, valid_pairs[1:]):
+        if current < previous:
+            out_of_order_timestamps.append({"bar_index": current_index, "previous_bar_index": previous_index,
+                                            "timestamp": bars[current_index].get("timestamp"),
+                                            "previous_timestamp": bars[previous_index].get("timestamp")})
     spacing = []
     if expected:
         for (previous_index, previous), (current_index, current) in zip(valid_pairs, valid_pairs[1:]):
@@ -91,6 +107,15 @@ def build_historical_quality_diagnostics(history):
     return {
         "interval": interval,
         "bars_checked": len(bars),
+        "timestamp_integrity": {
+            "invalid_timestamp_count": len(invalid_timestamps),
+            "invalid_timestamps": invalid_timestamps,
+            "duplicate_timestamp_count": len(duplicate_timestamps),
+            "duplicate_timestamps": duplicate_timestamps,
+            "out_of_order_count": len(out_of_order_timestamps),
+            "out_of_order_timestamps": out_of_order_timestamps,
+            "interpretation": "Checks compare parsed timezone-aware instants; input bars are not reordered or repaired.",
+        },
         "timestamp_spacing": {
             "status": "available" if expected else "unsupported_interval",
             "expected_interval_seconds": expected,

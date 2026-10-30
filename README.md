@@ -45,10 +45,10 @@ The platform is designed for multi-asset research across equities, ETFs, indices
 | 550 worker profiles / 20 departments | Generated templates; not 550 completed agents |
 | Docker Compose development setup | Added |
 | CI quality workflow | Added; run status visible in GitHub Actions |
-| Market taxonomy and provider capability registry | Added |
-| Configurable RSS news ingestion | Added |
+| Market taxonomy and searchable instrument reference directory | Added |
+| Configurable RSS news ingestion and terminal news panel | Added |
 | SMA, EMA, RSI, MACD, Bollinger and realized-volatility library | Added |
-| Async in-process event bus and latency architecture | Added |\n| Workflow diagrams and graph usage guide | Added |\n| Unit tests for branching DAG execution and cycle rejection | Added |
+| Async in-process event bus and latency architecture | Added |\n| Interactive sample-series chart using Lightweight Charts | Added |\n| Workflow diagrams and graph usage guide | Added |\n| Unit tests for branching DAG execution and cycle rejection | Added |
 
 ## Visual workflow model
 

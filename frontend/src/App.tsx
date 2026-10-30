@@ -61,6 +61,10 @@ export default function App() {
  const [researchReport,setResearchReport] = useState<any>(null)
  const [researchBusy,setResearchBusy] = useState(false)
  const [researchError,setResearchError] = useState('')
+ const [csvText,setCsvText] = useState('timestamp,open,high,low,close,volume\\n2026-01-01T00:00:00Z,100,105,99,103,1200')
+ const [csvSource,setCsvSource] = useState('user-historical-csv')
+ const [csvBusy,setCsvBusy] = useState(false)
+ const [csvMessage,setCsvMessage] = useState('')
  const [researchBars,setResearchBars] = useState<any[]>([])
  const [researchInterval,setResearchInterval] = useState('1h')
  const [selectedCluster,setSelectedCluster] = useState<any>(null)
@@ -87,6 +91,17 @@ export default function App() {
  const loadSyntheticSample = async()=>{setSampleBusy(true);try{const r=await fetch(API+'/api/market-data/sample?symbol=BTCUSD&interval=1d&limit=5');const d=await r.json();if(!r.ok)throw new Error(d.detail||'Sample data unavailable');setValues(d.bars.map((b:any)=>String(b.close)).join(','));setDataLabel('SYNTHETIC FIXTURE · NOT MARKET PRICES');setResult({status:'sample_loaded',symbol:d.symbol,interval:d.interval,source:d.source,data_status:d.status,retrieved_at:d.retrieved_at,warnings:d.warnings})}catch(e){setResult({status:'error',message:e instanceof Error?e.message:'Sample data unavailable'})}finally{setSampleBusy(false)}}
  const findInstruments = async()=>{try{const q=encodeURIComponent(instrumentQuery);const r=await fetch(API+'/api/instruments?q='+q);const d=await r.json();setInstrumentResults(d.instruments||[])}catch{setInstrumentResults([])}}
  const loadNews = async()=>{setNewsBusy(true);setNewsError('');try{const r=await fetch(API+'/api/news');const d=await r.json();setNewsItems((d.items||[]).filter((x:any)=>x.title));const errs=(d.items||[]).filter((x:any)=>x.error);if(errs.length)setNewsError(errs.map((x:any)=>x.source+': '+x.error).join(' · '))}catch(e){setNewsError(e instanceof Error?e.message:'News feed unavailable')}finally{setNewsBusy(false)}}
+ const importHistoricalCSV = async()=> {
+  setCsvBusy(true);setCsvMessage('')
+  try {
+   const response=await fetch(API+'/api/market-data/import-csv',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({csv_text:csvText,symbol:researchSymbol,interval:researchInterval,source:csvSource})})
+   const body=await response.json()
+   if(!response.ok)throw new Error(body.detail||'CSV import failed')
+   setCsvMessage('IMPORTED '+body.stored+' BARS · '+body.symbol+' · '+body.interval+' · '+body.source)
+   setResult({status:'historical_csv_imported',...body})
+  } catch(e) {setCsvMessage(e instanceof Error?e.message:'CSV import failed')}
+  finally {setCsvBusy(false)}
+ }
  const runDeepResearch = async()=> {
   setResearchBusy(true);setResearchError('');setResearchReport(null)
   try {
@@ -136,6 +151,12 @@ export default function App() {
    {activeTab==='WORKERS'&&<><div className="searchbox"><Search size={14}/><input placeholder="Search 550 workers…" value={search} onChange={e=>setSearch(e.target.value)}/></div><div className="worker-list">{filteredWorkers.map(w=><button className="worker-item" key={w.id} onClick={()=>addNode(w.specialty,w.name,'worker')}><span className="worker-avatar"><BrainCircuit size={13}/></span><span><b>{w.name}</b><small>{w.department.replaceAll('_',' ')}</small></span><span className="plus">+</span></button>)}</div></>}
    {activeTab==='NEWS'&&<div className="news-panel"><button className="run-btn news-refresh" onClick={loadNews} disabled={newsBusy}><Newspaper size={13}/>{newsBusy?'FETCHING…':'FETCH OFFICIAL NEWS'}</button>{newsError&&<p className="news-error">{newsError}</p>}{newsItems.map((item:any)=><a className="news-item" key={item.id} href={item.url} target="_blank" rel="noreferrer"><b>{item.title}</b><small>{item.source} · {item.published_at||'Date unavailable'}</small></a>)}</div>}
    {activeTab==='RESEARCH'&&<div className="research-sidebar">
+    <div className="side-label">HISTORICAL CSV IMPORT <span>LOCAL DATA</span></div>
+    <small className="research-note">Paste CSV columns: timestamp,open,high,low,close,volume. Timestamps need an explicit timezone. Max 2 MB / 5,000 rows.</small>
+    <label>DATA SOURCE LABEL</label><input value={csvSource} onChange={e=>setCsvSource(e.target.value)} aria-label="CSV source label"/>
+    <label>CSV CONTENT</label><textarea value={csvText} onChange={e=>setCsvText(e.target.value)} aria-label="Historical OHLCV CSV" rows={6}/>
+    <button className="soft-btn research-run" onClick={importHistoricalCSV} disabled={csvBusy||!csvText.trim()||!csvSource.trim()}>{csvBusy?'IMPORTING…':'IMPORT HISTORICAL CSV'}</button>
+    {csvMessage&&<p className="research-note">{csvMessage}</p>}
     <div className="side-label">DEEP RESEARCH <span>DESCRIPTIVE</span></div>
     <label>INSTRUMENT</label><input value={researchSymbol} onChange={e=>setResearchSymbol(e.target.value.toUpperCase())} aria-label="Research symbol"/>
     <label>TIMEFRAMES</label><select value={researchIntervals} onChange={e=>setResearchIntervals(e.target.value)} aria-label="Research timeframes"><option value="15m,1h,4h,1d">15m · 1h · 4h · 1d</option><option value="15m,1h">15m · 1h</option><option value="1h,4h,1d">1h · 4h · 1d</option><option value="1h">1h only</option><option value="4h">4h only</option><option value="1d">1d only</option></select>

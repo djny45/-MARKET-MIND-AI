@@ -81,3 +81,6 @@ Example JSON body:
 The endpoint `GET /api/research/data-quality?symbol=BTCUSD&interval=1h&limit=500` provides a focused review of stored observations. For supported intervals (15m, 1h, 4h, 1d), it reports timestamp deltas greater than 1.5 times the nominal interval. These are elapsed-time spacing anomalies only: exchange sessions, holidays and provider schedules are not modelled, so a gap is not automatically a missing-candle error.
 
 Close-to-close returns and volume observations receive a robust median/MAD outlier screen when at least 20 valid observations exist. The threshold is six scaled MADs. A zero-MAD sample is explicitly marked unavailable. Results identify original bar indices and never insert or estimate missing observations. Statistical flags are prompts for source-data review, not proof of corruption, forecasts, or trading signals.
+
+
+Quality outlier flags now include evidence fields: original bar index, timestamp, measured value, robust MAD deviation, and (for return outliers) the prior close and prior timestamp. Timestamp-spacing flags include both endpoint timestamps. The frontend displays a short sample of these exact observations; the complete response remains available from the API. This improves auditability without changing the statistical threshold or inferring missing observations.

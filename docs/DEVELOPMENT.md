@@ -81,3 +81,28 @@ The built-in fixture adapter is synthetic only. It can be inspected at `GET /api
 Normalized batches can be stored using `POST /api/market-data/store`. Query persisted observations using `GET /api/market-data/history?symbol=BTCUSD&interval=1d&limit=500`. SQLite uses the same `MARKET_MIND_DB` database path and Docker named volume as saved workflows. Stored records retain their status, source and retrieval timestamp. The history endpoint does not assert that observations are current or complete.
 
 Before connecting a real provider, implement its adapter separately, verify its API terms and entitlements, enforce rate limits, and test stale, missing, duplicate and malformed observations. Add authentication and authorization before exposing write endpoints publicly.
+
+## Educational setup geometry and terminal report
+
+The project can calculate the geometry of a hypothetical scenario when a user supplies a symbol, direction, entry reference, invalidation level and target reference. It reports absolute risk/reward distances, percentages relative to entry, and the reward-to-risk multiple. This is a calculator, not an agent-generated market signal or a recommendation.
+
+API: `POST /api/research/setup`
+
+Example body:
+```json
+{
+  "symbol": "BTCUSD",
+  "direction": "long",
+  "entry": 100,
+  "stop": 95,
+  "target": 110
+}
+```
+
+Run the same calculation in the terminal from the `backend` directory:
+
+```bash
+PYTHONPATH=. python terminal_setup.py --symbol BTCUSD --direction long --entry 100 --stop 95 --target 110
+```
+
+The output is explicitly marked educational and execution-disabled. No exchange API key is required or read. The CLI accepts only user-supplied levels; it does not fetch prices, infer a trade, place orders, or monitor markets. For a real research workflow, first supply authorized, provenance-labelled data and independently validate the analysis.

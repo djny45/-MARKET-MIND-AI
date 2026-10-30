@@ -215,7 +215,9 @@ export default function App() {
         <div className="aligned-row"><b>SPACING ANOMALIES</b><span>{qualityReport.timestamp_spacing.spacing_anomaly_count}</span><span>Expected interval {qualityReport.timestamp_spacing.expected_interval_seconds??'—'} sec</span></div>
         <div className="aligned-row"><b>RETURN OUTLIERS</b><span>{qualityReport.close_to_close_return_outliers.flagged_bar_indices.length}</span><span>{qualityReport.close_to_close_return_outliers.status.replaceAll('_',' ')}</span></div>
         <div className="aligned-row"><b>VOLUME OUTLIERS</b><span>{qualityReport.volume_outliers.flagged_bar_indices.length}</span><span>{qualityReport.volume_outliers.status.replaceAll('_',' ')}</span></div>
-        {qualityReport.timestamp_spacing.spacing_anomalies.slice(0,5).map((gap:any)=><small key={gap.from_index+'-'+gap.to_index}>Spacing: bar {gap.from_index} → {gap.to_index} · {gap.elapsed_seconds}s ({gap.interval_multiples} intervals)</small>)}
+        {qualityReport.timestamp_spacing.spacing_anomalies.slice(0,5).map((gap:any)=><small key={gap.from_index+'-'+gap.to_index}>Spacing: {gap.from_timestamp||('bar '+gap.from_index)} → {gap.to_timestamp||('bar '+gap.to_index)} · {gap.elapsed_seconds}s ({gap.interval_multiples} intervals)</small>)}
+        {qualityReport.close_to_close_return_outliers.flagged_observations.slice(0,5).map((item:any)=><small key={'return-'+item.bar_index}>Return flag: {item.timestamp} · {item.return_pct}% · close {item.close} (previous {item.previous_close})</small>)}
+        {qualityReport.volume_outliers.flagged_observations.slice(0,5).map((item:any)=><small key={'volume-'+item.bar_index}>Volume flag: {item.timestamp} · volume {item.volume}</small>)}
         <small>Outliers are statistical review flags, not proof of bad data. Timestamp gaps do not account for exchange sessions, holidays or provider schedules. No bars or prices are generated.</small>
        </>}
       </div>

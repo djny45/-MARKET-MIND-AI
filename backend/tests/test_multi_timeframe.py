@@ -61,3 +61,10 @@ if __name__ == "__main__":
         aligned = result["aligned_indicator_comparison"]
         self.assertEqual(aligned["status"], "no_exact_timestamp_overlap")
         self.assertIsNone(aligned["latest_common_observation"])
+
+
+    def test_single_available_interval_does_not_claim_cross_timeframe_alignment(self):
+        result = build_multi_timeframe_report("TEST", {"1h": history("1h", 60)})
+        aligned = result["aligned_indicator_comparison"]
+        self.assertEqual(aligned["status"], "insufficient_timeframes")
+        self.assertEqual(aligned["common_timestamp_count"], 0)

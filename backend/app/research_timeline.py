@@ -1,6 +1,7 @@
 """Timestamped descriptive event timeline for stored OHLCV observations."""
 from .candle_patterns import classify_candles
 from .swing_points import find_swing_points
+from .indicators import sma, rsi, macd
 
 
 def build_research_timeline(history: dict, limit: int = 200) -> dict:
@@ -12,6 +13,10 @@ def build_research_timeline(history: dict, limit: int = 200) -> dict:
                 "events": [], "bars_included": 0, "status": "no_stored_observations",
                 "execution": "disabled"}
     labels = classify_candles(bars)
+    closes = [float(bar['close']) for bar in bars]
+    sma20 = sma(closes, 20)
+    rsi_values = rsi(closes, 14)
+    macd_values = macd(closes)
     swings = find_swing_points(bars)
     high_by_index = {p["index"]: p for p in swings["confirmed_swing_highs"]}
     low_by_index = {p["index"]: p for p in swings["confirmed_swing_lows"]}
@@ -41,6 +46,13 @@ def build_research_timeline(history: dict, limit: int = 200) -> dict:
             "open": float(bar["open"]), "high": float(bar["high"]),
             "low": float(bar["low"]), "close": close,
             "volume": float(bar["volume"]), "close_change_pct": change_pct,
+            "indicator_context": {
+                "sma20": round(sma20[index], 8) if index >= 19 else None,
+                "rsi14": round(rsi_values[index - 1], 4) if index > 0 and rsi_values[index - 1] is not None else None,
+                "macd": round(macd_values["macd"][index], 8),
+                "macd_signal": round(macd_values["signal"][index], 8),
+                "macd_histogram": round(macd_values["histogram"][index], 8),
+            },
             "source": bar.get("source", "unknown"), "status": bar.get("status", "unknown"),
             "retrieved_at": bar.get("retrieved_at"), "observations": kinds,
         })

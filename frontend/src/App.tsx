@@ -65,6 +65,9 @@ export default function App() {
  const [researchInterval,setResearchInterval] = useState('1h')
  const [selectedCluster,setSelectedCluster] = useState<any>(null)
  const [historyMeta,setHistoryMeta] = useState<any>(null)
+ const [researchTimeline,setResearchTimeline] = useState<any[]>([])
+ const [timelineBusy,setTimelineBusy] = useState(false)
+ const [timelineError,setTimelineError] = useState('')
  const [instrumentQuery,setInstrumentQuery] = useState('')
  const [instrumentResults,setInstrumentResults] = useState<any[]>([])
  const [newsItems,setNewsItems] = useState<any[]>([])
@@ -97,6 +100,12 @@ export default function App() {
    const historyBody=await historyResponse.json()
    if(historyResponse.ok){setResearchBars(historyBody.bars||[]);setHistoryMeta({source:historyBody.source,status:historyBody.status,retrieved_at:historyBody.retrieved_at})}
    else {setResearchBars([]);setHistoryMeta(null)}
+   setTimelineBusy(true);setTimelineError('')
+   const timelineResponse=await fetch(API+'/api/research/timeline?'+new URLSearchParams({symbol:researchSymbol.trim(),interval:chosen,limit:'200'}).toString())
+   const timelineBody=await timelineResponse.json()
+   if(timelineResponse.ok)setResearchTimeline(timelineBody.events||[])
+   else {setResearchTimeline([]);setTimelineError(timelineBody.detail||'Timeline unavailable')}
+   setTimelineBusy(false)
   } catch(e) {setResearchError(e instanceof Error?e.message:'Research API unavailable')}
   finally {setResearchBusy(false)}
  }
@@ -145,6 +154,17 @@ export default function App() {
        <small>{researchBars.length} stored bars · {historyMeta?.source||'source unavailable'} · {historyMeta?.status||'status unavailable'}</small>
        {(['historical_swing_high','historical_swing_low'] as const).map(side=><div key={side}><b>{side==='historical_swing_high'?'CONFIRMED HIGH CLUSTERS':'CONFIRMED LOW CLUSTERS'}</b>{(researchReport.timeframes?.[researchInterval]?.historical_price_clusters?.clusters?.[side]||[]).map((cluster:any,index:number)=><button className={selectedCluster===cluster?'cluster-choice selected':'cluster-choice'} key={side+'-'+index} onClick={()=>setSelectedCluster(cluster)}><span>{cluster.mean_price}</span><small>{cluster.touch_count} pivots · {cluster.lower_price}–{cluster.upper_price}</small></button>)}</div>)}
        {selectedCluster&&<div className="cluster-detail"><b>SELECTED HISTORICAL CLUSTER</b><span>Mean: {selectedCluster.mean_price}</span><span>Observed range: {selectedCluster.lower_price} – {selectedCluster.upper_price}</span><span>Confirmed pivots: {selectedCluster.touch_count}</span><span>Pivot times: {selectedCluster.pivot_timestamps.filter(Boolean).join(', ')||'Unavailable'}</span><small>Horizontal chart overlay is a historical reference only, not a forecast or actionable level.</small><button className="soft-btn" onClick={()=>setSelectedCluster(null)}>CLEAR OVERLAY</button></div>}
+      </div>
+      <div className="research-timeline">
+       <div className="timeline-heading"><b>HISTORICAL EVENT TIMELINE</b><small>{timelineBusy?'LOADING…':researchTimeline.length+' OBSERVATIONS'}</small></div>
+       {timelineError&&<small className="news-error">{timelineError}</small>}
+       {researchTimeline.slice().reverse().slice(0,40).map((event:any)=><div className="timeline-event" key={event.index+'-'+event.timestamp}>
+        <time>{event.timestamp||'Timestamp unavailable'}</time>
+        <div><b>O {event.open} · H {event.high} · L {event.low} · C {event.close}</b><small>Volume {event.volume} · close change {event.close_change_pct===null?'—':event.close_change_pct+'%'}</small>
+        {event.observations?.map((observation:any,index:number)=><small key={index} className="timeline-observation">{observation.type.replaceAll('_',' ')}{observation.labels?' · '+observation.labels.join(', '):''}{observation.price?' · '+observation.price:''}</small>)}
+        <small>{event.source} · {event.status} · retrieved {event.retrieved_at||'unknown'}</small></div>
+       </div>)}
+       <small className="timeline-disclaimer">Historical descriptive observations only. Candle labels and confirmed pivots are not predictive signals.</small>
       </div>
       <button className="soft-btn research-json" onClick={()=>setResult(researchReport)}>OPEN FULL RESEARCH JSON</button>
     </div>}

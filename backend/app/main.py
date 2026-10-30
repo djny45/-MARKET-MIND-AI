@@ -10,11 +10,18 @@ from .pipeline import system_capabilities
 from .news import ingest_news
 from . import indicators
 from .performance import performance_metrics
+from . import workspace
 
 app = FastAPI(title="MARKET-MIND-AI API", version="0.2.0",
  description="Multi-market, evidence-first research pipeline. No brokerage execution.")
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173"],
  allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+
+class SaveWorkflowRequest(BaseModel):
+ title: str = Field(min_length=1,max_length=120)
+ description: str = Field(default="",max_length=500)
+ nodes: list[dict[str,Any]] = Field(default_factory=list,max_length=250)
+ edges: list[dict[str,Any]] = Field(default_factory=list,max_length=1000)
 
 class WorkflowRequest(BaseModel):
  nodes: list[dict[str, Any]] = Field(default_factory=list)
@@ -84,6 +91,38 @@ def analyze_performance(request: PerformanceRequest):
   return performance_metrics(request.values, request.benchmark, request.periods_per_year, request.risk_free_rate)
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+@app.get("/api/workspaces")
+def list_saved_workflows(limit: int = 50):
+ return {"workflows":workspace.list_workflows(limit)}
+
+@app.get("/api/workspaces/{workflow_id}")
+def get_saved_workflow(workflow_id: str):
+ result=workspace.get_workflow(workflow_id)
+ if result is None: raise HTTPException(status_code=404,detail="Workflow not found")
+ return result
+
+@app.post("/api/workspaces")
+def save_named_workflow(request: SaveWorkflowRequest):
+ try:
+  return workspace.save_workflow(request.title,request.description,request.nodes,request.edges)
+ except ValueError as exc:
+  raise HTTPException(status_code=400,detail=str(exc)) from exc
+
+@app.put("/api/workspaces/{workflow_id}")
+def update_named_workflow(workflow_id: str, request: SaveWorkflowRequest):
+ if workspace.get_workflow(workflow_id) is None:
+  raise HTTPException(status_code=404,detail="Workflow not found")
+ try:
+  return workspace.save_workflow(request.title,request.description,request.nodes,request.edges,workflow_id)
+ except ValueError as exc:
+  raise HTTPException(status_code=400,detail=str(exc)) from exc
+
+@app.delete("/api/workspaces/{workflow_id}")
+def remove_named_workflow(workflow_id: str):
+ if not workspace.delete_workflow(workflow_id):
+  raise HTTPException(status_code=404,detail="Workflow not found")
+ return {"deleted":True,"id":workflow_id}
 
 @app.post("/api/workflows/execute")
 def run_workflow(request: WorkflowRequest):

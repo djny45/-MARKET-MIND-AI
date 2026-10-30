@@ -50,3 +50,11 @@ The initial engine implements market input, data-quality checks, simple moving a
 - Demo values are user-provided sample data, not a live market feed.
 - Provider adapters, authentication, persistent workspaces, real-time streaming, advanced charting, and full worker implementations remain future milestones.
 - No broker connection, order routing, automated trading, or paper-trading functionality is included.
+
+## Instrument discovery, chart and news workspace
+
+The header instrument finder queries `GET /api/instruments?q=<text>`. Results are reference metadata (symbol, name, market class, venue and currency), not quotes or a complete global security master.
+
+The chart uses the user-entered sample close series and Lightweight Charts. Its time axis is illustrative and the panel is explicitly labelled **SAMPLE INPUT DATA — NOT A LIVE QUOTE**. It must not be interpreted as historical exchange data.
+
+Select **NEWS** in the sidebar and fetch the configured official RSS feeds. The panel displays publisher headlines, publication timestamps and links. A failed feed is reported rather than silently treated as a complete news result. Publisher availability and terms must be verified for deployment.

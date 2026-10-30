@@ -111,7 +111,7 @@ export default function App() {
    setCsvMessage('IMPORTED '+body.stored+' BARS · '+body.symbol+' · '+body.interval+' · '+body.source)
    const historyResponse=await fetch(API+'/api/market-data/history?'+new URLSearchParams({symbol:researchSymbol.trim(),interval:researchInterval,limit:'500'}).toString())
    const historyBody=await historyResponse.json()
-   if(historyResponse.ok){setResearchBars(historyBody.bars||[]);setHistoryMeta({source:historyBody.source,status:historyBody.status,retrieved_at:historyBody.retrieved_at})}
+   if(historyResponse.ok){setResearchBars(historyBody.bars||[]);setHistoryMeta({source:historyBody.source,status:historyBody.status,retrieved_at:historyBody.retrieved_at,source_count:historyBody.source_count,timestamp_count:historyBody.timestamp_count,duplicate_timestamp_observations:historyBody.duplicate_timestamp_observations,first_timestamp:historyBody.first_timestamp,last_timestamp:historyBody.last_timestamp,sources:historyBody.sources})}
    setResult({status:'historical_csv_imported',...body})
   } catch(e) {setCsvMessage(e instanceof Error?e.message:'CSV import failed')}
   finally {setCsvBusy(false)}
@@ -128,7 +128,7 @@ export default function App() {
    setResearchInterval(chosen);setSelectedCluster(null)
    const historyResponse=await fetch(API+'/api/market-data/history?'+new URLSearchParams({symbol:researchSymbol.trim(),interval:chosen,limit:'500'}).toString())
    const historyBody=await historyResponse.json()
-   if(historyResponse.ok){setResearchBars(historyBody.bars||[]);setHistoryMeta({source:historyBody.source,status:historyBody.status,retrieved_at:historyBody.retrieved_at})}
+   if(historyResponse.ok){setResearchBars(historyBody.bars||[]);setHistoryMeta({source:historyBody.source,status:historyBody.status,retrieved_at:historyBody.retrieved_at,source_count:historyBody.source_count,timestamp_count:historyBody.timestamp_count,duplicate_timestamp_observations:historyBody.duplicate_timestamp_observations,first_timestamp:historyBody.first_timestamp,last_timestamp:historyBody.last_timestamp,sources:historyBody.sources})}
    else {setResearchBars([]);setHistoryMeta(null)}
    setTimelineBusy(true);setTimelineError('')
    const timelineResponse=await fetch(API+'/api/research/timeline?'+new URLSearchParams({symbol:researchSymbol.trim(),interval:chosen,limit:'200'}).toString())
@@ -198,7 +198,9 @@ export default function App() {
       </div>}
       <div className="research-cluster-tools">
        <label>CHART TIMEFRAME</label><select value={researchInterval} onChange={async e=>{const interval=e.target.value;setResearchInterval(interval);setSelectedCluster(null);try{const r=await fetch(API+'/api/market-data/history?'+new URLSearchParams({symbol:researchSymbol.trim(),interval,limit:'500'}).toString());const d=await r.json();setResearchBars(r.ok?(d.bars||[]):[]);setHistoryMeta(r.ok?{source:d.source,status:d.status,retrieved_at:d.retrieved_at}:null)}catch{setResearchBars([]);setHistoryMeta(null)}}}>{researchIntervals.split(',').map(x=>x.trim()).filter(Boolean).map(x=><option key={x} value={x}>{x}</option>)}</select>
-       <small>{researchBars.length} stored bars · {historyMeta?.source||'source unavailable'} · {historyMeta?.status||'status unavailable'}</small>
+       <small>{researchBars.length} stored observations · {historyMeta?.source||'source unavailable'} · {historyMeta?.status||'status unavailable'}</small>
+       {historyMeta&&<small>Sources {historyMeta.source_count??'—'} · distinct timestamps {historyMeta.timestamp_count??'—'} · overlapping observations {historyMeta.duplicate_timestamp_observations??'—'}</small>}
+       {historyMeta&&<small>Range {historyMeta.first_timestamp||'—'} → {historyMeta.last_timestamp||'—'} · retrieved {historyMeta.retrieved_at||'—'}</small>}
        {(['historical_swing_high','historical_swing_low'] as const).map(side=><div key={side}><b>{side==='historical_swing_high'?'CONFIRMED HIGH CLUSTERS':'CONFIRMED LOW CLUSTERS'}</b>{(researchReport.timeframes?.[researchInterval]?.historical_price_clusters?.clusters?.[side]||[]).map((cluster:any,index:number)=><button className={selectedCluster===cluster?'cluster-choice selected':'cluster-choice'} key={side+'-'+index} onClick={()=>setSelectedCluster(cluster)}><span>{cluster.mean_price}</span><small>{cluster.touch_count} pivots · {cluster.lower_price}–{cluster.upper_price}</small></button>)}</div>)}
        {selectedCluster&&<div className="cluster-detail"><b>SELECTED HISTORICAL CLUSTER</b><span>Mean: {selectedCluster.mean_price}</span><span>Observed range: {selectedCluster.lower_price} – {selectedCluster.upper_price}</span><span>Confirmed pivots: {selectedCluster.touch_count}</span><span>Pivot times: {selectedCluster.pivot_timestamps.filter(Boolean).join(', ')||'Unavailable'}</span><small>Horizontal chart overlay is a historical reference only, not a forecast or actionable level.</small><button className="soft-btn" onClick={()=>setSelectedCluster(null)}>CLEAR OVERLAY</button></div>}
       </div>

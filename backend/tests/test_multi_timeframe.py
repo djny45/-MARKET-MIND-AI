@@ -40,3 +40,24 @@ class MultiTimeframeTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+    def test_exact_timestamp_indicator_comparison_is_reported(self):
+        result = build_multi_timeframe_report("TEST", {
+            "15m": history("15m", 60), "1h": history("1h", 60)
+        })
+        aligned = result["aligned_indicator_comparison"]
+        self.assertEqual(aligned["method"], "exact_timestamp_intersection_no_interpolation")
+        self.assertGreater(aligned["common_timestamp_count"], 0)
+        self.assertIsNotNone(aligned["latest_common_timestamp"])
+        self.assertEqual(set(aligned["latest_common_observation"]), {"15m", "1h"})
+
+    def test_no_exact_timestamp_overlap_is_not_interpolated(self):
+        fast = history("15m", 60)
+        slow = history("1h", 60)
+        for bar in slow["bars"]:
+            bar["timestamp"] = bar["timestamp"].replace("2026-01-", "2025-12-")
+        result = build_multi_timeframe_report("TEST", {"15m": fast, "1h": slow})
+        aligned = result["aligned_indicator_comparison"]
+        self.assertEqual(aligned["status"], "no_exact_timestamp_overlap")
+        self.assertIsNone(aligned["latest_common_observation"])

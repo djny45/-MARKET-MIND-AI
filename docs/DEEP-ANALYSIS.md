@@ -38,3 +38,8 @@ The frontend Research tab can load stored OHLCV history for a selected symbol an
 ## Historical event timeline
 
 The API endpoint `GET /api/research/timeline?symbol=BTCUSD&interval=1h&limit=200` returns the latest timestamped stored-bar observations (maximum 1,000). Each event includes OHLCV, close-to-close percentage change, source, status, retrieval timestamp, and any rule-based candle geometry or confirmed swing-point labels. The Research panel displays the latest 40 events in reverse chronological order. Empty stored history is explicitly reported; no missing observations are fabricated. Swing labels require right-side confirmation bars and therefore appear only after confirmation. This timeline is historical and descriptive, not a prediction or trading instruction.
+
+
+### Historical indicator context
+
+Each timeline event includes the indicator values calculated at that historical bar: SMA(20), RSI(14), and MACD (line, signal, histogram). RSI is aligned to the close-to-close return ending at the event bar. Values are calculated over the complete stored history before the requested display window is sliced. Warm-up values are null until sufficient observations exist; the UI displays these as insufficient history rather than zero. These are descriptive historical calculations, not predictions or instructions.

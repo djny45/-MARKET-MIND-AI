@@ -50,6 +50,12 @@ def _numbers(payload):
                 payload = payload[key]; break
         else:
             if isinstance(payload.get("data"), dict): return _numbers(payload["data"])
+            if isinstance(payload.get("report"), dict):
+                report = payload["report"]
+                if isinstance(report.get("first"), (int, float)) and isinstance(report.get("last"), (int, float)):
+                    payload = [report["first"], report["last"]]
+                else:
+                    raise ValueError("Summary report has no numeric endpoints.")
             if isinstance(payload.get("value"), (int, float)): payload = [payload["value"]]
             else: raise ValueError("Expected values, close, series, or nested data.")
     if not isinstance(payload, list): raise ValueError("Expected a list of numeric values.")

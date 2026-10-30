@@ -15,6 +15,7 @@ from .market_data import SyntheticFixtureAdapter, MarketDataBatch
 from . import market_store
 from .setup_report import build_setup_report
 from .chart_research import build_chart_report
+from .multi_timeframe import build_multi_timeframe_report, SUPPORTED_INTERVALS
 
 app = FastAPI(title="MARKET-MIND-AI API", version="0.2.0",
  description="Multi-market, evidence-first research pipeline. No brokerage execution.")
@@ -95,6 +96,22 @@ class PerformanceRequest(BaseModel):
  benchmark: list[float] | None = None
  periods_per_year: float | None = Field(default=None, gt=0)
  risk_free_rate: float = 0.0
+
+@app.get("/api/research/timeframes")
+def research_timeframes(
+ symbol: str,
+ intervals: str = "15m,1h,4h,1d",
+ limit: int = 500,
+):
+ """Optional cross-timeframe descriptive comparison over stored bars."""
+ requested = [item.strip() for item in intervals.split(",") if item.strip()]
+ if not requested or len(requested) > 4 or any(item not in SUPPORTED_INTERVALS for item in requested):
+  raise HTTPException(status_code=400, detail="intervals must be a comma-separated subset of 15m,1h,4h,1d")
+ histories = {item: market_store.get_bars(symbol, item, limit) for item in requested}
+ try:
+  return build_multi_timeframe_report(symbol, histories)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 @app.post("/api/research/setup")
 def research_setup(request: SetupReportRequest):

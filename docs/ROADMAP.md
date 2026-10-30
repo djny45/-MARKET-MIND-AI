@@ -25,7 +25,7 @@ This roadmap is a plan, not a claim that these features already exist. Mark an i
 
 ## Phase 3 — Research and analytics
 - [x] Implement tested indicator library and initial technical dictionary (SMA, EMA, RSI, MACD, Bollinger, volatility, ATR and candle-shape labels).
-- [x] Add initial descriptive price-structure analytics: candle shapes, confirmed swing highs/lows, recent range references and ATR.\n- [x] Integrate deep descriptive reports with OHLCV structural quality diagnostics.\n- [ ] Add returns, volatility, correlation, drawdown, breadth, and seasonality analytics.
+- [x] Add initial descriptive price-structure analytics: candle shapes, confirmed swing highs/lows, recent range references and ATR.\n- [x] Integrate deep descriptive reports with OHLCV structural quality diagnostics.\n- [x] Add relative-volume, return-volatility and historical drawdown diagnostics with explicit limitations.\n- [ ] Add returns, volatility, correlation, drawdown, breadth, and seasonality analytics.
 - [ ] Add fundamentals, filings, news, and macro research panels.
 - [ ] Add source-cited research reports and exportable methodology notes.
 - [ ] Add historical evaluation framework with bias and data-quality checks.

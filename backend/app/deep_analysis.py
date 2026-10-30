@@ -6,6 +6,7 @@ It describes observations; it does not forecast, recommend, or execute.
 from datetime import datetime
 from .market_diagnostics import build_market_diagnostics
 from .correlation import build_correlation_report
+from .price_levels import build_price_level_clusters
 
 
 def _parse_timestamp(value):
@@ -89,8 +90,16 @@ def build_deep_analysis_report(symbol: str, histories: dict, multi_timeframe_rep
         timeframe_reports[interval] = {
             "data_quality": build_data_quality_report(history),
             "market_diagnostics": market_diagnostics,
+            "historical_price_clusters": None,
             "chart_research": None,
         }
+        if len(bars) >= 5:
+            try:
+                timeframe_reports[interval]["historical_price_clusters"] = build_price_level_clusters(bars)
+            except (KeyError, TypeError, ValueError):
+                timeframe_reports[interval]["historical_price_clusters"] = {
+                    "status": "unavailable_invalid_or_incomplete_data"
+                }
         if len(bars) >= 2:
             from .chart_research import build_chart_report
             try:
@@ -122,6 +131,7 @@ def build_deep_analysis_report(symbol: str, histories: dict, multi_timeframe_rep
             "recent range references",
             "candlestick geometry labels",
             "confirmed swing highs and lows",
+            "historical price-level clusters from repeated confirmed swing points",
             "source, status, timestamp and OHLCV structural diagnostics",
             "relative volume, per-observation volatility regime and historical close-to-close drawdown",
             "descriptive cross-timeframe comparison when supplied",

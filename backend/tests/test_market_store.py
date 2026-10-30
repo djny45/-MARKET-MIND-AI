@@ -12,8 +12,13 @@ class MarketStoreTests(unittest.IsolatedAsyncioTestCase):
         with tempfile.TemporaryDirectory() as directory:
             with patch.dict(os.environ, {"MARKET_MIND_DB": os.path.join(directory, "test.sqlite")}):
                 batch = await SyntheticFixtureAdapter().get_bars("btcusd", "1d", 4)
-                result = store_batch(batch)
+                reversed_batch = batch.model_copy(update={"bars": list(reversed(batch.bars))})
+                result = store_batch(reversed_batch)
                 self.assertEqual(result["stored"], 4)
+                self.assertEqual(result["ordering"], "chronological")
+                self.assertEqual(result["duplicate_timestamps"], 0)
+                self.assertIsNotNone(result["first_timestamp"])
+                self.assertIsNotNone(result["last_timestamp"])
                 saved = get_bars("BTCUSD", "1d", 10)
                 self.assertEqual(saved["count"], 4)
                 self.assertEqual(saved["bars"][0]["status"], "synthetic")

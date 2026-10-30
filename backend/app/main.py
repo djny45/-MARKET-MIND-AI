@@ -11,7 +11,8 @@ from .news import ingest_news
 from . import indicators
 from .performance import performance_metrics
 from . import workspace
-from .market_data import SyntheticFixtureAdapter
+from .market_data import SyntheticFixtureAdapter, MarketDataBatch
+from . import market_store
 
 app = FastAPI(title="MARKET-MIND-AI API", version="0.2.0",
  description="Multi-market, evidence-first research pipeline. No brokerage execution.")
@@ -134,6 +135,20 @@ async def sample_market_data(symbol: str = "BTCUSD", interval: str = "1d", limit
   return batch.model_dump(mode="json")
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/market-data/store")
+def store_market_data(batch: MarketDataBatch):
+ """Persist normalized observations while retaining source and status metadata."""
+ return market_store.store_batch(batch)
+
+@app.get("/api/market-data/history")
+def market_data_history(symbol: str, interval: str = "1d", limit: int = 500):
+ if not symbol.strip() or len(symbol) > 32:
+  raise HTTPException(status_code=400, detail="symbol must contain 1 to 32 characters")
+ if not interval.strip() or len(interval) > 16:
+  raise HTTPException(status_code=400, detail="interval must contain 1 to 16 characters")
+ return market_store.get_bars(symbol, interval, limit)
 
 @app.post("/api/workflows/execute")
 def run_workflow(request: WorkflowRequest):

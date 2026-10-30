@@ -13,7 +13,7 @@ This roadmap is a plan, not a claim that these features already exist. Mark an i
 - [x] Define canonical OHLCV bar and market-data batch schemas (instrument/event/document schemas remain open).
 - [x] Implement provider-adapter protocol and retain the provider capability registry; live adapters remain pending.
 - [x] Add retrieval timestamps, synthetic status labels, source provenance, and OHLCV validation for the fixture contract.
-- [ ] Add historical data storage and retention configuration.
+- [x] Add SQLite historical bar storage with source/status/retrieval provenance (retention policy remains open).
 - [ ] Add API health, readiness, and provider-status endpoints.
 
 ## Phase 2 — Terminal user experience

@@ -19,6 +19,7 @@ from .multi_timeframe import build_multi_timeframe_report, SUPPORTED_INTERVALS
 from .deep_analysis import build_deep_analysis_report
 from .research_timeline import build_research_timeline
 from .csv_import import parse_historical_csv
+from .historical_quality import build_historical_quality_diagnostics
 
 app = FastAPI(title="MARKET-MIND-AI API", version="0.2.0",
  description="Multi-market, evidence-first research pipeline. No brokerage execution.")
@@ -222,6 +223,19 @@ def market_data_history(symbol: str, interval: str = "1d", limit: int = 500):
  if not interval.strip() or len(interval) > 16:
   raise HTTPException(status_code=400, detail="interval must contain 1 to 16 characters")
  return market_store.get_bars(symbol, interval, limit)
+
+
+@app.get("/api/research/data-quality")
+def research_data_quality(symbol: str, interval: str = "1h", limit: int = 500):
+ """Return elapsed-time and robust outlier diagnostics for stored history."""
+ if not symbol.strip() or len(symbol) > 32:
+  raise HTTPException(status_code=400, detail="symbol must contain 1 to 32 characters")
+ if interval not in SUPPORTED_INTERVALS:
+  raise HTTPException(status_code=400, detail="interval must be one of 15m,1h,4h,1d")
+ if limit < 1 or limit > 5000:
+  raise HTTPException(status_code=400, detail="limit must be between 1 and 5000")
+ history = market_store.get_bars(symbol, interval, limit)
+ return build_historical_quality_diagnostics(history)
 
 
 @app.get("/api/research/timeline")

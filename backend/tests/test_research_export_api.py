@@ -34,6 +34,7 @@ class ResearchEvidenceExportApiTests(unittest.TestCase):
         self.assertEqual(payload["observations"], history["bars"])
         self.assertEqual(payload["scope"]["source"], "local-csv")
         self.assertEqual(payload["report_type"], "historical_research_evidence")
+        self.assertEqual(payload["integrity"]["algorithm"], "sha256")
         get_bars.assert_called_once_with("btcusd", "1h", 250)
 
     def test_export_supports_empty_history(self):

@@ -59,6 +59,9 @@ export default function App() {
  const [researchIntervals,setResearchIntervals] = useState('15m,1h,4h,1d')
  const [researchCompare,setResearchCompare] = useState('ETHUSD,SOLUSD')
  const [researchReport,setResearchReport] = useState<any>(null)
+ const [qualityReport,setQualityReport] = useState<any>(null)
+ const [qualityBusy,setQualityBusy] = useState(false)
+ const [qualityError,setQualityError] = useState('')
  const [researchBusy,setResearchBusy] = useState(false)
  const [researchError,setResearchError] = useState('')
  const [csvText,setCsvText] = useState('timestamp,open,high,low,close,volume\n2026-01-01T00:00:00Z,100,105,99,103,1200')
@@ -92,6 +95,17 @@ export default function App() {
  const loadSyntheticSample = async()=>{setSampleBusy(true);try{const r=await fetch(API+'/api/market-data/sample?symbol=BTCUSD&interval=1d&limit=5');const d=await r.json();if(!r.ok)throw new Error(d.detail||'Sample data unavailable');setValues(d.bars.map((b:any)=>String(b.close)).join(','));setDataLabel('SYNTHETIC FIXTURE · NOT MARKET PRICES');setResult({status:'sample_loaded',symbol:d.symbol,interval:d.interval,source:d.source,data_status:d.status,retrieved_at:d.retrieved_at,warnings:d.warnings})}catch(e){setResult({status:'error',message:e instanceof Error?e.message:'Sample data unavailable'})}finally{setSampleBusy(false)}}
  const findInstruments = async()=>{try{const q=encodeURIComponent(instrumentQuery);const r=await fetch(API+'/api/instruments?q='+q);const d=await r.json();setInstrumentResults(d.instruments||[])}catch{setInstrumentResults([])}}
  const loadNews = async()=>{setNewsBusy(true);setNewsError('');try{const r=await fetch(API+'/api/news');const d=await r.json();setNewsItems((d.items||[]).filter((x:any)=>x.title));const errs=(d.items||[]).filter((x:any)=>x.error);if(errs.length)setNewsError(errs.map((x:any)=>x.source+': '+x.error).join(' · '))}catch(e){setNewsError(e instanceof Error?e.message:'News feed unavailable')}finally{setNewsBusy(false)}}
+ const loadHistoricalQuality = async(interval:string)=> {
+  setQualityBusy(true);setQualityError('')
+  try {
+   const params=new URLSearchParams({symbol:researchSymbol.trim(),interval,limit:'500'})
+   const response=await fetch(API+'/api/research/data-quality?'+params.toString())
+   const body=await response.json()
+   if(!response.ok)throw new Error(body.detail||'Data-quality report unavailable')
+   setQualityReport(body)
+  } catch(e) {setQualityReport(null);setQualityError(e instanceof Error?e.message:'Data-quality report unavailable')}
+  finally {setQualityBusy(false)}
+ }
  const loadCSVFile = async(file?:File)=> {
   if(!file)return
   if(file.size>2_000_000){setCsvMessage('FILE TOO LARGE · MAXIMUM 2 MB');return}
@@ -115,6 +129,7 @@ export default function App() {
    const timelineResponse=await fetch(API+'/api/research/timeline?'+new URLSearchParams({symbol:researchSymbol.trim(),interval:researchInterval,limit:'200'}).toString())
    const timelineBody=await timelineResponse.json()
    if(timelineResponse.ok){setResearchTimeline(timelineBody.events||[]);setTimelineError('')}else{setTimelineError(timelineBody.detail||'Timeline refresh unavailable')}
+   await loadHistoricalQuality(researchInterval)
    setResult({status:'historical_csv_imported',...body})
   } catch(e) {setCsvMessage(e instanceof Error?e.message:'CSV import failed')}
   finally {setCsvBusy(false)}
@@ -129,6 +144,7 @@ export default function App() {
    setResearchReport(body)
    const chosen=researchIntervals.split(',').map(x=>x.trim()).includes(researchInterval)?researchInterval:researchIntervals.split(',')[0].trim()
    setResearchInterval(chosen);setSelectedCluster(null)
+   await loadHistoricalQuality(chosen)
    const historyResponse=await fetch(API+'/api/market-data/history?'+new URLSearchParams({symbol:researchSymbol.trim(),interval:chosen,limit:'500'}).toString())
    const historyBody=await historyResponse.json()
    if(historyResponse.ok){setResearchBars(historyBody.bars||[]);setHistoryMeta({source:historyBody.source,status:historyBody.status,retrieved_at:historyBody.retrieved_at,source_count:historyBody.source_count,timestamp_count:historyBody.timestamp_count,duplicate_timestamp_observations:historyBody.duplicate_timestamp_observations,first_timestamp:historyBody.first_timestamp,last_timestamp:historyBody.last_timestamp,sources:historyBody.sources})}
@@ -190,6 +206,19 @@ export default function App() {
       <div className="research-metric"><small>HIGH / LOW CLUSTERS</small><b>{researchReport.dashboard?.historical_price_clusters?.confirmed_swing_high_cluster_count??0} / {researchReport.dashboard?.historical_price_clusters?.confirmed_swing_low_cluster_count??0}</b></div>
       {researchReport.dashboard?.market_breadth_latest&&<div className="research-metric"><small>ADVANCING / DECLINING</small><b>{researchReport.dashboard.market_breadth_latest.advancing} / {researchReport.dashboard.market_breadth_latest.declining}</b></div>}
       <div className="research-frames">{(researchReport.dashboard?.timeframes||[]).map((item:any)=><div key={item.interval}><b>{item.interval}</b><span>{item.status==='available'?item.moving_average_regime:'INSUFFICIENT DATA'}</span><small>RSI {item.rsi14??'—'} · ATR {item.atr14??'—'}</small></div>)}</div>
+      <div className="aligned-comparison">
+       <b>HISTORICAL DATA-QUALITY REVIEW · {researchInterval}</b>
+       {qualityBusy&&<small>CALCULATING DIAGNOSTICS…</small>}
+       {qualityError&&<small className="news-error">{qualityError}</small>}
+       {qualityReport&&<>
+        <small>{qualityReport.bars_checked} observations reviewed · timestamp spacing: {qualityReport.timestamp_spacing.status.replaceAll('_',' ')}</small>
+        <div className="aligned-row"><b>SPACING ANOMALIES</b><span>{qualityReport.timestamp_spacing.spacing_anomaly_count}</span><span>Expected interval {qualityReport.timestamp_spacing.expected_interval_seconds??'—'} sec</span></div>
+        <div className="aligned-row"><b>RETURN OUTLIERS</b><span>{qualityReport.close_to_close_return_outliers.flagged_bar_indices.length}</span><span>{qualityReport.close_to_close_return_outliers.status.replaceAll('_',' ')}</span></div>
+        <div className="aligned-row"><b>VOLUME OUTLIERS</b><span>{qualityReport.volume_outliers.flagged_bar_indices.length}</span><span>{qualityReport.volume_outliers.status.replaceAll('_',' ')}</span></div>
+        {qualityReport.timestamp_spacing.spacing_anomalies.slice(0,5).map((gap:any)=><small key={gap.from_index+'-'+gap.to_index}>Spacing: bar {gap.from_index} → {gap.to_index} · {gap.elapsed_seconds}s ({gap.interval_multiples} intervals)</small>)}
+        <small>Outliers are statistical review flags, not proof of bad data. Timestamp gaps do not account for exchange sessions, holidays or provider schedules. No bars or prices are generated.</small>
+       </>}
+      </div>
       {researchReport.cross_timeframe?.aligned_indicator_comparison&&<div className="aligned-comparison">
        <b>EXACT-TIMESTAMP INDICATOR COMPARISON</b>
        <small>{researchReport.cross_timeframe.aligned_indicator_comparison.status.replaceAll('_',' ')} · {researchReport.cross_timeframe.aligned_indicator_comparison.common_timestamp_count} shared timestamps</small>
@@ -200,7 +229,7 @@ export default function App() {
        <small>Exact timestamp matches only; no interpolation or forward-filling. These are historical calculations, not signals.</small>
       </div>}
       <div className="research-cluster-tools">
-       <label>CHART TIMEFRAME</label><select value={researchInterval} onChange={async e=>{const interval=e.target.value;setResearchInterval(interval);setSelectedCluster(null);try{const r=await fetch(API+'/api/market-data/history?'+new URLSearchParams({symbol:researchSymbol.trim(),interval,limit:'500'}).toString());const d=await r.json();setResearchBars(r.ok?(d.bars||[]):[]);setHistoryMeta(r.ok?{source:d.source,status:d.status,retrieved_at:d.retrieved_at}:null)}catch{setResearchBars([]);setHistoryMeta(null)}}}>{researchIntervals.split(',').map(x=>x.trim()).filter(Boolean).map(x=><option key={x} value={x}>{x}</option>)}</select>
+       <label>CHART TIMEFRAME</label><select value={researchInterval} onChange={async e=>{const interval=e.target.value;setResearchInterval(interval);setSelectedCluster(null);await loadHistoricalQuality(interval);try{const r=await fetch(API+'/api/market-data/history?'+new URLSearchParams({symbol:researchSymbol.trim(),interval,limit:'500'}).toString());const d=await r.json();setResearchBars(r.ok?(d.bars||[]):[]);setHistoryMeta(r.ok?{source:d.source,status:d.status,retrieved_at:d.retrieved_at}:null)}catch{setResearchBars([]);setHistoryMeta(null)}}}>{researchIntervals.split(',').map(x=>x.trim()).filter(Boolean).map(x=><option key={x} value={x}>{x}</option>)}</select>
        <small>{researchBars.length} stored observations · {historyMeta?.source||'source unavailable'} · {historyMeta?.status||'status unavailable'}</small>
        {historyMeta&&<small>Sources {historyMeta.source_count??'—'} · distinct timestamps {historyMeta.timestamp_count??'—'} · overlapping observations {historyMeta.duplicate_timestamp_observations??'—'}</small>}
        {historyMeta&&<small>Range {historyMeta.first_timestamp||'—'} → {historyMeta.last_timestamp||'—'} · retrieved {historyMeta.retrieved_at||'—'}</small>}

@@ -71,3 +71,13 @@ Endpoints:
 - `DELETE /api/workspaces/{id}` — delete a graph.
 
 Docker Compose mounts a named volume at `/data` and sets `MARKET_MIND_DB=/data/market_mind.db`, so saved graphs persist across container recreation. The workspace API is currently a single-user development feature; add authentication and per-user authorization before exposing it to a public network.
+
+## Normalized market data and stored history
+
+The market-data contract validates timezone-aware timestamps, positive OHLC prices, non-negative volume, and internally consistent OHLC ranges. Adapter implementations must return a `MarketDataBatch` with a status (`live`, `delayed`, `historical`, or `synthetic`), provider/source name, retrieval timestamp, and warnings.
+
+The built-in fixture adapter is synthetic only. It can be inspected at `GET /api/market-data/sample`; it is not an exchange feed and must not be used as evidence about actual market conditions.
+
+Normalized batches can be stored using `POST /api/market-data/store`. Query persisted observations using `GET /api/market-data/history?symbol=BTCUSD&interval=1d&limit=500`. SQLite uses the same `MARKET_MIND_DB` database path and Docker named volume as saved workflows. Stored records retain their status, source and retrieval timestamp. The history endpoint does not assert that observations are current or complete.
+
+Before connecting a real provider, implement its adapter separately, verify its API terms and entitlements, enforce rate limits, and test stale, missing, duplicate and malformed observations. Add authentication and authorization before exposing write endpoints publicly.

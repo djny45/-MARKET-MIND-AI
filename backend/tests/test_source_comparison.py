@@ -48,7 +48,7 @@ class SourceComparisonTests(unittest.TestCase):
         self.assertEqual(close["valid_value_count"], 1)
         self.assertEqual(close["missing_value_count"], 1)
         self.assertEqual(close["invalid_value_count"], 1)
-        self.assertIsNone(close["absolute_spread"])
+        self.assertEqual(close["absolute_spread"], 0.0)
         self.assertEqual(volume["invalid_value_count"], 1)
         self.assertEqual(volume["valid_value_count"], 2)
 

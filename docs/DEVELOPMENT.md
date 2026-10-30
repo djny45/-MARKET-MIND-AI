@@ -106,3 +106,15 @@ PYTHONPATH=. python terminal_setup.py --symbol BTCUSD --direction long --entry 1
 ```
 
 The output is explicitly marked educational and execution-disabled. No exchange API key is required or read. The CLI accepts only user-supplied levels; it does not fetch prices, infer a trade, place orders, or monitor markets. For a real research workflow, first supply authorized, provenance-labelled data and independently validate the analysis.
+
+## Stored-chart research report in the terminal
+
+After normalized bars have been stored, run the descriptive report from the `backend` directory:
+
+```bash
+PYTHONPATH=. python terminal_chart_report.py --symbol BTCUSD --interval 1d --limit 500
+```
+
+The report calculates SMA20/SMA50, RSI, MACD, Bollinger Bands, ATR, and recent 20-bar low/high references. It includes the stored source and data-status provenance and warns when synthetic observations are present. It does not fetch quotes, predict prices, produce a buy/sell signal, or execute trades.
+
+API: `GET /api/research/chart?symbol=BTCUSD&interval=1d&limit=500`. At least two stored bars are required. Use authorized, correctly timestamped provider data for market research; synthetic fixtures are only for testing.

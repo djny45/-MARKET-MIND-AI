@@ -112,3 +112,15 @@ The endpoint `GET /api/research/export?symbol=BTCUSD&interval=1h&limit=500` retu
 The Research dashboard provides a JSON download through `GET /api/research/export?symbol=BTCUSD&interval=1h&limit=500`. Schema version 1.1 retains the selected stored observations, per-observation provenance, timestamp integrity and spacing diagnostics, robust outlier results, exact-time source comparisons, and the descriptive event timeline. Empty history is exportable and remains explicitly empty.
 
 The bundle includes a SHA-256 integrity digest over the complete canonical JSON bundle excluding the integrity field itself. To verify it, remove the `integrity` property, serialize the remaining object as UTF-8 JSON with sorted keys and compact separators, and compute SHA-256 over those bytes. This detects accidental changes after export; it does not authenticate the data provider, certify licensing, or prove when the observations were created. The export contains historical evidence only and no forecasts, directional recommendations, or orders.
+
+
+
+### Verify an exported evidence file locally
+
+From the repository root, run:
+
+```bash
+PYTHONPATH=backend python backend/verify_research_export.py ./BTCUSD-1h-research-evidence.json
+```
+
+The verifier prints a JSON result and exits with code 0 when the digest matches, 1 when the bundle or digest is invalid, and 2 when the file cannot be read or parsed. It checks accidental modification of the exported JSON, including observations and provenance. A matching digest is not a digital signature: it cannot prove who supplied the source data or prevent someone from editing the file and recomputing its digest.

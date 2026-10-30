@@ -85,3 +85,8 @@
 .timeline-values span{display:flex;justify-content:space-between;gap:6px;font:8px 'DM Mono';color:#8795a2}
 .timeline-values b{color:#e0b46e}
 .timeline-heading button{font-size:8px;padding:3px 6px}
+
+.timeline-indicators{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;padding:8px;background:#10171e;border:1px solid #303b47}
+.timeline-indicators>b{grid-column:1/-1;font:8px 'DM Mono';letter-spacing:.5px;color:#d6a34e}
+.timeline-indicators span{display:flex;flex-direction:column;gap:3px;font:8px 'DM Mono';color:#82909d}
+.timeline-indicators strong{font:9px 'DM Mono';color:#dce3e9;overflow-wrap:anywhere}

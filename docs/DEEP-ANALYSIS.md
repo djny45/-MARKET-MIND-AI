@@ -84,3 +84,8 @@ Close-to-close returns and volume observations receive a robust median/MAD outli
 
 
 Quality outlier flags now include evidence fields: original bar index, timestamp, measured value, robust MAD deviation, and (for return outliers) the prior close and prior timestamp. Timestamp-spacing flags include both endpoint timestamps. The frontend displays a short sample of these exact observations; the complete response remains available from the API. This improves auditability without changing the statistical threshold or inferring missing observations.
+
+
+## Timestamp integrity diagnostics
+
+The historical data-quality response also reports timezone-aware timestamp integrity checks: invalid or naive timestamps, duplicate instants (including equivalent instants written with different UTC offsets), and out-of-order observations. Each flag includes original bar indices and timestamp values. The diagnostics do not sort, delete, repair, or fabricate bars; they describe the supplied sequence so the caller can review the original data.

@@ -8,7 +8,7 @@
 
 A visual research environment where specialist analytical workers connect as reusable nodes, execute directed workflows, and produce traceable research outputs.
 
-[Architecture](docs/ARCHITECTURE.md) · [Roadmap](docs/ROADMAP.md) · [Development Guide](docs/DEVELOPMENT.md)
+[Architecture](docs/ARCHITECTURE.md) · [Workflow Guide](docs/WORKFLOW-GUIDE.md) · [Market Coverage](docs/MARKET-COVERAGE.md) · [Roadmap](docs/ROADMAP.md) · [Development Guide](docs/DEVELOPMENT.md)
 
 </div>
 
@@ -41,14 +41,14 @@ The platform is designed for multi-asset research across equities, ETFs, indices
 | Node library and worker catalogue UI | Implemented |
 | FastAPI service and health endpoint | Implemented |
 | DAG workflow execution and cycle detection | Implemented |
-| Basic data, SMA, returns, volatility and summary nodes | Implemented |
+| Data, SMA, EMA, RSI, MACD, Bollinger, returns, volatility and summary nodes | Implemented |
 | 550 worker profiles / 20 departments | Generated templates; not 550 completed agents |
 | Docker Compose development setup | Added |
 | CI quality workflow | Added; run status visible in GitHub Actions |
 | Market taxonomy and provider capability registry | Added |
 | Configurable RSS news ingestion | Added |
 | SMA, EMA, RSI, MACD, Bollinger and realized-volatility library | Added |
-| Async in-process event bus and latency architecture | Added |
+| Async in-process event bus and latency architecture | Added |\n| Workflow diagrams and graph usage guide | Added |\n| Unit tests for branching DAG execution and cycle rejection | Added |
 
 ## Visual workflow model
 
@@ -66,7 +66,7 @@ flowchart LR
 
 Workers are intended to be independently inspectable and reusable. The graph engine executes supported nodes in topological order and rejects cyclic or unsupported workflows.
 
-## Run locally
+## System flow diagrams\n\n### End-to-end research pipeline\n\n![Research pipeline](docs/assets/research-pipeline.svg)\n\n### Specialist worker network\n\n![Worker network](docs/assets/worker-network.svg)\n\n### Low-latency engineering model\n\n![Low-latency model](docs/assets/low-latency-model.svg)\n\nMore detail: [workflow guide](docs/WORKFLOW-GUIDE.md), [low-latency architecture](docs/LOW-LATENCY-ARCHITECTURE.md), and [algorithm catalogue](docs/ALGORITHMS.md).\n\n## Run locally
 
 ### Requirements
 

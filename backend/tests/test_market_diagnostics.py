@@ -24,8 +24,8 @@ class MarketDiagnosticsTests(unittest.TestCase):
     def test_invalid_price_or_volume_rejected(self):
         invalid = bars()
         invalid[-1]["volume"] = -1
-        with self.assertRaises(ValueError):
-            build_market_diagnostics(invalid)
+        result = build_market_diagnostics(invalid)
+        self.assertEqual(result["status"], "invalid_data")
 
     def test_window_validation(self):
         with self.assertRaises(ValueError):

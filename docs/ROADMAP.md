@@ -24,7 +24,7 @@ This roadmap is a plan, not a claim that these features already exist. Mark an i
 - [ ] Add saved layouts and keyboard navigation.
 
 ## Phase 3 — Research and analytics
-- [ ] Implement tested indicator library and technical dictionary.
+- [x] Implement tested indicator library and initial technical dictionary (SMA, EMA, RSI, MACD, Bollinger, volatility, ATR and candle-shape labels).
 - [ ] Add returns, volatility, correlation, drawdown, breadth, and seasonality analytics.
 - [ ] Add fundamentals, filings, news, and macro research panels.
 - [ ] Add source-cited research reports and exportable methodology notes.

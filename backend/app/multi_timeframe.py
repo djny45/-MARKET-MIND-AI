@@ -49,8 +49,16 @@ def _aligned_indicator_context(histories: dict[str, dict], intervals: list[str])
                 "common_timestamp_count": 0, "latest_common_timestamp": None,
                 "latest_common_observation": None, "status": "insufficient_data"}
     common = set.intersection(*(set(values) for values in timestamp_maps.values()))
-    from datetime import datetime
-    ordered = sorted(common, key=lambda value: (0, datetime.fromisoformat(value.replace('Z', '+00:00'))) if _is_iso_timestamp(value) else (1, value))
+    from datetime import datetime, timezone
+    def timestamp_sort_key(value):
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=timezone.utc)
+            return (0, parsed.timestamp())
+        except ValueError:
+            return (1, value)
+    ordered = sorted(common, key=timestamp_sort_key)
     if not ordered:
         return {"method": "exact_timestamp_intersection_no_interpolation",
                 "common_timestamp_count": 0, "latest_common_timestamp": None,

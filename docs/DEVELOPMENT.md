@@ -118,3 +118,7 @@ PYTHONPATH=. python terminal_chart_report.py --symbol BTCUSD --interval 1d --lim
 The report calculates SMA20/SMA50, RSI, MACD, Bollinger Bands, ATR, and recent 20-bar low/high references. It includes the stored source and data-status provenance and warns when synthetic observations are present. It does not fetch quotes, predict prices, produce a buy/sell signal, or execute trades.
 
 API: `GET /api/research/chart?symbol=BTCUSD&interval=1d&limit=500`. At least two stored bars are required. Use authorized, correctly timestamped provider data for market research; synthetic fixtures are only for testing.
+
+### Candlestick shape observations
+
+The stored-chart report also labels selected geometric candle formations: doji-like candles, hammer-like and shooting-star-like shapes, bullish/bearish engulfing shapes, and inside bars. Labels are based on OHLC geometry and are included as observations, not predictive signals. A candle shape alone does not establish direction, probability, or a trading edge. Review the surrounding bars, interval, data provenance, and sample limitations.

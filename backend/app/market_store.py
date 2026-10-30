@@ -85,10 +85,24 @@ def get_bars(symbol: str, interval: str, limit: int = 500) -> dict:
             ORDER BY timestamp DESC LIMIT ?
         """, (symbol.strip().upper(), interval, safe_limit)).fetchall()
     observations = [dict(row) for row in reversed(rows)]
+    sources = sorted({item["source"] for item in observations})
+    statuses = sorted({item["status"] for item in observations})
+    retrieved_values = [item["retrieved_at"] for item in observations if item.get("retrieved_at")]
+    unique_timestamps = {item["timestamp"] for item in observations}
     return {
         "symbol": symbol.strip().upper(),
         "interval": interval,
         "count": len(observations),
         "bars": observations,
-        "data_note": "Stored observations retain status, source and retrieval timestamp; freshness is not implied.",
+        "source": sources[0] if len(sources) == 1 else ("mixed" if sources else None),
+        "sources": sources,
+        "status": statuses[0] if len(statuses) == 1 else ("mixed" if statuses else None),
+        "statuses": statuses,
+        "retrieved_at": max(retrieved_values) if retrieved_values else None,
+        "source_count": len(sources),
+        "timestamp_count": len(unique_timestamps),
+        "duplicate_timestamp_observations": len(observations) - len(unique_timestamps),
+        "first_timestamp": observations[0]["timestamp"] if observations else None,
+        "last_timestamp": observations[-1]["timestamp"] if observations else None,
+        "data_note": "Stored observations retain per-bar source, status and retrieval timestamps; freshness is not implied. Multiple sources can contribute separate observations at one timestamp.",
     }

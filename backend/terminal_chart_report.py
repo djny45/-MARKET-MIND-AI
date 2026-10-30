@@ -17,9 +17,10 @@ def main() -> None:
     parser.add_argument("--limit", type=int, default=500)
     parser.add_argument("--deep", action="store_true", help="include integrated data-quality and structure diagnostics")
     parser.add_argument("--correlate-symbols", default="", help="comma-separated symbols for timestamp-aligned historical correlation; requires --deep")
+    parser.add_argument("--breadth-symbols", default="", help="comma-separated symbols for timestamp-aligned historical market breadth; requires --deep")
     args = parser.parse_args()
-    if args.correlate_symbols and not args.deep:
-        parser.error("--correlate-symbols requires --deep")
+    if (args.correlate_symbols or args.breadth_symbols) and not args.deep:
+        parser.error("--correlate-symbols and --breadth-symbols require --deep")
 
     try:
         if args.mode == "single":
@@ -47,9 +48,16 @@ def main() -> None:
             if len(symbols) > 12:
                 parser.error("--correlate-symbols supports at most 12 total symbols including --symbol")
             correlation_histories = {name: get_bars(name, args.interval if args.mode == "single" else intervals[0], args.limit) for name in symbols}
+        breadth_histories = None
+        if args.breadth_symbols:
+            symbols = sorted({item.strip().upper() for item in args.breadth_symbols.split(",") if item.strip()} | {args.symbol.upper()})
+            if len(symbols) > 30:
+                parser.error("--breadth-symbols supports at most 30 total symbols including --symbol")
+            breadth_interval = args.interval if args.mode == "single" else intervals[0]
+            breadth_histories = {name: get_bars(name, breadth_interval, args.limit) for name in symbols}
         report = build_deep_analysis_report(args.symbol, histories,
                                             report if args.mode == "multi" else None,
-                                            correlation_histories)
+                                            correlation_histories, breadth_histories)
         title = "DEEP " + title
 
     print(f"MARKET-MIND-AI | {title} DESCRIPTIVE RESEARCH | EXECUTION DISABLED")

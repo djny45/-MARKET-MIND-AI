@@ -31,7 +31,6 @@ class HistoricalQualityTests(unittest.TestCase):
     def test_outlier_flags_include_original_timestamp_and_value(self):
         bars = self.bars(30)
         for bar in bars:
-            bar["close"] = 100
             bar["volume"] = 100
         bars[25]["close"] = 250
         bars[25]["volume"] = 900
@@ -40,7 +39,7 @@ class HistoricalQualityTests(unittest.TestCase):
         volume_flags = result["volume_outliers"]["flagged_observations"]
         self.assertTrue(any(item["bar_index"] == 25 and item["timestamp"] == bars[25]["timestamp"] for item in price_flags))
         self.assertTrue(any(item["bar_index"] == 25 and item["volume"] == 900 for item in volume_flags))
-        self.assertEqual(price_flags[0]["previous_close"], 100)
+        self.assertEqual(next(item for item in price_flags if item["bar_index"] == 25)["previous_close"], 102.4)
 
     def test_unsupported_interval_does_not_infer_spacing(self):
         result = build_historical_quality_diagnostics({"interval": "weekly", "bars": self.bars(4)})

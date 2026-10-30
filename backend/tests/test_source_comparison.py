@@ -39,6 +39,7 @@ class SourceComparisonTests(unittest.TestCase):
     def test_same_source_duplicate_instant_is_reported(self):
         bars = self.bars()
         bars.append({**bars[0], "timestamp": "2026-01-01T01:00:00Z", "close": 106})
+        bars.append({**bars[1], "timestamp": "2026-01-01T01:00:00Z", "source": "provider-b", "close": 105})
         result = compare_source_observations({"symbol": "BTCUSD", "interval": "1h", "bars": bars})
         later = next(item for item in result["comparisons"] if item["timestamp_utc"].startswith("2026-01-01T01:00"))
         self.assertEqual(later["same_source_duplicate_count"], 1)

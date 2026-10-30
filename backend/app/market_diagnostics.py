@@ -12,10 +12,15 @@ def build_market_diagnostics(bars: list[dict], volume_window: int = 20) -> dict:
             "limitations": ["At least three bars are required for return and volatility diagnostics."],
         }
 
-    closes = [float(bar["close"]) for bar in bars]
-    volumes = [float(bar["volume"]) for bar in bars]
+    try:
+        closes = [float(bar["close"]) for bar in bars]
+        volumes = [float(bar["volume"]) for bar in bars]
+    except (KeyError, TypeError, ValueError):
+        return {"status": "invalid_data", "bars_analyzed": len(bars),
+                "limitations": ["Close and volume fields must be present and numeric."]}
     if any(value <= 0 for value in closes) or any(value < 0 for value in volumes):
-        raise ValueError("close prices must be positive and volume cannot be negative")
+        return {"status": "invalid_data", "bars_analyzed": len(bars),
+                "limitations": ["Close prices must be positive and volume cannot be negative."]}
 
     returns = [closes[i] / closes[i - 1] - 1 for i in range(1, len(closes))]
     mean_return = sum(returns) / len(returns)

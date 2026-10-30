@@ -58,3 +58,19 @@ Selecting an event in the Research timeline now places a marker on the matching 
 ## Market-data ingestion validation
 
 The normalized market-data batch contract now trims and uppercases symbols, restricts intervals to the supported research set (15m, 1h, 4h, 1d), requires timezone-aware observation and retrieval timestamps, validates positive OHLC prices and nonnegative volume, and rejects duplicate timestamps within a batch. Storage sorts accepted bars chronologically before idempotent upsert and returns the stored timestamp span and an explicit ordering/duplicate summary. Source, status and retrieval timestamps remain attached to every observation. These checks validate structure, not provider authenticity, licensing, completeness or freshness.
+
+
+## Historical CSV import
+
+The API accepts user-supplied historical OHLCV CSV data at `POST /api/market-data/import-csv`. Required headers are `timestamp,open,high,low,close,volume`; timestamps must include a timezone. The importer enforces a 2 MB payload limit, 5,000-row limit, supported intervals (15m, 1h, 4h, 1d), finite/valid OHLCV values through the normalized Pydantic contract, and unique timestamps. A malformed row rejects the entire import with its CSV row number. Accepted rows are labelled `historical`, retain the supplied source label and retrieval timestamp, and are sorted chronologically by storage. Warnings make clear that user-supplied source authenticity/licensing is not independently verified and missing intervals are not inferred.
+
+Example JSON body:
+
+```json
+{
+  "symbol": "BTCUSD",
+  "interval": "1h",
+  "source": "my-historical-export",
+  "csv_text": "timestamp,open,high,low,close,volume\\n2026-01-01T00:00:00Z,100,105,99,103,1200"
+}
+```

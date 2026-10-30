@@ -3,7 +3,7 @@
 This module combines existing chart research with explicit data-quality diagnostics.
 It describes observations; it does not forecast, recommend, or execute.
 """
-from datetime import datetime
+from datetime import datetime\nfrom .market_diagnostics import build_market_diagnostics
 
 
 def _parse_timestamp(value):
@@ -108,7 +108,7 @@ def build_deep_analysis_report(symbol: str, histories: dict, multi_timeframe_rep
             "recent range references",
             "candlestick geometry labels",
             "confirmed swing highs and lows",
-            "source, status, timestamp and OHLCV structural diagnostics",
+            "source, status, timestamp and OHLCV structural diagnostics",\n            "relative volume, per-observation volatility regime and historical close-to-close drawdown",
             "descriptive cross-timeframe comparison when supplied",
         ],
         "interpretation": "Integrated historical observations and data diagnostics only. No prediction, directional signal, investment recommendation, or execution.",

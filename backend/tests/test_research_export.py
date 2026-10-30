@@ -1,3 +1,5 @@
+import hashlib
+import json
 import unittest
 
 from app.research_export import build_research_evidence_bundle
@@ -18,7 +20,13 @@ class ResearchEvidenceBundleTests(unittest.TestCase):
                    "retrieved_at": "2026-01-02T01:00:00Z",
                    "first_timestamp": bars[0]["timestamp"], "last_timestamp": bars[1]["timestamp"]}
         bundle = build_research_evidence_bundle("btcusd", "1h", history, {"status": "available"})
-        self.assertEqual(bundle["schema_version"], "1.0")
+        self.assertEqual(bundle["schema_version"], "1.1")
+        integrity = bundle.pop("integrity")
+        canonical = json.dumps(bundle, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+        expected_digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+        self.assertEqual(integrity["algorithm"], "sha256")
+        self.assertEqual(integrity["digest"], expected_digest)
+        bundle["integrity"] = integrity
         self.assertEqual(bundle["scope"]["symbol"], "BTCUSD")
         self.assertEqual(bundle["observations"], bars)
         self.assertEqual(bundle["source_comparison"]["shared_timestamp_count"], 1)

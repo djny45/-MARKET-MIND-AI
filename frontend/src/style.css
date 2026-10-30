@@ -48,3 +48,18 @@
 .research-frames span{font-size:9px;color:#c5ced6;line-height:1.4}
 .research-frames small{font:8px 'DM Mono';color:#85919c}
 .research-json{justify-content:center}
+
+/* Historical chart provenance and selectable confirmed swing-price clusters */
+.research-cluster-tools{display:grid;gap:8px;margin-top:7px;padding-top:9px;border-top:1px solid #303943}
+.research-cluster-tools>label,.research-cluster-tools>div>b{font:8px 'DM Mono';letter-spacing:.6px;color:#d5a65a}
+.research-cluster-tools>select{background:#0b1015;border:1px solid #303943;border-radius:4px;padding:7px;color:#dce3e9;font:9px 'DM Mono'}
+.research-cluster-tools>small{font:8px/1.5 'DM Mono';color:#83909b;overflow-wrap:anywhere}
+.cluster-choice{display:grid;gap:3px;width:100%;text-align:left;margin-top:5px;padding:7px;background:#141b22;border:1px solid #303943;border-radius:4px;color:#dce3e9;cursor:pointer}
+.cluster-choice:hover,.cluster-choice.selected{border-color:#d2a04b;background:#1d242b}
+.cluster-choice span{font:10px 'DM Mono';color:#e2b45f}
+.cluster-choice small{font:8px 'DM Mono';color:#8b98a5}
+.cluster-detail{display:grid;gap:5px;padding:9px;border:1px solid #8d6b38;background:#171d23;border-radius:4px}
+.cluster-detail>b{font:8px 'DM Mono';color:#e2b45f}
+.cluster-detail>span{font:8px/1.5 'DM Mono';color:#c4cdd5;overflow-wrap:anywhere}
+.cluster-detail>small{font:8px/1.5 'DM Mono';color:#8c99a5}
+.cluster-detail .soft-btn{justify-content:center}

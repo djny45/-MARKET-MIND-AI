@@ -21,7 +21,7 @@ class CorrelationTests(unittest.TestCase):
     def test_unmatched_timestamps_are_excluded(self):
         left = history([10, 11, 12, 13])
         right = history([20, 21, 22, 23])
-        right["bars"][0]["timestamp"] = "2025-12-31T00:00:00+00:00"
+        right["bars"][-1]["timestamp"] = "2026-02-01T00:00:00+00:00"
         result = build_correlation_report({"A": left, "B": right})
         self.assertLess(result["paired_return_observations"]["A"]["B"], 3)
 

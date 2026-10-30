@@ -1,5 +1,8 @@
 """Portable evidence bundle for stored historical research; no forecasts or orders."""
 
+import hashlib
+import json
+
 from .historical_quality import build_historical_quality_diagnostics
 from .source_comparison import compare_source_observations
 from .research_timeline import build_research_timeline
@@ -10,8 +13,8 @@ def build_research_evidence_bundle(symbol, interval, history, deep_report=None):
     quality = build_historical_quality_diagnostics(history)
     comparison = compare_source_observations(history)
     timeline = build_research_timeline(history, max(1, min(1000, len(history.get("bars", [])))))
-    return {
-        "schema_version": "1.0",
+    bundle = {
+        "schema_version": "1.1",
         "report_type": "historical_research_evidence",
         "scope": {
             "symbol": symbol.strip().upper(),
@@ -36,3 +39,11 @@ def build_research_evidence_bundle(symbol, interval, history, deep_report=None):
             "No forecasts, directional signals, investment recommendations or orders are produced.",
         ],
     }
+    canonical = json.dumps(bundle, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+    bundle["integrity"] = {
+        "algorithm": "sha256",
+        "digest": hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
+        "scope": "complete evidence bundle excluding this integrity field",
+        "canonicalization": "UTF-8 JSON with sorted keys and compact separators",
+    }
+    return bundle

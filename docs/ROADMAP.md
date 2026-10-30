@@ -27,7 +27,7 @@ This roadmap is a plan, not a claim that these features already exist. Mark an i
 - [x] Implement tested indicator library and initial technical dictionary (SMA, EMA, RSI, MACD, Bollinger, volatility, ATR and candle-shape labels).
 - [x] Add initial descriptive price-structure analytics: candle shapes, confirmed swing highs/lows, recent range references and ATR.
 - [x] Integrate deep descriptive reports with OHLCV structural quality diagnostics.
-- [x] Add relative-volume, return-volatility and historical drawdown diagnostics with explicit limitations.
+- [x] Add relative-volume, return-volatility and historical drawdown diagnostics with explicit limitations.\n- [x] Add timestamp-aligned cross-asset historical return correlation with sample counts and insufficient-data handling.
 - [ ] Add returns, volatility, correlation, drawdown, breadth, and seasonality analytics.
 - [ ] Add fundamentals, filings, news, and macro research panels.
 - [ ] Add source-cited research reports and exportable methodology notes.

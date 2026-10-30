@@ -211,6 +211,7 @@ export default function App() {
     <label>TIMEFRAMES</label><select value={researchIntervals} onChange={e=>setResearchIntervals(e.target.value)} aria-label="Research timeframes"><option value="15m,1h,4h,1d">15m · 1h · 4h · 1d</option><option value="15m,1h">15m · 1h</option><option value="1h,4h,1d">1h · 4h · 1d</option><option value="1h">1h only</option><option value="4h">4h only</option><option value="1d">1d only</option></select>
     <label>COMPARE / BREADTH SYMBOLS</label><input value={researchCompare} onChange={e=>setResearchCompare(e.target.value)} aria-label="Comparison symbols"/>
     <button className="run-btn research-run" onClick={runDeepResearch} disabled={researchBusy||!researchSymbol.trim()}>{researchBusy?'ANALYZING…':'RUN DEEP RESEARCH'}</button>
+    <a className="soft-btn research-run" href={API+'/api/research/export?'+new URLSearchParams({symbol:researchSymbol.trim(),interval:researchInterval,limit:'500'}).toString()} download={researchSymbol.trim().toUpperCase()+'-'+researchInterval+'-research-evidence.json'} aria-label="Download historical research evidence JSON">DOWNLOAD RESEARCH EVIDENCE JSON</a>
     <small className="research-note">Uses locally stored observations only. No live-price claim, forecasts or execution.</small>
     {researchError&&<p className="news-error">{researchError}</p>}
     {researchReport&&<div className="research-results">

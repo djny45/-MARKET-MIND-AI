@@ -33,3 +33,8 @@ This is a historical descriptive research feature. It does not produce forecasts
 ## Interactive chart workspace
 
 The frontend Research tab can load stored OHLCV history for a selected symbol and timeframe through `/api/market-data/history`. When stored bars are available, the chart renders timestamped candlesticks and displays the source/status labels returned by the stored observations. The user can select a confirmed historical swing-high or swing-low cluster from the deep report; the chart overlays its mean price and the panel displays the observed range, touch count and pivot timestamps. This overlay is a historical reference only. If no stored history exists, the chart does not fabricate bars; the existing manual/synthetic demo series remains separately labelled.
+
+
+## Historical event timeline
+
+The API endpoint `GET /api/research/timeline?symbol=BTCUSD&interval=1h&limit=200` returns the latest timestamped stored-bar observations (maximum 1,000). Each event includes OHLCV, close-to-close percentage change, source, status, retrieval timestamp, and any rule-based candle geometry or confirmed swing-point labels. The Research panel displays the latest 40 events in reverse chronological order. Empty stored history is explicitly reported; no missing observations are fabricated. Swing labels require right-side confirmation bars and therefore appear only after confirmation. This timeline is historical and descriptive, not a prediction or trading instruction.

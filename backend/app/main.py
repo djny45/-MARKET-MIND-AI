@@ -9,6 +9,7 @@ from .instruments import search_instruments
 from .pipeline import system_capabilities
 from .news import ingest_news
 from . import indicators
+from .performance import performance_metrics
 
 app = FastAPI(title="MARKET-MIND-AI API", version="0.2.0",
  description="Multi-market, evidence-first research pipeline. No brokerage execution.")
@@ -70,6 +71,19 @@ def calculate(request: IndicatorRequest):
    "realized_volatility":indicators.realized_volatility(values)}
  except ValueError as exc:
   raise HTTPException(status_code=400,detail=str(exc)) from exc
+
+class PerformanceRequest(BaseModel):
+ values: list[float] = Field(min_length=3)
+ benchmark: list[float] | None = None
+ periods_per_year: float | None = Field(default=None, gt=0)
+ risk_free_rate: float = 0.0
+
+@app.post("/api/analytics/performance")
+def analyze_performance(request: PerformanceRequest):
+ try:
+  return performance_metrics(request.values, request.benchmark, request.periods_per_year, request.risk_free_rate)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 @app.post("/api/workflows/execute")
 def run_workflow(request: WorkflowRequest):

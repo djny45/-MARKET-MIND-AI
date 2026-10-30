@@ -1,5 +1,6 @@
 """Deterministic descriptive chart research over stored OHLCV observations."""
 from . import indicators
+from .candle_patterns import classify_candles
 
 
 def build_chart_report(history: dict) -> dict:
@@ -40,6 +41,10 @@ def build_chart_report(history: dict) -> dict:
     else:
         regime = "mixed_or_sideways_average_structure"
 
+    candle_labels = classify_candles(bars)
+    recent_candle_labels = [
+        item for item in candle_labels[-10:] if item["patterns"]
+    ]
     sources = sorted({bar.get("source", "unknown") for bar in bars})
     statuses = sorted({bar.get("status", "unknown") for bar in bars})
     warnings = []
@@ -68,6 +73,11 @@ def build_chart_report(history: dict) -> dict:
             "bollinger_middle": round(bb["middle"][-1], 8),
             "bollinger_lower": round(bb["lower"][-1], 8),
             "atr14": round(atr, 8),
+        },
+        "candlestick_observations": {
+            "latest_bar": candle_labels[-1],
+            "recent_pattern_labels": recent_candle_labels,
+            "method_note": "Rule-based candle geometry labels; not standalone predictive signals.",
         },
         "observed_structure": {
             "moving_average_regime": regime,

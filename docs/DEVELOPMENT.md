@@ -138,3 +138,7 @@ PYTHONPATH=. python terminal_chart_report.py --symbol BTCUSD --mode multi --inte
 ```
 
 The multi-timeframe API is `GET /api/research/timeframes?symbol=BTCUSD&intervals=15m,1h,4h,1d&limit=500`. Select any supported subset. Missing or insufficient intervals are reported explicitly; no bars are invented or interpolated. Each interval is analyzed independently, and the comparison is descriptive rather than a synchronized trade signal. Both modes remain research-only with execution disabled.
+
+### Confirmed swing structure
+
+The chart research report identifies local swing highs and lows using two bars on each side. A candidate pivot is only labelled after both right-side confirmation bars exist, reducing premature labelling. These points are historical structure references, not guaranteed support/resistance, forecasts, or trade triggers. The report includes the pivot index, timestamp and observed price.

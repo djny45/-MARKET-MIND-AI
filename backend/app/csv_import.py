@@ -1,6 +1,7 @@
 """Strict CSV importer for user-supplied historical OHLCV datasets."""
 import csv
 import io
+import math
 from datetime import datetime, timezone
 
 from pydantic import ValidationError
@@ -32,7 +33,10 @@ def parse_historical_csv(
     reader = csv.DictReader(io.StringIO(csv_text))
     if not reader.fieldnames:
         raise ValueError("CSV header row is required")
-    headers = {name.strip().lower() for name in reader.fieldnames if name}
+    normalized_headers = [(name or "").strip().lower() for name in reader.fieldnames]
+    if len(normalized_headers) != len(set(normalized_headers)):
+        raise ValueError("CSV contains duplicate column names after normalization")
+    headers = set(normalized_headers)
     missing = sorted(REQUIRED_COLUMNS - headers)
     if missing:
         raise ValueError("Missing required columns: " + ", ".join(missing))
@@ -42,6 +46,8 @@ def parse_historical_csv(
     for row_number, row in enumerate(reader, start=2):
         if row_number > MAX_ROWS + 1:
             raise ValueError(f"CSV exceeds the {MAX_ROWS} row limit")
+        if None in row or any(value is None for value in row.values()):
+            raise ValueError(f"Invalid CSV row {row_number}: column count does not match header")
         normalized = {(key or "").strip().lower(): value for key, value in row.items()}
         try:
             timestamp = datetime.fromisoformat(
@@ -51,6 +57,8 @@ def parse_historical_csv(
                 field: float(normalized[field])
                 for field in ("open", "high", "low", "close", "volume")
             }
+            if not all(math.isfinite(value) for value in values.values()):
+                raise ValueError("OHLCV values must be finite numbers")
             normalized_rows.append(OHLCVBar(timestamp=timestamp, **values))
         except (ValueError, TypeError, KeyError, ValidationError) as exc:
             raise ValueError(f"Invalid CSV row {row_number}: {exc}") from exc

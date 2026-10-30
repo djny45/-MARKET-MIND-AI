@@ -1,5 +1,6 @@
 """Cross-source historical OHLCV comparison; preserves original observations."""
 from datetime import datetime, timezone
+import math
 
 FIELDS = ("open", "high", "low", "close", "volume")
 
@@ -42,12 +43,34 @@ def compare_source_observations(history):
             continue
         ranges = {}
         for field in FIELDS:
-            values = [float(item[field]) for items in by_source.values()
-                      for item in items if item.get(field) is not None]
+            values = []
+            invalid_values = []
+            missing_count = 0
+            for source, items in by_source.items():
+                for item in items:
+                    raw = item.get(field)
+                    if raw is None:
+                        missing_count += 1
+                        continue
+                    try:
+                        numeric = float(raw)
+                        if not math.isfinite(numeric):
+                            raise ValueError("non-finite numeric value")
+                        values.append(numeric)
+                    except (TypeError, ValueError, OverflowError):
+                        invalid_values.append({
+                            "source": source,
+                            "bar_index": item["bar_index"],
+                            "raw_value": raw,
+                        })
             ranges[field] = {
                 "minimum": min(values) if values else None,
                 "maximum": max(values) if values else None,
                 "absolute_spread": max(values) - min(values) if values else None,
+                "valid_value_count": len(values),
+                "missing_value_count": missing_count,
+                "invalid_value_count": len(invalid_values),
+                "invalid_values": invalid_values,
             }
         comparisons.append({
             "timestamp_utc": instant.isoformat(),
@@ -70,6 +93,7 @@ def compare_source_observations(history):
             "Only timezone-aware timestamps representing the exact same UTC instant are compared.",
             "Original timestamp strings, source labels, statuses and retrieval times are retained.",
             "Field ranges describe disagreement; no source is ranked, selected or overwritten.",
+            "Missing, malformed and non-finite numeric fields are counted separately and excluded from ranges.",
             "No missing values, prices or bars are inferred.",
         ],
     }

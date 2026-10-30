@@ -5,6 +5,7 @@ It describes observations; it does not forecast, recommend, or execute.
 """
 from datetime import datetime
 from .market_diagnostics import build_market_diagnostics
+from .correlation import build_correlation_report
 
 
 def _parse_timestamp(value):
@@ -73,7 +74,7 @@ def build_data_quality_report(history: dict) -> dict:
     }
 
 
-def build_deep_analysis_report(symbol: str, histories: dict, multi_timeframe_report: dict | None = None) -> dict:
+def build_deep_analysis_report(symbol: str, histories: dict, multi_timeframe_report: dict | None = None, correlation_histories: dict | None = None) -> dict:
     if not symbol or not symbol.strip():
         raise ValueError("symbol is required")
     if not histories:
@@ -95,6 +96,7 @@ def build_deep_analysis_report(symbol: str, histories: dict, multi_timeframe_rep
         "symbol": symbol.strip().upper(),
         "timeframes": timeframe_reports,
         "cross_timeframe": multi_timeframe_report,
+        "cross_asset_correlation": build_correlation_report(correlation_histories) if correlation_histories else None,
         "coverage": {
             "timeframes_requested": list(histories.keys()),
             "timeframes_with_chart_analysis": [

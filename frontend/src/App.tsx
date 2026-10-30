@@ -61,6 +61,10 @@ export default function App() {
  const [researchReport,setResearchReport] = useState<any>(null)
  const [researchBusy,setResearchBusy] = useState(false)
  const [researchError,setResearchError] = useState('')
+ const [researchBars,setResearchBars] = useState<any[]>([])
+ const [researchInterval,setResearchInterval] = useState('1h')
+ const [selectedCluster,setSelectedCluster] = useState<any>(null)
+ const [historyMeta,setHistoryMeta] = useState<any>(null)
  const [instrumentQuery,setInstrumentQuery] = useState('')
  const [instrumentResults,setInstrumentResults] = useState<any[]>([])
  const [newsItems,setNewsItems] = useState<any[]>([])
@@ -87,6 +91,12 @@ export default function App() {
    const body = await response.json()
    if(!response.ok)throw new Error(body.detail||'Deep research unavailable')
    setResearchReport(body)
+   const chosen=researchIntervals.split(',').map(x=>x.trim()).includes(researchInterval)?researchInterval:researchIntervals.split(',')[0].trim()
+   setResearchInterval(chosen);setSelectedCluster(null)
+   const historyResponse=await fetch(API+'/api/market-data/history?'+new URLSearchParams({symbol:researchSymbol.trim(),interval:chosen,limit:'500'}).toString())
+   const historyBody=await historyResponse.json()
+   if(historyResponse.ok){setResearchBars(historyBody.bars||[]);setHistoryMeta({source:historyBody.source,status:historyBody.status,retrieved_at:historyBody.retrieved_at})}
+   else {setResearchBars([]);setHistoryMeta(null)}
   } catch(e) {setResearchError(e instanceof Error?e.message:'Research API unavailable')}
   finally {setResearchBusy(false)}
  }
@@ -130,6 +140,12 @@ export default function App() {
       <div className="research-metric"><small>HIGH / LOW CLUSTERS</small><b>{researchReport.dashboard?.historical_price_clusters?.confirmed_swing_high_cluster_count??0} / {researchReport.dashboard?.historical_price_clusters?.confirmed_swing_low_cluster_count??0}</b></div>
       {researchReport.dashboard?.market_breadth_latest&&<div className="research-metric"><small>ADVANCING / DECLINING</small><b>{researchReport.dashboard.market_breadth_latest.advancing} / {researchReport.dashboard.market_breadth_latest.declining}</b></div>}
       <div className="research-frames">{(researchReport.dashboard?.timeframes||[]).map((item:any)=><div key={item.interval}><b>{item.interval}</b><span>{item.status==='available'?item.moving_average_regime:'INSUFFICIENT DATA'}</span><small>RSI {item.rsi14??'—'} · ATR {item.atr14??'—'}</small></div>)}</div>
+      <div className="research-cluster-tools">
+       <label>CHART TIMEFRAME</label><select value={researchInterval} onChange={async e=>{const interval=e.target.value;setResearchInterval(interval);setSelectedCluster(null);try{const r=await fetch(API+'/api/market-data/history?'+new URLSearchParams({symbol:researchSymbol.trim(),interval,limit:'500'}).toString());const d=await r.json();setResearchBars(r.ok?(d.bars||[]):[]);setHistoryMeta(r.ok?{source:d.source,status:d.status,retrieved_at:d.retrieved_at}:null)}catch{setResearchBars([]);setHistoryMeta(null)}}}>{researchIntervals.split(',').map(x=>x.trim()).filter(Boolean).map(x=><option key={x} value={x}>{x}</option>)}</select>
+       <small>{researchBars.length} stored bars · {historyMeta?.source||'source unavailable'} · {historyMeta?.status||'status unavailable'}</small>
+       {(['historical_swing_high','historical_swing_low'] as const).map(side=><div key={side}><b>{side==='historical_swing_high'?'CONFIRMED HIGH CLUSTERS':'CONFIRMED LOW CLUSTERS'}</b>{(researchReport.timeframes?.[researchInterval]?.historical_price_clusters?.clusters?.[side]||[]).map((cluster:any,index:number)=><button className={selectedCluster===cluster?'cluster-choice selected':'cluster-choice'} key={side+'-'+index} onClick={()=>setSelectedCluster(cluster)}><span>{cluster.mean_price}</span><small>{cluster.touch_count} pivots · {cluster.lower_price}–{cluster.upper_price}</small></button>)}</div>)}
+       {selectedCluster&&<div className="cluster-detail"><b>SELECTED HISTORICAL CLUSTER</b><span>Mean: {selectedCluster.mean_price}</span><span>Observed range: {selectedCluster.lower_price} – {selectedCluster.upper_price}</span><span>Confirmed pivots: {selectedCluster.touch_count}</span><span>Pivot times: {selectedCluster.pivot_timestamps.filter(Boolean).join(', ')||'Unavailable'}</span><small>Horizontal chart overlay is a historical reference only, not a forecast or actionable level.</small><button className="soft-btn" onClick={()=>setSelectedCluster(null)}>CLEAR OVERLAY</button></div>}
+      </div>
       <button className="soft-btn research-json" onClick={()=>setResult(researchReport)}>OPEN FULL RESEARCH JSON</button>
     </div>}
    </div>}
@@ -137,7 +153,7 @@ export default function App() {
   </aside>
   <section className="canvas-area"><div className="canvas-meta"><span><span className="live-dot"/> GRAPH EDITOR</span><span>DRAG NODES · CONNECT PORTS · BUILD PIPELINES</span><span>{nodes.length} NODES&nbsp; / &nbsp;{edges.length} LINKS</span></div>
    <div className="canvas"><ReactFlow nodes={nodes} edges={edges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect} nodeTypes={nodeTypes} fitView fitViewOptions={{padding:.2}} defaultEdgeOptions={{animated:true,style:{stroke:'#b18b4d',strokeWidth:1.4}}}><Background color="#30343b" gap={24} size={1}/><MiniMap nodeColor={n=>n.type==='brain'?'#c18d3c':n.type==='market'?'#347f72':'#536b91'} maskColor="rgba(5,8,12,.72)"/><Controls/></ReactFlow></div>
-   <PriceChart values={chartValues}/>
+   <PriceChart values={chartValues} bars={researchBars} selectedCluster={selectedCluster} interval={researchInterval}/>
    <div className="data-strip"><div><label>INPUT DATA · CLOSE SERIES · {dataLabel}</label><input value={values} onChange={e=>{setValues(e.target.value);setDataLabel("MANUAL DEMO INPUT")}} aria-label="Comma-separated market data values"/></div><button className="soft-btn" onClick={loadSyntheticSample} disabled={sampleBusy}>{sampleBusy?"LOADING…":"LOAD SYNTHETIC SAMPLE"}</button><span>NOT LIVE DATA</span></div>
    {result&&<div className="result-panel"><div className="result-title"><b>EXECUTION INSPECTOR</b><button onClick={()=>setResult(null)}>×</button></div><pre>{JSON.stringify(result,null,2)}</pre></div>}
   </section></main>

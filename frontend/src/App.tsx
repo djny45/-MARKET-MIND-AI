@@ -60,6 +60,9 @@ export default function App() {
  const [researchCompare,setResearchCompare] = useState('ETHUSD,SOLUSD')
  const [researchReport,setResearchReport] = useState<any>(null)
  const [qualityReport,setQualityReport] = useState<any>(null)
+ const [sourceComparison,setSourceComparison] = useState<any>(null)
+ const [sourceComparisonBusy,setSourceComparisonBusy] = useState(false)
+ const [sourceComparisonError,setSourceComparisonError] = useState('')
  const [qualityBusy,setQualityBusy] = useState(false)
  const [qualityError,setQualityError] = useState('')
  const [researchBusy,setResearchBusy] = useState(false)
@@ -105,6 +108,17 @@ export default function App() {
    setQualityReport(body)
   } catch(e) {setQualityReport(null);setQualityError(e instanceof Error?e.message:'Data-quality report unavailable')}
   finally {setQualityBusy(false)}
+ }
+ const loadSourceComparison = async(interval:string)=> {
+  setSourceComparisonBusy(true);setSourceComparisonError('')
+  try {
+   const params=new URLSearchParams({symbol:researchSymbol.trim(),interval,limit:'500'})
+   const response=await fetch(API+'/api/research/source-comparison?'+params.toString())
+   const body=await response.json()
+   if(!response.ok)throw new Error(body.detail||'Source comparison unavailable')
+   setSourceComparison(body)
+  } catch(e) {setSourceComparison(null);setSourceComparisonError(e instanceof Error?e.message:'Source comparison unavailable')}
+  finally {setSourceComparisonBusy(false)}
  }
  const loadCSVFile = async(file?:File)=> {
   if(!file)return
@@ -225,6 +239,18 @@ export default function App() {
         {qualityReport.close_to_close_return_outliers.flagged_observations.slice(0,5).map((item:any)=><small key={'return-'+item.bar_index}>Return flag: {item.timestamp} · {item.return_pct}% · close {item.close} (previous {item.previous_close})</small>)}
         {qualityReport.volume_outliers.flagged_observations.slice(0,5).map((item:any)=><small key={'volume-'+item.bar_index}>Volume flag: {item.timestamp} · volume {item.volume}</small>)}
         <small>Outliers are statistical review flags, not proof of bad data. Timestamp gaps do not account for exchange sessions, holidays or provider schedules. No bars or prices are generated.</small>
+        <div className="source-comparison">
+         <div className="timeline-heading"><b>CROSS-SOURCE COMPARISON</b><button className="soft-btn" onClick={()=>loadSourceComparison(researchInterval)} disabled={sourceComparisonBusy}>{sourceComparisonBusy?'COMPARING…':'COMPARE SOURCES'}</button></div>
+         {sourceComparisonError&&<small className="news-error">{sourceComparisonError}</small>}
+         {sourceComparison&&<>
+          <small>{sourceComparison.source_count} sources · {sourceComparison.shared_timestamp_count} shared UTC timestamps · {sourceComparison.observations_checked} observations checked</small>
+          {sourceComparison.comparisons.slice(0,8).map((item:any)=><div className="aligned-row" key={item.timestamp_utc}>
+           <b>{item.timestamp_utc}</b><span>{item.source_count} sources</span><span>Close spread {item.field_ranges.close.absolute_spread??'—'}</span><span>Volume spread {item.field_ranges.volume.absolute_spread??'—'}</span>
+           <small>{Object.entries(item.sources).map(([name,observations]:[string,any])=>name+': '+observations.map((o:any)=>'C '+o.close+' / V '+o.volume).join(', ')).join(' · ')}</small>
+          </div>)}
+          <small>Exact UTC instants only. Source observations and retrieval metadata are retained; spreads do not rank providers or select a preferred price.</small>
+         </>}
+        </div>
        </>}
       </div>
       {researchReport.cross_timeframe?.aligned_indicator_comparison&&<div className="aligned-comparison">

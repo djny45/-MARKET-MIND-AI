@@ -74,3 +74,10 @@ Example JSON body:
   "csv_text": "timestamp,open,high,low,close,volume\\n2026-01-01T00:00:00Z,100,105,99,103,1200"
 }
 ```
+
+
+## Historical spacing and robust outlier diagnostics
+
+The endpoint `GET /api/research/data-quality?symbol=BTCUSD&interval=1h&limit=500` provides a focused review of stored observations. For supported intervals (15m, 1h, 4h, 1d), it reports timestamp deltas greater than 1.5 times the nominal interval. These are elapsed-time spacing anomalies only: exchange sessions, holidays and provider schedules are not modelled, so a gap is not automatically a missing-candle error.
+
+Close-to-close returns and volume observations receive a robust median/MAD outlier screen when at least 20 valid observations exist. The threshold is six scaled MADs. A zero-MAD sample is explicitly marked unavailable. Results identify original bar indices and never insert or estimate missing observations. Statistical flags are prompts for source-data review, not proof of corruption, forecasts, or trading signals.

@@ -53,7 +53,7 @@ The platform is designed for multi-asset research across equities, ETFs, indices
 | Normalized OHLCV contract, timezone validation, provider adapter protocol and synthetic fixture | Added |
 | SQLite market-bar history with idempotent upserts and provenance retention | Added |
 | User-defined educational setup geometry and risk/reward calculator | Added; no signal generation or execution |
-| Deterministic descriptive chart report over stored OHLCV | Added; SMA, RSI, MACD, Bollinger, ATR, recent range references and rule-based candle labels |
+| Deterministic descriptive chart report over stored OHLCV | Added; SMA, RSI, MACD, Bollinger, ATR, recent range references, rule-based candle labels and confirmed swing points |
 | Interactive sample-series chart using Lightweight Charts | Added |
 | Workflow diagrams and graph usage guide | Added |
 | Unit tests for branching DAG execution and cycle rejection | Added |

@@ -3,12 +3,12 @@ import { createChart, ColorType, CandlestickSeries, LineSeries, type IChartApi, 
 
 type Bar = {timestamp:string;open:number;high:number;low:number;close:number;source?:string;status?:string;retrieved_at?:string}
 type Cluster = {side:string;mean_price:number;lower_price:number;upper_price:number;touch_count:number;pivot_timestamps:(string|null)[]}
-type Props = {values?:number[];bars?:Bar[];selectedCluster?:Cluster|null;interval?:string}
+type Props = {values?:number[];bars?:Bar[];selectedCluster?:Cluster|null;interval?:string;retrievedAt?:string|null}
 function toTime(value:string):Time {
  const date=new Date(value)
  return Math.floor(date.getTime()/1000) as Time
 }
-export default function PriceChart({values=[],bars=[],selectedCluster=null,interval=''}:Props) {
+export default function PriceChart({values=[],bars=[],selectedCluster=null,interval='',retrievedAt=null}:Props) {
  const host=useRef<HTMLDivElement|null>(null)
  const chartRef=useRef<IChartApi|null>(null)
  const lineRef=useRef<ISeriesApi<'Line'>|null>(null)
@@ -53,5 +53,5 @@ export default function PriceChart({values=[],bars=[],selectedCluster=null,inter
  },[values,bars,selectedCluster])
  const source=bars.length?Array.from(new Set(bars.map(b=>b.source||'unknown'))).join(', '):'manual / synthetic input'
  const status=bars.length?Array.from(new Set(bars.map(b=>b.status||'unknown'))).join(', '):'not historical market data'
- return <div className="chart-shell"><div className="chart-heading"><div><b>{bars.length?'STORED OHLCV HISTORY':'PRICE SERIES'}</b><span> · {interval||'SAMPLE INPUT'}</span></div><small>{bars.length?source+' · '+status:'NOT A LIVE QUOTE'}</small></div><div ref={host} className="chart-host"/></div>
+ return <div className="chart-shell"><div className="chart-heading"><div><b>{bars.length?'STORED OHLCV HISTORY':'PRICE SERIES'}</b><span> · {interval||'SAMPLE INPUT'}</span></div><small>{bars.length?source+' · '+status+' · RETRIEVED '+(retrievedAt||'timestamp unavailable'):'NOT A LIVE QUOTE'}</small></div><div ref={host} className="chart-host"/></div>
 }

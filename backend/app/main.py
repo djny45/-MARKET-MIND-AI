@@ -5,6 +5,7 @@ from typing import Any
 from .workflow import NODE_TYPES, execute_workflow
 from .workers import list_workers
 from .markets import market_catalog
+from .instruments import search_instruments
 from .pipeline import system_capabilities
 from .news import ingest_news
 from . import indicators
@@ -45,6 +46,14 @@ def markets():
 @app.get("/api/system/capabilities")
 def capabilities():
  return system_capabilities()
+
+@app.get("/api/instruments")
+def instruments(q: str = "", market: str | None = None, limit: int = 30):
+ return search_instruments(q, market, limit)
+
+@app.get("/api/news")
+async def news_feed():
+ return await ingest_news()
 
 @app.post("/api/news/ingest")
 async def news():

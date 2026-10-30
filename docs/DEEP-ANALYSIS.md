@@ -94,3 +94,8 @@ The historical data-quality response also reports timezone-aware timestamp integ
 ## Cross-source historical comparison
 
 The endpoint `GET /api/research/source-comparison?symbol=BTCUSD&interval=1h&limit=500` groups stored observations by exact timezone-aware UTC instant and compares timestamps represented by at least two distinct sources. It reports each source's original OHLCV values, status, retrieval timestamp and timestamp string, plus min/max/spread per field. Equivalent instants expressed with different UTC offsets are aligned. Same-source duplicate instants and invalid timestamps are disclosed. The comparison does not rank providers, choose a preferred value, overwrite observations, infer missing bars, or certify source accuracy.
+
+
+### Numeric field integrity in source comparisons
+
+Each OHLCV field range includes valid, missing and invalid value counts. Non-numeric and non-finite values are retained in source observations and listed as invalid evidence, but excluded from min/max/spread calculations. Missing fields are counted separately. A spread is null when fewer than one valid value is available; no value is imputed.

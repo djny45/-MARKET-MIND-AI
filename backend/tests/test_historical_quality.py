@@ -30,8 +30,7 @@ class HistoricalQualityTests(unittest.TestCase):
 
     def test_outlier_flags_include_original_timestamp_and_value(self):
         bars = self.bars(30)
-        for bar in bars:
-            bar["volume"] = 100
+        # Keep a non-zero baseline MAD so the injected spike is statistically testable.
         bars[25]["close"] = 250
         bars[25]["volume"] = 900
         result = build_historical_quality_diagnostics({"interval": "1h", "bars": bars})

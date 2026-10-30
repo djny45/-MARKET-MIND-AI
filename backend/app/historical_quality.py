@@ -45,7 +45,7 @@ def build_historical_quality_diagnostics(history):
             delta = current - previous
             if delta > expected * 1.5:
                 spacing.append({"from_index": previous_index, "to_index": current_index,
-                                "elapsed_seconds": delta, "expected_interval_seconds": expected,
+                                "elapsed_seconds": delta, "expected_interval_seconds": expected,\n                                "from_timestamp": bars[previous_index].get("timestamp"),\n                                "to_timestamp": bars[current_index].get("timestamp"),
                                 "interval_multiples": round(delta / expected, 3)})
     returns = []
     return_indices = []
@@ -59,6 +59,15 @@ def build_historical_quality_diagnostics(history):
             continue
     price_result = _mad_flags(returns)
     price_result["flagged_bar_indices"] = [return_indices[i] for i in price_result["flagged_indices"]]
+    price_result["flagged_observations"] = [{
+        "bar_index": return_indices[i],
+        "timestamp": bars[return_indices[i]].get("timestamp"),
+        "previous_timestamp": bars[return_indices[i] - 1].get("timestamp"),
+        "previous_close": float(bars[return_indices[i] - 1]["close"]),
+        "close": float(bars[return_indices[i]]["close"]),
+        "return_pct": round(returns[i] * 100, 6),
+        "robust_deviation_mad": round(abs(returns[i] - price_result["median"]) / (1.4826 * price_result["mad"]), 3)
+    } for i in price_result["flagged_indices"]] if price_result["status"] == "available" else []
     volumes = []
     volume_indices = []
     for i, bar in enumerate(bars):
@@ -71,6 +80,12 @@ def build_historical_quality_diagnostics(history):
             continue
     volume_result = _mad_flags(volumes)
     volume_result["flagged_bar_indices"] = [volume_indices[i] for i in volume_result["flagged_indices"]]
+    volume_result["flagged_observations"] = [{
+        "bar_index": volume_indices[i],
+        "timestamp": bars[volume_indices[i]].get("timestamp"),
+        "volume": volumes[i],
+        "robust_deviation_mad": round(abs(volumes[i] - volume_result["median"]) / (1.4826 * volume_result["mad"]), 3)
+    } for i in volume_result["flagged_indices"]] if volume_result["status"] == "available" else []
     return {
         "interval": interval,
         "bars_checked": len(bars),

@@ -18,11 +18,11 @@ Supported intervals are `15m`, `1h`, `4h`, and `1d`. Multi-timeframe output only
 - Moving-average regime, RSI, MACD, Bollinger Bands and ATR.
 - Recent range references, candle-geometry labels and confirmed swing points.
 - Per-timeframe quality checks for duplicate timestamps, invalid timestamps, non-increasing timestamps, inconsistent OHLC values, negative volume and missing required fields.
-- Counts grouped by source and observation status, plus available retrieval timestamps.
+- Counts grouped by source and observation status, plus available retrieval timestamps.\n- Relative volume against an inclusive trailing window, return volatility per observation, descriptive volatility bands, and historical close-to-close maximum drawdown.
 - Coverage summary identifying intervals with insufficient stored bars.
 
 ## Interpretation and limits
 
-The quality status means only that the implemented structural checks did or did not find issues. It does not certify data accuracy, source authenticity, licensing, or completeness. Retrieval timestamps are shown, but no freshness verdict is inferred. Missing bars are not labelled as errors because exchange calendars, trading sessions and provider schedules differ.
+Volume and volatility diagnostics are descriptive. Relative volume uses the latest bar divided by the inclusive trailing average; volatility is reported per observation without annualization; drawdown uses closing prices only. Volatility bands use fixed thresholds and are not calibrated across asset classes.\n\nThe quality status means only that the implemented structural checks did or did not find issues. It does not certify data accuracy, source authenticity, licensing, or completeness. Retrieval timestamps are shown, but no freshness verdict is inferred. Missing bars are not labelled as errors because exchange calendars, trading sessions and provider schedules differ.
 
 This is a historical descriptive research feature. It does not produce forecasts, directional signals, investment recommendations, or orders. Execution remains disabled.

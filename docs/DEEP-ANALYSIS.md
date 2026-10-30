@@ -99,3 +99,8 @@ The endpoint `GET /api/research/source-comparison?symbol=BTCUSD&interval=1h&limi
 ### Numeric field integrity in source comparisons
 
 Each OHLCV field range includes valid, missing and invalid value counts. Non-numeric and non-finite values are retained in source observations and listed as invalid evidence, but excluded from min/max/spread calculations. Missing fields are counted separately. A spread is null when fewer than one valid value is available; no value is imputed.
+
+
+## Downloadable research evidence bundle
+
+The endpoint `GET /api/research/export?symbol=BTCUSD&interval=1h&limit=500` returns a downloadable JSON file named for the selected symbol and interval. The bundle contains the stored OHLCV observations with per-observation source, status and retrieval timestamps; a scope summary; timestamp, spacing and robust outlier diagnostics; exact-UTC cross-source comparisons; the historical event timeline; and explicit methodology limitations. The export preserves the observations as stored and does not rank providers, infer missing bars, or certify source authenticity. Empty history can be exported as an empty evidence bundle. The endpoint accepts only supported intervals and limits between 1 and 5,000 observations.

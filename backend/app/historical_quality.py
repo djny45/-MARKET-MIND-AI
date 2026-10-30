@@ -1,0 +1,92 @@
+"""Robust historical observation diagnostics; no inferred prices or trade signals."""
+from datetime import datetime
+
+INTERVAL_SECONDS = {"15m": 900, "1h": 3600, "4h": 14400, "1d": 86400}
+
+
+def _timestamp(value):
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            return None
+        return parsed.timestamp()
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+
+def _median(values):
+    ordered = sorted(values)
+    if not ordered:
+        return None
+    middle = len(ordered) // 2
+    return ordered[middle] if len(ordered) % 2 else (ordered[middle - 1] + ordered[middle]) / 2
+
+
+def _mad_flags(values, minimum=20, threshold=6.0):
+    if len(values) < minimum:
+        return {"status": "insufficient_history", "sample_count": len(values), "threshold_mad": threshold, "flagged_indices": []}
+    center = _median(values)
+    mad = _median([abs(value - center) for value in values])
+    if mad is None or mad == 0:
+        return {"status": "unavailable_zero_mad", "sample_count": len(values), "median": center, "mad": mad, "threshold_mad": threshold, "flagged_indices": []}
+    flags = [i for i, value in enumerate(values) if abs(value - center) / (1.4826 * mad) > threshold]
+    return {"status": "available", "sample_count": len(values), "median": center, "mad": mad, "threshold_mad": threshold, "flagged_indices": flags}
+
+
+def build_historical_quality_diagnostics(history):
+    bars = history.get("bars", [])
+    interval = history.get("interval")
+    expected = INTERVAL_SECONDS.get(interval)
+    parsed = [_timestamp(bar.get("timestamp")) for bar in bars]
+    valid_pairs = [(i, value) for i, value in enumerate(parsed) if value is not None]
+    spacing = []
+    if expected:
+        for (previous_index, previous), (current_index, current) in zip(valid_pairs, valid_pairs[1:]):
+            delta = current - previous
+            if delta > expected * 1.5:
+                spacing.append({"from_index": previous_index, "to_index": current_index,
+                                "elapsed_seconds": delta, "expected_interval_seconds": expected,
+                                "interval_multiples": round(delta / expected, 3)})
+    returns = []
+    return_indices = []
+    for i in range(1, len(bars)):
+        try:
+            previous, current = float(bars[i - 1]["close"]), float(bars[i]["close"])
+            if previous > 0 and current > 0:
+                returns.append((current / previous) - 1)
+                return_indices.append(i)
+        except (KeyError, TypeError, ValueError, ZeroDivisionError):
+            continue
+    price_result = _mad_flags(returns)
+    price_result["flagged_bar_indices"] = [return_indices[i] for i in price_result["flagged_indices"]]
+    volumes = []
+    volume_indices = []
+    for i, bar in enumerate(bars):
+        try:
+            value = float(bar["volume"])
+            if value >= 0:
+                volumes.append(value)
+                volume_indices.append(i)
+        except (KeyError, TypeError, ValueError):
+            continue
+    volume_result = _mad_flags(volumes)
+    volume_result["flagged_bar_indices"] = [volume_indices[i] for i in volume_result["flagged_indices"]]
+    return {
+        "interval": interval,
+        "bars_checked": len(bars),
+        "timestamp_spacing": {
+            "status": "available" if expected else "unsupported_interval",
+            "expected_interval_seconds": expected,
+            "spacing_anomaly_count": len(spacing),
+            "spacing_anomalies": spacing,
+            "interpretation": "Elapsed-time gaps only; exchange sessions, holidays and provider schedules are not modelled.",
+        },
+        "close_to_close_return_outliers": price_result,
+        "volume_outliers": volume_result,
+        "methodology": [
+            "Outliers use a robust median/MAD screen with a 6-MAD threshold and at least 20 observations.",
+            "Zero-MAD samples are reported as unavailable rather than assigned a fabricated threshold.",
+            "Indices refer to the supplied chronological bar sequence; no missing prices or bars are generated.",
+            "Flags are statistical review prompts, not evidence of bad data or trading signals.",
+        ],
+    }

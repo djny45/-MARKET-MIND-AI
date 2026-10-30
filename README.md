@@ -51,6 +51,7 @@ The platform is designed for multi-asset research across equities, ETFs, indices
 | SMA, EMA, RSI, MACD, Bollinger and realized-volatility library | Added |
 | Async in-process event bus and latency architecture | Added |
 | Normalized OHLCV contract, timezone validation, provider adapter protocol and synthetic fixture | Added |
+| SQLite market-bar history with idempotent upserts and provenance retention | Added |
 | Interactive sample-series chart using Lightweight Charts | Added |
 | Workflow diagrams and graph usage guide | Added |
 | Unit tests for branching DAG execution and cycle rejection | Added |
@@ -122,6 +123,8 @@ For manual setup, see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 | POST | `/api/indicators` | Calculate deterministic indicator series |
 | POST | `/api/analytics/performance` | Historical return, drawdown, volatility, Sharpe, Sortino and optional benchmark statistics |
 | GET | `/api/market-data/sample` | Explicitly synthetic OHLCV fixture for UI and integration tests |
+| POST | `/api/market-data/store` | Store normalized bars with source, status and retrieval metadata |
+| GET | `/api/market-data/history` | Retrieve stored bars with provenance metadata |
 | POST | `/api/workflows/execute` | Execute a directed research graph |
 
 ## Repository structure

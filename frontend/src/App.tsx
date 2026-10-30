@@ -65,6 +65,7 @@ export default function App() {
  const [csvSource,setCsvSource] = useState('user-historical-csv')
  const [csvBusy,setCsvBusy] = useState(false)
  const [csvMessage,setCsvMessage] = useState('')
+ const [csvFileName,setCsvFileName] = useState('')
  const [researchBars,setResearchBars] = useState<any[]>([])
  const [researchInterval,setResearchInterval] = useState('1h')
  const [selectedCluster,setSelectedCluster] = useState<any>(null)
@@ -91,6 +92,16 @@ export default function App() {
  const loadSyntheticSample = async()=>{setSampleBusy(true);try{const r=await fetch(API+'/api/market-data/sample?symbol=BTCUSD&interval=1d&limit=5');const d=await r.json();if(!r.ok)throw new Error(d.detail||'Sample data unavailable');setValues(d.bars.map((b:any)=>String(b.close)).join(','));setDataLabel('SYNTHETIC FIXTURE · NOT MARKET PRICES');setResult({status:'sample_loaded',symbol:d.symbol,interval:d.interval,source:d.source,data_status:d.status,retrieved_at:d.retrieved_at,warnings:d.warnings})}catch(e){setResult({status:'error',message:e instanceof Error?e.message:'Sample data unavailable'})}finally{setSampleBusy(false)}}
  const findInstruments = async()=>{try{const q=encodeURIComponent(instrumentQuery);const r=await fetch(API+'/api/instruments?q='+q);const d=await r.json();setInstrumentResults(d.instruments||[])}catch{setInstrumentResults([])}}
  const loadNews = async()=>{setNewsBusy(true);setNewsError('');try{const r=await fetch(API+'/api/news');const d=await r.json();setNewsItems((d.items||[]).filter((x:any)=>x.title));const errs=(d.items||[]).filter((x:any)=>x.error);if(errs.length)setNewsError(errs.map((x:any)=>x.source+': '+x.error).join(' · '))}catch(e){setNewsError(e instanceof Error?e.message:'News feed unavailable')}finally{setNewsBusy(false)}}
+ const loadCSVFile = async(file?:File)=> {
+  if(!file)return
+  if(file.size>2_000_000){setCsvMessage('FILE TOO LARGE · MAXIMUM 2 MB');return}
+  if(!file.name.toLowerCase().endsWith('.csv')){setCsvMessage('PLEASE SELECT A .CSV FILE');return}
+  try {
+   const content=await file.text()
+   if(!content.trim())throw new Error('Selected CSV file is empty')
+   setCsvText(content);setCsvFileName(file.name);setCsvMessage('LOADED '+file.name+' · '+file.size+' BYTES · READY TO IMPORT')
+  } catch(e) {setCsvMessage(e instanceof Error?e.message:'Could not read selected file')}
+ }
  const importHistoricalCSV = async()=> {
   setCsvBusy(true);setCsvMessage('')
   try {
@@ -98,6 +109,9 @@ export default function App() {
    const body=await response.json()
    if(!response.ok)throw new Error(body.detail||'CSV import failed')
    setCsvMessage('IMPORTED '+body.stored+' BARS · '+body.symbol+' · '+body.interval+' · '+body.source)
+   const historyResponse=await fetch(API+'/api/market-data/history?'+new URLSearchParams({symbol:researchSymbol.trim(),interval:researchInterval,limit:'500'}).toString())
+   const historyBody=await historyResponse.json()
+   if(historyResponse.ok){setResearchBars(historyBody.bars||[]);setHistoryMeta({source:historyBody.source,status:historyBody.status,retrieved_at:historyBody.retrieved_at})}
    setResult({status:'historical_csv_imported',...body})
   } catch(e) {setCsvMessage(e instanceof Error?e.message:'CSV import failed')}
   finally {setCsvBusy(false)}
@@ -154,6 +168,8 @@ export default function App() {
     <div className="side-label">HISTORICAL CSV IMPORT <span>LOCAL DATA</span></div>
     <small className="research-note">Paste CSV columns: timestamp,open,high,low,close,volume. Timestamps need an explicit timezone. Max 2 MB / 5,000 rows.</small>
     <label>DATA SOURCE LABEL</label><input value={csvSource} onChange={e=>setCsvSource(e.target.value)} aria-label="CSV source label"/>
+    <label>SELECT CSV FILE</label><input type="file" accept=".csv,text/csv" aria-label="Select historical CSV file" onChange={e=>loadCSVFile(e.target.files?.[0])}/>
+    {csvFileName&&<small className="research-note">SELECTED FILE: {csvFileName}</small>}
     <label>CSV CONTENT</label><textarea value={csvText} onChange={e=>setCsvText(e.target.value)} aria-label="Historical OHLCV CSV" rows={6}/>
     <button className="soft-btn research-run" onClick={importHistoricalCSV} disabled={csvBusy||!csvText.trim()||!csvSource.trim()}>{csvBusy?'IMPORTING…':'IMPORT HISTORICAL CSV'}</button>
     {csvMessage&&<p className="research-note">{csvMessage}</p>}

@@ -26,6 +26,32 @@ class MarketDataContractTests(unittest.TestCase):
                 low=9, close=11, volume=100,
             )
 
+    def test_batch_normalizes_symbol_and_rejects_unknown_interval(self):
+        batch = MarketDataBatch(
+            symbol=" btcusd ", interval="1h", status="historical",
+            source="provider-x", retrieved_at="2026-01-01T00:00:00Z",
+            bars=[],
+        )
+        self.assertEqual(batch.symbol, "BTCUSD")
+        with self.assertRaises(ValidationError):
+            MarketDataBatch(
+                symbol="BTCUSD", interval="5m", status="historical",
+                source="provider-x", retrieved_at="2026-01-01T00:00:00Z",
+                bars=[],
+            )
+
+    def test_batch_rejects_duplicate_timestamps(self):
+        bar = {
+            "timestamp": "2026-01-01T00:00:00Z",
+            "open": 10, "high": 12, "low": 9, "close": 11, "volume": 100,
+        }
+        with self.assertRaises(ValidationError):
+            MarketDataBatch(
+                symbol="BTCUSD", interval="1d", status="historical",
+                source="provider-x", retrieved_at="2026-01-02T00:00:00Z",
+                bars=[bar, bar],
+            )
+
     def test_batch_rejects_unlabelled_extra_fields(self):
         with self.assertRaises(ValidationError):
             MarketDataBatch(

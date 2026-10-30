@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from typing import Any
+from typing import Any, Literal
 from .workflow import NODE_TYPES, execute_workflow
 from .workers import list_workers
 from .markets import market_catalog
@@ -13,6 +13,7 @@ from .performance import performance_metrics
 from . import workspace
 from .market_data import SyntheticFixtureAdapter, MarketDataBatch
 from . import market_store
+from .setup_report import build_setup_report
 
 app = FastAPI(title="MARKET-MIND-AI API", version="0.2.0",
  description="Multi-market, evidence-first research pipeline. No brokerage execution.")
@@ -33,6 +34,13 @@ class WorkflowRequest(BaseModel):
 class IndicatorRequest(BaseModel):
  values: list[float] = Field(min_length=2)
  period: int = Field(default=14, ge=1, le=10000)
+
+class SetupReportRequest(BaseModel):
+ symbol: str = Field(min_length=1, max_length=32)
+ direction: Literal["long", "short"]
+ entry: float = Field(gt=0)
+ stop: float = Field(gt=0)
+ target: float = Field(gt=0)
 
 @app.get("/api/health")
 def health():
@@ -86,6 +94,14 @@ class PerformanceRequest(BaseModel):
  benchmark: list[float] | None = None
  periods_per_year: float | None = Field(default=None, gt=0)
  risk_free_rate: float = 0.0
+
+@app.post("/api/research/setup")
+def research_setup(request: SetupReportRequest):
+ """Calculate user-defined scenario geometry; never emits an execution instruction."""
+ try:
+  return build_setup_report(request.symbol, request.direction, request.entry, request.stop, request.target)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 @app.post("/api/analytics/performance")
 def analyze_performance(request: PerformanceRequest):

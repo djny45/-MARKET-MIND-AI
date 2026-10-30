@@ -61,7 +61,7 @@ export default function App() {
  const [researchReport,setResearchReport] = useState<any>(null)
  const [researchBusy,setResearchBusy] = useState(false)
  const [researchError,setResearchError] = useState('')
- const [csvText,setCsvText] = useState('timestamp,open,high,low,close,volume\\n2026-01-01T00:00:00Z,100,105,99,103,1200')
+ const [csvText,setCsvText] = useState('timestamp,open,high,low,close,volume\n2026-01-01T00:00:00Z,100,105,99,103,1200')
  const [csvSource,setCsvSource] = useState('user-historical-csv')
  const [csvBusy,setCsvBusy] = useState(false)
  const [csvMessage,setCsvMessage] = useState('')

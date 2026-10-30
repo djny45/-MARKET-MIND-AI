@@ -129,7 +129,7 @@ export default function App() {
       <div className="research-frames">{(researchReport.dashboard?.timeframes||[]).map((item:any)=><div key={item.interval}><b>{item.interval}</b><span>{item.status==='available'?item.moving_average_regime:'INSUFFICIENT DATA'}</span><small>RSI {item.rsi14??'—'} · ATR {item.atr14??'—'}</small></div>)}</div>
       <button className="soft-btn research-json" onClick={()=>setResult(researchReport)}>OPEN FULL RESEARCH JSON</button>
     </div>}
-   </div>:null}}
+   </div>:null}
    <div className="sidebar-bottom"><ShieldCheck size={15}/><span>Governed research environment<small>Data provenance · audit trail</small></span></div>
   </aside>
   <section className="canvas-area"><div className="canvas-meta"><span><span className="live-dot"/> GRAPH EDITOR</span><span>DRAG NODES · CONNECT PORTS · BUILD PIPELINES</span><span>{nodes.length} NODES&nbsp; / &nbsp;{edges.length} LINKS</span></div>

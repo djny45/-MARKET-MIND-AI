@@ -16,6 +16,7 @@ jobs:
           python-version: "3.12"
       - run: pip install -r backend/requirements.txt
       - run: python -m compileall -q backend/app
+      - run: PYTHONPATH=backend python -m unittest discover -s backend/tests -v
       - run: |
           cd backend
           python - <<'PY'

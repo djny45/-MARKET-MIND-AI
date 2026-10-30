@@ -18,6 +18,7 @@ from .chart_research import build_chart_report
 from .multi_timeframe import build_multi_timeframe_report, SUPPORTED_INTERVALS
 from .deep_analysis import build_deep_analysis_report
 from .research_timeline import build_research_timeline
+from .csv_import import parse_historical_csv
 
 app = FastAPI(title="MARKET-MIND-AI API", version="0.2.0",
  description="Multi-market, evidence-first research pipeline. No brokerage execution.")
@@ -38,6 +39,13 @@ class WorkflowRequest(BaseModel):
 class IndicatorRequest(BaseModel):
  values: list[float] = Field(min_length=2)
  period: int = Field(default=14, ge=1, le=10000)
+
+class HistoricalCSVImportRequest(BaseModel):
+ csv_text: str = Field(min_length=1, max_length=2_000_000)
+ symbol: str = Field(min_length=1, max_length=32)
+ interval: str = Field(min_length=1, max_length=16)
+ source: str = Field(min_length=1, max_length=80)
+
 
 class SetupReportRequest(BaseModel):
  symbol: str = Field(min_length=1, max_length=32)
@@ -177,6 +185,24 @@ async def sample_market_data(symbol: str = "BTCUSD", interval: str = "1d", limit
 def store_market_data(batch: MarketDataBatch):
  """Persist normalized observations while retaining source and status metadata."""
  return market_store.store_batch(batch)
+
+@app.post("/api/market-data/import-csv")
+def import_historical_csv(request: HistoricalCSVImportRequest):
+ """Validate and store a user-supplied historical OHLCV CSV; no live data or execution."""
+ try:
+  batch = parse_historical_csv(
+   request.csv_text, request.symbol, request.interval, request.source
+  )
+  result = market_store.store_batch(batch)
+  return {
+   "imported": True,
+   **result,
+   "warnings": batch.warnings,
+   "status": batch.status.value,
+  }
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
 
 @app.get("/api/research/chart")
 def research_chart(symbol: str, interval: str = "1d", limit: int = 500):

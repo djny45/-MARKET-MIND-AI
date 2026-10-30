@@ -8,6 +8,7 @@ from .market_diagnostics import build_market_diagnostics
 from .correlation import build_correlation_report
 from .price_levels import build_price_level_clusters
 from .market_breadth import build_market_breadth_report
+from .research_dashboard import build_research_dashboard
 
 
 def _parse_timestamp(value):
@@ -111,7 +112,7 @@ def build_deep_analysis_report(symbol: str, histories: dict, multi_timeframe_rep
                     "note": "Chart calculations were skipped; inspect the accompanying data-quality report.",
                 }
 
-    return {
+    result = {
         "mode": "integrated_deep_descriptive_research",
         "symbol": symbol.strip().upper(),
         "timeframes": timeframe_reports,
@@ -142,3 +143,5 @@ def build_deep_analysis_report(symbol: str, histories: dict, multi_timeframe_rep
         "interpretation": "Integrated historical observations and data diagnostics only. No prediction, directional signal, investment recommendation, or execution.",
         "execution": "disabled",
     }
+    result["dashboard"] = build_research_dashboard(result)
+    return result

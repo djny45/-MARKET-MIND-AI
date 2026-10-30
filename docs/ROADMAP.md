@@ -28,7 +28,7 @@ This roadmap is a plan, not a claim that these features already exist. Mark an i
 - [x] Add initial descriptive price-structure analytics: candle shapes, confirmed swing highs/lows, recent range references and ATR.
 - [x] Integrate deep descriptive reports with OHLCV structural quality diagnostics.
 - [x] Add relative-volume, return-volatility and historical drawdown diagnostics with explicit limitations.\n- [x] Add timestamp-aligned cross-asset historical return correlation with sample counts and insufficient-data handling.\n- [x] Add historical price-level clusters from repeated confirmed swing points, with configurable tolerance and confirmation windows.
-- [ ] Add returns, volatility, correlation, drawdown, breadth, and seasonality analytics.
+- [x] Add timestamp-aligned market breadth counts, percentages and coverage with missing-data handling.\n- [ ] Add returns, volatility, correlation, drawdown, and seasonality analytics.
 - [ ] Add fundamentals, filings, news, and macro research panels.
 - [ ] Add source-cited research reports and exportable methodology notes.
 - [ ] Add historical evaluation framework with bias and data-quality checks.

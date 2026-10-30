@@ -98,7 +98,7 @@ More detail: [workflow guide](docs/WORKFLOW-GUIDE.md), [low-latency architecture
 
 ```bash
 git clone https://github.com/djny45/-MARKET-MIND-AI.git
-cd -MARKET-MIND-AI
+cd ./-MARKET-MIND-AI
 docker compose up --build
 ```
 

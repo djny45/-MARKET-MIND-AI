@@ -172,6 +172,10 @@ export default function App() {
         <small>Source: {selectedTimelineEvent.source} · Status: {selectedTimelineEvent.status}</small>
         <small>Retrieved: {selectedTimelineEvent.retrieved_at||'timestamp unavailable'}</small>
         <small>Observation labels: {selectedTimelineEvent.observations?.length?selectedTimelineEvent.observations.map((x:any)=>x.type.replaceAll('_',' ')).join(', '):'None recorded for this bar'}</small>
+        <div className="timeline-indicators"><b>HISTORICAL INDICATOR CONTEXT</b>
+         {(['sma20','rsi14','macd','macd_signal','macd_histogram'] as const).map(key=><span key={key}>{key.replaceAll('_',' ').toUpperCase()} <strong>{selectedTimelineEvent.indicator_context?.[key]===null||selectedTimelineEvent.indicator_context?.[key]===undefined?'INSUFFICIENT HISTORY':selectedTimelineEvent.indicator_context[key]}</strong></span>)}
+        </div>
+        <small>Indicator values describe calculations at this historical bar. Missing values reflect warm-up requirements, not zero readings.</small>
         <small>Historical inspection only. This selection does not produce a forecast or trade instruction.</small>
        </div>}
        <small className="timeline-disclaimer">Historical descriptive observations only. Candle labels and confirmed pivots are not predictive signals.</small>

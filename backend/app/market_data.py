@@ -25,6 +25,14 @@ class OHLCVBar(BaseModel):
     close: float = Field(gt=0)
     volume: float = Field(ge=0)
 
+    @model_validator(mode="after")
+    def validate_ohlc_envelope(self):
+        if self.high < max(self.open, self.low, self.close):
+            raise ValueError("high must be at least open, low, and close")
+        if self.low > min(self.open, self.high, self.close):
+            raise ValueError("low must be at most open, high, and close")
+        return self
+
     @field_validator("timestamp")
     @classmethod
     def timestamp_must_be_timezone_aware(cls, value: datetime) -> datetime:

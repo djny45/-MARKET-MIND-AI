@@ -247,6 +247,7 @@ export default function App() {
           {sourceComparison.comparisons.slice(0,8).map((item:any)=><div className="aligned-row" key={item.timestamp_utc}>
            <b>{item.timestamp_utc}</b><span>{item.source_count} sources</span><span>Close spread {item.field_ranges.close.absolute_spread??'—'}</span><span>Volume spread {item.field_ranges.volume.absolute_spread??'—'}</span>
            <small>{Object.entries(item.sources).map(([name,observations]:[string,any])=>name+': '+observations.map((o:any)=>'C '+o.close+' / V '+o.volume).join(', ')).join(' · ')}</small>
+           <small>Close values: {item.field_ranges.close.valid_value_count} valid · {item.field_ranges.close.missing_value_count} missing · {item.field_ranges.close.invalid_value_count} invalid · Volume: {item.field_ranges.volume.valid_value_count} valid · {item.field_ranges.volume.missing_value_count} missing · {item.field_ranges.volume.invalid_value_count} invalid</small>
           </div>)}
           <small>Exact UTC instants only. Source observations and retrieval metadata are retained; spreads do not rank providers or select a preferred price.</small>
          </>}

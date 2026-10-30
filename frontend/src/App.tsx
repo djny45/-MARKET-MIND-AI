@@ -213,6 +213,12 @@ export default function App() {
        {qualityReport&&<>
         <small>{qualityReport.bars_checked} observations reviewed · timestamp spacing: {qualityReport.timestamp_spacing.status.replaceAll('_',' ')}</small>
         <div className="aligned-row"><b>SPACING ANOMALIES</b><span>{qualityReport.timestamp_spacing.spacing_anomaly_count}</span><span>Expected interval {qualityReport.timestamp_spacing.expected_interval_seconds??'—'} sec</span></div>
+        <div className="aligned-row"><b>INVALID TIMESTAMPS</b><span>{qualityReport.timestamp_integrity?.invalid_timestamp_count??'—'}</span><span>Timezone-aware values required</span></div>
+        <div className="aligned-row"><b>DUPLICATE INSTANTS</b><span>{qualityReport.timestamp_integrity?.duplicate_timestamp_count??'—'}</span><span>Equivalent UTC offsets included</span></div>
+        <div className="aligned-row"><b>OUT-OF-ORDER BARS</b><span>{qualityReport.timestamp_integrity?.out_of_order_count??'—'}</span><span>Original sequence retained</span></div>
+        {(qualityReport.timestamp_integrity?.invalid_timestamps||[]).slice(0,3).map((item:any)=><small key={'invalid-'+item.bar_index}>Invalid timestamp: bar #{item.bar_index} · {String(item.timestamp)}</small>)}
+        {(qualityReport.timestamp_integrity?.duplicate_timestamps||[]).slice(0,3).map((item:any)=><small key={'duplicate-'+item.bar_index}>Duplicate instant: bars #{item.first_bar_index} / #{item.bar_index} · {item.timestamp}</small>)}
+        {(qualityReport.timestamp_integrity?.out_of_order_timestamps||[]).slice(0,3).map((item:any)=><small key={'order-'+item.bar_index}>Out of order: bar #{item.bar_index} · {item.timestamp} follows {item.previous_timestamp}</small>)}
         <div className="aligned-row"><b>RETURN OUTLIERS</b><span>{qualityReport.close_to_close_return_outliers.flagged_bar_indices.length}</span><span>{qualityReport.close_to_close_return_outliers.status.replaceAll('_',' ')}</span></div>
         <div className="aligned-row"><b>VOLUME OUTLIERS</b><span>{qualityReport.volume_outliers.flagged_bar_indices.length}</span><span>{qualityReport.volume_outliers.status.replaceAll('_',' ')}</span></div>
         {qualityReport.timestamp_spacing.spacing_anomalies.slice(0,5).map((gap:any)=><small key={gap.from_index+'-'+gap.to_index}>Spacing: {gap.from_timestamp||('bar '+gap.from_index)} → {gap.to_timestamp||('bar '+gap.to_index)} · {gap.elapsed_seconds}s ({gap.interval_multiples} intervals)</small>)}

@@ -4,7 +4,8 @@ import json
 
 from app.market_store import get_bars
 from app.chart_research import build_chart_report
-from app.multi_timeframe import build_multi_timeframe_report, SUPPORTED_INTERVALS\nfrom app.deep_analysis import build_deep_analysis_report
+from app.multi_timeframe import build_multi_timeframe_report, SUPPORTED_INTERVALS
+from app.deep_analysis import build_deep_analysis_report
 
 
 def main() -> None:
@@ -13,7 +14,8 @@ def main() -> None:
     parser.add_argument("--mode", choices=("single", "multi"), default="single")
     parser.add_argument("--interval", default="1d", choices=SUPPORTED_INTERVALS)
     parser.add_argument("--intervals", default="15m,1h,4h,1d")
-    parser.add_argument("--limit", type=int, default=500)\n    parser.add_argument("--deep", action="store_true", help="include integrated data-quality and structure diagnostics")
+    parser.add_argument("--limit", type=int, default=500)
+    parser.add_argument("--deep", action="store_true", help="include integrated data-quality and structure diagnostics")
     args = parser.parse_args()
 
     try:
@@ -33,7 +35,14 @@ def main() -> None:
     except ValueError as exc:
         parser.error(str(exc))
 
-    if args.deep:\n        histories = ({args.interval: get_bars(args.symbol, args.interval, args.limit)}\n                     if args.mode == "single" else histories)\n        report = build_deep_analysis_report(args.symbol, histories,\n                                            report if args.mode == "multi" else None)\n        title = "DEEP " + title\n\n    print(f"MARKET-MIND-AI | {title} DESCRIPTIVE RESEARCH | EXECUTION DISABLED")
+    if args.deep:
+        histories = ({args.interval: get_bars(args.symbol, args.interval, args.limit)}
+                     if args.mode == "single" else histories)
+        report = build_deep_analysis_report(args.symbol, histories,
+                                            report if args.mode == "multi" else None)
+        title = "DEEP " + title
+
+    print(f"MARKET-MIND-AI | {title} DESCRIPTIVE RESEARCH | EXECUTION DISABLED")
     print(json.dumps(report, indent=2))
 
 

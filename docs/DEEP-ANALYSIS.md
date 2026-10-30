@@ -43,3 +43,8 @@ The API endpoint `GET /api/research/timeline?symbol=BTCUSD&interval=1h&limit=200
 ### Historical indicator context
 
 Each timeline event includes the indicator values calculated at that historical bar: SMA(20), RSI(14), and MACD (line, signal, histogram). RSI is aligned to the close-to-close return ending at the event bar. Values are calculated over the complete stored history before the requested display window is sliced. Warm-up values are null until sufficient observations exist; the UI displays these as insufficient history rather than zero. These are descriptive historical calculations, not predictions or instructions.
+
+
+## Exact-timestamp multi-timeframe indicator comparison
+
+When at least two intervals are requested, the deep report includes `cross_timeframe.aligned_indicator_comparison`. It intersects the exact stored timestamp strings present in every analyzed timeframe and reports the latest shared observation with independently calculated SMA(20), RSI(14), and MACD values. The shared timestamp count and alignment status are included. No interpolation, forward-fill, nearest-neighbour matching, or inferred bar alignment is performed. If there is no exact overlap, the latest comparison remains null and the status explains why. Indicator warm-up values remain null when insufficient history exists.

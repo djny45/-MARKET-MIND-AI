@@ -53,3 +53,8 @@ When at least two intervals are requested, the deep report includes `cross_timef
 ## Synchronized historical event markers
 
 Selecting an event in the Research timeline now places a marker on the matching timestamp in the stored OHLCV candlestick chart. Matching uses the chart's normalized timestamp resolution; if the selected timestamp is not present in the loaded chart history, no marker is drawn. Changing the selected event updates or clears the marker. The marker is a navigation aid for historical inspection only.
+
+
+## Market-data ingestion validation
+
+The normalized market-data batch contract now trims and uppercases symbols, restricts intervals to the supported research set (15m, 1h, 4h, 1d), requires timezone-aware observation and retrieval timestamps, validates positive OHLC prices and nonnegative volume, and rejects duplicate timestamps within a batch. Storage sorts accepted bars chronologically before idempotent upsert and returns the stored timestamp span and an explicit ordering/duplicate summary. Source, status and retrieval timestamps remain attached to every observation. These checks validate structure, not provider authenticity, licensing, completeness or freshness.

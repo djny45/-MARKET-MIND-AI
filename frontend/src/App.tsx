@@ -246,8 +246,12 @@ export default function App() {
           <small>{sourceComparison.source_count} sources · {sourceComparison.shared_timestamp_count} shared UTC timestamps · {sourceComparison.observations_checked} observations checked</small>
           {sourceComparison.comparisons.slice(0,8).map((item:any)=><div className="aligned-row" key={item.timestamp_utc}>
            <b>{item.timestamp_utc}</b><span>{item.source_count} sources</span><span>Close spread {item.field_ranges.close.absolute_spread??'—'}</span><span>Volume spread {item.field_ranges.volume.absolute_spread??'—'}</span>
-           <small>{Object.entries(item.sources).map(([name,observations]:[string,any])=>name+': '+observations.map((o:any)=>'C '+o.close+' / V '+o.volume).join(', ')).join(' · ')}</small>
-           <small>Close values: {item.field_ranges.close.valid_value_count} valid · {item.field_ranges.close.missing_value_count} missing · {item.field_ranges.close.invalid_value_count} invalid · Volume: {item.field_ranges.volume.valid_value_count} valid · {item.field_ranges.volume.missing_value_count} missing · {item.field_ranges.volume.invalid_value_count} invalid</small>
+           {Object.entries(item.sources).map(([name,observations]:[string,any])=><div className="source-observation" key={name}>
+            <b>{name}</b>
+            {observations.map((o:any)=><small key={o.bar_index}>Bar #{o.bar_index} · {o.timestamp} · {o.status||'status unknown'} · retrieved {o.retrieved_at||'unknown'} · O {o.open??'—'} H {o.high??'—'} L {o.low??'—'} C {o.close??'—'} V {o.volume??'—'}</small>)}
+           </div>)}
+           <small>Close: {item.field_ranges.close.valid_value_count} valid · {item.field_ranges.close.missing_value_count} missing · {item.field_ranges.close.invalid_value_count} invalid · Volume: {item.field_ranges.volume.valid_value_count} valid · {item.field_ranges.volume.missing_value_count} missing · {item.field_ranges.volume.invalid_value_count} invalid</small>
+           {['open','high','low','close','volume'].flatMap((field:string)=>item.field_ranges[field].invalid_values.map((bad:any,index:number)=><small key={field+'-'+bad.bar_index+'-'+index}>Invalid {field} · {bad.source} · bar #{bad.bar_index} · raw value {String(bad.raw_value)}</small>))}
           </div>)}
           <small>Exact UTC instants only. Source observations and retrieval metadata are retained; spreads do not rank providers or select a preferred price.</small>
          </>}

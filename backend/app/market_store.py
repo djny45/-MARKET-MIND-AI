@@ -1,6 +1,7 @@
 """SQLite storage for normalized market bars with provenance metadata."""
 import os
 import sqlite3
+from datetime import datetime, timezone
 from pathlib import Path
 
 from .market_data import MarketDataBatch
@@ -49,6 +50,23 @@ def _connect():
         "CREATE INDEX IF NOT EXISTS idx_audit_events_scope "
         "ON audit_events(symbol, interval, id DESC)"
     )
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS schema_migrations (
+            version INTEGER PRIMARY KEY,
+            applied_at TEXT NOT NULL
+        )
+    """)
+    version = connection.execute(
+        "SELECT COALESCE(MAX(version), 0) FROM schema_migrations"
+    ).fetchone()[0]
+    if version > 1:
+        connection.close()
+        raise sqlite3.DatabaseError("database_schema_version_is_newer_than_this_application")
+    if version < 1:
+        connection.execute(
+            "INSERT INTO schema_migrations(version, applied_at) VALUES (?, ?)",
+            (1, datetime.now(timezone.utc).isoformat()),
+        )
     connection.execute(
         "CREATE INDEX IF NOT EXISTS idx_market_bars_lookup "
         "ON market_bars(symbol, interval, timestamp)"
@@ -151,6 +169,7 @@ def database_readiness() -> dict:
             "status": "ready" if table else "not_ready",
             "reachable": True,
             "market_bars_schema": bool(table),
+            "schema_version": connection.execute("PRAGMA user_version").fetchone()[0],
         }
     except (sqlite3.Error, OSError) as exc:
         return {

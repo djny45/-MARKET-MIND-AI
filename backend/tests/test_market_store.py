@@ -62,6 +62,18 @@ class MarketStoreTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(get_audit_events("ETHUSD", "1d")["count"], 2)
                 self.assertEqual(get_bars("ETHUSD", "1d")["count"], 2)
 
+    def test_existing_database_receives_schema_migration_baseline(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database = os.path.join(directory, "existing.sqlite")
+            with patch.dict(os.environ, {"MARKET_MIND_DB": database}):
+                get_bars("BTCUSD", "1d")
+                import sqlite3
+                with sqlite3.connect(database) as connection:
+                    version = connection.execute(
+                        "SELECT MAX(version) FROM schema_migrations"
+                    ).fetchone()[0]
+                self.assertEqual(version, 1)
+
     def test_unknown_symbol_returns_empty_history(self):
         with tempfile.TemporaryDirectory() as directory:
             with patch.dict(os.environ, {"MARKET_MIND_DB": os.path.join(directory, "test.sqlite")}):

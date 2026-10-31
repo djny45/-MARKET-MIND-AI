@@ -165,3 +165,13 @@ Matching uses exact timestamp strings and source labels. A valid SHA-256 digest 
 - `GET /api/providers/status` reports implemented adapter availability. At present the synthetic fixture adapter is available for development; no live or delayed provider is configured. This endpoint is descriptive and does not probe an external data vendor.
 
 Do not interpret API liveness or database readiness as evidence that market data is current, complete, or connected to an exchange.
+
+
+## Ingestion audit and data lineage
+
+The Research sidebar's **VIEW INGESTION AUDIT & LINEAGE** panel combines:
+
+- `GET /api/audit/events` — recent successful market-data batch writes, with symbol, interval, source, status, observation count, timestamp range, and ingestion time.
+- `GET /api/market-data/lineage` — stored observation counts and timestamp ranges grouped by source and status.
+
+Audit events intentionally contain batch metadata rather than raw prices or user identity. They are written in the same SQLite transaction as the corresponding bar upsert. They establish what the application recorded, not provider authenticity, user attribution, or data freshness. Existing databases acquire the audit table automatically through the normal SQLite connection initialization.

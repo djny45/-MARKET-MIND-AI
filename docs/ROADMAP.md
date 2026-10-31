@@ -43,7 +43,7 @@ This roadmap is a plan, not a claim that these features already exist. Mark an i
 
 ## Phase 5 — Reliability and governance
 - [x] Add historical evidence export, SHA-256 verification, batch verification, and before/after comparison with provenance and diagnostic differences.
-- [ ] Add audit logs and data lineage views.
+- [x] Add SQLite ingestion audit events and source/status data-lineage views (batch metadata only; no provider or user authentication claim).
 - [ ] Add observability, performance profiling, and load tests.
 - [ ] Add security review and dependency/licence inventory.
 - [ ] Add backup, migration, and rollback procedures.

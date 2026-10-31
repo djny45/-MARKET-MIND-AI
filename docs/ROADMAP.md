@@ -14,7 +14,7 @@ This roadmap is a plan, not a claim that these features already exist. Mark an i
 - [x] Implement provider-adapter protocol and retain the provider capability registry; live adapters remain pending.
 - [x] Add retrieval timestamps, synthetic status labels, source provenance, and OHLCV validation for the fixture contract.
 - [x] Add SQLite historical bar storage with source/status/retrieval provenance (retention policy remains open).
-- [ ] Add API health, readiness, and provider-status endpoints.
+- [x] Add API health, readiness, and provider-status endpoints (liveness, SQLite readiness, explicit synthetic-only provider status).
 
 ## Phase 2 — Terminal user experience
 - [ ] Build multi-panel workspace shell.

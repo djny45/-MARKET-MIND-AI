@@ -12,4 +12,49 @@ def compare_research_exports(before, after):
     new_scope = after.get("scope") or {}
     if (old_scope.get("symbol"), old_scope.get("interval")) != (new_scope.get("symbol"), new_scope.get("interval")):
         raise ValueError("export_scope_mismatch")
-    return {"different": before != after, "scope": old_scope}
+    def index(bundle):
+        indexed = {}
+        invalid = 0
+        for observation in bundle.get("observations", []):
+            if not isinstance(observation, dict):
+                invalid += 1
+                continue
+            timestamp = observation.get("timestamp")
+            source = observation.get("source")
+            if not isinstance(timestamp, str) or not isinstance(source, str):
+                invalid += 1
+                continue
+            key = (timestamp, source)
+            if key in indexed:
+                invalid += 1
+                continue
+            indexed[key] = observation
+        return indexed, invalid
+
+    old, old_invalid = index(before)
+    new, new_invalid = index(after)
+    old_keys, new_keys = set(old), set(new)
+    added = sorted(new_keys - old_keys)
+    removed = sorted(old_keys - new_keys)
+    changed = []
+    for key in sorted(old_keys & new_keys):
+        fields = sorted(
+            field for field in set(old[key]) | set(new[key])
+            if old[key].get(field) != new[key].get(field)
+        )
+        if fields:
+            changed.append({"timestamp": key[0], "source": key[1], "fields": fields})
+    return {
+        "different": before != after,
+        "scope": old_scope,
+        "counts": {
+            "before": len(before.get("observations", [])),
+            "after": len(after.get("observations", [])),
+            "added": len(added), "removed": len(removed), "changed": len(changed),
+            "unchanged": len(old_keys & new_keys) - len(changed),
+            "invalid_or_duplicate_keys": {"before": old_invalid, "after": new_invalid},
+        },
+        "added": [{"timestamp": key[0], "source": key[1]} for key in added],
+        "removed": [{"timestamp": key[0], "source": key[1]} for key in removed],
+        "changed": changed,
+    }

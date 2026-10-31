@@ -43,14 +43,14 @@ def add_symbol(symbol: str) -> dict:
     normalized = normalize_symbol(symbol)
     added_at = datetime.now(timezone.utc).isoformat()
     with _connect() as connection:
-        connection.execute(
+        cursor = connection.execute(
             "INSERT OR IGNORE INTO watchlist(symbol, added_at) VALUES (?, ?)",
             (normalized, added_at),
         )
         row = connection.execute(
             "SELECT symbol, added_at FROM watchlist WHERE symbol=?", (normalized,)
         ).fetchone()
-    return {"added": True, "already_present": row["added_at"] != added_at,
+    return {"added": True, "already_present": cursor.rowcount == 0,
             "symbol": row["symbol"], "added_at": row["added_at"]}
 
 

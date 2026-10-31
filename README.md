@@ -203,3 +203,12 @@ PYTHONPATH=backend python backend/verify_research_export.py ./BTCUSD-1h-research
 ```
 
 The detached report records the verification time, filename, byte size, exact-file SHA-256, and pass/fail result. A matching digest detects accidental changes relative to the embedded digest; it is not a digital signature and does not authenticate the source provider. These tools operate on historical research evidence only. Brokerage execution remains disabled.
+
+
+Batch verification of several exports is also supported:
+
+```bash
+PYTHONPATH=backend python backend/verify_research_export.py ./BTCUSD-1h-research-evidence.json ./ETHUSD-1h-research-evidence.json --batch-report ./batch-verification.json
+```
+
+The consolidated report records per-file hashes and results plus aggregate valid/invalid counts. The command returns success only when all supplied files verify.

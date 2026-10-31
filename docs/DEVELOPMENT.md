@@ -142,3 +142,17 @@ The multi-timeframe API is `GET /api/research/timeframes?symbol=BTCUSD&intervals
 ### Confirmed swing structure
 
 The chart research report identifies local swing highs and lows using two bars on each side. A candidate pivot is only labelled after both right-side confirmation bars exist, reducing premature labelling. These points are historical structure references, not guaranteed support/resistance, forecasts, or trade triggers. The report includes the pivot index, timestamp and observed price.
+
+
+## Compare saved research evidence exports
+
+In the Research sidebar, use **COMPARE SAVED EXPORTS** and select exactly two compatible JSON evidence exports. The dashboard displays added, removed, changed and unchanged observation counts, provenance changes, and separate integrity-validation results for both files. Each selected file is limited to 10 MB in the browser.
+
+The API endpoint is POST /api/research/compare-exports with a JSON body containing before and after evidence objects. For a local report without the UI or API server, run:
+
+```bash
+cd backend
+PYTHONPATH=. python compare_research_exports.py ./before.json ./after.json --report ./comparison.json
+```
+
+Matching uses exact timestamp strings and source labels. A valid SHA-256 digest confirms consistency with the embedded digest; it is not a digital signature or provider authentication.

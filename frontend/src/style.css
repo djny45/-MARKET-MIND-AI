@@ -112,3 +112,13 @@
 .execution-skills>div{display:flex;flex-wrap:wrap;gap:5px;margin:8px 0}
 .execution-skills span{border:1px solid #52624d;border-radius:3px;padding:4px 6px;color:#a9d0a9;font:9px 'DM Mono'}
 .execution-skills small{color:#84919b;font:8px 'DM Mono'}
+
+.orchestration-summary{padding:10px 13px;border-bottom:1px solid #343c44;background:#111a20}
+.orchestration-summary>b{display:block;color:#d9ae62;font:9px 'DM Mono';letter-spacing:.7px}
+.orchestration-stats{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.orchestration-stats span{border:1px solid #46545c;border-radius:3px;padding:4px 6px;color:#c1d0d6;font:9px 'DM Mono'}
+.orchestration-task{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-top:1px solid #29343b}
+.orchestration-task>span{display:flex;flex-direction:column;gap:3px;min-width:0}
+.orchestration-task b{color:#d9e2e5;font-size:10px}
+.orchestration-task small{color:#83939b;font:8px 'DM Mono';overflow-wrap:anywhere}
+.orchestration-task i{color:#a9d0a9;font:normal 9px 'DM Mono';text-align:right}

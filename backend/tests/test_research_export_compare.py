@@ -68,6 +68,27 @@ class ResearchExportCompareTests(unittest.TestCase):
         result = compare_research_exports(before, after)
         self.assertEqual(result["changed"][0]["fields"], ["retrieved_at", "status"])
 
+    def test_integrity_validation_detects_tampered_bundle(self):
+        import hashlib
+        import json
+        before = bundle([])
+        after = bundle([])
+        for item in (before, after):
+            payload = dict(item)
+            payload.pop("integrity", None)
+            canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+            item["integrity"] = {
+                "algorithm": "sha256",
+                "digest": hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
+                "scope": "complete evidence bundle excluding this integrity field",
+                "canonicalization": "UTF-8 JSON with sorted keys and compact separators",
+            }
+        after["observations"].append({"timestamp": "2026-01-01T00:00:00Z", "source": "csv"})
+        result = compare_research_exports(before, after)
+        self.assertTrue(result["integrity_validation"]["before"]["valid"])
+        self.assertFalse(result["integrity_validation"]["after"]["valid"])
+        self.assertEqual(result["integrity_validation"]["after"]["reason"], "digest_mismatch")
+
     def test_rejects_different_symbol_or_interval(self):
         before = bundle([])
         after = bundle([])

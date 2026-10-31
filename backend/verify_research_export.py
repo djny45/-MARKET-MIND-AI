@@ -149,7 +149,7 @@ def main(argv=None):
             )
             try:
                 Path(args.report).write_text(
-                    json.dumps(report, ensure_ascii=False, indent=2) + "\\n",
+                    json.dumps(report, ensure_ascii=False, indent=2) + "\n",
                     encoding="utf-8",
                 )
             except OSError as exc:
@@ -162,7 +162,7 @@ def main(argv=None):
     if args.batch_report:
         try:
             Path(args.batch_report).write_text(
-                json.dumps(batch, ensure_ascii=False, indent=2) + "\\n",
+                json.dumps(batch, ensure_ascii=False, indent=2) + "\n",
                 encoding="utf-8",
             )
         except OSError as exc:

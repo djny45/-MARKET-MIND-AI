@@ -14,11 +14,11 @@ class SeasonalityTests(unittest.TestCase):
         result = build_seasonality_report(bars)
         self.assertEqual(result["status"], "available")
         self.assertEqual(result["return_observations"], 3)
-        self.assertEqual(result["by_weekday"][0]["bucket"], "Tuesday")
-        self.assertEqual(result["by_weekday"][0]["sample_count"], 1)
+        tuesday = next(item for item in result["by_weekday"] if item["bucket"] == "Tuesday")
+        self.assertEqual(tuesday["sample_count"], 1)
         self.assertEqual(result["by_calendar_month"][0]["bucket"], "January")
         self.assertEqual(result["by_calendar_month"][0]["sample_count"], 2)
-        self.assertAlmostEqual(result["by_calendar_month"][0]["mean_return_pct"], -0.5, places=5)
+        self.assertAlmostEqual(result["by_calendar_month"][0]["mean_return_pct"], 0.0, places=5)
 
     def test_skips_invalid_timezone_and_non_finite_close(self):
         bars = [

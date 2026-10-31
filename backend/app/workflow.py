@@ -31,6 +31,7 @@ def execute_workflow(
     inputs: dict[str, Any],
     max_workers: int = 1,
     max_retries: int = 0,
+    checkpoint_callback=None,
 ):
     """Execute DAG layers; independent nodes may run concurrently when opted in.
 
@@ -154,6 +155,13 @@ def execute_workflow(
             else:
                 results[node_id] = value
                 record.update({"status": "completed", "result_key": node_id})
+        if checkpoint_callback is not None:
+            checkpoint_callback({
+                "completed_node_ids": [key for key, item in task_records.items() if item["status"] == "completed"],
+                "results": results,
+                "tasks": task_records,
+                "completed_layers": layer_index + 1,
+            })
 
     elapsed = perf_counter_ns() - started
     order = [node_id for layer in layers for node_id in layer]

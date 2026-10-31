@@ -61,7 +61,7 @@ def build_seasonality_report(bars):
     weekday_labels = {index: day_name[index] for index in range(7)}
     month_labels = {index: month_name[index] for index in range(1, 13)}
     return {
-        "status": "available" if ordered else "insufficient_valid_observations",
+        "status": "available" if sum(len(values) for values in weekdays.values()) else "insufficient_valid_observations",
         "valid_close_observations": len(ordered),
         "return_observations": sum(len(values) for values in weekdays.values()),
         "skipped_observations": skipped,

@@ -9,6 +9,7 @@ from .correlation import build_correlation_report
 from .price_levels import build_price_level_clusters
 from .market_breadth import build_market_breadth_report
 from .research_dashboard import build_research_dashboard
+from .seasonality import build_seasonality_report
 
 
 def _parse_timestamp(value):
@@ -94,6 +95,7 @@ def build_deep_analysis_report(symbol: str, histories: dict, multi_timeframe_rep
             "market_diagnostics": market_diagnostics,
             "historical_price_clusters": None,
             "chart_research": None,
+            "seasonality": build_seasonality_report(bars),
         }
         if len(bars) >= 5:
             try:
@@ -139,6 +141,7 @@ def build_deep_analysis_report(symbol: str, histories: dict, multi_timeframe_rep
             "relative volume, per-observation volatility regime and historical close-to-close drawdown",
             "descriptive cross-timeframe comparison when supplied",
             "timestamp-aligned advancing/declining/unchanged market breadth when supplied",
+            "descriptive weekday and calendar-month return summaries with sample counts",
         ],
         "interpretation": "Integrated historical observations and data diagnostics only. No prediction, directional signal, investment recommendation, or execution.",
         "execution": "disabled",

@@ -28,7 +28,7 @@ The named `market_mind_data` volume persists the SQLite database when containers
 
 ## Deployment security boundary
 
-The web port is bound to loopback (127.0.0.1), not all network interfaces. This is deliberate: the current workspace API has no user authentication or per-user authorization. Do not publish it directly to the public internet or expose it on a shared network.
+The web port is bound to loopback (127.0.0.1), not all network interfaces. Nginx also sets baseline anti-sniffing, frame-denial, referrer, and browser-permission response headers. This is deliberate: the current workspace API has no user authentication or per-user authorization. Do not publish it directly to the public internet or expose it on a shared network.
 
 For remote access, place an independently maintained TLS reverse proxy and an authentication layer in front of the loopback service. Restrict administrative access, apply request limits, and review the proxy configuration before enabling access. The app remains a single-user research workspace.
 

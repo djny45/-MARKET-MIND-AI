@@ -108,10 +108,46 @@ jobs:
       - uses: actions/checkout@v4
       - name: Validate production Compose configuration
         run: docker compose -f docker-compose.production.yml config --quiet
-      - name: Build backend image
-        run: docker build -f backend/Dockerfile -t market-mind-api:ci backend
-      - name: Build frontend image
-        run: docker build -f frontend/Dockerfile -t market-mind-web:ci frontend
+      - name: Build and start private production stack
+        run: docker compose -f docker-compose.production.yml up --build -d
+      - name: Smoke-test frontend proxy and API health
+        run: |
+          python - <<'PY'
+          import json
+          import time
+          import urllib.request
+
+          base = "http://127.0.0.1:8080"
+          deadline = time.monotonic() + 90
+          last_error = None
+          while time.monotonic() < deadline:
+              try:
+                  with urllib.request.urlopen(base + "/healthz", timeout=3) as response:
+                      assert response.status == 200
+                  with urllib.request.urlopen(base + "/", timeout=3) as response:
+                      page = response.read().decode("utf-8")
+                  assert "root" in page
+                  with urllib.request.urlopen(base + "/api/health", timeout=3) as response:
+                      health = json.load(response)
+                  assert health["mode"] == "research-only"
+                  assert health["broker_execution"] is False
+                  with urllib.request.urlopen(base + "/api/providers/status", timeout=3) as response:
+                      providers = json.load(response)
+                  assert providers["status"] == "no_live_provider_configured"
+                  print("Private deployment smoke test passed: Nginx, API reverse proxy, health, provider guardrails")
+                  break
+              except Exception as exc:
+                  last_error = exc
+                  time.sleep(2)
+          else:
+              raise RuntimeError(f"Production stack did not pass smoke checks: {last_error}")
+          PY
+      - name: Show container logs on failure
+        if: failure()
+        run: docker compose -f docker-compose.production.yml logs --no-color
+      - name: Stop production stack
+        if: always()
+        run: docker compose -f docker-compose.production.yml down -v
 
   dependency-audit:
     runs-on: ubuntu-latest

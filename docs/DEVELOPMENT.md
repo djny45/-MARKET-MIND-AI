@@ -185,7 +185,7 @@ Create a verified copy of the configured database from the backend directory:
 PYTHONPATH=. python backup_database.py ./backups/market_mind-YYYYMMDD.sqlite
 ```
 
-Override the source with `--source /path/to/market_mind.db`. The utility checks the source integrity and required `market_bars` table, uses SQLite's online backup API, checks the copied database, and only then atomically places it at the destination. Existing destinations are not replaced unless `--overwrite` is explicitly supplied. Keep backups outside the application data directory and protect them with the same access controls as the original database.
+Override the source with `--source /path/to/market_mind.db`. The utility checks the source integrity and required `market_bars` table, uses SQLite's online backup API, checks the copied database, and only then atomically places it at the destination. The result includes the backup file's SHA-256 digest for later identity checks. Existing destinations are not replaced unless `--overwrite` is explicitly supplied. Keep backups outside the application data directory and protect them with the same access controls as the original database.
 
 This utility creates and verifies backups; it does not automate restore, retention, off-site replication, or schema migrations. Test restore procedures against a separate copy before relying on a backup operationally.
 

@@ -9,6 +9,7 @@ services:
       MARKET_MIND_DB: /data/market_mind.db
     volumes:
       - market_mind_data:/data
+      - ./backups:/backups
     healthcheck:
       test:
         - CMD

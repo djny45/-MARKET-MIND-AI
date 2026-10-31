@@ -3,7 +3,7 @@ import {
   ReactFlow, Background, Controls, MiniMap, Handle, Position, addEdge,
   useEdgesState, useNodesState, type Node, type Edge, type Connection
 } from '@xyflow/react'
-import { Activity, Boxes, BrainCircuit, Cable, ChevronRight, CircleHelp, Database, GitBranch, Play, Search, ShieldCheck, SlidersHorizontal, Workflow, Newspaper, Star } from 'lucide-react'
+import { Activity, Boxes, BrainCircuit, Cable, ChevronRight, CircleHelp, Database, GitBranch, History, Play, Search, ShieldCheck, SlidersHorizontal, Workflow, Newspaper, Star } from 'lucide-react'
 import PriceChart from './PriceChart'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'

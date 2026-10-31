@@ -26,6 +26,7 @@ from .source_comparison import compare_source_observations
 from .research_export import build_research_evidence_bundle
 from .research_export_compare import compare_research_exports
 import json
+import uuid
 from fastapi.responses import Response
 
 app = FastAPI(title="MARKET-MIND-AI API", version="0.2.0",
@@ -461,8 +462,7 @@ def research_deep(
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-@app.post("/api/workflows/execute")
-def run_workflow(request: WorkflowRequest):
+def _execute_and_persist(request: WorkflowRequest, parent_run_id: str | None = None):
  try:
   if len(set(request.skill_ids)) != len(request.skill_ids):
    raise HTTPException(status_code=400, detail="skill_ids must not contain duplicates")
@@ -480,6 +480,12 @@ def run_workflow(request: WorkflowRequest):
   )
   result["skill_context"] = loaded_skills
   result["skill_context_mode"] = "research_and_paper_only"
+  run_id = str(uuid.uuid4())
+  record = workspace.save_execution(
+   run_id, request.model_dump(), result, result["status"], parent_run_id
+  )
+  result["run_id"] = run_id
+  result["run_record"] = record
   return result
  except ValueError as exc:
   raise HTTPException(status_code=400,detail=str(exc)) from exc
@@ -487,3 +493,35 @@ def run_workflow(request: WorkflowRequest):
   raise
  except Exception as exc:
   raise HTTPException(status_code=500,detail=f"Workflow failed: {exc}") from exc
+
+
+@app.post("/api/workflows/execute")
+def run_workflow(request: WorkflowRequest):
+ return _execute_and_persist(request)
+
+
+@app.get("/api/workflows/runs")
+def list_workflow_runs(limit: int = 50):
+ if limit < 1 or limit > 100:
+  raise HTTPException(status_code=400, detail="limit must be between 1 and 100")
+ return {"runs": workspace.list_executions(limit)}
+
+
+@app.get("/api/workflows/runs/{run_id}")
+def get_workflow_run(run_id: str):
+ record = workspace.get_execution(run_id)
+ if record is None:
+  raise HTTPException(status_code=404, detail="Workflow run not found")
+ return record
+
+
+@app.post("/api/workflows/runs/{run_id}/resume")
+def resume_workflow_run(run_id: str):
+ record = workspace.get_execution(run_id)
+ if record is None:
+  raise HTTPException(status_code=404, detail="Workflow run not found")
+ request = WorkflowRequest(**record["request"])
+ replay = _execute_and_persist(request, parent_run_id=run_id)
+ replay["resume_mode"] = "replay_from_start"
+ replay["resume_note"] = "Research workflows replay from original inputs; task outputs are not checkpoint-restored."
+ return replay

@@ -65,6 +65,30 @@ def health():
  return {"status":"ok","service":"market-mind-ai","mode":"research-only",
   "paper_trading":False,"broker_execution":False}
 
+@app.get("/api/audit/events")
+def audit_events(symbol: str | None = None, interval: str | None = None, limit: int = 100):
+ """List recent market-data ingestion audit events."""
+ if symbol is not None and (not symbol.strip() or len(symbol) > 32):
+  raise HTTPException(status_code=400, detail="symbol must contain 1 to 32 characters")
+ if interval is not None and (not interval.strip() or interval not in SUPPORTED_INTERVALS):
+  raise HTTPException(status_code=400, detail="interval must be one of 15m,1h,4h,1d")
+ if limit < 1 or limit > 500:
+  raise HTTPException(status_code=400, detail="limit must be between 1 and 500")
+ return market_store.get_audit_events(symbol, interval, limit)
+
+
+@app.get("/api/market-data/lineage")
+def market_data_lineage(symbol: str, interval: str = "1h", limit: int = 5000):
+ """Summarize stored observations by source and status."""
+ if not symbol.strip() or len(symbol) > 32:
+  raise HTTPException(status_code=400, detail="symbol must contain 1 to 32 characters")
+ if interval not in SUPPORTED_INTERVALS:
+  raise HTTPException(status_code=400, detail="interval must be one of 15m,1h,4h,1d")
+ if limit < 1 or limit > 5000:
+  raise HTTPException(status_code=400, detail="limit must be between 1 and 5000")
+ return market_store.get_data_lineage(symbol, interval, limit)
+
+
 @app.get("/api/ready")
 def readiness():
  """Report whether required local storage is reachable and initialized."""

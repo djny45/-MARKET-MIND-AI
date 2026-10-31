@@ -117,6 +117,8 @@ For manual setup, see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 | Method | Endpoint | Purpose |
 |---|---|---|
 | GET | `/api/health` | Service health and execution boundary |
+| GET | `/api/ready` | SQLite dependency readiness; HTTP 503 when unavailable |
+| GET | `/api/providers/status` | Implemented adapter availability; distinguishes synthetic fixture from live providers |
 | GET | `/api/nodes` | Supported workflow node definitions |
 | GET | `/api/workers` | Worker profile catalogue |
 | GET | `/api/instruments?q=` | Search reference instrument metadata |

@@ -22,6 +22,8 @@ class DeepAnalysisTests(unittest.TestCase):
         result = build_deep_analysis_report("TEST", {"1h": history()})
         self.assertIn("data_quality", result["timeframes"]["1h"])
         self.assertIn("chart_research", result["timeframes"]["1h"])
+        self.assertEqual(result["timeframes"]["1h"]["seasonality"]["status"], "available")
+        self.assertGreater(result["timeframes"]["1h"]["seasonality"]["return_observations"], 0)
         self.assertEqual(result["execution"], "disabled")
 
     def test_flags_duplicate_and_invalid_ohlc(self):

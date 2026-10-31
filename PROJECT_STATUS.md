@@ -30,9 +30,10 @@ Implemented areas:
 
 ## Latest CI evidence
 
-- Workflow run [41233583292](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/41233583292) passed backend tests, frontend build, dependency audits, container build/start smoke tests, and the backup/restore round-trip.
-- Workflow run [41233664972](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/41233664972), for the latest resource-hardening and documentation commits, has backend, frontend, and dependency-audit jobs passing. The container job has built and started the stack; its proxy/API smoke-test step remains in progress at the time of this review.
-- An earlier run for the Compose hardening commit is also still reported in progress. Do not treat either in-progress run as a complete release pass.
+- Workflow run [41233993555](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/41233993555) passed backend, frontend, dependency-audit, and production container build/start smoke checks after switching to unprivileged Nginx.
+- Workflow run [41234005003](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/41234005003) passed all four jobs, including the production proxy/API smoke test and backup/restore round-trip.
+- Workflow run [41234313802](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/41234313802) passed all four jobs after adding explicit assertions for loopback-only web binding, unpublished API port, dropped capabilities, `no-new-privileges`, non-root Nginx, and browser security headers.
+- These CI checks validate the stack in GitHub Actions. They do not replace a host-specific deployment, restore drill, penetration test, or external security review.
 
 ## Remaining release work
 
@@ -43,19 +44,18 @@ Implemented areas:
 | Research analytics and evidence export | Implemented | Re-run regression tests and inspect exported bundles |
 | Frontend integration | Implemented in source | Maintain clean production-build verification |
 | Live/delayed data provider | Not configured | Validate permissions, licensing, symbol mapping, freshness, and rate limits before enabling a provider |
-| Private container packaging | Implemented in source; latest CI run pending | Complete proxy/API smoke test and verify persistence on a Docker host |
+| Private container packaging | CI build/start, proxy/API smoke, container isolation, and backup/restore integration passed | Verify persistence and recovery on the target Docker host |
 | Backup and restore | Implemented and CI round-trip verified | Perform a host-specific restore drill and document retention/off-host storage |
 | Public deployment security | Blocked | Add authentication/authorization, TLS ingress, request limits, and independent security review before public exposure |
 | Operations | Partially implemented | Add observability, alerting, load tests, migration rollback, and incident procedures |
 
 ## Recommended completion sequence
 
-1. Complete the pending container smoke test and investigate any timeout or failure.
-2. Validate backup and restore on a real private Docker host, including a recovery drill.
-3. Add observability, alerting, and load tests.
-4. Add authentication/authorization and TLS ingress before any public exposure.
-5. Select and validate a properly licensed market-data provider before presenting non-synthetic data as current.
-6. Record test counts, deployment environment, recovery results, and security review before calling the release complete.
+1. Validate persistence and backup/restore on the intended private Docker host, including a recovery drill.
+2. Add host-level observability, alerting, and representative load tests.
+3. Add authentication/authorization and TLS ingress, followed by independent security review, before any public exposure.
+4. Select and validate a properly licensed market-data provider before presenting non-synthetic data as current.
+5. Record deployment environment, recovery results, and security review before calling the release complete.
 
 ## Scope boundary
 

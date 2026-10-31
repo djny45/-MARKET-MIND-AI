@@ -474,15 +474,22 @@ def _execute_and_persist(request: WorkflowRequest, parent_run_id: str | None = N
     raise HTTPException(status_code=400, detail=f"Unsupported research skill: {skill_id}") from exc
    except FileNotFoundError as exc:
     raise HTTPException(status_code=503, detail=f"Research skill unavailable: {skill_id}") from exc
+  run_id = str(uuid.uuid4())
+  record = workspace.create_execution(run_id, request.model_dump(), parent_run_id)
+  def persist_checkpoint(snapshot):
+   workspace.update_execution_checkpoint(run_id, snapshot, "running")
   result = execute_workflow(
    request.nodes, request.edges, request.inputs,
-   request.max_workers, request.max_retries,
+   request.max_workers, request.max_retries, persist_checkpoint,
   )
   result["skill_context"] = loaded_skills
   result["skill_context_mode"] = "research_and_paper_only"
-  run_id = str(uuid.uuid4())
-  record = workspace.save_execution(
-   run_id, request.model_dump(), result, result["status"], parent_run_id
+  record = workspace.update_execution_checkpoint(
+   run_id,
+   {"completed_node_ids":[task["node_id"] for task in result["tasks"] if task["status"]=="completed"],
+    "results":result["results"],"tasks":{task["node_id"]:task for task in result["tasks"]},
+    "completed_layers":len(result["execution_layers"])},
+   result["status"], result,
   )
   result["run_id"] = run_id
   result["run_record"] = record

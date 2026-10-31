@@ -7,7 +7,7 @@ This roadmap is a plan, not a claim that these features already exist. Mark an i
 - [x] Remove paper trading from product scope.
 - [x] Exclude brokerage execution and order routing.
 - [x] Add contribution guide and development standards.
-- [ ] Add CI for linting, type checks, tests, and dependency scanning.
+- [x] Add CI for frontend TypeScript checks/build, backend compilation/tests, and Python/npm dependency vulnerability audits (general-purpose lint rules remain a follow-up).
 
 ## Phase 1 — Data and API foundation
 - [x] Define canonical OHLCV bar and market-data batch schemas (instrument/event/document schemas remain open).

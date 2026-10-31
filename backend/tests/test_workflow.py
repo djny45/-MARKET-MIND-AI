@@ -105,6 +105,24 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(out["tasks"][0]["attempts"], 3)
         self.assertEqual(out["aggregation"]["failed_count"], 1)
 
+    def test_checkpoint_callback_runs_after_each_completed_layer(self):
+        nodes = [
+            {"id": "feed", "type": "market_input", "data": {"values": [1, 2, 3]}},
+            {"id": "sma", "type": "sma", "data": {"period": 2}},
+            {"id": "ema", "type": "ema", "data": {"period": 2}},
+        ]
+        edges = [
+            {"source": "feed", "target": "sma"},
+            {"source": "feed", "target": "ema"},
+        ]
+        snapshots = []
+        out = execute_workflow(nodes, edges, {}, max_workers=2, checkpoint_callback=snapshots.append)
+        self.assertEqual(len(snapshots), 2)
+        self.assertEqual(snapshots[0]["completed_node_ids"], ["feed"])
+        self.assertEqual(snapshots[0]["completed_layers"], 1)
+        self.assertCountEqual(snapshots[1]["completed_node_ids"], ["feed", "sma", "ema"])
+        self.assertEqual(out["aggregation"]["completed_count"], 3)
+
     def test_invalid_retry_limit_rejected(self):
         with self.assertRaisesRegex(ValueError, "max_retries"):
             execute_workflow(

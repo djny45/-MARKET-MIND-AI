@@ -70,7 +70,7 @@ def readiness():
  """Report whether required local storage is reachable and initialized."""
  database = market_store.database_readiness()
  ready = database["status"] == "ready"
- return {
+ result = {
   "status": "ready" if ready else "not_ready",
   "service": "market-mind-ai",
   "checks": {"database": database},

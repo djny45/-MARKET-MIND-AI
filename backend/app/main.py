@@ -111,6 +111,14 @@ def audit_events(symbol: str | None = None, interval: str | None = None, limit: 
  return market_store.get_audit_events(symbol, interval, limit)
 
 
+@app.get("/api/market-data/overview")
+def market_data_overview(limit: int = 200):
+ """Summarize locally stored instrument and timeframe coverage."""
+ if limit < 1 or limit > 500:
+  raise HTTPException(status_code=400, detail="limit must be between 1 and 500")
+ return market_store.get_market_overview(limit)
+
+
 @app.get("/api/market-data/lineage")
 def market_data_lineage(symbol: str, interval: str = "1h", limit: int = 5000):
  """Summarize stored observations by source and status."""

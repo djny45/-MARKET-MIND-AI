@@ -42,6 +42,7 @@ class WorkflowRequest(BaseModel):
  nodes: list[dict[str, Any]] = Field(default_factory=list)
  edges: list[dict[str, Any]] = Field(default_factory=list)
  inputs: dict[str, Any] = Field(default_factory=dict)
+ max_workers: int = Field(default=1, ge=1, le=16)
 
 class IndicatorRequest(BaseModel):
  values: list[float] = Field(min_length=2)

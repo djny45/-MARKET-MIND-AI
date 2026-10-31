@@ -44,6 +44,17 @@ def compare_research_exports(before, after):
         )
         if fields:
             changed.append({"timestamp": key[0], "source": key[1], "fields": fields})
+    diagnostic_changes = {}
+    for section in ("scope", "data_quality", "source_comparison", "timeline", "deep_research"):
+        left = before.get(section)
+        right = after.get(section)
+        if left != right:
+            if isinstance(left, dict) and isinstance(right, dict):
+                diagnostic_changes[section] = sorted(
+                    key for key in set(left) | set(right) if left.get(key) != right.get(key)
+                )
+            else:
+                diagnostic_changes[section] = ["$"]
     return {
         "different": before != after,
         "scope": old_scope,
@@ -57,4 +68,14 @@ def compare_research_exports(before, after):
         "added": [{"timestamp": key[0], "source": key[1]} for key in added],
         "removed": [{"timestamp": key[0], "source": key[1]} for key in removed],
         "changed": changed,
+        "diagnostic_changed_paths": diagnostic_changes,
+        "integrity_digests": {
+            "before": (before.get("integrity") or {}).get("digest"),
+            "after": (after.get("integrity") or {}).get("digest"),
+        },
+        "limitations": [
+            "Observation keys use exact timestamp strings and source labels.",
+            "Duplicate or malformed keys are reported but cannot be matched.",
+            "This comparison does not authenticate a data provider.",
+        ],
     }

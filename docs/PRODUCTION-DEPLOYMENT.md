@@ -38,6 +38,31 @@ No provider credentials are required by this deployment. The built-in market-dat
 
 The Compose definition applies separate memory and PID ceilings to the API and web containers, drops Linux capabilities, enables `no-new-privileges`, and rotates JSON container logs (10 MB per file, three files retained). The unprivileged Nginx image is configured to run without root privileges and is compatible with the web service's dropped-capability policy. These defaults reduce the impact of runaway processes and unbounded container logs; they are starting limits, not capacity guarantees. Review and tune them against observed workload and host capacity before deployment. Monitor host disk usage for the persistent database and backup directory separately.
 
+## Routine operations and diagnostics
+
+Run these checks from the repository root on the private Docker host:
+
+```bash
+# Container state and health
+docker compose -f docker-compose.production.yml ps
+
+# Recent service logs
+docker compose -f docker-compose.production.yml logs --tail=200 api web
+
+# Current container resource use
+docker stats --no-stream
+
+# Confirm the published web listener is loopback-only
+docker compose -f docker-compose.production.yml port web 8080
+
+# Confirm API readiness through the frontend proxy
+curl --fail http://127.0.0.1:8080/api/ready
+```
+
+The expected published web address is `127.0.0.1:8080`; the API should have no host-published port. Treat a failed health check, repeated restarts, sustained resource-limit pressure, or unexpected provider-status changes as reasons to stop and investigate before relying on the workspace. Do not expose diagnostic endpoints or logs to an untrusted network.
+
+This runbook is a basic operator checklist, not a monitoring or alerting system. Configure host-level monitoring and alert delivery separately, and test alert delivery before relying on it.
+
 ## Health checks
 
 - Web container: `GET /healthz` confirms Nginx is serving.

@@ -26,7 +26,7 @@ def main(argv=None):
     except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as exc:
         print(json.dumps({"error": "comparison_failed", "detail": str(exc)}))
         return 2
-    rendered = json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False) + "\\n"
+    rendered = json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False) + "\n"
     if report_path:
         try:
             report_path.write_text(rendered, encoding="utf-8")

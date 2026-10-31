@@ -462,7 +462,7 @@ def research_deep(
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-def _execute_and_persist(request: WorkflowRequest, parent_run_id: str | None = None):
+def _execute_and_persist(request: WorkflowRequest, parent_run_id: str | None = None, initial_checkpoint: dict | None = None):
  try:
   if len(set(request.skill_ids)) != len(request.skill_ids):
    raise HTTPException(status_code=400, detail="skill_ids must not contain duplicates")
@@ -480,7 +480,7 @@ def _execute_and_persist(request: WorkflowRequest, parent_run_id: str | None = N
    workspace.update_execution_checkpoint(run_id, snapshot, "running")
   result = execute_workflow(
    request.nodes, request.edges, request.inputs,
-   request.max_workers, request.max_retries, persist_checkpoint,
+   request.max_workers, request.max_retries, persist_checkpoint, initial_checkpoint,
   )
   result["skill_context"] = loaded_skills
   result["skill_context_mode"] = "research_and_paper_only"
@@ -528,7 +528,7 @@ def resume_workflow_run(run_id: str):
  if record is None:
   raise HTTPException(status_code=404, detail="Workflow run not found")
  request = WorkflowRequest(**record["request"])
- replay = _execute_and_persist(request, parent_run_id=run_id)
- replay["resume_mode"] = "replay_from_start"
- replay["resume_note"] = "Research workflows replay from original inputs; task outputs are not checkpoint-restored."
+ replay = _execute_and_persist(request, parent_run_id=run_id, initial_checkpoint=record.get("checkpoint"))
+ replay["resume_mode"] = "checkpoint_resume"
+ replay["resume_note"] = "Completed nodes from the last durable layer checkpoint were restored; incomplete nodes were scheduled again."
  return replay

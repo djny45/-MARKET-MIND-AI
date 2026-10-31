@@ -76,6 +76,9 @@ export default function App() {
  const [exportDiff,setExportDiff] = useState<any>(null)
  const [exportDiffBusy,setExportDiffBusy] = useState(false)
  const [exportDiffError,setExportDiffError] = useState('')
+ const [auditLineage,setAuditLineage] = useState<any>(null)
+ const [auditBusy,setAuditBusy] = useState(false)
+ const [auditError,setAuditError] = useState('')
  const [researchBars,setResearchBars] = useState<any[]>([])
  const [researchInterval,setResearchInterval] = useState('1h')
  const [selectedCluster,setSelectedCluster] = useState<any>(null)
@@ -112,6 +115,21 @@ export default function App() {
    setQualityReport(body)
   } catch(e) {setQualityReport(null);setQualityError(e instanceof Error?e.message:'Data-quality report unavailable')}
   finally {setQualityBusy(false)}
+ }
+ const loadAuditLineage = async(interval:string)=> {
+  setAuditBusy(true);setAuditError('')
+  try {
+   const params=new URLSearchParams({symbol:researchSymbol.trim(),interval,limit:'5000'})
+   const [lineageResponse,auditResponse]=await Promise.all([
+    fetch(API+'/api/market-data/lineage?'+params.toString()),
+    fetch(API+'/api/audit/events?'+new URLSearchParams({symbol:researchSymbol.trim(),interval,limit:'20'}).toString())
+   ])
+   const [lineage,audit]=await Promise.all([lineageResponse.json(),auditResponse.json()])
+   if(!lineageResponse.ok)throw new Error(lineage.detail||'Lineage unavailable')
+   if(!auditResponse.ok)throw new Error(audit.detail||'Audit history unavailable')
+   setAuditLineage({lineage,audit})
+  } catch(e) {setAuditLineage(null);setAuditError(e instanceof Error?e.message:'Audit and lineage unavailable')}
+  finally {setAuditBusy(false)}
  }
  const loadSourceComparison = async(interval:string)=> {
   setSourceComparisonBusy(true);setSourceComparisonError('')
@@ -232,6 +250,20 @@ export default function App() {
     <button className="run-btn research-run" onClick={runDeepResearch} disabled={researchBusy||!researchSymbol.trim()}>{researchBusy?'ANALYZING…':'RUN DEEP RESEARCH'}</button>
     <a className="soft-btn research-run" href={API+'/api/research/export?'+new URLSearchParams({symbol:researchSymbol.trim(),interval:researchInterval,limit:'500'}).toString()} download={researchSymbol.trim().toUpperCase()+'-'+researchInterval+'-research-evidence.json'} aria-label="Download historical research evidence JSON">DOWNLOAD RESEARCH EVIDENCE JSON</a>
     <small className="research-note">Uses locally stored observations only. No live-price claim, forecasts or execution.</small>
+    <div className="side-label">DATA AUDIT & LINEAGE <span>PROVENANCE</span></div>
+    <button className="soft-btn research-run" onClick={()=>loadAuditLineage(researchInterval)} disabled={auditBusy}>{auditBusy?'LOADING AUDIT…':'VIEW INGESTION AUDIT & LINEAGE'}</button>
+    {auditError&&<p className="news-error">{auditError}</p>}
+    {auditLineage&&<div className="research-results">
+     <b>STORED DATA LINEAGE · {auditLineage.lineage.symbol} · {auditLineage.lineage.interval}</b>
+     <small>{auditLineage.lineage.observation_count} observations in selected history window</small>
+     {auditLineage.lineage.lineage.map((item:any)=><div className="aligned-row" key={item.source+'-'+item.status}>
+      <b>{item.source}</b><span>{item.status}</span><span>{item.observation_count} bars</span>
+      <small>{item.first_timestamp||'—'} → {item.last_timestamp||'—'} · retrieved {item.latest_retrieval||'—'}</small>
+     </div>)}
+     <b>RECENT INGESTION EVENTS · {auditLineage.audit.count}</b>
+     {auditLineage.audit.events.slice(0,10).map((event:any)=><small key={event.id}>#{event.id} · {event.event_type} · {event.source} · {event.observation_count} observations · {event.occurred_at}</small>)}
+     <small>Audit records describe successful batch writes and source metadata; they do not authenticate a provider or user.</small>
+    </div>}
     <div className="side-label">COMPARE SAVED EXPORTS <span>JSON</span></div>
     <small className="research-note">Choose two compatible historical evidence JSON files. Each file is limited to 10 MB.</small>
     <input type="file" accept=".json,application/json" multiple aria-label="Select two historical research JSON exports" onChange={e=>{setCompareFiles(Array.from(e.target.files||[]).slice(0,2));setExportDiff(null);setExportDiffError('')}}/>

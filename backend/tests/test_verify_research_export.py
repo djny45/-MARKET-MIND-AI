@@ -2,7 +2,7 @@ import hashlib
 import json
 import unittest
 
-from verify_research_export import verify_bundle
+from verify_research_export import build_verification_report, verify_bundle
 
 
 def signed_bundle():
@@ -21,6 +21,18 @@ def signed_bundle():
 
 
 class VerifyResearchExportTests(unittest.TestCase):
+    def test_builds_detached_report_with_file_hash_and_timestamp(self):
+        raw = b'{"schema_version":"1.1"}'
+        result = {"valid": True, "reason": "digest_matches"}
+        report = build_verification_report(
+            "sample-research.json", raw, result, "2026-10-31T10:00:00+00:00"
+        )
+        self.assertEqual(report["file_name"], "sample-research.json")
+        self.assertEqual(report["file_size_bytes"], len(raw))
+        self.assertEqual(report["file_sha256"], hashlib.sha256(raw).hexdigest())
+        self.assertEqual(report["verified_at_utc"], "2026-10-31T10:00:00+00:00")
+        self.assertEqual(report["verification"], result)
+
     def test_accepts_unchanged_export(self):
         result = verify_bundle(signed_bundle())
         self.assertTrue(result["valid"])

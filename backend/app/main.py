@@ -76,6 +76,11 @@ def readiness():
   "checks": {"database": database},
   "execution": {"paper_trading": False, "broker_execution": False},
  }
+ if not ready:
+  raise HTTPException(status_code=503, detail={
+   "status": "not_ready", "checks": {"database": database},
+  })
+ return result
 
 
 @app.get("/api/providers/status")

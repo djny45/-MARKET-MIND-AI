@@ -17,6 +17,10 @@ def verify_bundle(bundle):
         return {"valid": False, "reason": "integrity_metadata_missing"}
     if integrity.get("algorithm") != "sha256":
         return {"valid": False, "reason": "unsupported_integrity_algorithm"}
+    if integrity.get("scope") != "complete evidence bundle excluding this integrity field":
+        return {"valid": False, "reason": "unsupported_integrity_scope"}
+    if integrity.get("canonicalization") != "UTF-8 JSON with sorted keys and compact separators":
+        return {"valid": False, "reason": "unsupported_canonicalization"}
     expected = integrity.get("digest")
     if not isinstance(expected, str) or len(expected) != 64:
         return {"valid": False, "reason": "invalid_digest_format"}

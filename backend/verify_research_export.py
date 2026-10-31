@@ -1,4 +1,4 @@
-"""Verify the integrity digest of an exported historical research JSON bundle."""
+"""Verify SHA-256 integrity digests in exported historical research JSON bundles."""
 
 import argparse
 import hashlib
@@ -64,34 +64,112 @@ def build_verification_report(file_path, file_bytes, result, verified_at=None):
     }
 
 
-def main(argv=None):
-    parser = argparse.ArgumentParser(
-        description="Verify the SHA-256 integrity digest in a MARKET-MIND historical research export."
-    )
-    parser.add_argument("file", help="Path to a downloaded research-evidence JSON file")
-    parser.add_argument("--report", help="Optional path to write a detached verification report JSON")
-    args = parser.parse_args(argv)
-    source_path = Path(args.file)
+def verify_file(file_path):
+    """Read and verify one file, retaining file-level errors in the result."""
+    source_path = Path(file_path)
     try:
         file_bytes = source_path.read_bytes()
         bundle = json.loads(file_bytes.decode("utf-8"))
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
-        print(json.dumps({"valid": False, "reason": "file_read_or_json_error", "detail": str(exc)}))
-        return 2
+        return {
+            "file_name": source_path.name,
+            "file_path": str(source_path),
+            "valid": False,
+            "reason": "file_read_or_json_error",
+            "detail": str(exc),
+            "file_sha256": None,
+            "file_size_bytes": None,
+            "verification": {"valid": False, "reason": "file_read_or_json_error"},
+            "file_bytes": None,
+        }
     result = verify_bundle(bundle)
-    if args.report:
-        report_path = Path(args.report)
-        if source_path.resolve() == report_path.resolve():
+    return {
+        "file_name": source_path.name,
+        "file_path": str(source_path),
+        "valid": result["valid"],
+        "reason": result["reason"],
+        "file_sha256": hashlib.sha256(file_bytes).hexdigest(),
+        "file_size_bytes": len(file_bytes),
+        "verification": result,
+        "file_bytes": file_bytes,
+    }
+
+
+def build_batch_report(results, verified_at=None):
+    """Build a consolidated report without embedding source file contents."""
+    checked_at = verified_at or datetime.now(timezone.utc).isoformat()
+    rows = [{key: value for key, value in item.items() if key != "file_bytes"} for item in results]
+    valid_count = sum(1 for item in results if item["valid"])
+    return {
+        "report_type": "research_export_batch_verification",
+        "verified_at_utc": checked_at,
+        "files_checked": len(results),
+        "valid_count": valid_count,
+        "invalid_count": len(results) - valid_count,
+        "all_valid": bool(results) and valid_count == len(results),
+        "results": rows,
+        "limitations": [
+            "SHA-256 digests detect changes relative to embedded digests; they are not digital signatures.",
+            "Verification does not authenticate original data providers or certify source licensing.",
+        ],
+    }
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(
+        description="Verify SHA-256 integrity digests in MARKET-MIND historical research exports."
+    )
+    parser.add_argument("files", nargs="+", help="One or more downloaded research-evidence JSON files")
+    parser.add_argument("--report", help="Detached report path for a single input file")
+    parser.add_argument("--batch-report", help="Consolidated report path for multiple input files")
+    args = parser.parse_args(argv)
+
+    if len(args.files) == 1 and args.batch_report:
+        parser.error("--batch-report requires at least two input files")
+    if len(args.files) > 1 and args.report:
+        parser.error("--report is for one file; use --batch-report for multiple files")
+
+    report_option = args.report if len(args.files) == 1 else args.batch_report
+    input_paths = [Path(item) for item in args.files]
+    if report_option:
+        report_path = Path(report_option)
+        if any(source.resolve() == report_path.resolve() for source in input_paths):
             print(json.dumps({"valid": False, "reason": "report_path_must_not_overwrite_source"}))
             return 2
-        report = build_verification_report(source_path, file_bytes, result)
+
+    results = [verify_file(path) for path in input_paths]
+    if len(results) == 1:
+        item = results[0]
+        output = item["verification"]
+        if item["reason"] == "file_read_or_json_error":
+            output = {"valid": False, "reason": item["reason"], "detail": item["detail"]}
+        if args.report:
+            report = build_verification_report(
+                input_paths[0], item["file_bytes"] or b"", output
+            )
+            try:
+                Path(args.report).write_text(
+                    json.dumps(report, ensure_ascii=False, indent=2) + "\\n",
+                    encoding="utf-8",
+                )
+            except OSError as exc:
+                print(json.dumps({"valid": False, "reason": "verification_report_write_error", "detail": str(exc)}))
+                return 2
+        print(json.dumps(output, ensure_ascii=False, indent=2))
+        return 0 if item["valid"] else (2 if item["reason"] == "file_read_or_json_error" else 1)
+
+    batch = build_batch_report(results)
+    if args.batch_report:
         try:
-            report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            Path(args.batch_report).write_text(
+                json.dumps(batch, ensure_ascii=False, indent=2) + "\\n",
+                encoding="utf-8",
+            )
         except OSError as exc:
-            print(json.dumps({"valid": False, "reason": "verification_report_write_error", "detail": str(exc)}))
+            print(json.dumps({"valid": False, "reason": "batch_report_write_error", "detail": str(exc)}))
             return 2
-    print(json.dumps(result, ensure_ascii=False, indent=2))
-    return 0 if result["valid"] else 1
+    print(json.dumps(batch, ensure_ascii=False, indent=2))
+    return 0 if batch["all_valid"] else 1
 
 
 if __name__ == "__main__":

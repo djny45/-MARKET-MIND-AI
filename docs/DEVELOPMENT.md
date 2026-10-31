@@ -200,3 +200,8 @@ API:
 - `DELETE /api/watchlist/{symbol}` — remove a saved symbol.
 
 This is a single-user local-development feature. Add authentication and per-user authorization before exposing it to a public network. The watchlist stores reference symbols only; it does not imply quotes, alerts, or provider coverage.
+
+
+### SQLite schema version
+
+The market-data store initializes a `schema_migrations` ledger and records baseline schema version `1`. Existing databases are adopted at that baseline when the current tables are initialized. The readiness endpoint reports the ledger version and rejects a database marked with a newer unsupported version. This is a versioned baseline, not yet a multi-step migration framework; future schema changes must add explicit, tested forward migrations before increasing the version.

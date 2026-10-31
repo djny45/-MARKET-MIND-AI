@@ -22,6 +22,7 @@ from .csv_import import parse_historical_csv
 from .historical_quality import build_historical_quality_diagnostics
 from .source_comparison import compare_source_observations
 from .research_export import build_research_evidence_bundle
+from .research_export_compare import compare_research_exports
 import json
 from fastapi.responses import Response
 
@@ -244,6 +245,17 @@ def export_research_evidence(symbol: str, interval: str = "1h", limit: int = 500
  filename = f"{symbol.strip().upper()}-{interval}-research-evidence.json"
  return Response(content=content, media_type="application/json",
   headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+
+
+@app.post("/api/research/compare-exports")
+def compare_export_bundles(payload: dict[str, Any]):
+ """Compare two compatible historical evidence exports supplied by the caller."""
+ before = payload.get("before")
+ after = payload.get("after")
+ try:
+  return compare_research_exports(before, after)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc))
 
 
 @app.get("/api/research/source-comparison")

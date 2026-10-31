@@ -6,7 +6,7 @@ This roadmap is a plan, not a claim that these features already exist. Mark an i
 - [x] Define Bloomberg Terminal-inspired product scope.
 - [x] Remove paper trading from product scope.
 - [x] Exclude brokerage execution and order routing.
-- [ ] Add contribution guide and development standards.
+- [x] Add contribution guide and development standards.
 - [ ] Add CI for linting, type checks, tests, and dependency scanning.
 
 ## Phase 1 — Data and API foundation

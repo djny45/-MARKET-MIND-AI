@@ -46,6 +46,28 @@ class ResearchExportCompareTests(unittest.TestCase):
         result = compare_research_exports(before, after)
         self.assertEqual(result["counts"]["invalid_or_duplicate_keys"]["before"], 2)
 
+    def test_rejects_non_list_observations(self):
+        before = bundle([])
+        after = bundle([])
+        after["observations"] = {"timestamp": "2026-01-01T00:00:00Z"}
+        with self.assertRaisesRegex(ValueError, "observations_must_be_a_list"):
+            compare_research_exports(before, after)
+
+    def test_rejects_non_object_scope(self):
+        before = bundle([])
+        after = bundle([])
+        after["scope"] = ["BTCUSD", "1h"]
+        with self.assertRaisesRegex(ValueError, "export_scope_must_be_an_object"):
+            compare_research_exports(before, after)
+
+    def test_reports_per_observation_provenance_changes(self):
+        before = bundle([{"timestamp": "2026-01-01T00:00:00Z", "source": "alpha",
+                          "status": "historical", "retrieved_at": "2026-01-02T00:00:00Z"}])
+        after = bundle([{"timestamp": "2026-01-01T00:00:00Z", "source": "alpha",
+                         "status": "delayed", "retrieved_at": "2026-01-03T00:00:00Z"}])
+        result = compare_research_exports(before, after)
+        self.assertEqual(result["changed"][0]["fields"], ["retrieved_at", "status"])
+
     def test_rejects_different_symbol_or_interval(self):
         before = bundle([])
         after = bundle([])

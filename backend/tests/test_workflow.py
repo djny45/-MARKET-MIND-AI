@@ -35,6 +35,29 @@ class WorkflowTests(unittest.TestCase):
         self.assertTrue(concurrent["performance"]["parallelism_used"])
         self.assertEqual(concurrent["execution_layers"], [["feed"], ["sma", "ema"]])
 
+    def test_task_orchestration_tracks_assignments_dependencies_and_aggregation(self):
+        nodes = [
+            {"id": "feed", "type": "market_input", "data": {"values": [10, 11, 12, 13]}},
+            {"id": "sma", "type": "sma", "data": {"period": 2, "category": "worker", "label": "Trend Analyst"}},
+            {"id": "summary", "type": "research_summary", "data": {}},
+        ]
+        edges = [
+            {"source": "feed", "target": "sma"},
+            {"source": "sma", "target": "summary"},
+        ]
+        out = execute_workflow(nodes, edges, {})
+        tasks = {task["node_id"]: task for task in out["tasks"]}
+        self.assertEqual(tasks["feed"]["assigned_worker"], "workflow-engine")
+        self.assertEqual(tasks["sma"]["assigned_worker"], "Trend Analyst")
+        self.assertEqual(tasks["sma"]["dependency_ids"], ["feed"])
+        self.assertEqual(tasks["summary"]["dependency_ids"], ["sma"])
+        self.assertTrue(all(task["status"] == "completed" for task in tasks.values()))
+        self.assertTrue(all(task["duration_ns"] >= 0 for task in tasks.values()))
+        self.assertEqual(out["aggregation"]["task_count"], 3)
+        self.assertEqual(out["aggregation"]["completed_count"], 3)
+        self.assertEqual(out["aggregation"]["failed_count"], 0)
+        self.assertEqual(out["aggregation"]["result_count"], 3)
+
     def test_invalid_worker_limit_rejected(self):
         with self.assertRaisesRegex(ValueError, "max_workers"):
             execute_workflow(

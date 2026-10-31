@@ -310,7 +310,6 @@ export default function App() {
         <small>No annualization, significance test, forecast or predictive edge. Consecutive available observations are grouped by the later bar's timestamp.</small>
        </>}
       </div>
-)}</div>
       <div className="aligned-comparison">
        <b>HISTORICAL DATA-QUALITY REVIEW · {researchInterval}</b>
        {qualityBusy&&<small>CALCULATING DIAGNOSTICS…</small>}

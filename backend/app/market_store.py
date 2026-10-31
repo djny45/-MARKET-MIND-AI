@@ -1,6 +1,7 @@
 """SQLite storage for normalized market bars with provenance metadata."""
 import os
 import sqlite3
+from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -160,16 +161,20 @@ def get_bars(symbol: str, interval: str, limit: int = 500) -> dict:
 def database_readiness() -> dict:
     """Check SQLite connectivity and schema availability without exposing its path."""
     try:
-        with _connect() as connection:
-            connection.execute("SELECT 1").fetchone()
-            table = connection.execute(
-                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='market_bars'"
-            ).fetchone()
+        with closing(_connect()) as connection:
+            with connection:
+                connection.execute("SELECT 1").fetchone()
+                table = connection.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type='table' AND name='market_bars'"
+                ).fetchone()
+                schema_version = connection.execute(
+                    "SELECT COALESCE(MAX(version), 0) FROM schema_migrations"
+                ).fetchone()[0]
         return {
             "status": "ready" if table else "not_ready",
             "reachable": True,
             "market_bars_schema": bool(table),
-            "schema_version": connection.execute("SELECT COALESCE(MAX(version), 0) FROM schema_migrations").fetchone()[0],
+            "schema_version": schema_version,
         }
     except (sqlite3.Error, OSError) as exc:
         return {

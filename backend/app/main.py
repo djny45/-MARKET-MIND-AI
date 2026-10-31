@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 from typing import Any, Literal
 from .workflow import NODE_TYPES, execute_workflow
 from .workers import list_workers
+from .skill_catalog import list_skills, load_skill
 from .markets import market_catalog
 from .instruments import search_instruments
 from .pipeline import system_capabilities
@@ -175,6 +176,24 @@ def workers(department: str | None = None, limit: int = 550):
  items=list_workers()
  if department: items=[w for w in items if w["department"]==department]
  return {"count":len(items[:max(1,min(limit,550))]),"workers":items[:max(1,min(limit,550))]}
+
+
+@app.get("/api/skills")
+def skills():
+ """List the allowlisted research playbooks available to worker profiles."""
+ return {"count": len(list_skills()), "skills": list_skills(),
+         "execution": {"paper_trading": False, "broker_execution": False}}
+
+
+@app.get("/api/skills/{skill_id}")
+def skill_detail(skill_id: str):
+ """Load one allowlisted research playbook; unknown or broker skills are rejected."""
+ try:
+  return load_skill(skill_id)
+ except KeyError as exc:
+  raise HTTPException(status_code=404, detail="Research skill not found") from exc
+ except FileNotFoundError as exc:
+  raise HTTPException(status_code=404, detail="Research skill file is unavailable") from exc
 
 @app.get("/api/markets")
 def markets():

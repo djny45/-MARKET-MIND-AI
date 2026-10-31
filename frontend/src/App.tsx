@@ -298,7 +298,19 @@ export default function App() {
       <div className="research-metric"><small>QUALITY ISSUES</small><b>{researchReport.dashboard?.data_quality?.timeframes_with_issues??0}</b></div>
       <div className="research-metric"><small>HIGH / LOW CLUSTERS</small><b>{researchReport.dashboard?.historical_price_clusters?.confirmed_swing_high_cluster_count??0} / {researchReport.dashboard?.historical_price_clusters?.confirmed_swing_low_cluster_count??0}</b></div>
       {researchReport.dashboard?.market_breadth_latest&&<div className="research-metric"><small>ADVANCING / DECLINING</small><b>{researchReport.dashboard.market_breadth_latest.advancing} / {researchReport.dashboard.market_breadth_latest.declining}</b></div>}
-      <div className="research-frames">{(researchReport.dashboard?.timeframes||[]).map((item:any)=><div key={item.interval}><b>{item.interval}</b><span>{item.status==='available'?item.moving_average_regime:'INSUFFICIENT DATA'}</span><small>RSI {item.rsi14??'—'} · ATR {item.atr14??'—'}</small></div>)}</div>
+      <div className="research-frames">{(researchReport.dashboard?.timeframes||[]).map((item:any)=><div key={item.interval}><b>{item.interval}</b><span>{item.status==='available'?item.moving_average_regime:'INSUFFICIENT DATA'}</span><small>RSI {item.rsi14??'—'} · ATR {item.atr14??'—'}</small></div>
+      <div className="aligned-comparison">
+       <b>HISTORICAL SEASONALITY · {researchInterval}</b>
+       {researchReport.timeframes?.[researchInterval]?.seasonality&&<>
+        <small>{researchReport.timeframes[researchInterval].seasonality.status.replaceAll('_',' ')} · {researchReport.timeframes[researchInterval].seasonality.return_observations} consecutive-return observations · {researchReport.timeframes[researchInterval].seasonality.skipped_observations} skipped</small>
+        <b>BY WEEKDAY</b>
+        {researchReport.timeframes[researchInterval].seasonality.by_weekday.map((item:any)=><div className="aligned-row" key={item.bucket}><b>{item.bucket}</b><span>{item.sample_count} samples</span><span>Mean {item.mean_return_pct}%</span><span>Median {item.median_return_pct}%</span></div>)}
+        <b>BY CALENDAR MONTH</b>
+        {researchReport.timeframes[researchInterval].seasonality.by_calendar_month.map((item:any)=><div className="aligned-row" key={item.bucket}><b>{item.bucket}</b><span>{item.sample_count} samples</span><span>Mean {item.mean_return_pct}%</span><span>Median {item.median_return_pct}%</span></div>)}
+        <small>No annualization, significance test, forecast or predictive edge. Consecutive available observations are grouped by the later bar's timestamp.</small>
+       </>}
+      </div>
+)}</div>
       <div className="aligned-comparison">
        <b>HISTORICAL DATA-QUALITY REVIEW · {researchInterval}</b>
        {qualityBusy&&<small>CALCULATING DIAGNOSTICS…</small>}

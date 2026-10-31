@@ -44,6 +44,7 @@ class WorkflowRequest(BaseModel):
  edges: list[dict[str, Any]] = Field(default_factory=list)
  inputs: dict[str, Any] = Field(default_factory=dict)
  max_workers: int = Field(default=1, ge=1, le=16)
+ max_retries: int = Field(default=0, ge=0, le=3)
  skill_ids: list[str] = Field(default_factory=list, max_length=10)
 
 class IndicatorRequest(BaseModel):
@@ -473,7 +474,10 @@ def run_workflow(request: WorkflowRequest):
     raise HTTPException(status_code=400, detail=f"Unsupported research skill: {skill_id}") from exc
    except FileNotFoundError as exc:
     raise HTTPException(status_code=503, detail=f"Research skill unavailable: {skill_id}") from exc
-  result = execute_workflow(request.nodes,request.edges,request.inputs,request.max_workers)
+  result = execute_workflow(
+   request.nodes, request.edges, request.inputs,
+   request.max_workers, request.max_retries,
+  )
   result["skill_context"] = loaded_skills
   result["skill_context_mode"] = "research_and_paper_only"
   return result

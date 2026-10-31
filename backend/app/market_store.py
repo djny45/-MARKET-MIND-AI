@@ -31,6 +31,24 @@ def _connect():
             PRIMARY KEY (symbol, interval, timestamp, source)
         )
     """)
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS audit_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_type TEXT NOT NULL,
+            symbol TEXT NOT NULL,
+            interval TEXT NOT NULL,
+            source TEXT NOT NULL,
+            status TEXT NOT NULL,
+            observation_count INTEGER NOT NULL,
+            first_timestamp TEXT,
+            last_timestamp TEXT,
+            occurred_at TEXT NOT NULL
+        )
+    """)
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_audit_events_scope "
+        "ON audit_events(symbol, interval, id DESC)"
+    )
     connection.execute(
         "CREATE INDEX IF NOT EXISTS idx_market_bars_lookup "
         "ON market_bars(symbol, interval, timestamp)"
@@ -60,6 +78,18 @@ def store_batch(batch: MarketDataBatch) -> dict:
                 close=excluded.close, volume=excluded.volume,
                 status=excluded.status, retrieved_at=excluded.retrieved_at
         """, rows)
+        connection.execute("""
+            INSERT INTO audit_events (
+                event_type, symbol, interval, source, status, observation_count,
+                first_timestamp, last_timestamp, occurred_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            "market_data_batch_stored", batch.symbol.upper(), batch.interval,
+            batch.source, batch.status.value, len(rows),
+            ordered_bars[0].timestamp.isoformat() if ordered_bars else None,
+            ordered_bars[-1].timestamp.isoformat() if ordered_bars else None,
+            batch.retrieved_at.isoformat(),
+        ))
     return {
         "stored": len(rows),
         "symbol": batch.symbol.upper(),
@@ -129,3 +159,61 @@ def database_readiness() -> dict:
             "market_bars_schema": False,
             "error": type(exc).__name__,
         }
+
+
+def get_audit_events(symbol: str | None = None, interval: str | None = None,
+                     limit: int = 100) -> dict:
+    """Return recent batch-ingestion audit events; never includes raw price data."""
+    safe_limit = max(1, min(int(limit), 500))
+    clauses = []
+    parameters = []
+    if symbol:
+        clauses.append("symbol=?")
+        parameters.append(symbol.strip().upper())
+    if interval:
+        clauses.append("interval=?")
+        parameters.append(interval.strip())
+    where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+    with _connect() as connection:
+        rows = connection.execute(
+            "SELECT id, event_type, symbol, interval, source, status, "
+            "observation_count, first_timestamp, last_timestamp, occurred_at "
+            "FROM audit_events" + where + " ORDER BY id DESC LIMIT ?",
+            (*parameters, safe_limit),
+        ).fetchall()
+    return {
+        "count": len(rows),
+        "events": [dict(row) for row in rows],
+        "limit": safe_limit,
+        "data_note": "Audit events record batch-ingestion metadata only; they do not prove provider authenticity or user identity.",
+    }
+
+
+def get_data_lineage(symbol: str, interval: str, limit: int = 5000) -> dict:
+    """Summarize stored observations by source and status for a symbol/interval."""
+    safe_limit = max(1, min(int(limit), 5000))
+    with _connect() as connection:
+        rows = connection.execute("""
+            SELECT source, status, COUNT(*) AS observation_count,
+                   MIN(timestamp) AS first_timestamp,
+                   MAX(timestamp) AS last_timestamp,
+                   MAX(retrieved_at) AS latest_retrieval
+            FROM (
+                SELECT source, status, timestamp, retrieved_at
+                FROM market_bars
+                WHERE symbol=? AND interval=?
+                ORDER BY timestamp DESC
+                LIMIT ?
+            )
+            GROUP BY source, status
+            ORDER BY source, status
+        """, (symbol.strip().upper(), interval, safe_limit)).fetchall()
+    entries = [dict(row) for row in rows]
+    return {
+        "symbol": symbol.strip().upper(),
+        "interval": interval,
+        "observation_count": sum(item["observation_count"] for item in entries),
+        "lineage": entries,
+        "limit": safe_limit,
+        "data_note": "Lineage is derived from stored observation metadata; it does not authenticate providers or establish freshness.",
+    }

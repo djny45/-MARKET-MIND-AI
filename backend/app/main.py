@@ -442,7 +442,7 @@ def research_deep(
 @app.post("/api/workflows/execute")
 def run_workflow(request: WorkflowRequest):
  try:
-  return execute_workflow(request.nodes,request.edges,request.inputs)
+  return execute_workflow(request.nodes,request.edges,request.inputs,request.max_workers)
  except ValueError as exc:
   raise HTTPException(status_code=400,detail=str(exc)) from exc
  except Exception as exc:

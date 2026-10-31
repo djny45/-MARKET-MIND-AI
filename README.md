@@ -178,3 +178,28 @@ Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md), open 
 **Built as an open-source research platform.**
 
 </div>
+
+
+## Research evidence export and verification
+
+The Research dashboard can download a provenance-preserving JSON bundle from:
+
+```text
+GET /api/research/export?symbol=BTCUSD&interval=1h&limit=500
+```
+
+The bundle contains stored historical observations, source/status/retrieval metadata, timestamp and data-quality diagnostics, cross-source comparisons, and a descriptive event timeline. Schema version 1.1 includes a SHA-256 integrity digest over the canonical bundle (excluding the digest field).
+
+Verify a downloaded file from the repository root:
+
+```bash
+PYTHONPATH=backend python backend/verify_research_export.py ./BTCUSD-1h-research-evidence.json
+```
+
+To also save a detached verification report:
+
+```bash
+PYTHONPATH=backend python backend/verify_research_export.py ./BTCUSD-1h-research-evidence.json --report ./BTCUSD-verification.json
+```
+
+The detached report records the verification time, filename, byte size, exact-file SHA-256, and pass/fail result. A matching digest detects accidental changes relative to the embedded digest; it is not a digital signature and does not authenticate the source provider. These tools operate on historical research evidence only. Brokerage execution remains disabled.

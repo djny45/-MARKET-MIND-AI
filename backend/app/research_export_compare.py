@@ -1,4 +1,40 @@
+import hashlib
+import json
+
 """Compare historical evidence exports without inferring market direction."""
+
+def _check_integrity(bundle):
+    integrity = bundle.get("integrity")
+    if not isinstance(integrity, dict):
+        return {"valid": False, "reason": "integrity_metadata_missing"}
+    if integrity.get("algorithm") != "sha256":
+        return {"valid": False, "reason": "unsupported_integrity_algorithm"}
+    if integrity.get("scope") != "complete evidence bundle excluding this integrity field":
+        return {"valid": False, "reason": "unsupported_integrity_scope"}
+    if integrity.get("canonicalization") != "UTF-8 JSON with sorted keys and compact separators":
+        return {"valid": False, "reason": "unsupported_canonicalization"}
+    expected = integrity.get("digest")
+    if not isinstance(expected, str) or len(expected) != 64:
+        return {"valid": False, "reason": "invalid_digest_format"}
+    try:
+        int(expected, 16)
+        payload = dict(bundle)
+        payload.pop("integrity", None)
+        canonical = json.dumps(
+            payload, sort_keys=True, separators=(",", ":"),
+            ensure_ascii=False, allow_nan=False,
+        )
+    except (TypeError, ValueError):
+        return {"valid": False, "reason": "bundle_cannot_be_canonicalized"}
+    actual = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    valid = actual == expected.lower()
+    return {
+        "valid": valid,
+        "reason": "digest_matches" if valid else "digest_mismatch",
+        "expected_digest": expected.lower(),
+        "actual_digest": actual,
+    }
+
 
 def compare_research_exports(before, after):
     """Compare export scope and observation records by timestamp and source."""
@@ -81,6 +117,10 @@ def compare_research_exports(before, after):
         "integrity_digests": {
             "before": (before.get("integrity") or {}).get("digest"),
             "after": (after.get("integrity") or {}).get("digest"),
+        },
+        "integrity_validation": {
+            "before": _check_integrity(before),
+            "after": _check_integrity(after),
         },
         "limitations": [
             "Observation keys use exact timestamp strings and source labels.",

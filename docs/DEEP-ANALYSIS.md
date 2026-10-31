@@ -157,3 +157,13 @@ Content-Type: application/json
 ```
 
 The request body contains `before` and `after` objects. The comparison requires matching symbol and interval. It reports observations added, removed or changed using the exact timestamp string plus source label as the key; it also reports changed diagnostic paths, provenance fields and the two embedded integrity digests. Duplicate or malformed observation keys are counted and excluded from matching. Timestamp strings are not normalized, so equivalent instants written with different timezone offsets may appear as separate observations.
+
+
+A local CLI is available for comparing two downloaded exports without starting the API:
+
+```bash
+cd backend
+PYTHONPATH=. python compare_research_exports.py ./before.json ./after.json --report ./comparison.json
+```
+
+The CLI writes the same deterministic comparison to standard output and, optionally, to a JSON report file. It refuses to overwrite either input file and returns a non-zero exit code for unreadable, malformed, or incompatible exports.

@@ -169,7 +169,7 @@ def database_readiness() -> dict:
             "status": "ready" if table else "not_ready",
             "reachable": True,
             "market_bars_schema": bool(table),
-            "schema_version": connection.execute("PRAGMA user_version").fetchone()[0],
+            "schema_version": connection.execute("SELECT COALESCE(MAX(version), 0) FROM schema_migrations").fetchone()[0],
         }
     except (sqlite3.Error, OSError) as exc:
         return {

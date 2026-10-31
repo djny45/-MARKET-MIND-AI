@@ -42,6 +42,7 @@ This roadmap is a plan, not a claim that these features already exist. Mark an i
 - [ ] Add explainability, evidence coverage, and disagreement reporting.
 
 ## Phase 5 — Reliability and governance
+- [x] Add historical evidence export, SHA-256 verification, batch verification, and before/after comparison with provenance and diagnostic differences.
 - [ ] Add audit logs and data lineage views.
 - [ ] Add observability, performance profiling, and load tests.
 - [ ] Add security review and dependency/licence inventory.

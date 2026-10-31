@@ -4,7 +4,7 @@ import unittest
 from unittest.mock import patch
 
 from app.market_data import SyntheticFixtureAdapter
-from app.market_store import get_audit_events, get_bars, get_data_lineage, store_batch
+from app.market_store import get_audit_events, get_bars, get_data_lineage, get_market_overview, store_batch
 
 
 class MarketStoreTests(unittest.IsolatedAsyncioTestCase):
@@ -73,6 +73,21 @@ class MarketStoreTests(unittest.IsolatedAsyncioTestCase):
                         "SELECT MAX(version) FROM schema_migrations"
                     ).fetchone()[0]
                 self.assertEqual(version, 1)
+
+    async def test_local_market_overview_summarizes_stored_coverage(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.dict(os.environ, {"MARKET_MIND_DB": os.path.join(directory, "test.sqlite")}):
+                btc = await SyntheticFixtureAdapter().get_bars("BTCUSD", "1d", 3)
+                eth = await SyntheticFixtureAdapter().get_bars("ETHUSD", "1h", 2)
+                store_batch(btc)
+                store_batch(eth)
+                overview = get_market_overview()
+                self.assertEqual(overview["status"], "stored_data_overview")
+                self.assertEqual(overview["instrument_interval_count"], 2)
+                btc_row = next(item for item in overview["coverage"] if item["symbol"] == "BTCUSD")
+                self.assertEqual(btc_row["observation_count"], 3)
+                self.assertEqual(btc_row["statuses"], ["synthetic"])
+                self.assertIn("not a live quote", overview["data_note"])
 
     def test_unknown_symbol_returns_empty_history(self):
         with tempfile.TemporaryDirectory() as directory:

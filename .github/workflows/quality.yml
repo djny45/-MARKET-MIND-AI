@@ -142,6 +142,31 @@ jobs:
           else:
               raise RuntimeError(f"Production stack did not pass smoke checks: {last_error}")
           PY
+      - name: Verify backup and restore inside production API image
+        run: |
+          docker compose -f docker-compose.production.yml exec -T api python - <<'PY'
+          import sqlite3
+          import tempfile
+          from pathlib import Path
+          from backup_database import create_backup
+          from restore_database import restore_backup
+
+          with tempfile.TemporaryDirectory() as directory:
+              root = Path(directory)
+              source = root / "source.db"
+              backup = root / "backup.db"
+              restored = root / "restored.db"
+              with sqlite3.connect(source) as connection:
+                  connection.execute("CREATE TABLE market_bars (symbol TEXT)")
+                  connection.execute("INSERT INTO market_bars VALUES ('FIXTURE')")
+              backed_up = create_backup(source, backup)
+              assert backed_up["status"] == "verified"
+              recovered = restore_backup(backup, restored)
+              assert recovered["status"] == "restored_and_verified"
+              with sqlite3.connect(restored) as connection:
+                  assert connection.execute("SELECT symbol FROM market_bars").fetchone()[0] == "FIXTURE"
+          print("Container backup/restore round-trip passed")
+          PY
       - name: Show container logs on failure
         if: failure()
         run: docker compose -f docker-compose.production.yml logs --no-color

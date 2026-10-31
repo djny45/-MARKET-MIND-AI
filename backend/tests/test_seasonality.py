@@ -29,7 +29,7 @@ class SeasonalityTests(unittest.TestCase):
         result = build_seasonality_report(bars)
         self.assertEqual(result["skipped_observations"], 2)
         self.assertEqual(result["return_observations"], 0)
-        self.assertEqual(result["status"], "available")
+        self.assertEqual(result["status"], "insufficient_valid_observations")
 
     def test_empty_input_is_explicitly_unavailable(self):
         result = build_seasonality_report([])

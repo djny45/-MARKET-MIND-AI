@@ -228,3 +228,14 @@ PYTHONPATH=. python compare_research_exports.py ./before.json ./after.json --rep
 ```
 
 The comparison reports added, removed and changed observations, per-observation provenance changes, diagnostic differences and embedded digest values. Matching uses exact timestamp strings and source labels. See [deep analysis guide](docs/DEEP-ANALYSIS.md).
+
+
+### Verified SQLite backup
+
+From `backend`, create and verify a database backup with:
+
+```bash
+PYTHONPATH=. python backup_database.py ./backups/market_mind.sqlite
+```
+
+The utility validates source and backup integrity and refuses to overwrite an existing backup unless `--overwrite` is specified. See [development guide](docs/DEVELOPMENT.md) for operational limitations.

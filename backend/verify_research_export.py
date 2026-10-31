@@ -86,7 +86,7 @@ def main(argv=None):
             return 2
         report = build_verification_report(source_path, file_bytes, result)
         try:
-            report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+            report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         except OSError as exc:
             print(json.dumps({"valid": False, "reason": "verification_report_write_error", "detail": str(exc)}))
             return 2

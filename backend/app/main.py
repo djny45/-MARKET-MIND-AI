@@ -65,6 +65,35 @@ def health():
  return {"status":"ok","service":"market-mind-ai","mode":"research-only",
   "paper_trading":False,"broker_execution":False}
 
+@app.get("/api/ready")
+def readiness():
+ """Report whether required local storage is reachable and initialized."""
+ database = market_store.database_readiness()
+ ready = database["status"] == "ready"
+ return {
+  "status": "ready" if ready else "not_ready",
+  "service": "market-mind-ai",
+  "checks": {"database": database},
+  "execution": {"paper_trading": False, "broker_execution": False},
+ }
+
+
+@app.get("/api/providers/status")
+def provider_status():
+ """Describe implemented provider availability without implying live connectivity."""
+ return {
+  "status": "no_live_provider_configured",
+  "live_providers": [],
+  "available_adapters": [{
+   "name": SyntheticFixtureAdapter.name,
+   "status": "available",
+   "data_status": "synthetic",
+   "purpose": "development and integration testing only",
+  }],
+  "market_data_note": "No live or delayed market-data provider is currently configured.",
+ }
+
+
 @app.get("/api/nodes")
 def nodes():
  return {"nodes":list(NODE_TYPES.values())}

@@ -32,6 +32,7 @@ def execute_workflow(
     max_workers: int = 1,
     max_retries: int = 0,
     checkpoint_callback=None,
+    initial_checkpoint: dict[str, Any] | None = None,
 ):
     """Execute DAG layers; independent nodes may run concurrently when opted in.
 
@@ -71,11 +72,21 @@ def execute_workflow(
     if visited != len(nodes):
         raise ValueError("Workflow contains a cycle.")
 
-    results, node_timings, task_records = {}, {}, {}
+    checkpoint = initial_checkpoint or {}
+    completed_before = set(checkpoint.get("completed_node_ids", []))
+    results = dict(checkpoint.get("results", {}))
+    task_records = dict(checkpoint.get("tasks", {}))
+    node_timings = {
+        key: item.get("duration_ns", 0)
+        for key, item in task_records.items()
+        if item.get("status") == "completed"
+    }
     started = perf_counter_ns()
     for layer_index, layer in enumerate(layers):
         tasks = []
         for node_id in layer:
+            if node_id in completed_before and task_records.get(node_id, {}).get("status") == "completed":
+                continue
             node = by_id[node_id]
             kind = node.get("type")
             if kind not in NODE_TYPES:

@@ -30,6 +30,7 @@ def execute_workflow(
     edges: list[dict[str, Any]],
     inputs: dict[str, Any],
     max_workers: int = 1,
+    max_retries: int = 0,
 ):
     """Execute DAG layers; independent nodes may run concurrently when opted in.
 
@@ -38,6 +39,8 @@ def execute_workflow(
     """
     if not isinstance(max_workers, int) or isinstance(max_workers, bool) or not 1 <= max_workers <= 16:
         raise ValueError("max_workers must be an integer between 1 and 16")
+    if not isinstance(max_retries, int) or isinstance(max_retries, bool) or not 0 <= max_retries <= 3:
+        raise ValueError("max_retries must be an integer between 0 and 3")
     by_id = {_node_id(node): node for node in nodes}
     if not nodes or any(not key for key in by_id) or len(by_id) != len(nodes):
         raise ValueError("Workflow must contain uniquely identified nodes.")
@@ -76,8 +79,7 @@ def execute_workflow(
             kind = node.get("type")
             if kind not in NODE_TYPES:
                 raise ValueError(f"Unsupported node type: {kind}")
-            upstream = [results[source] for source in incoming[node_id]]
-            payload = upstream[-1] if upstream else inputs.get(node_id, inputs.get("data", []))
+            dependencies = list(incoming[node_id])
             metadata = node.get("data", {}) or {}
             assigned_worker = metadata.get("workerName") or (
                 metadata.get("label") if metadata.get("category") == "worker" else None
@@ -87,54 +89,90 @@ def execute_workflow(
                 "node_id": node_id,
                 "node_type": kind,
                 "assigned_worker": str(assigned_worker),
-                "dependency_ids": list(incoming[node_id]),
+                "dependency_ids": dependencies,
                 "layer": layer_index,
                 "status": "queued",
+                "attempts": 0,
                 "queued_at_ns": perf_counter_ns(),
             }
+            failed_dependencies = [
+                dep for dep in dependencies
+                if task_records.get(dep, {}).get("status") != "completed"
+            ]
+            if failed_dependencies:
+                task_records[node_id].update({
+                    "status": "skipped",
+                    "error_type": "DependencyFailure",
+                    "error": "Skipped because dependencies did not complete.",
+                    "blocked_by": failed_dependencies,
+                    "queue_wait_ns": 0,
+                    "duration_ns": 0,
+                })
+                continue
+            upstream = [results[source] for source in dependencies]
+            payload = upstream[-1] if upstream else inputs.get(node_id, inputs.get("data", []))
             tasks.append((node_id, kind, payload, metadata))
 
         def run_task(task):
             node_id, kind, payload, params = task
-            begin = perf_counter_ns()
-            value = _run_node(kind, payload, params)
-            end = perf_counter_ns()
-            return node_id, value, begin, end
+            record = task_records[node_id]
+            record["status"] = "running"
+            last_error = None
+            for attempt in range(1, max_retries + 2):
+                begin = perf_counter_ns()
+                record["attempts"] = attempt
+                try:
+                    value = _run_node(kind, payload, params)
+                    end = perf_counter_ns()
+                    return node_id, value, begin, end, None
+                except Exception as exc:
+                    end = perf_counter_ns()
+                    last_error = {
+                        "error_type": type(exc).__name__,
+                        "error": str(exc)[:500],
+                        "failed_attempt_duration_ns": end - begin,
+                    }
+            return node_id, None, begin, end, last_error
 
-        for node_id, *_ in tasks:
-            task_records[node_id]["status"] = "running"
         if max_workers > 1 and len(tasks) > 1:
             with ThreadPoolExecutor(max_workers=min(max_workers, len(tasks))) as pool:
                 completed = list(pool.map(run_task, tasks))
         else:
             completed = [run_task(task) for task in tasks]
-        for node_id, value, task_started_ns, task_completed_ns in completed:
-            results[node_id] = value
+        for node_id, value, task_started_ns, task_completed_ns, error in completed:
+            record = task_records[node_id]
             elapsed = task_completed_ns - task_started_ns
             node_timings[node_id] = elapsed
-            task_records[node_id].update({
-                "status": "completed",
-                "queue_wait_ns": max(0, task_started_ns - task_records[node_id]["queued_at_ns"]),
+            record.update({
+                "queue_wait_ns": max(0, task_started_ns - record["queued_at_ns"]),
                 "start_offset_ns": task_started_ns - started,
                 "completion_offset_ns": task_completed_ns - started,
                 "duration_ns": elapsed,
-                "result_key": node_id,
             })
+            if error:
+                record.update({"status": "failed", **error})
+            else:
+                results[node_id] = value
+                record.update({"status": "completed", "result_key": node_id})
 
     elapsed = perf_counter_ns() - started
     order = [node_id for layer in layers for node_id in layer]
     tasks_summary = list(task_records.values())
+    completed_count = sum(task["status"] == "completed" for task in tasks_summary)
+    failed_count = sum(task["status"] == "failed" for task in tasks_summary)
+    skipped_count = sum(task["status"] == "skipped" for task in tasks_summary)
     return {
-        "status": "completed",
+        "status": "completed" if not failed_count and not skipped_count else "completed_with_errors",
         "execution_order": order,
         "execution_layers": layers,
         "tasks": tasks_summary,
         "aggregation": {
             "task_count": len(tasks_summary),
-            "completed_count": sum(task["status"] == "completed" for task in tasks_summary),
-            "failed_count": sum(task["status"] == "failed" for task in tasks_summary),
+            "completed_count": completed_count,
+            "failed_count": failed_count,
+            "skipped_count": skipped_count,
             "result_count": len(results),
-            "result_node_ids": order,
+            "result_node_ids": [node_id for node_id in order if node_id in results],
         },
         "results": results,
         "performance": {
@@ -144,12 +182,12 @@ def execute_workflow(
             "layer_count": len(layers),
             "max_layer_width": max(map(len, layers), default=0),
             "configured_max_workers": max_workers,
+            "configured_max_retries": max_retries,
             "parallelism_used": max_workers > 1 and any(len(layer) > 1 for layer in layers),
             "clock": "process_monotonic",
         },
         "research_only": True,
     }
-
 
 def _numbers(payload):
     if isinstance(payload, dict):

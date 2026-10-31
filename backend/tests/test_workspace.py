@@ -32,6 +32,15 @@ class WorkspaceTests(unittest.TestCase):
  def test_execution_history_rejects_non_finite_payload(self):
   with self.assertRaises(ValueError):
    workspace.save_execution("bad",{"value":float("nan")},{},"failed")
+ def test_checkpoint_updates_are_persisted_with_run_record(self):
+  request={"nodes":[{"id":"a","type":"market_input"}],"edges":[],"inputs":{"data":[1,2]}}
+  workspace.create_execution("checkpoint-run",request)
+  snapshot={"completed_node_ids":["a"],"results":{"a":{"values":[1,2]}},"completed_layers":1}
+  workspace.update_execution_checkpoint("checkpoint-run",snapshot,"running")
+  loaded=workspace.get_execution("checkpoint-run")
+  self.assertEqual(loaded["status"],"running")
+  self.assertEqual(loaded["checkpoint"]["completed_node_ids"],["a"])
+  self.assertEqual(loaded["checkpoint"]["results"]["a"]["values"],[1,2])
  def test_graph_limits(self):
   with self.assertRaises(ValueError):
    workspace.save_workflow("Too big","",[{}]*251,[])

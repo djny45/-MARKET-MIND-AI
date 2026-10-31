@@ -68,6 +68,10 @@ def compare_research_exports(before, after):
         "added": [{"timestamp": key[0], "source": key[1]} for key in added],
         "removed": [{"timestamp": key[0], "source": key[1]} for key in removed],
         "changed": changed,
+        "provenance_changed_fields": [
+            field for field in diagnostic_changes.get("scope", [])
+            if field in {"source", "sources", "status", "retrieved_at"}
+        ],
         "diagnostic_changed_paths": diagnostic_changes,
         "integrity_digests": {
             "before": (before.get("integrity") or {}).get("digest"),

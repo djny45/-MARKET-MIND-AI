@@ -41,3 +41,18 @@ jobs:
         with:
           node-version: "22"
       - run: cd frontend && npm install && npm run build
+
+  dependency-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --upgrade pip pip-audit
+      - run: pip-audit -r backend/requirements.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: cd frontend && npm install --package-lock-only --ignore-scripts
+      - run: cd frontend && npm audit --audit-level=high

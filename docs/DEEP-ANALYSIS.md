@@ -124,3 +124,12 @@ PYTHONPATH=backend python backend/verify_research_export.py ./BTCUSD-1h-research
 ```
 
 The verifier prints a JSON result and exits with code 0 when the digest matches, 1 when the bundle or digest is invalid, and 2 when the file cannot be read or parsed. It checks accidental modification of the exported JSON, including observations and provenance. A matching digest is not a digital signature: it cannot prove who supplied the source data or prevent someone from editing the file and recomputing its digest.
+
+
+To also save a detached verification record, pass `--report`:
+
+```bash
+PYTHONPATH=backend python backend/verify_research_export.py ./BTCUSD-1h-research-evidence.json --report ./BTCUSD-verification.json
+```
+
+The report records the verification timestamp (UTC), input filename, byte size, SHA-256 hash of the exact downloaded file, and the verification result. A failed digest still produces a report (and a non-zero exit status), so failed checks can be retained for audit. Keep the original evidence file and verification report together; the report itself is not digitally signed.

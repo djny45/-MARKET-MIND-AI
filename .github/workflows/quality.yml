@@ -102,6 +102,17 @@ jobs:
           node-version: "22"
       - run: cd frontend && npm install && npm run build
 
+  container-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate production Compose configuration
+        run: docker compose -f docker-compose.production.yml config --quiet
+      - name: Build backend image
+        run: docker build -f backend/Dockerfile -t market-mind-api:ci backend
+      - name: Build frontend image
+        run: docker build -f frontend/Dockerfile -t market-mind-web:ci frontend
+
   dependency-audit:
     runs-on: ubuntu-latest
     steps:

@@ -123,6 +123,36 @@ class WorkflowTests(unittest.TestCase):
         self.assertCountEqual(snapshots[1]["completed_node_ids"], ["feed", "sma", "ema"])
         self.assertEqual(out["aggregation"]["completed_count"], 3)
 
+    def test_resume_restores_completed_nodes_and_runs_only_pending_tasks(self):
+        nodes = [
+            {"id": "feed", "type": "market_input", "data": {"values": [1, 2, 3]}},
+            {"id": "sma", "type": "sma", "data": {"period": 2}},
+        ]
+        edges = [{"source": "feed", "target": "sma"}]
+        checkpoint = {
+            "completed_node_ids": ["feed"],
+            "results": {"feed": {"values": [1, 2, 3]}},
+            "tasks": {"feed": {
+                "task_id": "task:feed", "node_id": "feed", "node_type": "market_input",
+                "assigned_worker": "workflow-engine", "dependency_ids": [],
+                "layer": 0, "status": "completed", "attempts": 1, "duration_ns": 10,
+                "queue_wait_ns": 0, "result_key": "feed",
+            }},
+            "completed_layers": 1,
+        }
+        from app import workflow
+        original = workflow._run_node
+        called = []
+        def track(kind, payload, params):
+            called.append(kind)
+            return original(kind, payload, params)
+        with patch("app.workflow._run_node", side_effect=track):
+            out = execute_workflow(nodes, edges, {}, initial_checkpoint=checkpoint)
+        self.assertEqual(called, ["sma"])
+        self.assertEqual(out["status"], "completed")
+        self.assertEqual(out["aggregation"]["completed_count"], 2)
+        self.assertEqual(out["results"]["feed"], {"values": [1, 2, 3]})
+
     def test_invalid_retry_limit_rejected(self):
         with self.assertRaisesRegex(ValueError, "max_retries"):
             execute_workflow(

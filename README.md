@@ -121,6 +121,7 @@ For manual setup, see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 | GET | `/api/providers/status` | Implemented adapter availability; distinguishes synthetic fixture from live providers |
 | GET | `/api/audit/events` | Recent market-data ingestion audit events |
 | GET | `/api/market-data/lineage` | Stored observation counts and timestamp ranges by source and status |
+| GET | `/api/market-data/overview` | Local stored symbol/timeframe coverage summary |
 | GET | `/api/watchlist` | List locally saved instrument symbols |
 | POST | `/api/watchlist` | Add an instrument symbol to the local watchlist |
 | DELETE | `/api/watchlist/{symbol}` | Remove an instrument from the local watchlist |

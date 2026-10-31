@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 from app.workflow import NODE_TYPES, execute_workflow
 
@@ -60,6 +61,56 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(out["aggregation"]["completed_count"], 3)
         self.assertEqual(out["aggregation"]["failed_count"], 0)
         self.assertEqual(out["aggregation"]["result_count"], 3)
+
+    def test_independent_failure_isolated_and_downstream_skipped(self):
+        nodes = [
+            {"id": "feed", "type": "market_input", "data": {"values": [1, 2, 3]}},
+            {"id": "good", "type": "sma", "data": {"period": 2}},
+            {"id": "bad", "type": "ema", "data": {"period": 2}},
+            {"id": "blocked", "type": "research_summary", "data": {}},
+        ]
+        edges = [
+            {"source": "feed", "target": "good"},
+            {"source": "feed", "target": "bad"},
+            {"source": "bad", "target": "blocked"},
+        ]
+        from app import workflow
+        original = workflow._run_node
+
+        def fail_ema(kind, payload, params):
+            if kind == "ema":
+                raise RuntimeError("simulated isolated failure")
+            return original(kind, payload, params)
+
+        with patch("app.workflow._run_node", side_effect=fail_ema):
+            out = execute_workflow(nodes, edges, {}, max_workers=2)
+        tasks = {task["node_id"]: task for task in out["tasks"]}
+        self.assertEqual(out["status"], "completed_with_errors")
+        self.assertEqual(tasks["good"]["status"], "completed")
+        self.assertEqual(tasks["bad"]["status"], "failed")
+        self.assertEqual(tasks["bad"]["attempts"], 1)
+        self.assertEqual(tasks["blocked"]["status"], "skipped")
+        self.assertEqual(tasks["blocked"]["blocked_by"], ["bad"])
+        self.assertEqual(out["aggregation"]["completed_count"], 2)
+        self.assertEqual(out["aggregation"]["failed_count"], 1)
+        self.assertEqual(out["aggregation"]["skipped_count"], 1)
+
+    def test_failed_task_retries_are_bounded(self):
+        nodes = [{"id": "feed", "type": "market_input", "data": {"values": [1, 2, 3]}}]
+        from app import workflow
+        with patch("app.workflow._run_node", side_effect=RuntimeError("temporary")) as mocked:
+            out = execute_workflow(nodes, [], {}, max_retries=2)
+        self.assertEqual(mocked.call_count, 3)
+        self.assertEqual(out["tasks"][0]["status"], "failed")
+        self.assertEqual(out["tasks"][0]["attempts"], 3)
+        self.assertEqual(out["aggregation"]["failed_count"], 1)
+
+    def test_invalid_retry_limit_rejected(self):
+        with self.assertRaisesRegex(ValueError, "max_retries"):
+            execute_workflow(
+                [{"id": "x", "type": "market_input", "data": {"values": [1, 2]}}],
+                [], {}, max_retries=4,
+            )
 
     def test_invalid_worker_limit_rejected(self):
         with self.assertRaisesRegex(ValueError, "max_workers"):

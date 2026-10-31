@@ -58,6 +58,10 @@ The platform is designed for multi-asset research across equities, ETFs, indices
 | Workflow diagrams and graph usage guide | Added |
 | Unit tests for branching DAG execution and cycle rejection | Added |
 
+## Shared agent skill playbooks
+
+Ten upstream day-trader skill definitions are vendored under [`.agents/skills/day-trader-skill/`](.agents/skills/day-trader-skill/README.md). The 550 worker profiles now carry department-based `skill_refs` so the orchestration layer can select relevant research guidance without injecting every playbook into every task. These profiles remain templates, not 550 active agents. Skill references do not execute scripts or grant permissions. The broker/order-execution skill is excluded; the application remains research-only with no brokerage routing.
+
 ## Visual workflow model
 
 ```mermaid

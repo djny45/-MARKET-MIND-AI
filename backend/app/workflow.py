@@ -90,6 +90,7 @@ def execute_workflow(
                 "dependency_ids": list(incoming[node_id]),
                 "layer": layer_index,
                 "status": "queued",
+                "queued_at_ns": perf_counter_ns(),
             }
             tasks.append((node_id, kind, payload, metadata))
 
@@ -97,7 +98,8 @@ def execute_workflow(
             node_id, kind, payload, params = task
             begin = perf_counter_ns()
             value = _run_node(kind, payload, params)
-            return node_id, value, perf_counter_ns() - begin
+            end = perf_counter_ns()
+            return node_id, value, begin, end
 
         for node_id, *_ in tasks:
             task_records[node_id]["status"] = "running"
@@ -106,11 +108,15 @@ def execute_workflow(
                 completed = list(pool.map(run_task, tasks))
         else:
             completed = [run_task(task) for task in tasks]
-        for node_id, value, elapsed in completed:
+        for node_id, value, task_started_ns, task_completed_ns in completed:
             results[node_id] = value
+            elapsed = task_completed_ns - task_started_ns
             node_timings[node_id] = elapsed
             task_records[node_id].update({
                 "status": "completed",
+                "queue_wait_ns": max(0, task_started_ns - task_records[node_id]["queued_at_ns"]),
+                "start_offset_ns": task_started_ns - started,
+                "completion_offset_ns": task_completed_ns - started,
                 "duration_ns": elapsed,
                 "result_key": node_id,
             })

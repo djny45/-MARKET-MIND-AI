@@ -21,6 +21,8 @@ def signed_bundle():
     payload["integrity"] = {
         "algorithm": "sha256",
         "digest": hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
+        "scope": "complete evidence bundle excluding this integrity field",
+        "canonicalization": "UTF-8 JSON with sorted keys and compact separators",
     }
     return payload
 
@@ -37,6 +39,20 @@ class VerifyResearchExportTests(unittest.TestCase):
         self.assertEqual(report["file_sha256"], hashlib.sha256(raw).hexdigest())
         self.assertEqual(report["verified_at_utc"], "2026-10-31T10:00:00+00:00")
         self.assertEqual(report["verification"], result)
+
+    def test_rejects_unsupported_digest_scope(self):
+        bundle = signed_bundle()
+        bundle["integrity"]["scope"] = "observations only"
+        result = verify_bundle(bundle)
+        self.assertFalse(result["valid"])
+        self.assertEqual(result["reason"], "unsupported_integrity_scope")
+
+    def test_rejects_unsupported_canonicalization(self):
+        bundle = signed_bundle()
+        bundle["integrity"]["canonicalization"] = "unsorted JSON"
+        result = verify_bundle(bundle)
+        self.assertFalse(result["valid"])
+        self.assertEqual(result["reason"], "unsupported_canonicalization")
 
     def test_batch_report_counts_valid_and_invalid_files(self):
         with tempfile.TemporaryDirectory() as directory:

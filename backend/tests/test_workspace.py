@@ -18,6 +18,20 @@ class WorkspaceTests(unittest.TestCase):
   self.assertEqual(workspace.list_workflows()[0]["title"],"Renamed")
   self.assertTrue(workspace.delete_workflow(saved["id"]))
   self.assertIsNone(workspace.get_workflow(saved["id"]))
+ def test_execution_history_persists_and_lists_replay_payloads(self):
+  request={"nodes":[{"id":"feed","type":"market_input"}],"edges":[],"inputs":{"data":[1,2,3]}}
+  result={"status":"completed","results":{"feed":{"values":[1,2,3]}}}
+  saved=workspace.save_execution("run-1",request,result,"completed")
+  loaded=workspace.get_execution("run-1")
+  self.assertEqual(loaded["request"],request)
+  self.assertEqual(loaded["result"],result)
+  self.assertEqual(loaded["status"],"completed")
+  self.assertEqual(workspace.list_executions()[0]["id"],"run-1")
+  child=workspace.save_execution("run-2",request,result,"completed","run-1")
+  self.assertEqual(workspace.get_execution(child["id"])["parent_run_id"],"run-1")
+ def test_execution_history_rejects_non_finite_payload(self):
+  with self.assertRaises(ValueError):
+   workspace.save_execution("bad",{"value":float("nan")},{},"failed")
  def test_graph_limits(self):
   with self.assertRaises(ValueError):
    workspace.save_workflow("Too big","",[{}]*251,[])

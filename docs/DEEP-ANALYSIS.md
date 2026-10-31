@@ -169,3 +169,8 @@ PYTHONPATH=. python compare_research_exports.py ./before.json ./after.json --rep
 The CLI writes the same deterministic comparison to standard output and, optionally, to a JSON report file. It refuses to overwrite either input file and returns a non-zero exit code for unreadable, malformed, or incompatible exports.
 
 The comparison also independently checks each export's declared SHA-256 digest metadata and recomputes its digest. The result reports `integrity_validation.before` and `integrity_validation.after` separately, so a comparison can still describe differences while flagging a tampered or unverifiable input. A matching digest is an integrity check, not a digital signature or provider authentication.
+
+
+## Historical seasonality
+
+Each timeframe in the deep research response includes `seasonality`, with consecutive available close-to-close returns grouped by the later observation's weekday and calendar month. Each bucket reports sample count, arithmetic mean and median return, and positive/negative/unchanged counts. Invalid or timezone-naive observations are skipped and counted. No missing sessions are reconstructed, no returns are annualized, and no statistical significance or predictive edge is claimed. Interpret small samples cautiously and inspect the accompanying timestamp and source-quality diagnostics.

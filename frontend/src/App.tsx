@@ -72,6 +72,10 @@ export default function App() {
  const [csvBusy,setCsvBusy] = useState(false)
  const [csvMessage,setCsvMessage] = useState('')
  const [csvFileName,setCsvFileName] = useState('')
+ const [compareFiles,setCompareFiles] = useState<File[]>([])
+ const [exportDiff,setExportDiff] = useState<any>(null)
+ const [exportDiffBusy,setExportDiffBusy] = useState(false)
+ const [exportDiffError,setExportDiffError] = useState('')
  const [researchBars,setResearchBars] = useState<any[]>([])
  const [researchInterval,setResearchInterval] = useState('1h')
  const [selectedCluster,setSelectedCluster] = useState<any>(null)
@@ -119,6 +123,21 @@ export default function App() {
    setSourceComparison(body)
   } catch(e) {setSourceComparison(null);setSourceComparisonError(e instanceof Error?e.message:'Source comparison unavailable')}
   finally {setSourceComparisonBusy(false)}
+ }
+ const compareSavedExports = async()=> {
+  if(compareFiles.length!==2){setExportDiffError('SELECT EXACTLY TWO JSON EXPORT FILES');return}
+  setExportDiffBusy(true);setExportDiffError('');setExportDiff(null)
+  try {
+   const [before,after]=await Promise.all(compareFiles.map(async file=>{
+    if(file.size>10_000_000)throw new Error(file.name+' exceeds the 10 MB limit')
+    return JSON.parse(await file.text())
+   }))
+   const response=await fetch(API+'/api/research/compare-exports',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({before,after})})
+   const body=await response.json()
+   if(!response.ok)throw new Error(body.detail||'Export comparison failed')
+   setExportDiff(body)
+  } catch(e) {setExportDiff(null);setExportDiffError(e instanceof Error?e.message:'Could not compare selected exports')}
+  finally {setExportDiffBusy(false)}
  }
  const loadCSVFile = async(file?:File)=> {
   if(!file)return
@@ -213,6 +232,22 @@ export default function App() {
     <button className="run-btn research-run" onClick={runDeepResearch} disabled={researchBusy||!researchSymbol.trim()}>{researchBusy?'ANALYZING…':'RUN DEEP RESEARCH'}</button>
     <a className="soft-btn research-run" href={API+'/api/research/export?'+new URLSearchParams({symbol:researchSymbol.trim(),interval:researchInterval,limit:'500'}).toString()} download={researchSymbol.trim().toUpperCase()+'-'+researchInterval+'-research-evidence.json'} aria-label="Download historical research evidence JSON">DOWNLOAD RESEARCH EVIDENCE JSON</a>
     <small className="research-note">Uses locally stored observations only. No live-price claim, forecasts or execution.</small>
+    <div className="side-label">COMPARE SAVED EXPORTS <span>JSON</span></div>
+    <small className="research-note">Choose two compatible historical evidence JSON files. Each file is limited to 10 MB.</small>
+    <input type="file" accept=".json,application/json" multiple aria-label="Select two historical research JSON exports" onChange={e=>{setCompareFiles(Array.from(e.target.files||[]).slice(0,2));setExportDiff(null);setExportDiffError('')}}/>
+    {compareFiles.length>0&&<small className="research-note">SELECTED: {compareFiles.map(file=>file.name).join(' · ')}</small>}
+    <button className="soft-btn research-run" onClick={compareSavedExports} disabled={exportDiffBusy||compareFiles.length!==2}>{exportDiffBusy?'COMPARING EXPORTS…':'COMPARE TWO EXPORTS'}</button>
+    {exportDiffError&&<p className="news-error">{exportDiffError}</p>}
+    {exportDiff&&<div className="research-results">
+     <b>EXPORT DIFFERENCE REPORT</b>
+     <div className="research-metric"><small>ADDED / REMOVED</small><b>{exportDiff.counts.added} / {exportDiff.counts.removed}</b></div>
+     <div className="research-metric"><small>CHANGED / UNCHANGED</small><b>{exportDiff.counts.changed} / {exportDiff.counts.unchanged}</b></div>
+     <div className="research-metric"><small>INTEGRITY · BEFORE / AFTER</small><b>{exportDiff.integrity_validation.before.valid?'VALID':exportDiff.integrity_validation.before.reason} / {exportDiff.integrity_validation.after.valid?'VALID':exportDiff.integrity_validation.after.reason}</b></div>
+     {exportDiff.provenance_changed_fields.length>0&&<small>PROVENANCE CHANGED: {exportDiff.provenance_changed_fields.join(', ')}</small>}
+     {exportDiff.changed.slice(0,10).map((item:any)=><small key={item.timestamp+'-'+item.source}>{item.timestamp} · {item.source} · changed: {item.fields.join(', ')}</small>)}
+     <small>Exact timestamp/source matching. A valid digest checks integrity, not provider authenticity.</small>
+    </div>}
+
     {researchError&&<p className="news-error">{researchError}</p>}
     {researchReport&&<div className="research-results">
       <div className="research-metric"><small>SYMBOL</small><b>{researchReport.symbol}</b></div>

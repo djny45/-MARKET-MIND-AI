@@ -298,7 +298,7 @@ export default function App() {
       <div className="research-metric"><small>QUALITY ISSUES</small><b>{researchReport.dashboard?.data_quality?.timeframes_with_issues??0}</b></div>
       <div className="research-metric"><small>HIGH / LOW CLUSTERS</small><b>{researchReport.dashboard?.historical_price_clusters?.confirmed_swing_high_cluster_count??0} / {researchReport.dashboard?.historical_price_clusters?.confirmed_swing_low_cluster_count??0}</b></div>
       {researchReport.dashboard?.market_breadth_latest&&<div className="research-metric"><small>ADVANCING / DECLINING</small><b>{researchReport.dashboard.market_breadth_latest.advancing} / {researchReport.dashboard.market_breadth_latest.declining}</b></div>}
-      <div className="research-frames">{(researchReport.dashboard?.timeframes||[]).map((item:any)=><div key={item.interval}><b>{item.interval}</b><span>{item.status==='available'?item.moving_average_regime:'INSUFFICIENT DATA'}</span><small>RSI {item.rsi14??'—'} · ATR {item.atr14??'—'}</small></div>
+      <div className="research-frames">{(researchReport.dashboard?.timeframes||[]).map((item:any)=><div key={item.interval}><b>{item.interval}</b><span>{item.status==='available'?item.moving_average_regime:'INSUFFICIENT DATA'}</span><small>RSI {item.rsi14??'—'} · ATR {item.atr14??'—'}</small></div>)}</div>
       <div className="aligned-comparison">
        <b>HISTORICAL SEASONALITY · {researchInterval}</b>
        {researchReport.timeframes?.[researchInterval]?.seasonality&&<>

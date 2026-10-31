@@ -17,7 +17,7 @@ Implemented areas visible in the current source:
 - Historical data-quality diagnostics and cross-source comparisons
 - Reproducible evidence exports with SHA-256 digests
 - Workflow builder and local workflow workspaces
-- Private-by-default production Compose deployment with Nginx frontend proxy, internal-only API, persistent SQLite volume, and container health checks
+- Private-by-default production Compose deployment with Nginx frontend proxy, internal-only API, persistent SQLite volume, container health checks, and baseline browser security headers
 - Production deployment instructions and CI validation for Compose configuration and both container image builds
 
 ## Verified operating constraints
@@ -37,7 +37,7 @@ Implemented areas visible in the current source:
 | Research analytics and evidence export | Implemented | Re-run regression tests and inspect exported bundles |
 | Frontend integration | Implemented in source | Run a clean `npm install` and `npm run build` |
 | Live/delayed data provider | Not configured | Keep clearly disabled until source permissions, licensing, symbol mapping, freshness, and rate limits are validated |
-| Private container packaging | Implemented in source; CI verification pending | Pass Compose validation and both image builds; test startup/health checks on a Docker host |
+| Private container packaging | Implemented in source; CI verification pending | Pass Compose validation, image builds, and CI container startup/proxy/health smoke checks; verify persistence on a Docker host |
 | Public deployment security | Blocked | Add authentication/authorization, TLS ingress, request limits, and security review before any public exposure |
 | Backup, restore, and operations | Partially implemented | Automate backup/restore validation, observability, resource limits, and rollback procedures |
 

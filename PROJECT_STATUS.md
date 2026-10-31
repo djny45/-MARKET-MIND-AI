@@ -17,6 +17,8 @@ Implemented areas visible in the current source:
 - Historical data-quality diagnostics and cross-source comparisons
 - Reproducible evidence exports with SHA-256 digests
 - Workflow builder and local workflow workspaces
+- Private-by-default production Compose deployment with Nginx frontend proxy, internal-only API, persistent SQLite volume, and container health checks
+- Production deployment instructions and CI validation for Compose configuration and both container image builds
 
 ## Verified operating constraints
 
@@ -35,7 +37,9 @@ Implemented areas visible in the current source:
 | Research analytics and evidence export | Implemented | Re-run regression tests and inspect exported bundles |
 | Frontend integration | Implemented in source | Run a clean `npm install` and `npm run build` |
 | Live/delayed data provider | Not configured | Keep clearly disabled until source permissions, licensing, symbol mapping, freshness, and rate limits are validated |
-| Deployment and operational verification | Not verified in this review | Test from a clean environment and document deployment settings |
+| Private container packaging | Implemented in source; CI verification pending | Pass Compose validation and both image builds; test startup/health checks on a Docker host |
+| Public deployment security | Blocked | Add authentication/authorization, TLS ingress, request limits, and security review before any public exposure |
+| Backup, restore, and operations | Partially implemented | Automate backup/restore validation, observability, resource limits, and rollback procedures |
 
 ## Recommended completion sequence
 
@@ -43,7 +47,7 @@ Implemented areas visible in the current source:
 2. Run the frontend production build from `frontend/`: `npm ci && npm run build` (use `npm install` if no lockfile is committed).
 3. Smoke-test `/api/health`, `/api/ready`, `/api/providers/status`, watchlist, historical import, data-quality, source-comparison, and evidence-export endpoints.
 4. Confirm synthetic data is visibly labelled throughout the UI and cannot be confused with live or historical market observations.
-5. Record the exact test counts, build result, and deployment environment before calling the release complete.
+5. Validate the private production Compose stack on a Docker host, including health checks and persistence across recreation.\n6. Record the exact test counts, image-build results, and deployment environment before calling the release complete.
 
 ## Scope boundary
 

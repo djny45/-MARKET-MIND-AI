@@ -119,6 +119,8 @@ For manual setup, see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 | GET | `/api/health` | Service health and execution boundary |
 | GET | `/api/ready` | SQLite dependency readiness; HTTP 503 when unavailable |
 | GET | `/api/providers/status` | Implemented adapter availability; distinguishes synthetic fixture from live providers |
+| GET | `/api/audit/events` | Recent market-data ingestion audit events |
+| GET | `/api/market-data/lineage` | Stored observation counts and timestamp ranges by source and status |
 | GET | `/api/nodes` | Supported workflow node definitions |
 | GET | `/api/workers` | Worker profile catalogue |
 | GET | `/api/instruments?q=` | Search reference instrument metadata |

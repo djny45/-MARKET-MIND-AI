@@ -106,3 +106,26 @@ def get_bars(symbol: str, interval: str, limit: int = 500) -> dict:
         "last_timestamp": observations[-1]["timestamp"] if observations else None,
         "data_note": "Stored observations retain per-bar source, status and retrieval timestamps; freshness is not implied. Multiple sources can contribute separate observations at one timestamp.",
     }
+
+
+
+def database_readiness() -> dict:
+    """Check SQLite connectivity and schema availability without exposing its path."""
+    try:
+        with _connect() as connection:
+            connection.execute("SELECT 1").fetchone()
+            table = connection.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='market_bars'"
+            ).fetchone()
+        return {
+            "status": "ready" if table else "not_ready",
+            "reachable": True,
+            "market_bars_schema": bool(table),
+        }
+    except (sqlite3.Error, OSError) as exc:
+        return {
+            "status": "not_ready",
+            "reachable": False,
+            "market_bars_schema": False,
+            "error": type(exc).__name__,
+        }

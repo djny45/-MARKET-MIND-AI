@@ -13,6 +13,7 @@ from .performance import performance_metrics
 from . import workspace
 from .market_data import SyntheticFixtureAdapter, MarketDataBatch
 from . import market_store
+from . import watchlist
 from .setup_report import build_setup_report
 from .chart_research import build_chart_report
 from .multi_timeframe import build_multi_timeframe_report, SUPPORTED_INTERVALS
@@ -46,6 +47,10 @@ class IndicatorRequest(BaseModel):
  values: list[float] = Field(min_length=2)
  period: int = Field(default=14, ge=1, le=10000)
 
+class WatchlistRequest(BaseModel):
+ symbol: str = Field(min_length=1, max_length=32)
+
+
 class HistoricalCSVImportRequest(BaseModel):
  csv_text: str = Field(min_length=1, max_length=2_000_000)
  symbol: str = Field(min_length=1, max_length=32)
@@ -64,6 +69,35 @@ class SetupReportRequest(BaseModel):
 def health():
  return {"status":"ok","service":"market-mind-ai","mode":"research-only",
   "paper_trading":False,"broker_execution":False}
+
+@app.get("/api/watchlist")
+def get_watchlist(limit: int = 100):
+ """List saved instrument references for the local research workspace."""
+ if limit < 1 or limit > 500:
+  raise HTTPException(status_code=400, detail="limit must be between 1 and 500")
+ return watchlist.list_symbols(limit)
+
+
+@app.post("/api/watchlist")
+def add_watchlist_symbol(request: WatchlistRequest):
+ """Add an instrument reference to the local watchlist."""
+ try:
+  return watchlist.add_symbol(request.symbol)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.delete("/api/watchlist/{symbol}")
+def delete_watchlist_symbol(symbol: str):
+ """Remove an instrument reference from the local watchlist."""
+ try:
+  deleted = watchlist.remove_symbol(symbol)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+ if not deleted:
+  raise HTTPException(status_code=404, detail="Symbol not found in watchlist")
+ return {"deleted": True, "symbol": symbol.strip().upper()}
+
 
 @app.get("/api/audit/events")
 def audit_events(symbol: str | None = None, interval: str | None = None, limit: int = 100):

@@ -175,3 +175,16 @@ The Research sidebar's **VIEW INGESTION AUDIT & LINEAGE** panel combines:
 - `GET /api/market-data/lineage` — stored observation counts and timestamp ranges grouped by source and status.
 
 Audit events intentionally contain batch metadata rather than raw prices or user identity. They are written in the same SQLite transaction as the corresponding bar upsert. They establish what the application recorded, not provider authenticity, user attribution, or data freshness. Existing databases acquire the audit table automatically through the normal SQLite connection initialization.
+
+
+## SQLite backup and integrity verification
+
+Create a verified copy of the configured database from the backend directory:
+
+```bash
+PYTHONPATH=. python backup_database.py ./backups/market_mind-YYYYMMDD.sqlite
+```
+
+Override the source with `--source /path/to/market_mind.db`. The utility checks the source integrity and required `market_bars` table, uses SQLite's online backup API, checks the copied database, and only then atomically places it at the destination. Existing destinations are not replaced unless `--overwrite` is explicitly supplied. Keep backups outside the application data directory and protect them with the same access controls as the original database.
+
+This utility creates and verifies backups; it does not automate restore, retention, off-site replication, or schema migrations. Test restore procedures against a separate copy before relying on a backup operationally.

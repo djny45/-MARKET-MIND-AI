@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 from fastapi import HTTPException
 
-from app.main import export_research_evidence
+from app.main import export_research_evidence, compare_export_bundles
 
 
 class ResearchEvidenceExportApiTests(unittest.TestCase):
@@ -36,6 +36,29 @@ class ResearchEvidenceExportApiTests(unittest.TestCase):
         self.assertEqual(payload["report_type"], "historical_research_evidence")
         self.assertEqual(payload["integrity"]["algorithm"], "sha256")
         get_bars.assert_called_once_with("btcusd", "1h", 250)
+
+    def test_compare_endpoint_returns_observation_differences(self):
+        before = {
+            "report_type": "historical_research_evidence",
+            "scope": {"symbol": "BTCUSD", "interval": "1h"},
+            "observations": [{"timestamp": "2026-01-01T00:00:00Z", "source": "csv", "close": 10}],
+        }
+        after = {
+            "report_type": "historical_research_evidence",
+            "scope": {"symbol": "BTCUSD", "interval": "1h"},
+            "observations": [{"timestamp": "2026-01-01T00:00:00Z", "source": "csv", "close": 11}],
+        }
+        result = compare_export_bundles({"before": before, "after": after})
+        self.assertEqual(result["counts"]["changed"], 1)
+
+    def test_compare_endpoint_rejects_scope_mismatch(self):
+        before = {"report_type": "historical_research_evidence",
+                  "scope": {"symbol": "BTCUSD", "interval": "1h"}, "observations": []}
+        after = {"report_type": "historical_research_evidence",
+                 "scope": {"symbol": "ETHUSD", "interval": "1h"}, "observations": []}
+        with self.assertRaises(HTTPException) as error:
+            compare_export_bundles({"before": before, "after": after})
+        self.assertEqual(error.exception.status_code, 400)
 
     def test_export_supports_empty_history(self):
         with patch("app.main.market_store.get_bars", return_value={

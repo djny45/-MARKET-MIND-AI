@@ -7,7 +7,7 @@ This roadmap is a plan, not a claim that these features already exist. Mark an i
 - [x] Remove paper trading from product scope.
 - [x] Exclude brokerage execution and order routing.
 - [x] Add contribution guide and development standards.
-- [x] Add CI for frontend TypeScript checks/build, backend compilation/tests, and Python/npm dependency vulnerability audits (general-purpose lint rules remain a follow-up).
+- [x] Add CI for frontend TypeScript checks/build, backend compilation/tests, Python/npm dependency audits, and production container configuration/image builds (general-purpose lint rules remain a follow-up).
 
 ## Phase 1 — Data and API foundation
 - [x] Define canonical OHLCV bar and market-data batch schemas (instrument/event/document schemas remain open).
@@ -47,7 +47,7 @@ This roadmap is a plan, not a claim that these features already exist. Mark an i
 - [ ] Add observability, performance profiling, and load tests.
 - [ ] Add security review and dependency/licence inventory.
 - [ ] Add backup, migration, and rollback procedures.
-- [ ] Publish reproducible deployment documentation.
+- [x] Publish reproducible private Docker deployment documentation (public deployment remains blocked on authentication and security controls).
 
 ## Acceptance criteria
 A module is considered implemented only when it has:

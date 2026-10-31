@@ -145,3 +145,15 @@ The batch report records the UTC check time, file names, exact-file hashes, file
 
 
 The verifier also checks that the bundle declares the supported digest scope (the complete bundle excluding the integrity field) and canonicalization format (UTF-8 JSON, sorted keys, compact separators). Unsupported or altered declarations are rejected rather than silently interpreted using the local verifier's assumptions.
+
+
+## Compare two saved evidence exports
+
+The API accepts two previously downloaded historical evidence JSON objects:
+
+```http
+POST /api/research/compare-exports
+Content-Type: application/json
+```
+
+The request body contains `before` and `after` objects. The comparison requires matching symbol and interval. It reports observations added, removed or changed using the exact timestamp string plus source label as the key; it also reports changed diagnostic paths, provenance fields and the two embedded integrity digests. Duplicate or malformed observation keys are counted and excluded from matching. Timestamp strings are not normalized, so equivalent instants written with different timezone offsets may appear as separate observations.

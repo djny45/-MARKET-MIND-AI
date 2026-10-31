@@ -205,3 +205,8 @@ This is a single-user local-development feature. Add authentication and per-user
 ### SQLite schema version
 
 The market-data store initializes a `schema_migrations` ledger and records baseline schema version `1`. Existing databases are adopted at that baseline when the current tables are initialized. The readiness endpoint reports the ledger version and rejects a database marked with a newer unsupported version. This is a versioned baseline, not yet a multi-step migration framework; future schema changes must add explicit, tested forward migrations before increasing the version.
+
+
+## Local market-data coverage overview
+
+The WATCHLIST sidebar includes **LOAD MARKET DATA OVERVIEW**, backed by `GET /api/market-data/overview`. It summarizes stored symbol/timeframe coverage, observation counts, source/status labels, timestamp ranges, and latest retrieval time. The endpoint reads the local database only; it is not a live market overview, complete instrument universe, ranking, or freshness guarantee.

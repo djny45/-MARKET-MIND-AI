@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 from fastapi import HTTPException
 
-from app.main import audit_events, market_data_lineage
+from app.main import audit_events, market_data_lineage, market_data_overview
 from app.market_data import SyntheticFixtureAdapter
 from app.market_store import store_batch
 
@@ -22,6 +22,20 @@ class AuditApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(audit["events"][0]["event_type"], "market_data_batch_stored")
         self.assertEqual(lineage["observation_count"], 2)
         self.assertEqual(lineage["lineage"][0]["status"], "synthetic")
+
+    async def test_overview_route_reports_local_coverage_only(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.dict(os.environ, {"MARKET_MIND_DB": os.path.join(directory, "test.sqlite")}):
+                batch = await SyntheticFixtureAdapter().get_bars("BTCUSD", "1d", 2)
+                store_batch(batch)
+                result = market_data_overview(100)
+        self.assertEqual(result["instrument_interval_count"], 1)
+        self.assertEqual(result["coverage"][0]["symbol"], "BTCUSD")
+
+    def test_overview_route_validates_limit(self):
+        with self.assertRaises(HTTPException) as error:
+            market_data_overview(501)
+        self.assertEqual(error.exception.status_code, 400)
 
     def test_audit_route_rejects_invalid_filters(self):
         with self.assertRaises(HTTPException) as symbol_error:

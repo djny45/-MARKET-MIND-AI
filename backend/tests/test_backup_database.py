@@ -21,6 +21,7 @@ class DatabaseBackupTests(unittest.TestCase):
             self.assertEqual(result["status"], "verified")
             self.assertEqual(result["source_integrity"], "ok")
             self.assertEqual(result["backup_integrity"], "ok")
+            self.assertEqual(len(result["sha256"]), 64)
             with sqlite3.connect(destination) as connection:
                 self.assertEqual(connection.execute("SELECT symbol FROM market_bars").fetchone()[0], "BTCUSD")
 

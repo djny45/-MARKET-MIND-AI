@@ -142,3 +142,6 @@ PYTHONPATH=backend python backend/verify_research_export.py ./BTCUSD-1h-research
 ```
 
 The batch report records the UTC check time, file names, exact-file hashes, file sizes, individual verification outcomes, and aggregate valid/invalid counts. It does not embed the original evidence contents.
+
+
+The verifier also checks that the bundle declares the supported digest scope (the complete bundle excluding the integrity field) and canonicalization format (UTF-8 JSON, sorted keys, compact separators). Unsupported or altered declarations are rejected rather than silently interpreted using the local verifier's assumptions.

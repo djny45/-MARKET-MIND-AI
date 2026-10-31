@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import hashlib
 import os
 import sqlite3
 import sys
@@ -57,8 +58,10 @@ def create_backup(source: Path, destination: Path, overwrite: bool = False) -> d
             raise FileExistsError("destination_exists_use_overwrite")
         os.replace(temporary_path, destination)
         temporary_path = None
+        digest = hashlib.sha256(destination.read_bytes()).hexdigest()
         return {
             "status": "verified",
+            "sha256": digest,
             "source": source.name,
             "backup": str(destination),
             "bytes": destination.stat().st_size,

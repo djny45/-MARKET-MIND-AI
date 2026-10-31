@@ -464,6 +464,12 @@ def research_deep(
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+def _workflow_request_fingerprint(request_payload: dict) -> str:
+ return hashlib.sha256(
+  json.dumps(request_payload, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")
+ ).hexdigest()
+
+
 def _execute_and_persist(request: WorkflowRequest, parent_run_id: str | None = None, initial_checkpoint: dict | None = None):
  try:
   if len(set(request.skill_ids)) != len(request.skill_ids):
@@ -477,9 +483,7 @@ def _execute_and_persist(request: WorkflowRequest, parent_run_id: str | None = N
    except FileNotFoundError as exc:
     raise HTTPException(status_code=503, detail=f"Research skill unavailable: {skill_id}") from exc
   request_payload = request.model_dump()
-  fingerprint = hashlib.sha256(
-   json.dumps(request_payload, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")
-  ).hexdigest()
+  fingerprint = _workflow_request_fingerprint(request_payload)
   if initial_checkpoint:
    saved_fingerprint = initial_checkpoint.get("request_fingerprint")
    if saved_fingerprint != fingerprint:

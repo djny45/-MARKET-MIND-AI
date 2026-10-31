@@ -7,7 +7,7 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
-from verify_research_export import build_verification_report, main, verify_bundle
+from verify_research_export import build_batch_report, build_verification_report, main, verify_bundle, verify_file
 
 
 def signed_bundle():
@@ -37,6 +37,63 @@ class VerifyResearchExportTests(unittest.TestCase):
         self.assertEqual(report["file_sha256"], hashlib.sha256(raw).hexdigest())
         self.assertEqual(report["verified_at_utc"], "2026-10-31T10:00:00+00:00")
         self.assertEqual(report["verification"], result)
+
+    def test_batch_report_counts_valid_and_invalid_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            valid_path = Path(directory) / "valid.json"
+            altered_path = Path(directory) / "altered.json"
+            valid_path.write_text(json.dumps(signed_bundle()), encoding="utf-8")
+            altered = signed_bundle()
+            altered["observations"][0]["close"] = 999
+            altered_path.write_text(json.dumps(altered), encoding="utf-8")
+            results = [verify_file(valid_path), verify_file(altered_path)]
+            report = build_batch_report(results, "2026-10-31T10:00:00+00:00")
+            self.assertEqual(report["files_checked"], 2)
+            self.assertEqual(report["valid_count"], 1)
+            self.assertEqual(report["invalid_count"], 1)
+            self.assertFalse(report["all_valid"])
+            self.assertNotIn("file_bytes", report["results"][0])
+
+    def test_batch_cli_writes_report_and_returns_nonzero_for_tampered_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            valid_path = Path(directory) / "valid.json"
+            altered_path = Path(directory) / "altered.json"
+            report_path = Path(directory) / "batch-report.json"
+            valid_path.write_text(json.dumps(signed_bundle()), encoding="utf-8")
+            altered = signed_bundle()
+            altered["scope"]["symbol"] = "ETHUSD"
+            altered_path.write_text(json.dumps(altered), encoding="utf-8")
+            output = io.StringIO()
+            with patch("sys.argv", [
+                "verify_research_export.py", str(valid_path), str(altered_path),
+                "--batch-report", str(report_path),
+            ]):
+                with contextlib.redirect_stdout(output):
+                    exit_code = main()
+            self.assertEqual(exit_code, 1)
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+            self.assertEqual(report["files_checked"], 2)
+            self.assertEqual(report["valid_count"], 1)
+            self.assertEqual(report["invalid_count"], 1)
+            self.assertFalse(report["all_valid"])
+
+    def test_batch_cli_reports_unreadable_input_without_aborting_other_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            valid_path = Path(directory) / "valid.json"
+            missing_path = Path(directory) / "missing.json"
+            valid_path.write_text(json.dumps(signed_bundle()), encoding="utf-8")
+            output = io.StringIO()
+            with patch("sys.argv", [
+                "verify_research_export.py", str(valid_path), str(missing_path),
+            ]):
+                with contextlib.redirect_stdout(output):
+                    exit_code = main()
+            self.assertEqual(exit_code, 1)
+            report = json.loads(output.getvalue())
+            self.assertEqual(report["files_checked"], 2)
+            self.assertEqual(report["valid_count"], 1)
+            self.assertEqual(report["invalid_count"], 1)
+            self.assertEqual(report["results"][1]["reason"], "file_read_or_json_error")
 
     def test_cli_writes_detached_report_and_returns_success(self):
         with tempfile.TemporaryDirectory() as directory:

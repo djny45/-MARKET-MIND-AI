@@ -8,7 +8,9 @@ The upstream `SKILL.md` playbooks are vendored here for MARKET-MIND-AI agents. T
 
 - `trader-alerts/` — price and session alerts
 - `trader-analyst/` — SEC filings and earnings analysis
-- `trader-budget/` — position-sizing methodology (paper research only)
+- `trader-budget/` — position/risk-budget methodology (paper research only)
+- `trader-entry/` — historical entry-pattern analysis (research only)
+- `trader-exit/` — historical exit-rule analysis (research only)
 - `trader-news/` — news and catalyst research
 - `trader-pelosi/` — public congressional disclosure research
 - `trader-risk/` — risk-rule validation (paper research only)

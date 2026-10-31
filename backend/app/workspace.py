@@ -52,3 +52,51 @@ def delete_workflow(workflow_id):
     with _connect() as con:
         cur=con.execute("DELETE FROM workflows WHERE id=?",(workflow_id,))
         return cur.rowcount>0
+
+
+def save_execution(run_id, request_payload, result_payload, status, parent_run_id=None):
+    """Persist a bounded, replayable research execution record."""
+    request_json=json.dumps(request_payload,separators=(",",":"),allow_nan=False)
+    result_json=json.dumps(result_payload,separators=(",",":"),allow_nan=False)
+    now=datetime.now(timezone.utc).isoformat()
+    with _connect() as con:
+        con.execute("""CREATE TABLE IF NOT EXISTS workflow_runs (
+          id TEXT PRIMARY KEY, parent_run_id TEXT, status TEXT NOT NULL,
+          request_json TEXT NOT NULL, result_json TEXT NOT NULL,
+          created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+        )""")
+        con.execute("""INSERT INTO workflow_runs
+          (id,parent_run_id,status,request_json,result_json,created_at,updated_at)
+          VALUES (?,?,?,?,?,?,?)""",
+          (run_id,parent_run_id,status,request_json,result_json,now,now))
+    return {"id":run_id,"parent_run_id":parent_run_id,"status":status,
+            "created_at":now,"updated_at":now}
+
+
+def list_executions(limit=50):
+    with _connect() as con:
+        con.execute("""CREATE TABLE IF NOT EXISTS workflow_runs (
+          id TEXT PRIMARY KEY, parent_run_id TEXT, status TEXT NOT NULL,
+          request_json TEXT NOT NULL, result_json TEXT NOT NULL,
+          created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+        )""")
+        rows=con.execute("""SELECT id,parent_run_id,status,created_at,updated_at
+          FROM workflow_runs ORDER BY created_at DESC LIMIT ?""",
+          (max(1,min(int(limit),100)),)).fetchall()
+    return [dict(row) for row in rows]
+
+
+def get_execution(run_id):
+    with _connect() as con:
+        con.execute("""CREATE TABLE IF NOT EXISTS workflow_runs (
+          id TEXT PRIMARY KEY, parent_run_id TEXT, status TEXT NOT NULL,
+          request_json TEXT NOT NULL, result_json TEXT NOT NULL,
+          created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+        )""")
+        row=con.execute("SELECT * FROM workflow_runs WHERE id=?",(run_id,)).fetchone()
+    if row is None:
+        return None
+    record=dict(row)
+    record["request"]=json.loads(record.pop("request_json"))
+    record["result"]=json.loads(record.pop("result_json"))
+    return record

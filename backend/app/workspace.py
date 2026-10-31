@@ -99,4 +99,46 @@ def get_execution(run_id):
     record=dict(row)
     record["request"]=json.loads(record.pop("request_json"))
     record["result"]=json.loads(record.pop("result_json"))
+    checkpoint_json=record.pop("checkpoint_json", "{}")
+    record["checkpoint"]=json.loads(checkpoint_json)
     return record
+
+
+def update_execution_checkpoint(run_id, checkpoint, status="running", result_payload=None):
+    """Atomically persist the latest completed-layer checkpoint."""
+    checkpoint_json=json.dumps(checkpoint,separators=(",",":"),allow_nan=False)
+    result_json=json.dumps(result_payload,separators=(",",":"),allow_nan=False) if result_payload is not None else None
+    now=datetime.now(timezone.utc).isoformat()
+    with _connect() as con:
+        columns={row["name"] for row in con.execute("PRAGMA table_info(workflow_runs)")}
+        if "checkpoint_json" not in columns:
+            con.execute("ALTER TABLE workflow_runs ADD COLUMN checkpoint_json TEXT NOT NULL DEFAULT '{}'")
+        if result_json is None:
+            con.execute("""UPDATE workflow_runs SET checkpoint_json=?,status=?,updated_at=? WHERE id=?""",
+              (checkpoint_json,status,now,run_id))
+        else:
+            con.execute("""UPDATE workflow_runs SET checkpoint_json=?,result_json=?,status=?,updated_at=? WHERE id=?""",
+              (checkpoint_json,result_json,status,now,run_id))
+        if con.total_changes == 0:
+            raise KeyError("Workflow run not found")
+    return {"id":run_id,"status":status,"updated_at":now}
+
+
+def create_execution(run_id, request_payload, parent_run_id=None):
+    """Create the durable run record before any task begins."""
+    request_json=json.dumps(request_payload,separators=(",",":"),allow_nan=False)
+    now=datetime.now(timezone.utc).isoformat()
+    with _connect() as con:
+        con.execute("""CREATE TABLE IF NOT EXISTS workflow_runs (
+          id TEXT PRIMARY KEY, parent_run_id TEXT, status TEXT NOT NULL,
+          request_json TEXT NOT NULL, result_json TEXT NOT NULL,
+          created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+        )""")
+        columns={row["name"] for row in con.execute("PRAGMA table_info(workflow_runs)")}
+        if "checkpoint_json" not in columns:
+            con.execute("ALTER TABLE workflow_runs ADD COLUMN checkpoint_json TEXT NOT NULL DEFAULT '{}'")
+        con.execute("""INSERT INTO workflow_runs
+          (id,parent_run_id,status,request_json,result_json,checkpoint_json,created_at,updated_at)
+          VALUES (?,?,?,?,?,?,?,?)""",
+          (run_id,parent_run_id,"running",request_json,"{}","{}",now,now))
+    return {"id":run_id,"parent_run_id":parent_run_id,"status":"running","created_at":now,"updated_at":now}

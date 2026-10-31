@@ -236,3 +236,37 @@ def get_data_lineage(symbol: str, interval: str, limit: int = 5000) -> dict:
         "limit": safe_limit,
         "data_note": "Lineage is derived from stored observation metadata; it does not authenticate providers or establish freshness.",
     }
+
+
+def get_market_overview(limit: int = 200) -> dict:
+    """Summarize local stored-data coverage; this is not a live market overview."""
+    safe_limit = max(1, min(int(limit), 500))
+    with _connect() as connection:
+        rows = connection.execute("""
+            SELECT symbol, interval,
+                   COUNT(*) AS observation_count,
+                   COUNT(DISTINCT timestamp) AS distinct_timestamp_count,
+                   COUNT(DISTINCT source) AS source_count,
+                   GROUP_CONCAT(DISTINCT source) AS sources,
+                   GROUP_CONCAT(DISTINCT status) AS statuses,
+                   MIN(timestamp) AS first_timestamp,
+                   MAX(timestamp) AS last_timestamp,
+                   MAX(retrieved_at) AS latest_retrieval
+            FROM market_bars
+            GROUP BY symbol, interval
+            ORDER BY symbol, interval
+            LIMIT ?
+        """, (safe_limit,)).fetchall()
+    coverage = []
+    for row in rows:
+        item = dict(row)
+        item["sources"] = sorted(item["sources"].split(",")) if item["sources"] else []
+        item["statuses"] = sorted(item["statuses"].split(",")) if item["statuses"] else []
+        coverage.append(item)
+    return {
+        "status": "stored_data_overview",
+        "instrument_interval_count": len(coverage),
+        "coverage": coverage,
+        "limit": safe_limit,
+        "data_note": "This view summarizes locally stored observations only. It is not a live quote, complete universe, market-wide ranking, or freshness guarantee.",
+    }

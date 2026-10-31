@@ -156,3 +156,12 @@ PYTHONPATH=. python compare_research_exports.py ./before.json ./after.json --rep
 ```
 
 Matching uses exact timestamp strings and source labels. A valid SHA-256 digest confirms consistency with the embedded digest; it is not a digital signature or provider authentication.
+
+
+## Service health, readiness and provider status
+
+- `GET /api/health` is the liveness endpoint: it confirms the API process is responding.
+- `GET /api/ready` checks that the configured SQLite database is reachable and the market-bars schema is available. It returns HTTP 503 when the dependency check fails. The check may initialize the SQLite schema through the normal store connection.
+- `GET /api/providers/status` reports implemented adapter availability. At present the synthetic fixture adapter is available for development; no live or delayed provider is configured. This endpoint is descriptive and does not probe an external data vendor.
+
+Do not interpret API liveness or database readiness as evidence that market data is current, complete, or connected to an exchange.

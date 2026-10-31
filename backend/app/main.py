@@ -2,6 +2,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import Any, Literal
+import hashlib
+import json
 from .workflow import NODE_TYPES, execute_workflow
 from .workers import list_workers
 from .skill_catalog import list_skills, load_skill
@@ -474,9 +476,23 @@ def _execute_and_persist(request: WorkflowRequest, parent_run_id: str | None = N
     raise HTTPException(status_code=400, detail=f"Unsupported research skill: {skill_id}") from exc
    except FileNotFoundError as exc:
     raise HTTPException(status_code=503, detail=f"Research skill unavailable: {skill_id}") from exc
+  request_payload = request.model_dump()
+  fingerprint = hashlib.sha256(
+   json.dumps(request_payload, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")
+  ).hexdigest()
+  if initial_checkpoint:
+   saved_fingerprint = initial_checkpoint.get("request_fingerprint")
+   if saved_fingerprint != fingerprint:
+    raise HTTPException(status_code=409, detail="Checkpoint does not match the original workflow request.")
+   known_ids = {str(node.get("id", "")) for node in request.nodes}
+   checkpoint_ids = set(initial_checkpoint.get("completed_node_ids", []))
+   if not checkpoint_ids.issubset(known_ids):
+    raise HTTPException(status_code=409, detail="Checkpoint contains nodes not present in the saved workflow.")
   run_id = str(uuid.uuid4())
-  record = workspace.create_execution(run_id, request.model_dump(), parent_run_id)
+  record = workspace.create_execution(run_id, request_payload, parent_run_id)
   def persist_checkpoint(snapshot):
+   snapshot["request_fingerprint"] = fingerprint
+   snapshot["checkpoint_schema_version"] = 1
    workspace.update_execution_checkpoint(run_id, snapshot, "running")
   result = execute_workflow(
    request.nodes, request.edges, request.inputs,
@@ -488,7 +504,8 @@ def _execute_and_persist(request: WorkflowRequest, parent_run_id: str | None = N
    run_id,
    {"completed_node_ids":[task["node_id"] for task in result["tasks"] if task["status"]=="completed"],
     "results":result["results"],"tasks":{task["node_id"]:task for task in result["tasks"]},
-    "completed_layers":len(result["execution_layers"])},
+    "completed_layers":len(result["execution_layers"]),
+    "request_fingerprint":fingerprint,"checkpoint_schema_version":1},
    result["status"], result,
   )
   result["run_id"] = run_id

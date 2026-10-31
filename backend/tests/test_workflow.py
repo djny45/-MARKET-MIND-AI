@@ -15,8 +15,8 @@ class WorkflowTests(unittest.TestCase):
   out=execute_workflow(nodes,edges,{})
   self.assertEqual(out["status"],"completed")
   self.assertEqual(len(out["results"]["rsi"]["series"]),14)
-  self.assertIn("histogram",out["results"]["macd"])
- def test_cycle_rejected(self):
+  self.assertIn("histogram",out["results"]["macd"])\n  self.assertEqual(out["performance"]["node_count"],3)\n  self.assertEqual(out["execution_layers"],[["feed"],["rsi","macd"]])
+ def test_parallel_independent_nodes_preserve_results(self):\n  nodes=[\n   {"id":"feed","type":"market_input","data":{"values":[10,11,12,13,14,15]}},\n   {"id":"sma","type":"sma","data":{"period":2}},\n   {"id":"ema","type":"ema","data":{"period":2}},\n  ]\n  edges=[{"source":"feed","target":"sma"},{"source":"feed","target":"ema"}]\n  sequential=execute_workflow(nodes,edges,{},max_workers=1)\n  concurrent=execute_workflow(nodes,edges,{},max_workers=4)\n  self.assertEqual(sequential["results"],concurrent["results"])\n  self.assertTrue(concurrent["performance"]["parallelism_used"])\n  self.assertEqual(concurrent["execution_layers"],[["feed"],["sma","ema"]])\n def test_invalid_worker_limit_rejected(self):\n  with self.assertRaisesRegex(ValueError,"max_workers"):\n   execute_workflow([{"id":"x","type":"market_input","data":{"values":[1,2]}}],[],{},max_workers=0)\n def test_cycle_rejected(self):
   nodes=[{"id":"a","type":"market_input","data":{"values":[1,2]}},{"id":"b","type":"sma","data":{}}]
   with self.assertRaisesRegex(ValueError,"cycle"):
    execute_workflow(nodes,[{"source":"a","target":"b"},{"source":"b","target":"a"}],{})

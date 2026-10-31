@@ -34,6 +34,10 @@ For remote access, place an independently maintained TLS reverse proxy and an au
 
 No provider credentials are required by this deployment. The built-in market-data adapter is synthetic-only; the deployment does not create live market connectivity. Brokerage execution, order routing, and paper trading remain disabled.
 
+## Container resource and runtime controls
+
+The Compose definition applies separate memory and PID ceilings to the API and web containers, drops Linux capabilities, enables `no-new-privileges`, and rotates JSON container logs (10 MB per file, three files retained). These defaults reduce the impact of runaway processes and unbounded container logs; they are starting limits, not capacity guarantees. Review and tune them against observed workload and host capacity before deployment. Monitor host disk usage for the persistent database and backup directory separately.
+
 ## Health checks
 
 - Web container: `GET /healthz` confirms Nginx is serving.

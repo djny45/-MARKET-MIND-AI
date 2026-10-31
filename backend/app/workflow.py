@@ -67,9 +67,9 @@ def execute_workflow(
     if visited != len(nodes):
         raise ValueError("Workflow contains a cycle.")
 
-    results, node_timings = {}, {}
+    results, node_timings, task_records = {}, {}, {}
     started = perf_counter_ns()
-    for layer in layers:
+    for layer_index, layer in enumerate(layers):
         tasks = []
         for node_id in layer:
             node = by_id[node_id]
@@ -78,7 +78,20 @@ def execute_workflow(
                 raise ValueError(f"Unsupported node type: {kind}")
             upstream = [results[source] for source in incoming[node_id]]
             payload = upstream[-1] if upstream else inputs.get(node_id, inputs.get("data", []))
-            tasks.append((node_id, kind, payload, node.get("data", {}) or {}))
+            metadata = node.get("data", {}) or {}
+            assigned_worker = metadata.get("workerName") or (
+                metadata.get("label") if metadata.get("category") == "worker" else None
+            ) or "workflow-engine"
+            task_records[node_id] = {
+                "task_id": f"task:{node_id}",
+                "node_id": node_id,
+                "node_type": kind,
+                "assigned_worker": str(assigned_worker),
+                "dependency_ids": list(incoming[node_id]),
+                "layer": layer_index,
+                "status": "queued",
+            }
+            tasks.append((node_id, kind, payload, metadata))
 
         def run_task(task):
             node_id, kind, payload, params = task
@@ -86,6 +99,8 @@ def execute_workflow(
             value = _run_node(kind, payload, params)
             return node_id, value, perf_counter_ns() - begin
 
+        for node_id, *_ in tasks:
+            task_records[node_id]["status"] = "running"
         if max_workers > 1 and len(tasks) > 1:
             with ThreadPoolExecutor(max_workers=min(max_workers, len(tasks))) as pool:
                 completed = list(pool.map(run_task, tasks))
@@ -94,13 +109,27 @@ def execute_workflow(
         for node_id, value, elapsed in completed:
             results[node_id] = value
             node_timings[node_id] = elapsed
+            task_records[node_id].update({
+                "status": "completed",
+                "duration_ns": elapsed,
+                "result_key": node_id,
+            })
 
     elapsed = perf_counter_ns() - started
     order = [node_id for layer in layers for node_id in layer]
+    tasks_summary = list(task_records.values())
     return {
         "status": "completed",
         "execution_order": order,
         "execution_layers": layers,
+        "tasks": tasks_summary,
+        "aggregation": {
+            "task_count": len(tasks_summary),
+            "completed_count": sum(task["status"] == "completed" for task in tasks_summary),
+            "failed_count": sum(task["status"] == "failed" for task in tasks_summary),
+            "result_count": len(results),
+            "result_node_ids": order,
+        },
         "results": results,
         "performance": {
             "total_execution_ns": elapsed,

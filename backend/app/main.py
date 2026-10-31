@@ -44,6 +44,7 @@ class WorkflowRequest(BaseModel):
  edges: list[dict[str, Any]] = Field(default_factory=list)
  inputs: dict[str, Any] = Field(default_factory=dict)
  max_workers: int = Field(default=1, ge=1, le=16)
+ skill_ids: list[str] = Field(default_factory=list, max_length=10)
 
 class IndicatorRequest(BaseModel):
  values: list[float] = Field(min_length=2)
@@ -462,8 +463,23 @@ def research_deep(
 @app.post("/api/workflows/execute")
 def run_workflow(request: WorkflowRequest):
  try:
-  return execute_workflow(request.nodes,request.edges,request.inputs,request.max_workers)
+  if len(set(request.skill_ids)) != len(request.skill_ids):
+   raise HTTPException(status_code=400, detail="skill_ids must not contain duplicates")
+  loaded_skills = []
+  for skill_id in request.skill_ids:
+   try:
+    loaded_skills.append(load_skill(skill_id))
+   except KeyError as exc:
+    raise HTTPException(status_code=400, detail=f"Unsupported research skill: {skill_id}") from exc
+   except FileNotFoundError as exc:
+    raise HTTPException(status_code=503, detail=f"Research skill unavailable: {skill_id}") from exc
+  result = execute_workflow(request.nodes,request.edges,request.inputs,request.max_workers)
+  result["skill_context"] = loaded_skills
+  result["skill_context_mode"] = "research_and_paper_only"
+  return result
  except ValueError as exc:
   raise HTTPException(status_code=400,detail=str(exc)) from exc
+ except HTTPException:
+  raise
  except Exception as exc:
   raise HTTPException(status_code=500,detail=f"Workflow failed: {exc}") from exc

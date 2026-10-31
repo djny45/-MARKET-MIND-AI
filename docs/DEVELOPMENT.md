@@ -188,3 +188,15 @@ PYTHONPATH=. python backup_database.py ./backups/market_mind-YYYYMMDD.sqlite
 Override the source with `--source /path/to/market_mind.db`. The utility checks the source integrity and required `market_bars` table, uses SQLite's online backup API, checks the copied database, and only then atomically places it at the destination. Existing destinations are not replaced unless `--overwrite` is explicitly supplied. Keep backups outside the application data directory and protect them with the same access controls as the original database.
 
 This utility creates and verifies backups; it does not automate restore, retention, off-site replication, or schema migrations. Test restore procedures against a separate copy before relying on a backup operationally.
+
+
+## Local instrument watchlist
+
+The WATCHLIST sidebar stores instrument symbols in the same local SQLite database as research history and saved graphs. Search for an instrument in the header and choose **ADD TO WATCHLIST**; use the WATCHLIST tab to open a symbol in Research or remove it.
+
+API:
+- `GET /api/watchlist` — list saved symbols.
+- `POST /api/watchlist` with `{"symbol":"BTCUSD"}` — add a symbol (idempotent).
+- `DELETE /api/watchlist/{symbol}` — remove a saved symbol.
+
+This is a single-user local-development feature. Add authentication and per-user authorization before exposing it to a public network. The watchlist stores reference symbols only; it does not imply quotes, alerts, or provider coverage.

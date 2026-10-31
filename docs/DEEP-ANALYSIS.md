@@ -133,3 +133,12 @@ PYTHONPATH=backend python backend/verify_research_export.py ./BTCUSD-1h-research
 ```
 
 The report records the verification timestamp (UTC), input filename, byte size, SHA-256 hash of the exact downloaded file, and the verification result. A failed digest still produces a report (and a non-zero exit status), so failed checks can be retained for audit. Keep the original evidence file and verification report together; the report itself is not digitally signed.
+
+
+For multiple exports, pass two or more files. The command checks every file even if one is unreadable or has a mismatched digest, then returns a consolidated result. It exits with code 0 only when every file verifies; otherwise it exits with code 1 (verification/read error) or 2 for a report-writing/argument error.
+
+```bash
+PYTHONPATH=backend python backend/verify_research_export.py ./BTCUSD-1h-research-evidence.json ./ETHUSD-1h-research-evidence.json --batch-report ./batch-verification.json
+```
+
+The batch report records the UTC check time, file names, exact-file hashes, file sizes, individual verification outcomes, and aggregate valid/invalid counts. It does not embed the original evidence contents.

@@ -42,10 +42,31 @@ No provider credentials are required by this deployment. The built-in market-dat
 
 Container health does not establish data freshness, market-data licensing, backup recoverability, or public-deployment security.
 
-## Persistent data backup
+## Persistent data backup and restore
 
-Use the documented SQLite backup utility from a trusted environment with access to the database volume. For a simple offline backup, stop the stack first, copy the named volume using an approved Docker volume backup procedure, then restart it. Keep backups encrypted and access-controlled. Test restore to a separate volume before relying on a backup.
+The API image includes \`backup_database.py\` and \`restore_database.py\`. The Compose stack mounts the host-side \`./backups\` directory at \`/backups\`; create it before starting the stack:
 
+\`\`\`bash
+mkdir -p backups
+\`\`\`
+
+Create an online, transactionally consistent SQLite backup while the API is running:
+
+\`\`\`bash
+docker compose -f docker-compose.production.yml exec -T api python backup_database.py /backups/market_mind-$(date -u +%Y%m%dT%H%M%SZ).db --source /data/market_mind.db
+\`\`\`
+
+The command checks source integrity, uses SQLite's backup API, verifies the resulting database, and prints a SHA-256 digest. Keep the backup directory encrypted and access-controlled; do not commit database files to Git.
+
+To restore, first stop the stack and preserve a separate copy of the current database. Then restore the selected backup to the database path. The restore command refuses to overwrite an existing target unless \`--overwrite\` is explicitly supplied, and verifies the backup and restored database before replacing the target atomically:
+
+\`\`\`bash
+docker compose -f docker-compose.production.yml stop
+docker compose -f docker-compose.production.yml run --rm --no-deps --entrypoint python api restore_database.py /backups/market_mind-YYYYMMDDTHHMMSSZ.db /data/market_mind.db --overwrite
+docker compose -f docker-compose.production.yml up -d
+\`\`\`
+
+Replace the example timestamp with the actual backup filename. Test restores against a separate disposable volume before relying on this procedure. A successful integrity check does not prove that an application-level recovery is complete; verify expected tables and representative records after restore.
 ## Operational release gates still open
 
 This packaging is not a complete public production release. Before any public deployment, implement and independently review authentication/authorization, TLS and ingress controls, backup/restore automation, migration/rollback procedures, observability, resource limits, and a licensed market-data provider integration. Validate provider entitlements, symbol mapping, rate limits, timestamps, and stale-data handling before enabling any real feed.

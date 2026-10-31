@@ -15,6 +15,31 @@ SPECIALTIES = [
     "research_synthesis", "earnings_quality", "economic_surprise",
 ]
 
+# Skill references are guidance links only. They do not activate executable agents.
+SKILL_BY_DEPARTMENT = {
+    "technical_analysis": ["trader-scanner"],
+    "market_structure": ["trader-scanner"],
+    "volume_liquidity": ["trader-scanner"],
+    "volatility": ["trader-risk", "trader-timemachine"],
+    "quantitative_research": ["trader-timemachine"],
+    "cross_asset": ["trader-analyst", "trader-news"],
+    "equities_fundamentals": ["trader-analyst"],
+    "macroeconomics": ["trader-news", "trader-analyst"],
+    "foreign_exchange": ["trader-news"],
+    "commodities": ["trader-news"],
+    "fixed_income": ["trader-news", "trader-analyst"],
+    "crypto_markets": ["trader-news", "trader-scanner"],
+    "news_intelligence": ["trader-news"],
+    "event_analysis": ["trader-news", "trader-analyst"],
+    "portfolio_analytics": ["trader-risk", "trader-budget"],
+    "data_quality": ["trader-risk"],
+    "risk_analytics": ["trader-risk", "trader-budget"],
+    "pattern_recognition": ["trader-scanner", "trader-timemachine"],
+    "research_validation": ["trader-timemachine", "trader-risk"],
+    "market_regimes": ["trader-timemachine", "trader-news"],
+}
+
+
 def list_workers():
     workers = []
     for i in range(550):
@@ -28,6 +53,7 @@ def list_workers():
             "kind": "analytical_module",
             "model": "shared_central_intelligence",
             "memory_namespace": f"workers/worker_{i+1:03d}",
+            "skill_refs": SKILL_BY_DEPARTMENT.get(department, []),
             "status": "template",
             "note": "Generated worker profile; activate only after implementation and validation."
         })

@@ -3,6 +3,8 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
+from fastapi import HTTPException
+
 from app.main import provider_status, readiness
 
 
@@ -23,10 +25,11 @@ class ServiceStatusTests(unittest.TestCase):
             "status": "not_ready", "reachable": False,
             "market_bars_schema": False, "error": "OperationalError",
         }):
-            result = readiness()
-        self.assertEqual(result["status"], "not_ready")
-        self.assertEqual(result["checks"]["database"]["error"], "OperationalError")
-        self.assertNotIn("database_path", result["checks"]["database"])
+            with self.assertRaises(HTTPException) as error:
+                readiness()
+        self.assertEqual(error.exception.status_code, 503)
+        self.assertEqual(error.exception.detail["checks"]["database"]["error"], "OperationalError")
+        self.assertNotIn("database_path", error.exception.detail["checks"]["database"])
 
     def test_provider_status_does_not_claim_live_data(self):
         result = provider_status()

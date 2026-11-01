@@ -82,6 +82,9 @@ export default function App() {
  const [auditBusy,setAuditBusy] = useState(false)
  const [auditError,setAuditError] = useState('')
  const [researchBars,setResearchBars] = useState<any[]>([])
+ const [volumeReport,setVolumeReport] = useState<any>(null)
+ const [volumeBusy,setVolumeBusy] = useState(false)
+ const [volumeError,setVolumeError] = useState('')
  const [researchInterval,setResearchInterval] = useState('1h')
  const [selectedCluster,setSelectedCluster] = useState<any>(null)
  const [historyMeta,setHistoryMeta] = useState<any>(null)
@@ -125,6 +128,18 @@ export default function App() {
  const loadSyntheticSample = async()=>{setSampleBusy(true);try{const r=await fetch(API+'/api/market-data/sample?symbol=BTCUSD&interval=1d&limit=5');const d=await r.json();if(!r.ok)throw new Error(d.detail||'Sample data unavailable');setValues(d.bars.map((b:any)=>String(b.close)).join(','));setDataLabel('SYNTHETIC FIXTURE · NOT MARKET PRICES');setResult({status:'sample_loaded',symbol:d.symbol,interval:d.interval,source:d.source,data_status:d.status,retrieved_at:d.retrieved_at,warnings:d.warnings})}catch(e){setResult({status:'error',message:e instanceof Error?e.message:'Sample data unavailable'})}finally{setSampleBusy(false)}}
  const findInstruments = async()=>{try{const q=encodeURIComponent(instrumentQuery);const r=await fetch(API+'/api/instruments?q='+q);const d=await r.json();setInstrumentResults(d.instruments||[])}catch{setInstrumentResults([])}}
  const loadNews = async()=>{setNewsBusy(true);setNewsError('');try{const r=await fetch(API+'/api/news');const d=await r.json();setNewsItems((d.items||[]).filter((x:any)=>x.title));const errs=(d.items||[]).filter((x:any)=>x.error);if(errs.length)setNewsError(errs.map((x:any)=>x.source+': '+x.error).join(' · '))}catch(e){setNewsError(e instanceof Error?e.message:'News feed unavailable')}finally{setNewsBusy(false)}}
+ const loadVolumeIndicators = async()=> {
+  if(researchBars.length<2){setVolumeError('At least two stored OHLCV bars are required. Load historical data first.');return}
+  setVolumeBusy(true);setVolumeError('')
+  try {
+   const body={high:researchBars.map((bar:any)=>Number(bar.high)),low:researchBars.map((bar:any)=>Number(bar.low)),close:researchBars.map((bar:any)=>Number(bar.close)),volume:researchBars.map((bar:any)=>Number(bar.volume)),period:20}
+   const response=await fetch(API+'/api/indicators/volume',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+   const data=await response.json()
+   if(!response.ok)throw new Error(data.detail||'Volume indicator calculation failed')
+   setVolumeReport(data)
+  } catch(e){setVolumeReport(null);setVolumeError(e instanceof Error?e.message:'Volume indicator calculation failed')}
+  finally{setVolumeBusy(false)}
+ }
  const loadHistoricalQuality = async(interval:string)=> {
   setQualityBusy(true);setQualityError('')
   try {
@@ -302,6 +317,17 @@ export default function App() {
      <small>Exact timestamp/source matching. A valid digest checks integrity, not provider authenticity.</small>
     </div>}
 
+    <div className="aligned-comparison volume-indicator-panel">
+     <div className="timeline-heading"><b>VOLUME INTELLIGENCE</b><button className="soft-btn" onClick={loadVolumeIndicators} disabled={volumeBusy||researchBars.length<2}>{volumeBusy?'CALCULATING…':'CALCULATE FROM LOADED OHLCV'}</button></div>
+     <small>Uses {researchBars.length} loaded historical bars · {researchSymbol} · {researchInterval}. Rolling period: 20 bars. No live feed or trade signal.</small>
+     {volumeError&&<small className="news-error">{volumeError}</small>}
+     {volumeReport&&<div className="volume-indicator-grid">
+      {[
+       ['OBV','obv','On-Balance Volume'],['ADL','adl','Accumulation / Distribution'],['CMF','cmf','Chaikin Money Flow'],['MFI','mfi','Money Flow Index'],['VWAP','vwap','Volume-weighted average price'],['RELATIVE VOLUME','relative_volume','Volume / rolling average'],['VOLUME OSCILLATOR','volume_oscillator','Fast vs slow volume EMA'],['VOLUME ROC','volume_rate_of_change','Volume rate of change'],['FORCE INDEX','force_index','Price change × volume'],['EASE OF MOVEMENT','ease_of_movement','Price movement relative to volume'],['VPT','vpt','Volume Price Trend'],['CHAIKIN OSC.','chaikin_oscillator','A/D line EMA spread']
+      ].map(([label,key,description]:any)=><div className="volume-indicator-cell" key={key}><small>{label}</small><b>{volumeReport[key]?.at(-1)===null||volumeReport[key]?.at(-1)===undefined?'INSUFFICIENT HISTORY':Number(volumeReport[key].at(-1)).toLocaleString(undefined,{maximumFractionDigits:4})}</b><span>{description}</span></div>)}
+     </div>}
+     <small>Historical calculations from the loaded bar sequence. Early readings may be less stable; missing values reflect warm-up or zero-volume conditions.</small>
+    </div>
     {researchError&&<p className="news-error">{researchError}</p>}
     {researchReport&&<div className="research-results">
       <div className="research-metric"><small>SYMBOL</small><b>{researchReport.symbol}</b></div>

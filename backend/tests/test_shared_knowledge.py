@@ -17,12 +17,22 @@ class SharedKnowledgeTests(unittest.TestCase):
 
     def test_approval_promotes_note_to_shared_store(self):
         note = store_worker_memory("worker_001","observation","Fixture observation",
-                                   ["fixture://one"],"synthetic")
+                                   ["fixture://one"],"partial")
         result = review_worker_memory("worker_001",note["memory_id"],"approve","human-reviewer")
         self.assertEqual(result["review_status"],"approved")
         shared = list_shared_knowledge()
         self.assertEqual(shared["count"],1)
         self.assertEqual(shared["entries"][0]["source_refs"],["fixture://one"])
+
+
+    def test_synthetic_and_unreferenced_notes_cannot_be_promoted(self):
+        synthetic = store_worker_memory("worker_001", "observation", "Synthetic",
+                                        ["fixture://synthetic"], "synthetic")
+        with self.assertRaisesRegex(ValueError, "synthetic"):
+            review_worker_memory("worker_001", synthetic["memory_id"], "approve", "reviewer")
+        no_source = store_worker_memory("worker_001", "observation", "No source")
+        with self.assertRaisesRegex(ValueError, "source reference"):
+            review_worker_memory("worker_001", no_source["memory_id"], "approve", "reviewer")
 
     def test_rejection_does_not_promote_note(self):
         note = store_worker_memory("worker_001","methodology","Method note")

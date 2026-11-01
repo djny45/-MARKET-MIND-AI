@@ -6,6 +6,7 @@ import json
 from .historical_quality import build_historical_quality_diagnostics
 from .source_comparison import compare_source_observations
 from .research_timeline import build_research_timeline
+from .historical_integrity import build_historical_integrity_matrix
 
 
 def build_research_evidence_bundle(symbol, interval, history, deep_report=None):
@@ -14,7 +15,7 @@ def build_research_evidence_bundle(symbol, interval, history, deep_report=None):
     comparison = compare_source_observations(history)
     timeline = build_research_timeline(history, max(1, min(1000, len(history.get("bars", [])))))
     bundle = {
-        "schema_version": "1.1",
+        "schema_version": "1.2",
         "report_type": "historical_research_evidence",
         "scope": {
             "symbol": symbol.strip().upper(),
@@ -29,6 +30,7 @@ def build_research_evidence_bundle(symbol, interval, history, deep_report=None):
         },
         "observations": history.get("bars", []),
         "data_quality": quality,
+        "historical_integrity": build_historical_integrity_matrix(history),
         "source_comparison": comparison,
         "timeline": timeline,
         "deep_research": deep_report,

@@ -472,15 +472,27 @@ def _workflow_request_fingerprint(request_payload: dict) -> str:
 
 
 def _validate_checkpoint_integrity(request_payload: dict, checkpoint: dict, known_ids: set[str]) -> None:
+ if not isinstance(checkpoint, dict):
+  raise HTTPException(status_code=409, detail="Checkpoint has an invalid format.")
  expected = _workflow_request_fingerprint(request_payload)
  if checkpoint.get("request_fingerprint") != expected:
   raise HTTPException(status_code=409, detail="Checkpoint does not match the original workflow request.")
- completed_ids = set(checkpoint.get("completed_node_ids", []))
- if not completed_ids.issubset(known_ids):
-  raise HTTPException(status_code=409, detail="Checkpoint contains nodes not present in the saved workflow.")
+ completed_list = checkpoint.get("completed_node_ids", [])
  results = checkpoint.get("results", {})
  tasks = checkpoint.get("tasks", {})
- if any(node_id not in results or tasks.get(node_id, {}).get("status") != "completed" for node_id in completed_ids):
+ if (not isinstance(completed_list, list)
+     or any(not isinstance(node_id, str) or not node_id for node_id in completed_list)
+     or len(completed_list) != len(set(completed_list))
+     or not isinstance(results, dict)
+     or not isinstance(tasks, dict)):
+  raise HTTPException(status_code=409, detail="Checkpoint has an invalid internal structure.")
+ completed_ids = set(completed_list)
+ if not completed_ids.issubset(known_ids):
+  raise HTTPException(status_code=409, detail="Checkpoint contains nodes not present in the saved workflow.")
+ if any(not isinstance(tasks.get(node_id), dict)
+        or node_id not in results
+        or tasks[node_id].get("status") != "completed"
+        for node_id in completed_ids):
   raise HTTPException(status_code=409, detail="Checkpoint is incomplete or internally inconsistent.")
 
 

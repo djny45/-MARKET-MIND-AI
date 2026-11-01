@@ -1,0 +1,96 @@
+# Four-market platform implementation blueprint
+
+## Product scope
+
+MARKET-MIND-AI is being organized around four first-class research domains:
+
+1. India: NSE and BSE equities and indices; listed derivatives, currency derivatives and fixed income only when authorized datasets are configured.
+2. United States: NYSE, NASDAQ and other supported venues; equities, ETFs, indices, Treasury and corporate fixed-income reference data.
+3. Crypto: venue-specific spot and derivatives instruments, historical bars, trades, quotes, order-book snapshots, funding and open-interest observations where available.
+4. Forex: OTC currency pairs, cross rates, reference rates and timestamped bid/ask observations. OTC FX has no single consolidated exchange tape; provider and venue context must remain visible.
+
+This is a coverage architecture, not a statement that all four markets currently have connected data feeds. The current provider status remains no live provider configured.
+
+## Architecture rules
+
+- One shared instrument master; never use a bare ticker as a globally unique key.
+- Four market groups are separate from asset classes. For example, equities are an asset class while India and US are market groups.
+- Preserve provider-native symbol, venue, currency, timezone, trading calendar and provider instrument ID.
+- Keep observations venue-specific. Do not silently consolidate conflicting prices from different venues.
+- Normalize event time and ingestion time separately, retaining original timezone/offset and provider sequence where supplied.
+- Store prices, quantities, contract multipliers and rates with explicit units and precision.
+- Tag every observation with source, entitlement, licence class, delay status, retrieval time and quality state.
+- Treat missing coverage as missing, not as zero or an inferred value.
+- All analytics must identify whether their inputs are observed, calculated, or approximate.
+
+## Instrument reference API
+
+The instrument reference endpoint is metadata-only:
+
+- `GET /api/instruments?q=...&market=...&market_group=india`
+- Supported market groups: `india`, `us`, `crypto`, `forex`.
+- Existing `market` filter remains the asset-class filter, e.g. `equities`, `indices`, `fx`, `digital_assets`.
+- Each catalogue row includes `instrument_id`, `symbol`, `name`, `market`, `market_group`, `instrument_type`, `venue`, `currency` and `metadata_status=reference_only`.
+- The initial catalogue is a small curated reference set, not a complete exchange instrument master and not a quote source.
+
+## Data domains and event contracts
+
+### Common reference entities
+
+- Instrument and instrument identifier mapping
+- Venue and market calendar
+- Currency and unit definitions
+- Provider and licence/entitlement registry
+- Corporate action and instrument lifecycle events
+
+### Historical observations
+
+| Dataset | Required fields | Main quality checks |
+|---|---|---|
+| OHLCV bars | instrument, venue, interval, event time, OHLC, volume, currency, source | OHLC envelope, duplicate bars, gaps, units, session alignment |
+| Trades | instrument, venue, event time, sequence/trade ID, price, quantity, side classification and classification method | ordering, duplicate IDs, valid units, timestamp precision |
+| Quotes | instrument, venue, event time, bid/ask prices and sizes | non-crossed quote checks, stale quote detection, sequence gaps |
+| Order-book snapshots | instrument, venue, event time, sequence, side, price level, quantity, depth | sequence continuity, snapshot consistency, book reconstruction checks |
+| Open interest | instrument, venue, contract, event time, quantity, unit | contract identity, publication time, revisions |
+| Funding | instrument, venue, event time, rate, interval, settlement currency | interval normalization, sign convention, source |
+| FX reference rates | base, quote, event date/time, rate type, rate, source | pair orientation, fixing time, reference-vs-tradable distinction |
+| Fundamentals | issuer, security mapping, period, filing/publication time, currency, units, taxonomy | restatements, period alignment, currency and scale |
+
+Do not calculate true CVD, footprint or historical depth from candle direction or OHLCV alone. They require appropriately classified trades or order-book observations. OTC FX prices must identify the contributing provider and quote type.
+
+## Provider and licensing controls
+
+Provider adapters remain disabled until the project has recorded:
+- documented API/feed specification;
+- approved credentials and permitted use;
+- display, non-display, storage and redistribution rights;
+- venue and instrument coverage;
+- rate limits, latency and retention constraints;
+- timestamp, correction and outage semantics;
+- test fixtures and adapter conformance tests.
+
+Public accessibility is not equivalent to redistribution permission. NSE publishes distinct real-time, snapshot, end-of-day and historical products, and its data policy governs use and redistribution. Review the current agreements and tariffs before enabling Indian exchange data in any shared or commercial deployment:
+- https://www.nse.in/static/nse-data-and-analytics/data-information-vending
+- https://www.nseindia.com/static/market-data/nse-data-policy
+- https://www.nse.in/static/market-data/real-time-data-subscription
+
+## Implementation sequence
+
+1. Instrument master and market-group filtering (initial reference catalogue now implemented).
+2. Versioned database migrations for instruments, venues, providers and calendars.
+3. Provider entitlement registry and adapter conformance contract.
+4. Four-market historical OHLCV ingestion with venue-aware identity.
+5. Corporate actions, sessions and reference-data normalization.
+6. Historical trades and quotes.
+7. Order-book snapshots and reconstruction with sequence validation.
+8. Open interest, funding and FX reference series.
+9. Cross-market charting, screening and analytics using explicit coverage metadata.
+10. Authentication, authorization, audit and operational monitoring before shared/public deployment.
+
+## Current implementation truth
+
+- The instrument reference catalogue has a small sample of Indian, US, crypto and forex instruments.
+- The existing SQLite bar store is still keyed by symbol, interval, timestamp and source. It is not yet a venue-aware global observation store.
+- No live or delayed provider is configured.
+- Synthetic fixtures remain explicitly labelled and must never be presented as market observations.
+- No broker integration, order routing or automated execution is part of this platform.

@@ -61,6 +61,13 @@ export default function App() {
  const [researchIntervals,setResearchIntervals] = useState('15m,1h,4h,1d')
  const [researchCompare,setResearchCompare] = useState('ETHUSD,SOLUSD')
  const [researchReport,setResearchReport] = useState<any>(null)
+ const [evaluationSnapshot,setEvaluationSnapshot] = useState<any>(null)
+ const [snapshotBusy,setSnapshotBusy] = useState(false)
+ const [snapshotError,setSnapshotError] = useState('')
+ const [forecastRecordsText,setForecastRecordsText] = useState('[]')
+ const [snapshotEvaluationResult,setSnapshotEvaluationResult] = useState<any>(null)
+ const [snapshotEvaluationBusy,setSnapshotEvaluationBusy] = useState(false)
+ const [snapshotEvaluationError,setSnapshotEvaluationError] = useState('')
  const [qualityReport,setQualityReport] = useState<any>(null)
  const [sourceComparison,setSourceComparison] = useState<any>(null)
  const [sourceComparisonBusy,setSourceComparisonBusy] = useState(false)
@@ -171,6 +178,29 @@ export default function App() {
    setQualityReport(body)
   } catch(e) {setQualityReport(null);setQualityError(e instanceof Error?e.message:'Data-quality report unavailable')}
   finally {setQualityBusy(false)}
+ }
+ const createEvaluationSnapshot = async()=> {
+  setSnapshotBusy(true);setSnapshotError('');setSnapshotEvaluationResult(null)
+  try {
+   const response=await fetch(API+'/api/research/evaluation-manifest/snapshots',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({symbol:researchSymbol.trim(),interval:researchInterval,limit:500,train_ratio:0.6,validation_ratio:0.2,embargo_bars:1,revision_policy:'annotate'})})
+   const body=await response.json()
+   if(!response.ok)throw new Error(body.detail||'Could not create evaluation snapshot')
+   setEvaluationSnapshot(body)
+  } catch(e) {setEvaluationSnapshot(null);setSnapshotError(e instanceof Error?e.message:'Snapshot creation failed')}
+  finally {setSnapshotBusy(false)}
+ }
+ const evaluateSnapshotForecasts = async()=> {
+  if(!evaluationSnapshot?.snapshot_id){setSnapshotEvaluationError('CREATE A DATASET SNAPSHOT FIRST');return}
+  setSnapshotEvaluationBusy(true);setSnapshotEvaluationError('');setSnapshotEvaluationResult(null)
+  try {
+   const records=JSON.parse(forecastRecordsText)
+   if(!Array.isArray(records))throw new Error('Forecast log must be a JSON array')
+   const response=await fetch(API+'/api/research/evaluate-snapshot-forecasts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({snapshot_id:evaluationSnapshot.snapshot_id,records})})
+   const body=await response.json()
+   if(!response.ok)throw new Error(body.detail||'Snapshot evaluation failed')
+   setSnapshotEvaluationResult(body)
+  } catch(e) {setSnapshotEvaluationResult(null);setSnapshotEvaluationError(e instanceof Error?e.message:'Snapshot evaluation failed')}
+  finally {setSnapshotEvaluationBusy(false)}
  }
  const loadAuditLineage = async(interval:string)=> {
   setAuditBusy(true);setAuditError('')
@@ -308,6 +338,30 @@ export default function App() {
     <button className="run-btn research-run" onClick={runDeepResearch} disabled={researchBusy||!researchSymbol.trim()}>{researchBusy?'ANALYZING…':'RUN DEEP RESEARCH'}</button>
     <a className="soft-btn research-run" href={API+'/api/research/export?'+new URLSearchParams({symbol:researchSymbol.trim(),interval:researchInterval,limit:'500'}).toString()} download={researchSymbol.trim().toUpperCase()+'-'+researchInterval+'-research-evidence.json'} aria-label="Download historical research evidence JSON">DOWNLOAD RESEARCH EVIDENCE JSON</a>
     <small className="research-note">Uses locally stored observations only. No live-price claim, forecasts or execution.</small>
+    <div className="side-label">HISTORICAL HOLDOUT VALIDATION <span>RESEARCH ONLY</span></div>
+    <small className="research-note">Create a content-addressed snapshot from stored bars. Evaluation verifies its digests and derives realized returns from the captured closes.</small>
+    <button className="soft-btn research-run" onClick={createEvaluationSnapshot} disabled={snapshotBusy||!researchSymbol.trim()}>{snapshotBusy?'CREATING SNAPSHOT…':'CREATE EVALUATION SNAPSHOT'}</button>
+    {snapshotError&&<p className="news-error">{snapshotError}</p>}
+    {evaluationSnapshot&&<div className="research-results">
+     <b>SNAPSHOT READY · {evaluationSnapshot.symbol} · {evaluationSnapshot.interval}</b>
+     <small>ID · {evaluationSnapshot.snapshot_id}</small>
+     <small>MANIFEST SHA-256 · {evaluationSnapshot.manifest_sha256}</small>
+     <small>DATA SHA-256 · {evaluationSnapshot.dataset_sha256}</small>
+     <small>{evaluationSnapshot.manifest?.ready_source_count||0} ready sources · {evaluationSnapshot.dataset_bars?.length||0} captured bars</small>
+    </div>}
+    <label>FORECAST LOG JSON</label>
+    <textarea value={forecastRecordsText} onChange={e=>setForecastRecordsText(e.target.value)} aria-label="Holdout forecast records JSON" rows={6}/>
+    <small className="research-note">Each record needs source, partition, forecast_created_at, origin_timestamp, target_timestamp, predicted_return and source_refs. Use partition "holdout". Actual returns are recalculated from the snapshot.</small>
+    <button className="run-btn research-run" onClick={evaluateSnapshotForecasts} disabled={snapshotEvaluationBusy||!evaluationSnapshot?.snapshot_id||!forecastRecordsText.trim()}>{snapshotEvaluationBusy?'EVALUATING…':'EVALUATE SNAPSHOT HOLDOUT'}</button>
+    {snapshotEvaluationError&&<p className="news-error">{snapshotEvaluationError}</p>}
+    {snapshotEvaluationResult&&<div className="research-results">
+     <b>HOLDOUT REPORT · {snapshotEvaluationResult.observation_count} OBSERVATIONS</b>
+     <small>MAE · {snapshotEvaluationResult.metrics?.mae}</small>
+     <small>RMSE · {snapshotEvaluationResult.metrics?.rmse}</small>
+     <small>DIRECTIONAL ACCURACY · {snapshotEvaluationResult.metrics?.directional_accuracy??'Not available'}</small>
+     <small>SNAPSHOT · {snapshotEvaluationResult.snapshot?.snapshot_id}</small>
+     <button className="soft-btn research-run" onClick={()=>setResult(snapshotEvaluationResult)}>OPEN FULL EVALUATION JSON</button>
+    </div>}
     <div className="side-label">DATA AUDIT & LINEAGE <span>PROVENANCE</span></div>
     <button className="soft-btn research-run" onClick={()=>loadAuditLineage(researchInterval)} disabled={auditBusy}>{auditBusy?'LOADING AUDIT…':'VIEW INGESTION AUDIT & LINEAGE'}</button>
     {auditError&&<p className="news-error">{auditError}</p>}

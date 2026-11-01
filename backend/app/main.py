@@ -21,6 +21,7 @@ from . import workspace
 from .market_data import SyntheticFixtureAdapter, MarketDataBatch
 from . import market_store
 from .market_events import store_market_events, query_market_events
+from .market_event_quality import diagnose_market_events
 from . import watchlist
 from .model_registry import list_model_integrations
 from .setup_report import build_setup_report
@@ -427,6 +428,27 @@ def historical_market_events(
  """Query stored historical microstructure events with provenance metadata."""
  try:
   return query_market_events(instrument_id, event_type, provider, venue, start, end, limit)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/market-data/events/quality")
+def historical_market_event_quality(
+ instrument_id: str | None = None,
+ event_type: str | None = None,
+ provider: str | None = None,
+ venue: str | None = None,
+ start: str | None = None,
+ end: str | None = None,
+ limit: int = 5000,
+):
+ """Diagnose sequence, timestamp and snapshot consistency in stored historical events."""
+ try:
+  result = query_market_events(instrument_id, event_type, provider, venue, start, end, limit)
+  diagnostics = diagnose_market_events(result["events"])
+  return {**diagnostics, "matching_events": result["total_matching"],
+          "sampled_events": result["count"], "limit": limit,
+          "data_note": "Diagnostics cover the returned sample only; they do not establish provider authenticity, sequence semantics or complete history."}
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 

@@ -141,6 +141,56 @@ class MarketStoreTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(get_bar_revisions(source="other-provider")["count"], 0)
                 self.assertEqual(get_bar_revisions(limit=1)["count"], 1)
 
+
+    def test_populated_version_one_database_migrates_without_losing_bars(self):
+        import sqlite3
+        with tempfile.TemporaryDirectory() as directory:
+            database = os.path.join(directory, "legacy.sqlite")
+            with sqlite3.connect(database) as connection:
+                connection.execute("""
+                    CREATE TABLE schema_migrations (
+                        version INTEGER PRIMARY KEY,
+                        applied_at TEXT NOT NULL
+                    )
+                """)
+                connection.execute(
+                    "INSERT INTO schema_migrations(version, applied_at) VALUES (1, ?)",
+                    ("2026-01-01T00:00:00+00:00",),
+                )
+                connection.execute("""
+                    CREATE TABLE market_bars (
+                        symbol TEXT NOT NULL, interval TEXT NOT NULL,
+                        timestamp TEXT NOT NULL, open REAL NOT NULL,
+                        high REAL NOT NULL, low REAL NOT NULL,
+                        close REAL NOT NULL, volume REAL NOT NULL,
+                        status TEXT NOT NULL, source TEXT NOT NULL,
+                        retrieved_at TEXT NOT NULL,
+                        PRIMARY KEY (symbol, interval, timestamp, source)
+                    )
+                """)
+                connection.execute("""
+                    INSERT INTO market_bars VALUES (
+                        'BTCUSD', '1d', '2026-01-01T00:00:00+00:00',
+                        10, 12, 9, 11, 100, 'historical', 'legacy-feed',
+                        '2026-01-02T00:00:00+00:00'
+                    )
+                """)
+            with patch.dict(os.environ, {"MARKET_MIND_DB": database}):
+                revisions = get_bar_revisions("BTCUSD", "1d", "legacy-feed")
+                saved = get_bars("BTCUSD", "1d")
+            self.assertEqual(revisions["count"], 0)
+            self.assertEqual(saved["count"], 1)
+            self.assertEqual(saved["bars"][0]["close"], 11)
+            with sqlite3.connect(database) as connection:
+                version = connection.execute(
+                    "SELECT MAX(version) FROM schema_migrations"
+                ).fetchone()[0]
+                revision_table = connection.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type='table' AND name='market_bar_revisions'"
+                ).fetchone()
+            self.assertEqual(version, 2)
+            self.assertIsNotNone(revision_table)
+
     def test_unknown_symbol_returns_empty_history(self):
         with tempfile.TemporaryDirectory() as directory:
             with patch.dict(os.environ, {"MARKET_MIND_DB": os.path.join(directory, "test.sqlite")}):

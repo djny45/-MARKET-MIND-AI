@@ -79,6 +79,47 @@ The curated reference catalogue is idempotently seeded into local SQLite storage
 
 Do not calculate true CVD, footprint or historical depth from candle direction or OHLCV alone. They require appropriately classified trades or order-book observations. OTC FX prices must identify the contributing provider and quote type.
 
+## Historical microstructure event store
+
+The SQLite event store accepts imported historical observations through:
+
+- `POST /api/market-data/events` — batch import of 1–1,000 events.
+- `GET /api/market-data/events` — filter by canonical instrument ID, event type, provider, venue and UTC time range.
+
+Supported event types:
+
+| Event | Required payload | Validation |
+|---|---|---|
+| Trade | price, quantity, side | Positive price/quantity; side is buy, sell or unknown |
+| Quote | bid/ask prices and sizes | Positive prices; bid cannot exceed ask |
+| Order-book snapshot | bid and ask price/quantity levels | Non-empty bounded depth arrays; positive levels |
+| Open interest | value, unit | Non-negative value and explicit unit |
+| Funding | rate, interval, settlement currency | Explicit interval and settlement currency |
+| FX rate | rate, base, quote, rate type | Positive rate, distinct currencies and explicit rate type |
+
+Every event retains provider, venue, canonical instrument ID, event timestamp, received timestamp, optional sequence number, source status, payload SHA-256 and event ID. Timestamps must include a timezone and are normalized to UTC. Duplicate event IDs within the same provider/venue/instrument/event-type scope are ignored idempotently.
+
+The importer does not authenticate provider claims, infer missing fields, repair sequence gaps, reconstruct order books from incomplete deltas or establish data completeness. The API is historical-import/query only; no exchange connection or live feed is enabled.
+
+Example trade import:
+
+```json
+{
+  "events": [{
+    "event_id": "trade-0001",
+    "instrument_id": "india:nse:RELIANCE",
+    "event_type": "trade",
+    "provider": "licensed-provider",
+    "venue": "NSE",
+    "event_time": "2026-10-30T09:15:00+05:30",
+    "received_at": "2026-10-30T09:15:01+05:30",
+    "status": "historical",
+    "currency": "INR",
+    "payload": {"price": 1450.0, "quantity": 10, "side": "unknown"}
+  }]
+}
+```
+
 ## Provider and licensing controls
 
 Provider adapters remain disabled until the project has recorded:

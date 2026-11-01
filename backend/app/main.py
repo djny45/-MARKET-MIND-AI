@@ -34,6 +34,7 @@ from .indicator_benchmarks import run_indicator_benchmarks
 from .worker_delegation import delegate_worker_tasks
 from .shared_knowledge import review_worker_memory, list_shared_knowledge
 from .provider_registry import provider_catalogue
+from .central_orchestrator import coordinate_research
 from .trade_flow import build_trade_flow_buckets
 from .cross_market_correlation import build_cross_market_correlation
 from . import watchlist
@@ -163,6 +164,12 @@ class WorkerMemoryReviewRequest(BaseModel):
  decision: Literal["approve", "reject"]
  reviewer: str = Field(min_length=1, max_length=120)
  reason: str = Field(default="", max_length=1000)
+
+
+class CentralCoordinationRequest(BaseModel):
+ worker_tasks: list[dict[str, Any]] = Field(min_length=1, max_length=50)
+ findings: list[ResearchFindingRequest] = Field(default_factory=list, max_length=1000)
+ requested_markets: list[Literal["india", "us", "crypto", "forex"]] = Field(default_factory=lambda: ["india", "us", "crypto", "forex"], min_length=1, max_length=4)
 
 
 class SetupReportRequest(BaseModel):
@@ -1038,3 +1045,21 @@ def get_shared_research_knowledge(limit: int = 100):
 def get_provider_catalogue():
  """Show source rights and connector readiness; no provider is activated."""
  return provider_catalogue()
+
+
+@app.post("/api/intelligence/coordinate")
+def central_research_coordination(request: CentralCoordinationRequest):
+ """Coordinate bounded worker tasks and synthesize supplied findings for analyst review."""
+ try:
+  return coordinate_research(
+   request.worker_tasks,
+   [finding.model_dump() for finding in request.findings],
+   request.requested_markets,
+  )
+ except KeyError as exc:
+  raise HTTPException(status_code=404, detail=str(exc)) from exc
+ except PermissionError as exc:
+  raise HTTPException(status_code=403, detail=str(exc)) from exc
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+

@@ -53,10 +53,15 @@ class IndicatorReplayTests(unittest.TestCase):
         extended = {"bars": original["bars"] + history(10)["bars"]}
         first = build_indicator_replay_report(original, checkpoints=4)
         second = build_indicator_replay_report(extended, checkpoints=4)
-        first_by_index = {item["bar_index"]: item["mismatch_count"] for item in first["comparisons"]}
-        second_by_index = {item["bar_index"]: item["mismatch_count"] for item in second["comparisons"]}
-        self.assertTrue(all(value == 0 for value in first_by_index.values()))
-        self.assertTrue(all(value == 0 for value in second_by_index.values()))
+        first_by_index = {item["bar_index"]: item for item in first["comparisons"]}
+        second_by_index = {item["bar_index"]: item for item in second["comparisons"]}
+        self.assertTrue(all(item["mismatch_count"] == 0 for item in first_by_index.values()))
+        self.assertTrue(all(item["mismatch_count"] == 0 for item in second_by_index.values()))
+        common_indices = set(first_by_index) & set(second_by_index)
+        self.assertTrue(common_indices)
+        for index in common_indices:
+            self.assertEqual(first_by_index[index]["timestamp"], second_by_index[index]["timestamp"])
+            self.assertEqual(first_by_index[index]["values"], second_by_index[index]["values"])
 
 
 if __name__ == "__main__":

@@ -232,7 +232,7 @@ export default function App() {
    setCsvMessage('IMPORTED '+body.stored+' BARS · '+body.symbol+' · '+body.interval+' · '+body.source)
    const historyResponse=await fetch(API+'/api/market-data/history?'+new URLSearchParams({symbol:researchSymbol.trim(),interval:researchInterval,limit:'500'}).toString())
    const historyBody=await historyResponse.json()
-   if(historyResponse.ok){setVolumeReport(null);setVolumeError('');setResearchBars(historyBody.bars||[]);setHistoryMeta({source:historyBody.source,status:historyBody.status,retrieved_at:historyBody.retrieved_at,source_count:historyBody.source_count,timestamp_count:historyBody.timestamp_count,duplicate_timestamp_observations:historyBody.duplicate_timestamp_observations,first_timestamp:historyBody.first_timestamp,last_timestamp:historyBody.last_timestamp,sources:historyBody.sources})}
+   if(historyResponse.ok){setVolumeReport(null);setVolumeError('');setLiquidityProfile(null);setLiquidityError('');setResearchBars(historyBody.bars||[]);setHistoryMeta({source:historyBody.source,status:historyBody.status,retrieved_at:historyBody.retrieved_at,source_count:historyBody.source_count,timestamp_count:historyBody.timestamp_count,duplicate_timestamp_observations:historyBody.duplicate_timestamp_observations,first_timestamp:historyBody.first_timestamp,last_timestamp:historyBody.last_timestamp,sources:historyBody.sources})}
    const timelineResponse=await fetch(API+'/api/research/timeline?'+new URLSearchParams({symbol:researchSymbol.trim(),interval:researchInterval,limit:'200'}).toString())
    const timelineBody=await timelineResponse.json()
    if(timelineResponse.ok){setResearchTimeline(timelineBody.events||[]);setTimelineError('')}else{setTimelineError(timelineBody.detail||'Timeline refresh unavailable')}

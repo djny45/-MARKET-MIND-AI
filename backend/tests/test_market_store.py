@@ -4,7 +4,7 @@ import unittest
 from unittest.mock import patch
 
 from app.market_data import SyntheticFixtureAdapter
-from app.market_store import (get_audit_events, get_bar_revisions, get_bars, get_data_lineage, get_revised_bar_keys, get_market_overview, store_batch, create_evaluation_manifest_snapshot, get_evaluation_manifest_snapshot, list_evaluation_manifest_snapshots)
+from app.market_store import (get_audit_events, get_bar_revisions, get_bars, get_data_lineage, get_revised_bar_keys, get_market_overview, store_batch, create_evaluation_manifest_snapshot, get_evaluation_manifest_snapshot, list_evaluation_manifest_snapshots, verify_evaluation_manifest_snapshot)
 
 
 class MarketStoreTests(unittest.IsolatedAsyncioTestCase):
@@ -229,6 +229,26 @@ class MarketStoreTests(unittest.IsolatedAsyncioTestCase):
                 listed = list_evaluation_manifest_snapshots("test")
                 self.assertEqual(listed["count"], 1)
                 self.assertEqual(listed["snapshots"][0]["snapshot_id"], first["snapshot_id"])
+
+    def test_evaluation_manifest_snapshot_integrity_verification_detects_payload_change(self):
+        import sqlite3
+        with tempfile.TemporaryDirectory() as directory:
+            database = os.path.join(directory, "test.sqlite")
+            with patch.dict(os.environ, {"MARKET_MIND_DB": database}):
+                manifest = {"symbol": "TEST", "interval": "1h", "ready_source_count": 1}
+                snapshot = create_evaluation_manifest_snapshot(manifest, {"limit": 10})
+                verified = verify_evaluation_manifest_snapshot(snapshot["snapshot_id"])
+                self.assertEqual(verified["status"], "verified")
+                self.assertTrue(verified["manifest_digest_valid"])
+                with sqlite3.connect(database) as connection:
+                    connection.execute(
+                        "UPDATE evaluation_manifest_snapshots SET manifest_json=? WHERE snapshot_id=?",
+                        ('{"interval":"1h","ready_source_count":99,"symbol":"TEST"}', snapshot["snapshot_id"]),
+                    )
+                tampered = verify_evaluation_manifest_snapshot(snapshot["snapshot_id"])
+                self.assertEqual(tampered["status"], "integrity_mismatch")
+                self.assertFalse(tampered["manifest_digest_valid"])
+                self.assertFalse(tampered["snapshot_id_valid"])
 
     def test_unknown_symbol_returns_empty_history(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -236,8 +236,13 @@ def capabilities():
  return system_capabilities()
 
 @app.get("/api/instruments")
-def instruments(q: str = "", market: str | None = None, limit: int = 30):
- return search_instruments(q, market, limit)
+def instruments(q: str = "", market: str | None = None, market_group: str | None = None, limit: int = 30):
+ """Search reference instruments by asset class and requested market domain."""
+ if market_group is not None and market_group not in {"india", "us", "crypto", "forex"}:
+  raise HTTPException(status_code=400, detail="market_group must be one of india,us,crypto,forex")
+ if limit < 1 or limit > 100:
+  raise HTTPException(status_code=400, detail="limit must be between 1 and 100")
+ return search_instruments(q, market, limit, market_group)
 
 @app.get("/api/news")
 async def news_feed():

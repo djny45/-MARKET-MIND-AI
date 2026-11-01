@@ -106,6 +106,28 @@ class WorkflowResumeIntegrityTests(unittest.TestCase):
             _validate_checkpoint_integrity(request, checkpoint, {"a"})
         self.assertEqual(error.exception.status_code, 409)
 
+    def test_checkpoint_integrity_rejects_malformed_uncompleted_task_record(self):
+        request, checkpoint = self._valid_checkpoint()
+        checkpoint["tasks"]["unrelated"] = "not-a-task-record"
+        with self.assertRaises(HTTPException) as error:
+            _validate_checkpoint_integrity(request, checkpoint, {"a", "unrelated"})
+        self.assertEqual(error.exception.status_code, 409)
+
+    def test_checkpoint_integrity_rejects_result_not_marked_completed(self):
+        request, checkpoint = self._valid_checkpoint()
+        checkpoint["results"]["a"] = {"values": [1, 2]}
+        checkpoint["completed_node_ids"] = []
+        with self.assertRaises(HTTPException) as error:
+            _validate_checkpoint_integrity(request, checkpoint, {"a"})
+        self.assertEqual(error.exception.status_code, 409)
+
+    def test_checkpoint_integrity_rejects_unknown_task_node(self):
+        request, checkpoint = self._valid_checkpoint()
+        checkpoint["tasks"]["ghost"] = {"node_id": "ghost", "status": "queued"}
+        with self.assertRaises(HTTPException) as error:
+            _validate_checkpoint_integrity(request, checkpoint, {"a"})
+        self.assertEqual(error.exception.status_code, 409)
+
     def test_resume_rejects_corrupted_persisted_checkpoint(self):
         record = {
             "request": {"nodes": [], "edges": [], "inputs": {}},

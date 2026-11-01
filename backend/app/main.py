@@ -10,6 +10,7 @@ from .workers import list_workers
 from .worker_runtime import worker_runtime_status
 from .worker_memory import append_memory, read_memory
 from .worker_registry import evaluate_registry, registry_manifest
+from .research_orchestrator import orchestrate_research
 from .skill_catalog import list_skills, load_skill
 from .markets import market_catalog
 from .instruments import search_instruments
@@ -63,6 +64,13 @@ class WorkflowRequest(BaseModel):
  max_workers: int = Field(default=1, ge=1, le=16)
  max_retries: int = Field(default=0, ge=0, le=3)
  skill_ids: list[str] = Field(default_factory=list, max_length=10)
+
+class ResearchOrchestrationRequest(BaseModel):
+ nodes: list[dict[str, Any]] = Field(min_length=1, max_length=250)
+ edges: list[dict[str, Any]] = Field(default_factory=list, max_length=1000)
+ inputs: dict[str, Any] = Field(default_factory=dict)
+ max_workers: int = Field(default=1, ge=1, le=16)
+ max_retries: int = Field(default=0, ge=0, le=3)
 
 class IndicatorRequest(BaseModel):
  values: list[float] = Field(min_length=2)
@@ -845,6 +853,18 @@ def _execute_and_persist(request: WorkflowRequest, parent_run_id: str | None = N
   raise
  except Exception as exc:
   raise HTTPException(status_code=500,detail=f"Workflow failed: {exc}") from exc
+
+
+@app.post("/api/research/orchestrate")
+def orchestrate_research_request(request: ResearchOrchestrationRequest):
+ """Coordinate specialist workers through the shared deterministic intelligence core."""
+ try:
+  return orchestrate_research(
+   nodes=request.nodes, edges=request.edges, inputs=request.inputs,
+   max_workers=request.max_workers, max_retries=request.max_retries,
+  )
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.post("/api/workflows/execute")

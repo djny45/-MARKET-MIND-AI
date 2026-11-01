@@ -74,7 +74,9 @@ class SnapshotForecastEvaluationApiTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             snapshot = self._create_snapshot(directory)
             rows = self._records()
-            rows[0]["origin_timestamp"] = "2026-01-25T00:00:00+00:00"\n            rows[0]["forecast_created_at"] = "2026-01-25T00:00:00+00:00"\n            rows[0]["target_timestamp"] = "2026-01-26T00:00:00+00:00"
+            rows[0]["origin_timestamp"] = "2026-01-25T00:00:00+00:00"
+            rows[0]["forecast_created_at"] = "2026-01-25T00:00:00+00:00"
+            rows[0]["target_timestamp"] = "2026-01-26T00:00:00+00:00"
             with self.assertRaises(HTTPException) as error:
                 evaluate_snapshot_research_forecasts(
                     SnapshotForecastEvaluationRequest(

@@ -355,3 +355,10 @@ Example request:
 ```
 
 The calendar is caller-supplied. Populate holidays, special sessions, early closes, venue-specific breaks, and the applicable timestamp convention from an authoritative exchange calendar and the data vendor's documentation. The endpoint does not fetch or infer official calendars, does not model overnight sessions or intraday breaks, and counts intraday bars only when a complete interval fits within the configured session. Daily bars are expected at session open. This is a gap diagnostic, not proof of provider failure or missing trading activity.
+
+
+## Cross-source indicator comparison
+
+`GET /api/research/source-indicators?symbol=RELIANCE&interval=15m&limit=500` computes each provider's indicator series independently and compares results only at exact shared UTC timestamps. It reports source-specific status and per-indicator minimum, maximum, and absolute spread for SMA-20, EMA-20, RSI-14, MACD(12,26,9), and Bollinger-20.
+
+A source with invalid timestamps/closes or duplicate UTC instants is blocked rather than silently repaired or deduplicated. This is a descriptive provider-disagreement report; it does not rank providers, identify a correct feed, verify data rights, or measure predictive accuracy.

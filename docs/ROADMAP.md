@@ -33,7 +33,7 @@ This roadmap is a plan, not a claim that features already exist. Mark an item co
 - [x] Add descriptive weekday/calendar-month seasonality analytics with sample-size limitations.
 - [ ] Add fundamentals, filings, news, and macro research panels.
 - [ ] Add source-cited research reports and exportable methodology notes.
-- [ ] Add historical evaluation framework with bias and data-quality checks.
+- [x] Add source-isolated chronological evaluation dataset manifests with SHA-256 provenance digests, explicit embargoes, and invalid-data gates.\n- [ ] Add model/strategy evaluation framework with leakage, survivorship, revision, and selection-bias controls.
 
 ## Phase 4 — Intelligence and workflow canvas
 - [x] Version the deterministic worker contract and expose contract version in capabilities and dispatch responses.
@@ -110,3 +110,8 @@ The `GET /api/providers/catalogue` endpoint is a metadata-only readiness registe
 ## Provider entitlement manifest gate
 
 The `POST /api/providers/validate-entitlement` endpoint validates an operator-supplied manifest for markets, historical/live modes, expiry, and declared display, non-display, storage, derived-data, redistribution, and retention rights. A complete manifest is only eligible for manual legal and technical review. It does not authenticate the contract, validate credentials, or activate a connector. Live and historical licensed connectors remain unimplemented pending an actual vendor agreement and approved integration.
+
+
+## Historical evaluation dataset manifests
+
+`GET /api/research/evaluation-manifest` produces deterministic chronological development, validation and holdout partitions for each source independently. It includes a canonical SHA-256 digest, partition boundaries, observation counts and explicit embargo intervals. This is dataset preparation only; no model fitting, parameter tuning, strategy backtest or performance claim is made. Embargoes are not a complete remedy for look-ahead, survivorship, revision or selection bias.

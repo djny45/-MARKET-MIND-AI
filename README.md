@@ -310,3 +310,8 @@ The deterministic worker runtime publishes contract version `1.0.0` in its capab
 - `GET /api/workers/{worker_id}/memory?limit=50&memory_type=observation` — read notes for that worker only.
 
 Memory is isolated by worker ID and stored in the configured SQLite database (`MARKET_MIND_DB`). Entries default to `pending_review`; the current API does not promote notes into shared knowledge, train models, authenticate source providers, or infer facts. This is a persistence foundation, not autonomous self-learning.
+
+
+### Worker evaluation
+
+Use `GET /api/workers/evaluations` to run a deterministic smoke evaluation across the unique worker operations currently wired to the workflow engine. The report includes per-operation pass/fail status and output-contract checks. It uses a fixed synthetic dataset and confirms wiring only; it is not a benchmark of analytical correctness, predictive performance, or live-market quality. The endpoint performs no external data retrieval and cannot place orders.

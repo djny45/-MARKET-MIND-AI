@@ -1,11 +1,16 @@
 """Dependency-light deterministic indicators over chronological numeric observations."""
-from math import sqrt
+from math import isfinite, sqrt
 
 
 def _valid(values, minimum=1):
-    xs = [float(x) for x in values]
+    try:
+        xs = [float(x) for x in values]
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ValueError("observations must be finite numeric values") from exc
     if len(xs) < minimum:
         raise ValueError(f"At least {minimum} observations are required.")
+    if not all(isfinite(value) for value in xs):
+        raise ValueError("observations must be finite numeric values")
     return xs
 
 

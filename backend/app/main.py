@@ -23,7 +23,7 @@ from . import market_store
 from .market_events import store_market_events, query_market_events
 from .market_event_quality import diagnose_market_events
 from .agent_network import publish_message, read_messages, network_topology
-from .agent_collaboration import build_collaboration_brief
+from .agent_collaboration import build_collaboration_brief\nfrom .trade_flow import build_trade_flow_buckets
 from . import watchlist
 from .model_registry import list_model_integrations
 from .setup_report import build_setup_report
@@ -478,6 +478,29 @@ def historical_market_events(
  """Query stored historical microstructure events with provenance metadata."""
  try:
   return query_market_events(instrument_id, event_type, provider, venue, start, end, limit)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/market-data/trade-flow")
+def historical_trade_flow(
+ instrument_id: str,
+ bucket_seconds: int = 60,
+ provider: str | None = None,
+ venue: str | None = None,
+ start: str | None = None,
+ end: str | None = None,
+ limit: int = 5000,
+):
+ """Aggregate imported historical trades; CVD requires complete side classification."""
+ try:
+  result = query_market_events(
+   instrument_id=instrument_id, event_type="trade", provider=provider,
+   venue=venue, start=start, end=end, limit=limit,
+  )
+  return build_trade_flow_buckets(
+   result["events"], bucket_seconds, result["total_matching"], limit,
+  )
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 

@@ -69,7 +69,7 @@ def review_worker_memory(worker_id, memory_id, decision, reviewer, reason=""):
         "reviewer_identity_authenticated": False,
     }
 
-def list_worker_shared_knowledge(limit=100):
+def list_shared_knowledge(limit=100):
     if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 500:
         raise ValueError("limit must be between 1 and 500")
     with _shared_connect() as db:

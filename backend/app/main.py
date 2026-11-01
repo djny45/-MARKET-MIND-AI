@@ -51,6 +51,7 @@ from .indicator_replay import build_indicator_replay_report
 from .historical_integrity import build_historical_integrity_matrix
 from .session_calendar import build_session_gap_report
 from .source_indicator_comparison import compare_source_indicator_series
+from .evaluation_manifest import build_evaluation_manifest
 from .source_comparison import compare_source_observations
 from .research_export import build_research_evidence_bundle
 from .research_export_compare import compare_research_exports
@@ -760,6 +761,33 @@ def research_session_gaps(payload: SessionCalendarRequest):
  calendar = payload.dict(exclude={"symbol", "interval", "limit"})
  try:
   return build_session_gap_report(history, calendar)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/research/evaluation-manifest")
+def research_evaluation_manifest(
+ symbol: str,
+ interval: str = "1h",
+ limit: int = 500,
+ train_ratio: float = 0.60,
+ validation_ratio: float = 0.20,
+ embargo_bars: int = 1,
+):
+ """Create a source-isolated chronological dataset manifest; no model is trained."""
+ if not symbol.strip() or len(symbol) > 32:
+  raise HTTPException(status_code=400, detail="symbol must contain 1 to 32 characters")
+ if interval not in SUPPORTED_INTERVALS:
+  raise HTTPException(status_code=400, detail="interval must be one of 15m,1h,4h,1d")
+ if limit < 1 or limit > 5000:
+  raise HTTPException(status_code=400, detail="limit must be between 1 and 5000")
+ try:
+  return build_evaluation_manifest(
+   market_store.get_bars(symbol, interval, limit),
+   train_ratio=train_ratio,
+   validation_ratio=validation_ratio,
+   embargo_bars=embargo_bars,
+  )
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 

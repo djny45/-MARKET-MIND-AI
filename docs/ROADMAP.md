@@ -39,7 +39,7 @@ This roadmap is a plan, not a claim that features already exist. Mark an item co
 - [x] Version the deterministic worker contract and expose contract version in capabilities and dispatch responses.
 - [x] Add bounded deterministic worker dispatch with explicit capability authorization and a capability-status API.
 - [x] Add a typed evidence-first research aggregation API with market coverage, source references, quality labels and disagreement reporting.
-- [x] Add provenance-gated cross-market research round assembly and read-only API.\n- [ ] Build central research orchestrator.
+- [x] Add provenance-gated cross-market research round assembly and read-only API.\n- [x] Add bounded worker-to-worker delegation through caller-authored task DAGs.\n- [ ] Build central research orchestrator.
 - [x] Add deterministic worker capability smoke-evaluation suite and read-only evaluation API.\n- [x] Add fixed analytical reference-vector correctness benchmarks and a read-only evaluation API.\n- [ ] Add broader property-based, independent-library, and longitudinal benchmark coverage.\n- [ ] Add worker registry governance.
 - [x] Add isolated append-only worker research memory with source references and pending-review status.\n- [ ] Add human-reviewed promotion into shared knowledge.
 - [ ] Build visual node-based research workflows.
@@ -78,3 +78,8 @@ The `GET /api/agent-network/round` endpoint assembles already-published India, U
 ## Analytical correctness benchmarks
 
 The `GET /api/analytics/benchmarks` endpoint checks fixed hand-computable vectors for SMA, EMA, returns, RSI, MACD, Bollinger bands, and realized volatility. It checks formula behavior and output values for a narrow deterministic fixture set. Passing does not establish correctness across all edge cases, data vendors, market regimes, or predictive performance. The SMA test explicitly records the implementation's current partial-window convention. No live data or order execution is involved.
+
+
+## Worker delegation
+
+The `POST /api/workers/delegate` endpoint accepts a caller-authored DAG of up to 25 deterministic analytical tasks. It validates worker-operation authorization, dependency existence and cycles, then passes a single numeric output series to the next task. The coordinator does not generate its own plan, infer new tasks, invoke LLMs, retrieve data, or execute orders. This is bounded task routing, not autonomous multi-agent intelligence.

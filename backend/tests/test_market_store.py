@@ -4,7 +4,7 @@ import unittest
 from unittest.mock import patch
 
 from app.market_data import SyntheticFixtureAdapter
-from app.market_store import get_audit_events, get_bars, get_data_lineage, get_market_overview, store_batch
+from app.market_store import get_audit_events, get_bar_revisions, get_bars, get_data_lineage, get_market_overview, store_batch
 
 
 class MarketStoreTests(unittest.IsolatedAsyncioTestCase):
@@ -72,7 +72,7 @@ class MarketStoreTests(unittest.IsolatedAsyncioTestCase):
                     version = connection.execute(
                         "SELECT MAX(version) FROM schema_migrations"
                     ).fetchone()[0]
-                self.assertEqual(version, 1)
+                self.assertEqual(version, 2)
 
     async def test_local_market_overview_summarizes_stored_coverage(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -88,6 +88,58 @@ class MarketStoreTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(btc_row["observation_count"], 3)
                 self.assertEqual(btc_row["statuses"], ["synthetic"])
                 self.assertIn("not a live quote", overview["data_note"])
+
+
+    async def test_changed_existing_bar_creates_append_only_revision_record(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.dict(os.environ, {"MARKET_MIND_DB": os.path.join(directory, "test.sqlite")}):
+                batch = await SyntheticFixtureAdapter().get_bars("BTCUSD", "1d", 3)
+                store_batch(batch)
+                changed_bars = [
+                    bar.model_copy(update={"close": bar.close + 2.5})
+                    if index == 1 else bar
+                    for index, bar in enumerate(batch.bars)
+                ]
+                revised_batch = batch.model_copy(update={"bars": changed_bars})
+                result = store_batch(revised_batch)
+                self.assertEqual(result["revision_count"], 1)
+                revisions = get_bar_revisions("BTCUSD", "1d", "synthetic-fixture")
+                self.assertEqual(revisions["count"], 1)
+                revision = revisions["revisions"][0]
+                self.assertNotEqual(revision["previous_sha256"], revision["revised_sha256"])
+                self.assertNotEqual(
+                    revision["previous_values"]["close"],
+                    revision["revised_values"]["close"],
+                )
+                self.assertEqual(
+                    get_bars("BTCUSD", "1d")["bars"][1]["close"],
+                    batch.bars[1].close + 2.5,
+                )
+
+    async def test_retrieval_timestamp_only_update_is_not_a_content_revision(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.dict(os.environ, {"MARKET_MIND_DB": os.path.join(directory, "test.sqlite")}):
+                batch = await SyntheticFixtureAdapter().get_bars("ETHUSD", "1d", 2)
+                store_batch(batch)
+                later = batch.model_copy(update={
+                    "retrieved_at": batch.retrieved_at.replace(year=batch.retrieved_at.year + 1)
+                })
+                result = store_batch(later)
+                self.assertEqual(result["revision_count"], 0)
+                self.assertEqual(get_bar_revisions("ETHUSD", "1d")["count"], 0)
+
+    async def test_revision_history_filters_by_symbol_and_source(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.dict(os.environ, {"MARKET_MIND_DB": os.path.join(directory, "test.sqlite")}):
+                batch = await SyntheticFixtureAdapter().get_bars("BTCUSD", "1d", 2)
+                store_batch(batch)
+                changed = batch.model_copy(update={
+                    "bars": [batch.bars[0].model_copy(update={"volume": batch.bars[0].volume + 1}), batch.bars[1]]
+                })
+                store_batch(changed)
+                self.assertEqual(get_bar_revisions(symbol="ETHUSD")["count"], 0)
+                self.assertEqual(get_bar_revisions(source="other-provider")["count"], 0)
+                self.assertEqual(get_bar_revisions(limit=1)["count"], 1)
 
     def test_unknown_symbol_returns_empty_history(self):
         with tempfile.TemporaryDirectory() as directory:

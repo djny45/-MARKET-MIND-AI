@@ -21,6 +21,8 @@ class WorkflowResumeIntegrityTests(unittest.TestCase):
         request = {"nodes": [{"id": "a", "type": "market_input"}], "inputs": {"data": [1, 2]}}
         checkpoint = {
             "request_fingerprint": _workflow_request_fingerprint(request),
+            "checkpoint_schema_version": 1,
+            "checkpointed_at": "2026-01-01T00:00:00+00:00",
             "completed_node_ids": ["a"],
             "results": {"a": {"values": [1, 2]}},
             "tasks": {"a": {"status": "completed"}},
@@ -72,6 +74,20 @@ class WorkflowResumeIntegrityTests(unittest.TestCase):
     def test_checkpoint_integrity_rejects_non_mapping_task_record(self):
         request, checkpoint = self._valid_checkpoint()
         checkpoint["tasks"]["a"] = "completed"
+        with self.assertRaises(HTTPException) as error:
+            _validate_checkpoint_integrity(request, checkpoint, {"a"})
+        self.assertEqual(error.exception.status_code, 409)
+
+    def test_checkpoint_integrity_rejects_unsupported_schema_version(self):
+        request, checkpoint = self._valid_checkpoint()
+        checkpoint["checkpoint_schema_version"] = 99
+        with self.assertRaises(HTTPException) as error:
+            _validate_checkpoint_integrity(request, checkpoint, {"a"})
+        self.assertEqual(error.exception.status_code, 409)
+
+    def test_checkpoint_integrity_rejects_invalid_timestamp(self):
+        request, checkpoint = self._valid_checkpoint()
+        checkpoint["checkpointed_at"] = "not-a-timestamp"
         with self.assertRaises(HTTPException) as error:
             _validate_checkpoint_integrity(request, checkpoint, {"a"})
         self.assertEqual(error.exception.status_code, 409)

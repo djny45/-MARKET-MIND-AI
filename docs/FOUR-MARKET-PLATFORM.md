@@ -101,6 +101,12 @@ Every event retains provider, venue, canonical instrument ID, event timestamp, r
 
 The importer does not authenticate provider claims, infer missing fields, repair sequence gaps, reconstruct order books from incomplete deltas or establish data completeness. The API is historical-import/query only; no exchange connection or live feed is enabled.
 
+A diagnostic endpoint is also available:
+
+- `GET /api/market-data/events/quality` — inspect stored event sequence continuity, duplicate/out-of-order sequence numbers, event/receive timestamp consistency and order-book snapshot level ordering/crossed-book conditions. It accepts the same scope and time filters as the event query and a limit up to 5,000.
+
+Diagnostics operate on the returned sample only. Sequence gaps are conditional on provider sequence semantics; partial imports may produce apparent gaps. The endpoint flags anomalies for manual review and never repairs data or emits trading signals.
+
 Example trade import:
 
 ```json

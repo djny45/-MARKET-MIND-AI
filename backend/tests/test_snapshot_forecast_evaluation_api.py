@@ -1,4 +1,5 @@
 import os
+import sqlite3
 import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
@@ -101,6 +102,25 @@ class SnapshotForecastEvaluationApiTests(unittest.TestCase):
                 )
             self.assertEqual(error.exception.status_code, 400)
             self.assertIn("origin_timestamp is outside the source holdout partition", error.exception.detail)
+
+
+    def test_corrupted_snapshot_is_rejected_before_scoring(self):
+        with tempfile.TemporaryDirectory() as directory:
+            snapshot = self._create_snapshot(directory)
+            database = os.path.join(directory, "snapshot-forecast.sqlite")
+            with sqlite3.connect(database) as connection:
+                connection.execute(
+                    "UPDATE evaluation_manifest_snapshots SET dataset_json='[]' WHERE snapshot_id=?",
+                    (snapshot["snapshot_id"],),
+                )
+            with self.assertRaises(HTTPException) as error:
+                evaluate_snapshot_research_forecasts(
+                    SnapshotForecastEvaluationRequest(
+                        snapshot_id=snapshot["snapshot_id"], records=self._records()
+                    )
+                )
+            self.assertEqual(error.exception.status_code, 409)
+            self.assertIn("integrity verification", error.exception.detail)
 
     def test_unknown_snapshot_is_not_evaluated(self):
         with tempfile.TemporaryDirectory() as directory:

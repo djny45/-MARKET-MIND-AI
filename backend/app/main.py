@@ -24,6 +24,7 @@ from .market_events import store_market_events, query_market_events
 from .market_event_quality import diagnose_market_events
 from .agent_network import publish_message, read_messages, network_topology
 from .agent_collaboration import build_collaboration_brief
+from .research_orchestrator import build_research_brief
 from .trade_flow import build_trade_flow_buckets
 from .cross_market_correlation import build_cross_market_correlation
 from . import watchlist
@@ -103,6 +104,22 @@ class HistoricalCSVImportRequest(BaseModel):
 
 class HistoricalMarketEventsRequest(BaseModel):
  events: list[dict[str, Any]] = Field(min_length=1, max_length=1000)
+
+class ResearchFindingRequest(BaseModel):
+ market_group: Literal["india", "us", "crypto", "forex"]
+ topic: str = Field(min_length=1, max_length=80)
+ finding_key: str = Field(min_length=1, max_length=120)
+ unit: str | None = Field(default=None, max_length=40)
+ finding_value: str | int | float | bool | None
+ quality_status: Literal["verified_by_importer", "partial", "unverified", "synthetic"] = "unverified"
+ worker_id: str = Field(default="unspecified", min_length=1, max_length=96)
+ source_refs: list[str] = Field(default_factory=list, max_length=20)
+
+
+class ResearchOrchestrationRequest(BaseModel):
+ findings: list[ResearchFindingRequest] = Field(default_factory=list, max_length=1000)
+ requested_markets: list[Literal["india", "us", "crypto", "forex"]] = Field(default_factory=lambda: ["india", "us", "crypto", "forex"], min_length=1, max_length=4)
+
 
 class AgentResearchMessageRequest(BaseModel):
  agent_id: str = Field(min_length=1, max_length=96)
@@ -416,6 +433,18 @@ async def sample_market_data(symbol: str = "BTCUSD", interval: str = "1d", limit
  try:
   batch = await SyntheticFixtureAdapter().get_bars(symbol, interval, limit)
   return batch.model_dump(mode="json")
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/research/orchestrate")
+def orchestrate_research(request: ResearchOrchestrationRequest):
+ """Aggregate supplied specialist findings with explicit evidence-quality and coverage labels."""
+ try:
+  return build_research_brief(
+   [finding.model_dump() for finding in request.findings],
+   request.requested_markets,
+  )
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 

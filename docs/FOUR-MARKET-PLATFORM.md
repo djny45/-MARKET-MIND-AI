@@ -162,3 +162,17 @@ Public accessibility is not equivalent to redistribution permission. NSE publish
 - No live or delayed provider is configured.
 - Synthetic fixtures remain explicitly labelled and must never be presented as market observations.
 - No broker integration, order routing or automated execution is part of this platform.
+
+
+## Cross-market agent collaboration
+
+A deterministic research message bus allows specialist analytical modules in India, US, crypto and forex to exchange structured notes through one shared four-market mesh. Each market domain can publish to and read from the shared network; the topology exposes all 12 directed cross-market links.
+
+API:
+- `GET /api/agent-network` — market mesh topology, runtime and safety boundaries.
+- `POST /api/agent-network/messages` — publish a structured note with agent ID, market group, topic, optional canonical instrument ID, source references, quality status and JSON payload.
+- `GET /api/agent-network/messages?market_group=india&topic=macro&limit=100` — read shared notes, optionally filtered by market and topic. Omit market_group to read across all four markets.
+
+Supported topics: macro, correlation, volatility, liquidity, breadth, event, data_quality, research_note and regime. Quality labels are caller-supplied metadata and are not independently authenticated. The message bus preserves source references and publication timestamps; it does not infer causal links, synchronize market sessions, validate conclusions or guarantee complete data.
+
+**Important implementation boundary:** these are deterministic software research modules and a persistent message bus, not independent LLM agents. No model inference, live exchange feed, broker connection, order routing or trading execution is enabled. Data remains historical/manual-import or synthetic fixture data.

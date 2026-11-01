@@ -50,6 +50,7 @@ from .historical_quality import build_historical_quality_diagnostics
 from .indicator_replay import build_indicator_replay_report
 from .historical_integrity import build_historical_integrity_matrix
 from .session_calendar import build_session_gap_report
+from .source_indicator_comparison import compare_source_indicator_series
 from .source_comparison import compare_source_observations
 from .research_export import build_research_evidence_bundle
 from .research_export_compare import compare_research_exports
@@ -761,6 +762,18 @@ def research_session_gaps(payload: SessionCalendarRequest):
   return build_session_gap_report(history, calendar)
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/research/source-indicators")
+def research_source_indicators(symbol: str, interval: str = "1h", limit: int = 500):
+ """Compare independently calculated indicators across sources at exact shared UTC instants."""
+ if not symbol.strip() or len(symbol) > 32:
+  raise HTTPException(status_code=400, detail="symbol must contain 1 to 32 characters")
+ if interval not in SUPPORTED_INTERVALS:
+  raise HTTPException(status_code=400, detail="interval must be one of 15m,1h,4h,1d")
+ if limit < 1 or limit > 5000:
+  raise HTTPException(status_code=400, detail="limit must be between 1 and 5000")
+ return compare_source_indicator_series(market_store.get_bars(symbol, interval, limit))
 
 
 @app.get("/api/research/indicator-replay")

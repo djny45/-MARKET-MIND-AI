@@ -4,7 +4,7 @@ import unittest
 from unittest.mock import patch
 
 from app.market_data import SyntheticFixtureAdapter
-from app.market_store import get_audit_events, get_bar_revisions, get_bars, get_data_lineage, get_market_overview, store_batch
+from app.market_store import get_audit_events, get_bar_revisions, get_bars, get_data_lineage, get_revised_bar_keys, get_market_overview, store_batch
 
 
 class MarketStoreTests(unittest.IsolatedAsyncioTestCase):
@@ -190,6 +190,29 @@ class MarketStoreTests(unittest.IsolatedAsyncioTestCase):
                 ).fetchone()
             self.assertEqual(version, 2)
             self.assertIsNotNone(revision_table)
+
+
+    async def test_revisioned_bar_keys_only_include_currently_stored_revised_observations(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.dict(os.environ, {"MARKET_MIND_DB": os.path.join(directory, "test.sqlite")}):
+                batch = await SyntheticFixtureAdapter().get_bars("BTCUSD", "1d", 3)
+                store_batch(batch)
+                revised_batch = batch.model_copy(update={
+                    "bars": [
+                        bar.model_copy(update={"volume": bar.volume + 5})
+                        if index == 1 else bar
+                        for index, bar in enumerate(batch.bars)
+                    ]
+                })
+                store_batch(revised_batch)
+                keys = get_revised_bar_keys("BTCUSD", "1d")
+                self.assertEqual(keys["count"], 1)
+                self.assertEqual(keys["keys"][0]["source"], "synthetic-fixture")
+                self.assertEqual(
+                    keys["keys"][0]["timestamp"],
+                    batch.bars[1].timestamp.isoformat(),
+                )
+                self.assertEqual(get_revised_bar_keys("ETHUSD", "1d")["count"], 0)
 
     def test_unknown_symbol_returns_empty_history(self):
         with tempfile.TemporaryDirectory() as directory:

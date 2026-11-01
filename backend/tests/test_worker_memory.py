@@ -4,6 +4,7 @@ import unittest
 from unittest.mock import patch
 
 from app.worker_memory import list_worker_memory, store_worker_memory
+from app.main import WorkerMemoryRequest, add_worker_memory, get_worker_memory
 
 
 class WorkerMemoryTests(unittest.TestCase):
@@ -45,6 +46,19 @@ class WorkerMemoryTests(unittest.TestCase):
             store_worker_memory("worker_001", "observation", "  ")
         with self.assertRaises(ValueError):
             store_worker_memory("worker_001", "observation", "Valid", [""])
+
+
+    def test_api_memory_endpoints_preserve_worker_scope(self):
+        request = WorkerMemoryRequest(
+            memory_type="observation",
+            content="API stored observation.",
+            source_refs=["api:source-01"],
+            quality_status="unverified",
+        )
+        saved = add_worker_memory("worker_003", request)
+        result = get_worker_memory("worker_003", 20, None)
+        self.assertEqual(result["count"], 1)
+        self.assertEqual(result["entries"][0]["memory_id"], saved["memory_id"])
 
     def test_type_filter_and_limit_validation(self):
         store_worker_memory("worker_001", "observation", "Observation.")

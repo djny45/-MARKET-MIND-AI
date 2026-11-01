@@ -379,3 +379,25 @@ def get_market_overview(limit: int = 200) -> dict:
         "limit": safe_limit,
         "data_note": "This view summarizes locally stored observations only. It is not a live quote, complete universe, market-wide ranking, or freshness guarantee.",
     }
+
+
+def get_revised_bar_keys(symbol: str, interval: str, limit: int = 5000) -> dict:
+    """Return current stored bars with at least one recorded content/status revision."""
+    safe_limit = max(1, min(int(limit), 5000))
+    with _connect() as connection:
+        rows = connection.execute("""
+            SELECT DISTINCT r.source, r.timestamp
+            FROM market_bar_revisions AS r
+            INNER JOIN market_bars AS b
+              ON b.symbol=r.symbol AND b.interval=r.interval
+             AND b.timestamp=r.timestamp AND b.source=r.source
+            WHERE r.symbol=? AND r.interval=?
+            ORDER BY r.timestamp DESC, r.source
+            LIMIT ?
+        """, (symbol.strip().upper(), interval, safe_limit)).fetchall()
+    return {
+        "count": len(rows),
+        "keys": [{"source": row["source"], "timestamp": row["timestamp"]} for row in rows],
+        "limit": safe_limit,
+        "data_note": "Keys identify currently stored observations with revision history recorded by this application; pre-migration revisions cannot be reconstructed.",
+    }

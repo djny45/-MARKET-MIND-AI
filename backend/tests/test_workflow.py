@@ -48,7 +48,7 @@ class WorkflowTests(unittest.TestCase):
         ]
         out = execute_workflow(nodes, edges, {})
         tasks = {task["node_id"]: task for task in out["tasks"]}
-        self.assertTrue(tasks["feed"]["assigned_worker"].endswith("Analyst 316"))
+        self.assertTrue(tasks["feed"]["assigned_worker"].endswith("Analyst 016"))
         self.assertEqual(tasks["feed"]["assigned_worker_id"], "worker_016")
         self.assertEqual(tasks["feed"]["worker_department"], "data_quality")
         self.assertEqual(tasks["feed"]["intelligence_core"], "shared_central_intelligence")

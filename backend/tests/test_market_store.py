@@ -219,13 +219,16 @@ class MarketStoreTests(unittest.IsolatedAsyncioTestCase):
             with patch.dict(os.environ, {"MARKET_MIND_DB": os.path.join(directory, "test.sqlite")}):
                 manifest = {"symbol": "TEST", "interval": "1h", "ready_source_count": 1}
                 parameters = {"limit": 100, "revision_policy": "annotate"}
-                first = create_evaluation_manifest_snapshot(manifest, parameters)
-                second = create_evaluation_manifest_snapshot(manifest, parameters)
+                dataset = [{"timestamp": "2026-01-01T00:00:00+00:00", "close": 10.5, "source": "fixture"}]
+                first = create_evaluation_manifest_snapshot(manifest, parameters, dataset)
+                second = create_evaluation_manifest_snapshot(manifest, parameters, dataset)
                 self.assertEqual(first["snapshot_id"], second["snapshot_id"])
                 self.assertEqual(first["manifest_sha256"], second["manifest_sha256"])
                 saved = get_evaluation_manifest_snapshot(first["snapshot_id"])
                 self.assertEqual(saved["manifest"], manifest)
                 self.assertEqual(saved["request_parameters"], parameters)
+                self.assertEqual(saved["dataset_bars"], dataset)
+                self.assertEqual(saved["dataset_sha256"], first["dataset_sha256"])
                 listed = list_evaluation_manifest_snapshots("test")
                 self.assertEqual(listed["count"], 1)
                 self.assertEqual(listed["snapshots"][0]["snapshot_id"], first["snapshot_id"])
@@ -240,6 +243,7 @@ class MarketStoreTests(unittest.IsolatedAsyncioTestCase):
                 verified = verify_evaluation_manifest_snapshot(snapshot["snapshot_id"])
                 self.assertEqual(verified["status"], "verified")
                 self.assertTrue(verified["manifest_digest_valid"])
+                self.assertTrue(verified["dataset_digest_valid"])
                 with sqlite3.connect(database) as connection:
                     connection.execute(
                         "UPDATE evaluation_manifest_snapshots SET manifest_json=? WHERE snapshot_id=?",
@@ -248,6 +252,7 @@ class MarketStoreTests(unittest.IsolatedAsyncioTestCase):
                 tampered = verify_evaluation_manifest_snapshot(snapshot["snapshot_id"])
                 self.assertEqual(tampered["status"], "integrity_mismatch")
                 self.assertFalse(tampered["manifest_digest_valid"])
+                self.assertFalse(tampered["dataset_digest_valid"])
                 self.assertFalse(tampered["snapshot_id_valid"])
 
     def test_unknown_symbol_returns_empty_history(self):

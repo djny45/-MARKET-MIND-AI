@@ -188,7 +188,7 @@ class MarketStoreTests(unittest.IsolatedAsyncioTestCase):
                 revision_table = connection.execute(
                     "SELECT 1 FROM sqlite_master WHERE type='table' AND name='market_bar_revisions'"
                 ).fetchone()
-            self.assertEqual(version, 2)
+            self.assertEqual(version, 3)
             self.assertIsNotNone(revision_table)
 
 

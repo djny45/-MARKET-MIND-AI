@@ -37,6 +37,7 @@ This roadmap is a plan, not a claim that features already exist. Mark an item co
 
 ## Phase 4 — Intelligence and workflow canvas
 - [ ] Define complete typed specialist-worker input/output contracts.
+- [x] Add versioned v1.0.0 contract definitions and runtime shape validation for all 10 currently supported workflow node types; detailed domain schemas and mandatory provenance enforcement remain pending.
 - [ ] Build central research orchestrator with model-backed inference and evidence-grounded synthesis.
 - [x] Add initial shared-core worker registry and deterministic routing for supported workflow node types.
 - [ ] Add worker registry versioning and a broader evaluation suite.

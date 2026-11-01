@@ -20,6 +20,7 @@ from .performance import performance_metrics
 from . import workspace
 from .market_data import SyntheticFixtureAdapter, MarketDataBatch
 from . import market_store
+from .market_events import store_market_events, query_market_events
 from . import watchlist
 from .model_registry import list_model_integrations
 from .setup_report import build_setup_report
@@ -93,6 +94,10 @@ class HistoricalCSVImportRequest(BaseModel):
  symbol: str = Field(min_length=1, max_length=32)
  interval: str = Field(min_length=1, max_length=16)
  source: str = Field(min_length=1, max_length=80)
+
+
+class HistoricalMarketEventsRequest(BaseModel):
+ events: list[dict[str, Any]] = Field(min_length=1, max_length=1000)
 
 
 class SetupReportRequest(BaseModel):
@@ -396,6 +401,32 @@ async def sample_market_data(symbol: str = "BTCUSD", interval: str = "1d", limit
  try:
   batch = await SyntheticFixtureAdapter().get_bars(symbol, interval, limit)
   return batch.model_dump(mode="json")
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/market-data/events")
+def import_historical_market_events(request: HistoricalMarketEventsRequest):
+ """Import validated historical trades, quotes, depth and reference observations."""
+ try:
+  return store_market_events(request.events)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/market-data/events")
+def historical_market_events(
+ instrument_id: str | None = None,
+ event_type: str | None = None,
+ provider: str | None = None,
+ venue: str | None = None,
+ start: str | None = None,
+ end: str | None = None,
+ limit: int = 500,
+):
+ """Query stored historical microstructure events with provenance metadata."""
+ try:
+  return query_market_events(instrument_id, event_type, provider, venue, start, end, limit)
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 

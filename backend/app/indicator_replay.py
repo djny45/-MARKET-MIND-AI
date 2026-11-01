@@ -13,8 +13,49 @@ def _same_value(actual, expected, tolerance=1e-9):
 
 
 def build_indicator_replay_report(history, checkpoints=8):
-    """Recompute selected historical prefixes and compare with full-series values."""
+    """Replay each provider history independently; never interleave provider bars."""
     bars = history.get("bars", [])
+    source_groups = {}
+    for bar in bars:
+        source_groups.setdefault(str(bar.get("source") or "unknown"), []).append(bar)
+    if len(source_groups) > 1:
+        reports = {}
+        for source, source_bars in sorted(source_groups.items()):
+            if len(source_bars) < 2:
+                reports[source] = {
+                    "mode": "historical_prefix_replay", "source": source,
+                    "status": "insufficient_source_history", "bars_replayed": len(source_bars),
+                    "checkpoint_count": 0, "indicator_comparison_count": 0,
+                    "mismatch_count": 0, "causal_consistency": "not_evaluated",
+                    "comparisons": [],
+                }
+                continue
+            reports[source] = build_indicator_replay_report(
+                {**history, "bars": source_bars}, checkpoints
+            )
+            reports[source]["source"] = source
+            reports[source]["status"] = "evaluated"
+        evaluated = [item for item in reports.values() if item["status"] == "evaluated"]
+        mismatch_count = sum(item["mismatch_count"] for item in evaluated)
+        return {
+            "mode": "source_isolated_historical_prefix_replay",
+            "symbol": history.get("symbol"), "interval": history.get("interval"),
+            "bars_replayed": len(bars), "source_count": len(reports),
+            "evaluated_source_count": len(evaluated),
+            "checkpoint_count": sum(item["checkpoint_count"] for item in evaluated),
+            "indicator_comparison_count": sum(item["indicator_comparison_count"] for item in evaluated),
+            "mismatch_count": mismatch_count,
+            "causal_consistency": (
+                "not_evaluated" if not evaluated else
+                "pass" if mismatch_count == 0 else "review_required"
+            ),
+            "source_reports": reports,
+            "limitations": [
+                "Each source is replayed independently; observations from different providers are never interleaved into one indicator series.",
+                "Sources with fewer than two observations are reported as insufficient_source_history.",
+                "Checks prefix reproducibility, not formula correctness, provider authenticity, licensing or predictive accuracy.",
+            ],
+        }
     if not isinstance(bars, list) or len(bars) < 2:
         raise ValueError("At least two historical bars are required for replay.")
     if len(bars) > 5000:
@@ -88,6 +129,7 @@ def build_indicator_replay_report(history, checkpoints=8):
             "prefix_observation_count": index + 1,
             "values": actual_values,
             "compared_indicators": len(actual_values),
+            "indicator_values": actual_values,
             "mismatch_count": len(mismatches),
             "mismatched_indicators": mismatches,
         })

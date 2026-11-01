@@ -55,20 +55,20 @@ def run_indicator_benchmarks():
            expected_returns, actual_returns)
 
     rising = rsi([1.0, 2.0, 3.0, 4.0], 2)
-    record("rsi_monotonic_rise", _close(rising, [100.0, 100.0, 100.0]),
-           [100.0, 100.0, 100.0], rising)
+    record("rsi_monotonic_rise", _close(rising, [None, 100.0, 100.0]),
+           [None, 100.0, 100.0], rising)
 
     falling = rsi([4.0, 3.0, 2.0, 1.0], 2)
-    record("rsi_monotonic_decline", _close(falling, [0.0, 0.0, 0.0]),
-           [0.0, 0.0, 0.0], falling)
+    record("rsi_monotonic_decline", _close(falling, [None, 0.0, 0.0]),
+           [None, 0.0, 0.0], falling)
 
     flat = rsi([10.0, 10.0, 10.0, 10.0], 2)
-    record("rsi_flat_neutral", _close(flat, [50.0, 50.0, 50.0]),
-           [50.0, 50.0, 50.0], flat,
+    record("rsi_flat_neutral", _close(flat, [None, 50.0, 50.0]),
+           [None, 50.0, 50.0], flat,
            "A window with zero average gain and zero average loss is neutral.")
 
     mixed = rsi([100.0, 110.0, 100.0], 2)
-    expected_mixed = [52.38095238095238]
+    expected_mixed = [None, 52.38095238095238]
     record("rsi_mixed_gain_loss", _close(mixed, expected_mixed),
            expected_mixed, mixed)
 

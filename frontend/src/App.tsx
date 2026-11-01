@@ -85,6 +85,9 @@ export default function App() {
  const [volumeReport,setVolumeReport] = useState<any>(null)
  const [volumeBusy,setVolumeBusy] = useState(false)
  const [volumeError,setVolumeError] = useState('')
+ const [liquidityProfile,setLiquidityProfile] = useState<any>(null)
+ const [liquidityBusy,setLiquidityBusy] = useState(false)
+ const [liquidityError,setLiquidityError] = useState('')
  const [researchInterval,setResearchInterval] = useState('1h')
  const [selectedCluster,setSelectedCluster] = useState<any>(null)
  const [historyMeta,setHistoryMeta] = useState<any>(null)
@@ -139,6 +142,24 @@ export default function App() {
    setVolumeReport(data)
   } catch(e){setVolumeReport(null);setVolumeError(e instanceof Error?e.message:'Volume indicator calculation failed')}
   finally{setVolumeBusy(false)}
+ }
+ const loadLiquidityProfile = async()=> {
+  if(researchBars.length<2){setLiquidityError('At least two stored OHLCV bars are required. Load historical data first.');return}
+  setLiquidityBusy(true);setLiquidityError('')
+  try {
+   const body={
+    high:researchBars.map((bar:any)=>Number(bar.high)),
+    low:researchBars.map((bar:any)=>Number(bar.low)),
+    close:researchBars.map((bar:any)=>Number(bar.close)),
+    volume:researchBars.map((bar:any)=>Number(bar.volume)),
+    bins:48,value_area_pct:70
+   }
+   const response=await fetch(API+'/api/indicators/liquidity-profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+   const data=await response.json()
+   if(!response.ok)throw new Error(data.detail||'Liquidity profile calculation failed')
+   setLiquidityProfile(data)
+  } catch(e){setLiquidityProfile(null);setLiquidityError(e instanceof Error?e.message:'Liquidity profile calculation failed')}
+  finally{setLiquidityBusy(false)}
  }
  const loadHistoricalQuality = async(interval:string)=> {
   setQualityBusy(true);setQualityError('')
@@ -327,6 +348,26 @@ export default function App() {
       ].map(([label,key,description]:any)=><div className="volume-indicator-cell" key={key}><small>{label}</small><b>{volumeReport[key]?.[volumeReport[key].length-1]===null||volumeReport[key]?.[volumeReport[key].length-1]===undefined?'INSUFFICIENT HISTORY':Number(volumeReport[key][volumeReport[key].length-1]).toLocaleString(undefined,{maximumFractionDigits:4})}</b><span>{description}</span></div>)}
      </div>}
      <small>Historical calculations from the loaded bar sequence. Early readings may be less stable; missing values reflect warm-up or zero-volume conditions.</small>
+    </div>
+    <div className="aligned-comparison volume-indicator-panel liquidity-profile-panel">
+     <div className="timeline-heading"><b>LIQUIDITY PROFILE · HISTORICAL</b><button className="soft-btn" onClick={loadLiquidityProfile} disabled={liquidityBusy||researchBars.length<2}>{liquidityBusy?'CALCULATING…':'CALCULATE PROFILE'}</button></div>
+     <small>Approximate volume-at-price using typical candle prices · {researchBars.length} bars · 48 bins · 70% value area.</small>
+     {liquidityError&&<small className="news-error">{liquidityError}</small>}
+     {liquidityProfile&&<>
+      <div className="volume-indicator-grid">
+       {[
+        ['POINT OF CONTROL','poc'],['VALUE AREA HIGH','value_area_high'],['VALUE AREA LOW','value_area_low'],
+        ['TOTAL VOLUME','total_volume'],['VALUE AREA COVERED','value_area_volume_pct_actual']
+       ].map(([label,key]:any)=><div className="volume-indicator-cell" key={key}><small>{label}</small><b>{liquidityProfile[key]===null||liquidityProfile[key]===undefined?'—':Number(liquidityProfile[key]).toLocaleString(undefined,{maximumFractionDigits:4})+(key==='value_area_volume_pct_actual'?'%':'')}</b><span>Historical OHLCV calculation</span></div>)}
+      </div>
+      <div className="liquidity-profile-bars">
+       {liquidityProfile.profile.filter((item:any)=>item.volume>0).map((item:any,index:number)=>{
+        const max=Math.max(...liquidityProfile.profile.map((row:any)=>row.volume),1)
+        return <div className="liquidity-profile-row" key={index}><small>{Number(item.price_mid).toLocaleString(undefined,{maximumFractionDigits:4})}</small><div className="liquidity-profile-track"><i style={{width:(item.volume/max*100)+'%'}}/></div><small>{Number(item.share_pct).toFixed(1)}%</small></div>
+       })}
+      </div>
+      <small>Classification: {liquidityProfile.metadata.classification}. This is an OHLCV approximation, not exchange order-book depth or a trade-level footprint.</small>
+     </>}
     </div>
     {researchError&&<p className="news-error">{researchError}</p>}
     {researchReport&&<div className="research-results">

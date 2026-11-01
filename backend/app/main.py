@@ -7,6 +7,7 @@ import json
 from datetime import datetime, timezone
 from .workflow import NODE_TYPES, execute_workflow
 from .workers import list_workers
+from .worker_runtime import dispatch_worker_task, worker_capabilities
 from .skill_catalog import list_skills, load_skill
 from .markets import market_catalog
 from .instruments import search_instruments
@@ -130,6 +131,14 @@ class AgentResearchMessageRequest(BaseModel):
  quality_status: Literal["verified_by_importer", "partial", "unverified", "synthetic"] = "unverified"
  payload: dict[str, Any] = Field(default_factory=dict)
 
+
+
+
+class WorkerDispatchRequest(BaseModel):
+ worker_id: str = Field(min_length=1, max_length=16)
+ operation: Literal["sma", "ema", "rsi", "macd", "bollinger", "returns", "volatility", "data_quality", "research_summary"]
+ values: list[float] = Field(min_length=2, max_length=10000)
+ params: dict[str, Any] = Field(default_factory=dict, max_length=30)
 
 
 class SetupReportRequest(BaseModel):
@@ -892,3 +901,24 @@ def resume_workflow_run(run_id: str):
  }
  replay["resume_note"] = "Completed nodes from the last durable layer checkpoint were restored; incomplete nodes were scheduled again."
  return replay
+
+
+@app.get("/api/workers/capabilities")
+def get_worker_capabilities():
+ """Report the exact deterministic operations wired to worker profiles."""
+ return worker_capabilities()
+
+
+@app.post("/api/workers/dispatch")
+def dispatch_research_worker(request: WorkerDispatchRequest):
+ """Run one explicitly authorized deterministic analytical worker task."""
+ try:
+  return dispatch_worker_task(
+   request.worker_id, request.operation, request.values, request.params
+  )
+ except KeyError as exc:
+  raise HTTPException(status_code=404, detail=str(exc)) from exc
+ except PermissionError as exc:
+  raise HTTPException(status_code=403, detail=str(exc)) from exc
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc

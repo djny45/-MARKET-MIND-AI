@@ -13,7 +13,7 @@ class WorkerRuntimeTests(unittest.TestCase):
 
     def test_explicit_worker_must_match_node_department(self):
         with self.assertRaises(ValueError):
-            assign_worker("sma", "worker_001")
+            assign_worker("sma", "worker_002")
 
     def test_unknown_worker_and_node_are_rejected(self):
         with self.assertRaises(ValueError):

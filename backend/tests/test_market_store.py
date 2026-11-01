@@ -4,7 +4,7 @@ import unittest
 from unittest.mock import patch
 
 from app.market_data import SyntheticFixtureAdapter
-from app.market_store import get_audit_events, get_bar_revisions, get_bars, get_data_lineage, get_revised_bar_keys, get_market_overview, store_batch
+from app.market_store import (get_audit_events, get_bar_revisions, get_bars, get_data_lineage, get_revised_bar_keys, get_market_overview, store_batch, create_evaluation_manifest_snapshot, get_evaluation_manifest_snapshot, list_evaluation_manifest_snapshots)
 
 
 class MarketStoreTests(unittest.IsolatedAsyncioTestCase):
@@ -72,7 +72,7 @@ class MarketStoreTests(unittest.IsolatedAsyncioTestCase):
                     version = connection.execute(
                         "SELECT MAX(version) FROM schema_migrations"
                     ).fetchone()[0]
-                self.assertEqual(version, 2)
+                self.assertEqual(version, 3)
 
     async def test_local_market_overview_summarizes_stored_coverage(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -213,6 +213,22 @@ class MarketStoreTests(unittest.IsolatedAsyncioTestCase):
                     batch.bars[1].timestamp.isoformat(),
                 )
                 self.assertEqual(get_revised_bar_keys("ETHUSD", "1d")["count"], 0)
+
+    def test_evaluation_manifest_snapshot_round_trip_and_deduplication(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.dict(os.environ, {"MARKET_MIND_DB": os.path.join(directory, "test.sqlite")}):
+                manifest = {"symbol": "TEST", "interval": "1h", "ready_source_count": 1}
+                parameters = {"limit": 100, "revision_policy": "annotate"}
+                first = create_evaluation_manifest_snapshot(manifest, parameters)
+                second = create_evaluation_manifest_snapshot(manifest, parameters)
+                self.assertEqual(first["snapshot_id"], second["snapshot_id"])
+                self.assertEqual(first["manifest_sha256"], second["manifest_sha256"])
+                saved = get_evaluation_manifest_snapshot(first["snapshot_id"])
+                self.assertEqual(saved["manifest"], manifest)
+                self.assertEqual(saved["request_parameters"], parameters)
+                listed = list_evaluation_manifest_snapshots("test")
+                self.assertEqual(listed["count"], 1)
+                self.assertEqual(listed["snapshots"][0]["snapshot_id"], first["snapshot_id"])
 
     def test_unknown_symbol_returns_empty_history(self):
         with tempfile.TemporaryDirectory() as directory:

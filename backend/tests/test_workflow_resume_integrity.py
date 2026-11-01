@@ -1,8 +1,9 @@
 import unittest
 
 from fastapi import HTTPException
+from unittest.mock import patch
 
-from app.main import _validate_checkpoint_integrity, _workflow_request_fingerprint
+from app.main import _validate_checkpoint_integrity, _workflow_request_fingerprint, resume_workflow_run
 
 
 class WorkflowResumeIntegrityTests(unittest.TestCase):
@@ -73,6 +74,17 @@ class WorkflowResumeIntegrityTests(unittest.TestCase):
         checkpoint["tasks"]["a"] = "completed"
         with self.assertRaises(HTTPException) as error:
             _validate_checkpoint_integrity(request, checkpoint, {"a"})
+        self.assertEqual(error.exception.status_code, 409)
+
+    def test_resume_rejects_corrupted_persisted_checkpoint(self):
+        record = {
+            "request": {"nodes": [], "edges": [], "inputs": {}},
+            "checkpoint": {},
+            "checkpoint_error": "Stored checkpoint is malformed; it cannot be used for recovery.",
+        }
+        with patch("app.main.workspace.get_execution", return_value=record):
+            with self.assertRaises(HTTPException) as error:
+                resume_workflow_run("broken-run")
         self.assertEqual(error.exception.status_code, 409)
 
 

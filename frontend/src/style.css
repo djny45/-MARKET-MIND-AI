@@ -146,7 +146,7 @@
 .overview-heading .eyebrow{font:9px 'DM Mono';letter-spacing:1.1px;color:#d5a65a}
 .overview-status{display:flex;align-items:center;flex-wrap:wrap;gap:9px;padding:11px 13px;border:1px solid #29343e;border-radius:5px;background:#121a22;color:#93a0ab;font:9px 'DM Mono';margin-bottom:15px}
 .overview-separator{color:#56636e}
-.overview-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:15px}
+.overview-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:15px}
 .overview-card{display:flex;flex-direction:column;gap:8px;min-width:0;padding:15px;border:1px solid #2b3540;border-radius:5px;background:#141c24}
 .overview-card>span{font:9px 'DM Mono';letter-spacing:.65px;color:#91a0ad}
 .overview-card>strong{font:600 23px 'DM Mono';color:#e4b968;overflow-wrap:anywhere}

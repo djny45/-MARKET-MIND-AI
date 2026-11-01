@@ -790,6 +790,7 @@ def research_evaluation_manifest(
  train_ratio: float = 0.60,
  validation_ratio: float = 0.20,
  embargo_bars: int = 1,
+ revision_policy: Literal["annotate", "exclude_revised", "block_revised"] = "annotate",
 ):
  """Create a source-isolated chronological dataset manifest; no model is trained."""
  if not symbol.strip() or len(symbol) > 32:
@@ -804,6 +805,8 @@ def research_evaluation_manifest(
    train_ratio=train_ratio,
    validation_ratio=validation_ratio,
    embargo_bars=embargo_bars,
+   revisioned_keys=market_store.get_revised_bar_keys(symbol, interval, limit)["keys"],
+   revision_policy=revision_policy,
   )
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc

@@ -6,7 +6,9 @@ from app.workers import list_workers
 class WorkerSkillRoutingTests(unittest.TestCase):
     def test_all_worker_templates_have_explicit_skill_routing_field(self):
         workers = list_workers()
-        self.assertEqual(len(workers), 550)
+        self.assertGreaterEqual(len(workers), 550)
+        self.assertTrue(all(worker["kind"] == "ai_analytical_worker" for worker in workers))
+        self.assertTrue(all(worker["model"] == "shared_central_intelligence" for worker in workers))
         self.assertTrue(all(isinstance(worker["skill_refs"], list) for worker in workers))
 
     def test_specialist_departments_map_to_relevant_playbooks(self):

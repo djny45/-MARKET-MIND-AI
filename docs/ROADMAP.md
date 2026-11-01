@@ -41,7 +41,7 @@ This roadmap is a plan, not a claim that features already exist. Mark an item co
 - [x] Add a typed evidence-first research aggregation API with market coverage, source references, quality labels and disagreement reporting.
 - [x] Add provenance-gated cross-market research round assembly and read-only API.\n- [x] Add bounded worker-to-worker delegation through caller-authored task DAGs.\n- [ ] Build central research orchestrator.
 - [x] Add deterministic worker capability smoke-evaluation suite and read-only evaluation API.\n- [x] Add fixed analytical reference-vector correctness benchmarks and a read-only evaluation API.\n- [ ] Add broader property-based, independent-library, and longitudinal benchmark coverage.\n- [ ] Add worker registry governance.
-- [x] Add isolated append-only worker research memory with source references and pending-review status.\n- [ ] Add human-reviewed promotion into shared knowledge.
+- [x] Add isolated append-only worker research memory with source references and pending-review status.\n- [x] Add explicit human-reviewed promotion into shared knowledge with source-reference requirements.\n- [ ] Add authenticated reviewer identity and multi-user authorization before deployment.
 - [ ] Build visual node-based research workflows.
 - [ ] Add explainability, evidence coverage, and disagreement reporting.
 
@@ -83,3 +83,8 @@ The `GET /api/analytics/benchmarks` endpoint checks fixed hand-computable vector
 ## Worker delegation
 
 The `POST /api/workers/delegate` endpoint accepts a caller-authored DAG of up to 25 deterministic analytical tasks. It validates worker-operation authorization, dependency existence and cycles, then passes a single numeric output series to the next task. The coordinator does not generate its own plan, infer new tasks, invoke LLMs, retrieve data, or execute orders. This is bounded task routing, not autonomous multi-agent intelligence.
+
+
+## Shared knowledge governance
+
+Worker notes remain isolated and pending review by default. The `POST /api/knowledge/review/{memory_id}` endpoint requires an explicit approve/reject decision, reviewer label and rationale. Approval requires at least one source reference and rejects synthetic fixture notes; approved entries are copied into a separate shared-knowledge table. The `GET /api/knowledge/shared` endpoint reads promoted entries. The current reviewer label is caller-supplied, not authenticated; these endpoints are for a trusted local environment only until authentication and authorization are implemented. Promotion does not independently verify source authenticity or truth.

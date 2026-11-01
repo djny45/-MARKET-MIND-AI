@@ -571,6 +571,8 @@ def resume_workflow_run(run_id: str):
  record = workspace.get_execution(run_id)
  if record is None:
   raise HTTPException(status_code=404, detail="Workflow run not found")
+ if record.get("request_error"):
+  raise HTTPException(status_code=409, detail=record["request_error"])
  if record.get("checkpoint_error"):
   raise HTTPException(status_code=409, detail=record["checkpoint_error"])
  request = WorkflowRequest(**record["request"])

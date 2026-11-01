@@ -756,7 +756,7 @@ def research_historical_integrity(symbol: str, interval: str = "1h", limit: int 
 def research_session_gaps(payload: SessionCalendarRequest):
  """Audit historical bar gaps against an explicit operator-supplied market calendar."""
  history = market_store.get_bars(payload.symbol, payload.interval, payload.limit)
- calendar = payload.model_dump(exclude={"symbol", "interval", "limit"})
+ calendar = payload.dict(exclude={"symbol", "interval", "limit"})
  try:
   return build_session_gap_report(history, calendar)
  except ValueError as exc:

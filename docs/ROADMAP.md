@@ -80,16 +80,6 @@ The `GET /api/agent-network/round` endpoint assembles already-published India, U
 The `GET /api/analytics/benchmarks` endpoint checks fixed hand-computable vectors for SMA, EMA, returns, RSI, MACD, Bollinger bands, and realized volatility. It checks formula behavior and output values for a narrow deterministic fixture set. Passing does not establish correctness across all edge cases, data vendors, market regimes, or predictive performance. The SMA test explicitly records the implementation's current partial-window convention. No live data or order execution is involved.
 
 
-## Worker delegation
-
-The `POST /api/workers/delegate` endpoint accepts a caller-authored DAG of up to 25 deterministic analytical tasks. It validates worker-operation authorization, dependency existence and cycles, then passes a single numeric output series to the next task. The coordinator does not generate its own plan, infer new tasks, invoke LLMs, retrieve data, or execute orders. This is bounded task routing, not autonomous multi-agent intelligence.
-
-
-## Shared knowledge governance
-
-Worker notes remain isolated and pending review by default. The `POST /api/knowledge/review/{memory_id}` endpoint requires an explicit approve/reject decision, reviewer label and rationale. Approval requires at least one source reference and rejects synthetic fixture notes; approved entries are copied into a separate shared-knowledge table. The `GET /api/knowledge/shared` endpoint reads promoted entries. The current reviewer label is caller-supplied, not authenticated; these endpoints are for a trusted local environment only until authentication and authorization are implemented. Promotion does not independently verify source authenticity or truth.
-
-
 ## Human-reviewed shared knowledge and central coordination
 
 - Worker memory can be reviewed through `POST /api/workers/{worker_id}/memory/{memory_id}/review`. Approval copies a note into the shared knowledge store; rejection leaves it out. The reviewer identity is recorded as a supplied label and is not authenticated by an identity provider.
@@ -102,6 +92,16 @@ Worker notes remain isolated and pending review by default. The `POST /api/knowl
 - No commercial vendor or exchange feed is activated. Before adding one, document the contract, venue/instrument entitlements, permitted storage, retention, redistribution and display rights, credential handling, and connector validation.
 
 
+## Delegation and central coordination contracts
+
+- `POST /api/workers/delegate` is the existing sequential delegation endpoint. It accepts up to 50 caller-supplied task records, requires explicit worker IDs and operations, and only allows dependencies on earlier completed tasks.
+- `POST /api/intelligence/coordinate` is the central deterministic control plane. It accepts a bounded worker task DAG and numeric input series, routes operations to authorized deterministic worker capabilities, and combines execution with the supplied evidence brief. It requires each requested market to have at least one distinct non-synthetic source reference before returning `ready_for_human_review`.
+- The coordinator does not autonomously generate tasks or findings, authenticate source claims, invoke an LLM, retrieve data, or execute orders.
+
+## Shared knowledge governance
+
+Worker notes remain isolated and pending review by default. The `POST /api/workers/{worker_id}/memory/{memory_id}/review` endpoint requires an explicit approve/reject decision and reviewer label. Approval requires at least one source reference and rejects synthetic fixture notes; promotion and the worker-memory status update occur in one SQLite transaction. The reviewer label is caller-supplied, not authenticated, so the endpoint must remain behind a trusted local boundary until authentication and authorization are implemented. The `GET /api/knowledge/shared` endpoint returns approved entries only. Human review does not independently authenticate the source or establish factual truth.
+
 ## Historical and live data licensing
 
-The `GET /api/providers/catalogue` endpoint is a metadata-only readiness register. The current repository supports user-supplied historical CSV imports and synthetic fixtures; no licensed vendor historical or streaming connector is enabled. Before activating a source, record the legal entity and contract, permitted venues/instruments, historical depth, streaming entitlement, display and non-display rights, derived-data rights, retention limits, redistribution restrictions, geographic limits, credential handling, and vendor audit obligations. Connector activation remains disabled until the contract and technical acceptance checks are reviewed. Never label an imported file or feed as licensed merely because it is reachable.
+The `GET /api/providers/catalogue` endpoint is a metadata-only readiness register. The repository supports user-supplied historical CSV imports and synthetic fixtures; no licensed vendor historical or streaming connector is enabled. Before activating a source, record the legal entity and contract, permitted venues/instruments, historical depth, streaming entitlement, display and non-display rights, derived-data rights, retention limits, redistribution restrictions, geographic limits, credential handling, and vendor audit obligations. Connector activation remains disabled until contract review and technical acceptance checks are complete. Never label an imported file or feed as licensed merely because it is reachable.

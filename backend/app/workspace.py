@@ -100,7 +100,15 @@ def get_execution(run_id):
     record["request"]=json.loads(record.pop("request_json"))
     record["result"]=json.loads(record.pop("result_json"))
     checkpoint_json=record.pop("checkpoint_json", "{}")
-    record["checkpoint"]=json.loads(checkpoint_json)
+    try:
+        checkpoint=json.loads(checkpoint_json)
+    except (TypeError, json.JSONDecodeError):
+        checkpoint={}
+        record["checkpoint_error"]="Stored checkpoint is malformed; it cannot be used for recovery."
+    if not isinstance(checkpoint, dict):
+        checkpoint={}
+        record["checkpoint_error"]="Stored checkpoint has an invalid format; it cannot be used for recovery."
+    record["checkpoint"]=checkpoint
     return record
 
 

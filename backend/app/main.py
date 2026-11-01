@@ -34,6 +34,7 @@ from .indicator_benchmarks import run_indicator_benchmarks
 from .worker_delegation import delegate_worker_tasks
 from .shared_knowledge import review_worker_memory, list_shared_knowledge
 from .provider_registry import provider_catalogue
+from .provider_entitlements import validate_provider_entitlement
 from .central_orchestrator import coordinate_research
 from .trade_flow import build_trade_flow_buckets
 from .cross_market_correlation import build_cross_market_correlation
@@ -171,6 +172,15 @@ class CentralCoordinationRequest(BaseModel):
  values: list[float] = Field(min_length=2, max_length=10000)
  findings: list[ResearchFindingRequest] = Field(default_factory=list, max_length=1000)
  requested_markets: list[Literal["india", "us", "crypto", "forex"]] = Field(default_factory=lambda: ["india", "us", "crypto", "forex"], min_length=1, max_length=4)
+
+
+class ProviderEntitlementRequest(BaseModel):
+ provider: str = Field(min_length=1, max_length=120)
+ contract_reference: str = Field(min_length=1, max_length=300)
+ markets: list[Literal["india", "us", "crypto", "forex"]] = Field(min_length=1, max_length=4)
+ data_modes: list[Literal["historical", "live"]] = Field(min_length=1, max_length=2)
+ entitlement_expires: str = Field(min_length=10, max_length=10)
+ rights: dict[str, bool] = Field(default_factory=dict, max_length=20)
 
 
 class SetupReportRequest(BaseModel):
@@ -1066,4 +1076,14 @@ def central_research_coordination(request: CentralCoordinationRequest):
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+
+
+
+@app.post("/api/providers/validate-entitlement")
+def validate_provider_rights(request: ProviderEntitlementRequest):
+ """Check an operator-supplied rights manifest; never activates a provider."""
+ try:
+  return validate_provider_entitlement(request.model_dump())
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
 

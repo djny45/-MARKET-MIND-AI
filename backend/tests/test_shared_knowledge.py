@@ -41,7 +41,7 @@ class SharedKnowledgeTests(unittest.TestCase):
         self.assertEqual(list_shared_knowledge()["count"],0)
 
     def test_second_review_is_blocked(self):
-        note = store_worker_memory("worker_001","observation","One")
+        note = store_worker_memory("worker_001","observation","One",["fixture://one"],"partial")
         review_worker_memory("worker_001",note["memory_id"],"approve","reviewer")
         with self.assertRaises(ValueError):
             review_worker_memory("worker_001",note["memory_id"],"approve","reviewer")

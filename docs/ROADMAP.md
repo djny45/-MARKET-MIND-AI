@@ -36,12 +36,12 @@ This roadmap is a plan, not a claim that features already exist. Mark an item co
 - [ ] Add historical evaluation framework with bias and data-quality checks.
 
 ## Phase 4 — Intelligence and workflow canvas
-- [ ] Define complete versioned specialist-worker contracts.
+- [x] Version the deterministic worker contract and expose contract version in capabilities and dispatch responses.
 - [x] Add bounded deterministic worker dispatch with explicit capability authorization and a capability-status API.
 - [x] Add a typed evidence-first research aggregation API with market coverage, source references, quality labels and disagreement reporting.
 - [ ] Build central research orchestrator.
 - [ ] Add worker registry, versioning, and evaluation suite.
-- [ ] Add worker-specific research memory and reviewed shared knowledge.
+- [x] Add isolated append-only worker research memory with source references and pending-review status.\n- [ ] Add human-reviewed promotion into shared knowledge.
 - [ ] Build visual node-based research workflows.
 - [ ] Add explainability, evidence coverage, and disagreement reporting.
 

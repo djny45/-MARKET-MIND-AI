@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from .workflow import NODE_TYPES, execute_workflow
 from .workers import list_workers
 from .worker_runtime import dispatch_worker_task, worker_capabilities
+from .worker_memory import list_worker_memory, store_worker_memory
 from .skill_catalog import list_skills, load_skill
 from .markets import market_catalog
 from .instruments import search_instruments
@@ -139,6 +140,13 @@ class WorkerDispatchRequest(BaseModel):
  operation: Literal["sma", "ema", "rsi", "macd", "bollinger", "returns", "volatility", "data_quality", "research_summary"]
  values: list[float] = Field(min_length=2, max_length=10000)
  params: dict[str, Any] = Field(default_factory=dict, max_length=30)
+
+
+class WorkerMemoryRequest(BaseModel):
+ memory_type: Literal["observation", "methodology"]
+ content: str = Field(min_length=1, max_length=4000)
+ source_refs: list[str] = Field(default_factory=list, max_length=20)
+ quality_status: Literal["verified_by_importer", "partial", "unverified", "synthetic"] = "unverified"
 
 
 class SetupReportRequest(BaseModel):
@@ -920,5 +928,30 @@ def dispatch_research_worker(request: WorkerDispatchRequest):
   raise HTTPException(status_code=404, detail=str(exc)) from exc
  except PermissionError as exc:
   raise HTTPException(status_code=403, detail=str(exc)) from exc
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/workers/{worker_id}/memory")
+def add_worker_memory(worker_id: str, request: WorkerMemoryRequest):
+ """Append an evidence-linked observation or methodology note to one worker."""
+ try:
+  return store_worker_memory(
+   worker_id, request.memory_type, request.content,
+   request.source_refs, request.quality_status,
+  )
+ except KeyError as exc:
+  raise HTTPException(status_code=404, detail=str(exc)) from exc
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/workers/{worker_id}/memory")
+def get_worker_memory(worker_id: str, limit: int = 50, memory_type: str | None = None):
+ """Read one worker's isolated, append-only research notes."""
+ try:
+  return list_worker_memory(worker_id, limit, memory_type)
+ except KeyError as exc:
+  raise HTTPException(status_code=404, detail=str(exc)) from exc
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc

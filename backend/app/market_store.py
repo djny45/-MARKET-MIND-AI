@@ -1,5 +1,7 @@
 """SQLite storage for normalized market bars with provenance metadata."""
 import os
+import json
+import hashlib
 import sqlite3
 from contextlib import closing
 from datetime import datetime, timezone
@@ -60,13 +62,68 @@ def _connect():
     version = connection.execute(
         "SELECT COALESCE(MAX(version), 0) FROM schema_migrations"
     ).fetchone()[0]
-    if version > 1:
+    if version > 4:
         connection.close()
         raise sqlite3.DatabaseError("database_schema_version_is_newer_than_this_application")
     if version < 1:
         connection.execute(
             "INSERT INTO schema_migrations(version, applied_at) VALUES (?, ?)",
             (1, datetime.now(timezone.utc).isoformat()),
+        )
+    if version < 2:
+        connection.execute("""
+            CREATE TABLE IF NOT EXISTS market_bar_revisions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                symbol TEXT NOT NULL,
+                interval TEXT NOT NULL,
+                timestamp TEXT NOT NULL,
+                source TEXT NOT NULL,
+                previous_values TEXT NOT NULL,
+                revised_values TEXT NOT NULL,
+                previous_sha256 TEXT NOT NULL,
+                revised_sha256 TEXT NOT NULL,
+                previous_status TEXT NOT NULL,
+                revised_status TEXT NOT NULL,
+                changed_at TEXT NOT NULL
+            )
+        """)
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_market_bar_revisions_scope "
+            "ON market_bar_revisions(symbol, interval, source, id DESC)"
+        )
+        connection.execute(
+            "INSERT INTO schema_migrations(version, applied_at) VALUES (?, ?)",
+            (2, datetime.now(timezone.utc).isoformat()),
+        )
+    if version < 3:
+        connection.execute("""
+            CREATE TABLE IF NOT EXISTS evaluation_manifest_snapshots (
+                snapshot_id TEXT PRIMARY KEY,
+                symbol TEXT NOT NULL,
+                interval TEXT NOT NULL,
+                manifest_sha256 TEXT NOT NULL,
+                request_parameters TEXT NOT NULL,
+                manifest_json TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+        """)
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_evaluation_snapshots_scope "
+            "ON evaluation_manifest_snapshots(symbol, interval, created_at DESC)"
+        )
+        connection.execute(
+            "INSERT INTO schema_migrations(version, applied_at) VALUES (?, ?)",
+            (3, datetime.now(timezone.utc).isoformat()),
+        )
+    if version < 4:
+        connection.execute("ALTER TABLE evaluation_manifest_snapshots ADD COLUMN dataset_json TEXT NOT NULL DEFAULT '[]'")
+        connection.execute("ALTER TABLE evaluation_manifest_snapshots ADD COLUMN dataset_sha256 TEXT NOT NULL DEFAULT ''")
+        connection.execute("ALTER TABLE evaluation_manifest_snapshots ADD COLUMN snapshot_format_version INTEGER NOT NULL DEFAULT 1")
+        empty_dataset_digest = hashlib.sha256(b"[]").hexdigest()
+        connection.execute("UPDATE evaluation_manifest_snapshots SET dataset_sha256=? WHERE dataset_sha256=''", (empty_dataset_digest,))
+        connection.execute(
+            "INSERT INTO schema_migrations(version, applied_at) VALUES (?, ?)",
+            (4, datetime.now(timezone.utc).isoformat()),
         )
     connection.execute(
         "CREATE INDEX IF NOT EXISTS idx_market_bars_lookup "
@@ -86,7 +143,44 @@ def store_batch(batch: MarketDataBatch) -> dict:
         )
         for bar in batch.bars
     ]
+    revision_count = 0
     with _connect() as connection:
+        for row in rows:
+            symbol, interval, timestamp, open_, high, low, close, volume, status, source, retrieved_at = row
+            existing = connection.execute("""
+                SELECT open, high, low, close, volume, status
+                FROM market_bars
+                WHERE symbol=? AND interval=? AND timestamp=? AND source=?
+            """, (symbol, interval, timestamp, source)).fetchone()
+            if existing is None:
+                continue
+            previous_values = {
+                "open": existing["open"], "high": existing["high"],
+                "low": existing["low"], "close": existing["close"],
+                "volume": existing["volume"],
+            }
+            revised_values = {
+                "open": open_, "high": high, "low": low,
+                "close": close, "volume": volume,
+            }
+            previous_payload = json.dumps(previous_values, sort_keys=True, separators=(",", ":"), allow_nan=False)
+            revised_payload = json.dumps(revised_values, sort_keys=True, separators=(",", ":"), allow_nan=False)
+            if previous_payload != revised_payload or existing["status"] != status:
+                connection.execute("""
+                    INSERT INTO market_bar_revisions (
+                        symbol, interval, timestamp, source,
+                        previous_values, revised_values,
+                        previous_sha256, revised_sha256,
+                        previous_status, revised_status, changed_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    symbol, interval, timestamp, source,
+                    previous_payload, revised_payload,
+                    hashlib.sha256(previous_payload.encode("utf-8")).hexdigest(),
+                    hashlib.sha256(revised_payload.encode("utf-8")).hexdigest(),
+                    existing["status"], status, retrieved_at,
+                ))
+                revision_count += 1
         connection.executemany("""
             INSERT INTO market_bars (
                 symbol, interval, timestamp, open, high, low, close, volume,
@@ -119,7 +213,47 @@ def store_batch(batch: MarketDataBatch) -> dict:
         "last_timestamp": ordered_bars[-1].timestamp.isoformat() if ordered_bars else None,
         "ordering": "chronological",
         "duplicate_timestamps": 0,
-        "data_note": "Batch timestamps are unique and stored chronologically; source and retrieval metadata are retained.",
+        "revision_count": revision_count,
+        "data_note": "Changed existing OHLCV/status observations are recorded in an append-only revision audit before the current row is updated. Retrieval-time-only changes are not content revisions.",
+    }
+
+
+
+def get_bar_revisions(symbol: str | None = None, interval: str | None = None,
+                      source: str | None = None, limit: int = 100) -> dict:
+    """Return append-only revision records for previously stored observations."""
+    safe_limit = max(1, min(int(limit), 500))
+    clauses = []
+    parameters = []
+    if symbol:
+        clauses.append("symbol=?")
+        parameters.append(symbol.strip().upper())
+    if interval:
+        clauses.append("interval=?")
+        parameters.append(interval.strip())
+    if source:
+        clauses.append("source=?")
+        parameters.append(source.strip())
+    where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+    with _connect() as connection:
+        rows = connection.execute(
+            "SELECT id, symbol, interval, timestamp, source, previous_values, "
+            "revised_values, previous_sha256, revised_sha256, previous_status, "
+            "revised_status, changed_at FROM market_bar_revisions" +
+            where + " ORDER BY id DESC LIMIT ?",
+            (*parameters, safe_limit),
+        ).fetchall()
+    revisions = []
+    for row in rows:
+        item = dict(row)
+        item["previous_values"] = json.loads(item["previous_values"])
+        item["revised_values"] = json.loads(item["revised_values"])
+        revisions.append(item)
+    return {
+        "count": len(revisions),
+        "revisions": revisions,
+        "limit": safe_limit,
+        "data_note": "Revision history records changes observed by this application after its audit table was introduced. It cannot reconstruct edits made before migration, prove vendor intent, or authenticate source data.",
     }
 
 
@@ -274,4 +408,162 @@ def get_market_overview(limit: int = 200) -> dict:
         "coverage": coverage,
         "limit": safe_limit,
         "data_note": "This view summarizes locally stored observations only. It is not a live quote, complete universe, market-wide ranking, or freshness guarantee.",
+    }
+
+
+def get_revised_bar_keys(symbol: str, interval: str, limit: int = 5000) -> dict:
+    """Return current stored bars with at least one recorded content/status revision."""
+    safe_limit = max(1, min(int(limit), 5000))
+    with _connect() as connection:
+        rows = connection.execute("""
+            SELECT DISTINCT r.source, r.timestamp
+            FROM market_bar_revisions AS r
+            INNER JOIN market_bars AS b
+              ON b.symbol=r.symbol AND b.interval=r.interval
+             AND b.timestamp=r.timestamp AND b.source=r.source
+            WHERE r.symbol=? AND r.interval=?
+            ORDER BY r.timestamp DESC, r.source
+            LIMIT ?
+        """, (symbol.strip().upper(), interval, safe_limit)).fetchall()
+    return {
+        "count": len(rows),
+        "keys": [{"source": row["source"], "timestamp": row["timestamp"]} for row in rows],
+        "limit": safe_limit,
+        "data_note": "Keys identify currently stored observations with revision history recorded by this application; pre-migration revisions cannot be reconstructed.",
+    }
+
+
+def create_evaluation_manifest_snapshot(manifest: dict, request_parameters: dict,
+                                          dataset_bars: list | None = None) -> dict:
+    """Persist the manifest and exact selected OHLCV/provenance observations."""
+    if not isinstance(manifest, dict) or not isinstance(request_parameters, dict):
+        raise ValueError("manifest and request_parameters must be objects")
+    if dataset_bars is None:
+        dataset_bars = []
+    if not isinstance(dataset_bars, list) or len(dataset_bars) > 5000:
+        raise ValueError("dataset_bars must be a list of at most 5000 observations")
+    if any(not isinstance(bar, dict) for bar in dataset_bars):
+        raise ValueError("every dataset observation must be an object")
+    symbol = str(manifest.get("symbol") or "").strip().upper()
+    interval = str(manifest.get("interval") or "").strip()
+    if not symbol or not interval:
+        raise ValueError("manifest must include symbol and interval")
+    payload = json.dumps(manifest, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+    parameters = json.dumps(request_parameters, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+    dataset_payload = json.dumps(dataset_bars, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+    digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+    dataset_digest = hashlib.sha256(dataset_payload.encode("utf-8")).hexdigest()
+    snapshot_id = hashlib.sha256(
+        (symbol + "|" + interval + "|" + digest + "|" + dataset_digest + "|" + parameters + "|format=2").encode("utf-8")
+    ).hexdigest()
+    created_at = datetime.now(timezone.utc).isoformat()
+    with _connect() as connection:
+        connection.execute("""
+            INSERT OR IGNORE INTO evaluation_manifest_snapshots (
+                snapshot_id, symbol, interval, manifest_sha256,
+                request_parameters, manifest_json, created_at,
+                dataset_json, dataset_sha256, snapshot_format_version
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 2)
+        """, (snapshot_id, symbol, interval, digest, parameters, payload, created_at, dataset_payload, dataset_digest))
+        row = connection.execute(
+            "SELECT snapshot_id, symbol, interval, manifest_sha256, request_parameters, "
+            "manifest_json, created_at, dataset_json, dataset_sha256, snapshot_format_version "
+            "FROM evaluation_manifest_snapshots WHERE snapshot_id=?", (snapshot_id,)
+        ).fetchone()
+    return _decode_evaluation_snapshot(row)
+
+
+def _decode_evaluation_snapshot(row):
+    if row is None:
+        return None
+    return {
+        "snapshot_id": row["snapshot_id"], "symbol": row["symbol"], "interval": row["interval"],
+        "manifest_sha256": row["manifest_sha256"], "dataset_sha256": row["dataset_sha256"],
+        "snapshot_format_version": row["snapshot_format_version"],
+        "request_parameters": json.loads(row["request_parameters"]),
+        "manifest": json.loads(row["manifest_json"]), "dataset_bars": json.loads(row["dataset_json"]),
+        "created_at": row["created_at"],
+    }
+
+
+def get_evaluation_manifest_snapshot(snapshot_id: str) -> dict | None:
+    with _connect() as connection:
+        row = connection.execute(
+            "SELECT snapshot_id, symbol, interval, manifest_sha256, request_parameters, "
+            "manifest_json, created_at, dataset_json, dataset_sha256, snapshot_format_version "
+            "FROM evaluation_manifest_snapshots WHERE snapshot_id=?", (snapshot_id,)
+        ).fetchone()
+    return _decode_evaluation_snapshot(row)
+
+
+def verify_evaluation_manifest_snapshot(snapshot_id: str) -> dict | None:
+    """Verify both the manifest and captured dataset payloads."""
+    with _connect() as connection:
+        row = connection.execute(
+            "SELECT snapshot_id, symbol, interval, manifest_sha256, request_parameters, "
+            "manifest_json, dataset_json, dataset_sha256, snapshot_format_version "
+            "FROM evaluation_manifest_snapshots WHERE snapshot_id=?", (snapshot_id,)
+        ).fetchone()
+    if row is None:
+        return None
+    try:
+        manifest = json.loads(row["manifest_json"])
+        parameters = json.loads(row["request_parameters"])
+        dataset_bars = json.loads(row["dataset_json"])
+        canonical_manifest = json.dumps(manifest, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+        canonical_parameters = json.dumps(parameters, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+        canonical_dataset = json.dumps(dataset_bars, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+        actual_digest = hashlib.sha256(canonical_manifest.encode("utf-8")).hexdigest()
+        actual_dataset_digest = hashlib.sha256(canonical_dataset.encode("utf-8")).hexdigest()
+        if row["snapshot_format_version"] >= 2:
+            identity = (row["symbol"] + "|" + row["interval"] + "|" + actual_digest + "|" +
+                        actual_dataset_digest + "|" + canonical_parameters + "|format=2")
+        else:
+            identity = row["symbol"] + "|" + row["interval"] + "|" + actual_digest + "|" + canonical_parameters
+        actual_id = hashlib.sha256(identity.encode("utf-8")).hexdigest()
+        manifest_valid = actual_digest == row["manifest_sha256"]
+        dataset_valid = actual_dataset_digest == row["dataset_sha256"]
+        identifier_valid = actual_id == row["snapshot_id"]
+        return {
+            "snapshot_id": row["snapshot_id"],
+            "status": "verified" if manifest_valid and dataset_valid and identifier_valid else "integrity_mismatch",
+            "manifest_digest_valid": manifest_valid, "dataset_digest_valid": dataset_valid,
+            "snapshot_id_valid": identifier_valid,
+            "expected_manifest_sha256": row["manifest_sha256"], "actual_manifest_sha256": actual_digest,
+            "expected_dataset_sha256": row["dataset_sha256"], "actual_dataset_sha256": actual_dataset_digest,
+            "research_only": True,
+            "data_note": "This detects payload/identifier mismatches against stored digests; it is not tamper-proof if an actor can rewrite both data and digests in SQLite.",
+        }
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return {
+            "snapshot_id": row["snapshot_id"], "status": "integrity_unverifiable",
+            "manifest_digest_valid": False, "dataset_digest_valid": False,
+            "snapshot_id_valid": False, "research_only": True,
+            "data_note": "Stored snapshot JSON could not be canonically decoded.",
+        }
+
+
+def list_evaluation_manifest_snapshots(symbol: str | None = None, limit: int = 50) -> dict:
+    safe_limit = max(1, min(int(limit), 100))
+    with _connect() as connection:
+        if symbol:
+            rows = connection.execute(
+                "SELECT snapshot_id, symbol, interval, manifest_sha256, request_parameters, manifest_json, created_at, dataset_json, dataset_sha256, snapshot_format_version FROM evaluation_manifest_snapshots WHERE symbol=? "
+                "ORDER BY created_at DESC LIMIT ?",
+                (symbol.strip().upper(), safe_limit),
+            ).fetchall()
+        else:
+            rows = connection.execute(
+                "SELECT snapshot_id, symbol, interval, manifest_sha256, request_parameters, manifest_json, created_at, dataset_json, dataset_sha256, snapshot_format_version FROM evaluation_manifest_snapshots ORDER BY created_at DESC LIMIT ?",
+                (safe_limit,),
+            ).fetchall()
+    return {
+        "count": len(rows),
+        "snapshots": [
+            {key: value for key, value in _decode_evaluation_snapshot(row).items()
+             if key not in {"manifest", "dataset_bars"}}
+            for row in rows
+        ],
+        "limit": safe_limit,
+        "data_note": "Snapshots preserve the exact generated manifest payload and request parameters. SQLite application-level append-only behavior is not tamper-proof against database writers.",
     }

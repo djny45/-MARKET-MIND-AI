@@ -1,5 +1,6 @@
 """Robust historical observation diagnostics; no inferred prices or trade signals."""
 from datetime import datetime
+import math
 
 INTERVAL_SECONDS = {"15m": 900, "1h": 3600, "4h": 14400, "1d": 86400}
 
@@ -12,6 +13,14 @@ def _timestamp(value):
         return parsed.timestamp()
     except (TypeError, ValueError, OverflowError):
         return None
+
+
+def _finite_number(value):
+    try:
+        number = float(value)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    return number if math.isfinite(number) else None
 
 
 def _median(values):
@@ -68,34 +77,32 @@ def build_historical_quality_diagnostics(history):
     returns = []
     return_indices = []
     for i in range(1, len(bars)):
-        try:
-            previous, current = float(bars[i - 1]["close"]), float(bars[i]["close"])
-            if previous > 0 and current > 0:
-                returns.append((current / previous) - 1)
-                return_indices.append(i)
-        except (KeyError, TypeError, ValueError, ZeroDivisionError):
+        previous = _finite_number(bars[i - 1].get("close"))
+        current = _finite_number(bars[i].get("close"))
+        if previous is None or current is None or previous <= 0 or current <= 0:
             continue
+        value = (current / previous) - 1
+        if math.isfinite(value):
+            returns.append(value)
+            return_indices.append(i)
     price_result = _mad_flags(returns)
     price_result["flagged_bar_indices"] = [return_indices[i] for i in price_result["flagged_indices"]]
     price_result["flagged_observations"] = [{
         "bar_index": return_indices[i],
         "timestamp": bars[return_indices[i]].get("timestamp"),
         "previous_timestamp": bars[return_indices[i] - 1].get("timestamp"),
-        "previous_close": float(bars[return_indices[i] - 1]["close"]),
-        "close": float(bars[return_indices[i]]["close"]),
+        "previous_close": _finite_number(bars[return_indices[i] - 1].get("close")),
+        "close": _finite_number(bars[return_indices[i]].get("close")),
         "return_pct": round(returns[i] * 100, 6),
         "robust_deviation_mad": round(abs(returns[i] - price_result["median"]) / (1.4826 * price_result["mad"]), 3)
     } for i in price_result["flagged_indices"]] if price_result["status"] == "available" else []
     volumes = []
     volume_indices = []
     for i, bar in enumerate(bars):
-        try:
-            value = float(bar["volume"])
-            if value >= 0:
-                volumes.append(value)
-                volume_indices.append(i)
-        except (KeyError, TypeError, ValueError):
-            continue
+        value = _finite_number(bar.get("volume"))
+        if value is not None and value >= 0:
+            volumes.append(value)
+            volume_indices.append(i)
     volume_result = _mad_flags(volumes)
     volume_result["flagged_bar_indices"] = [volume_indices[i] for i in volume_result["flagged_indices"]]
     volume_result["flagged_observations"] = [{
@@ -126,7 +133,8 @@ def build_historical_quality_diagnostics(history):
         "close_to_close_return_outliers": price_result,
         "volume_outliers": volume_result,
         "methodology": [
-            "Outliers use a robust median/MAD screen with a 6-MAD threshold and at least 20 observations.",
+            "Outliers use a robust median/MAD screen with a 6-MAD threshold and at least 20 finite observations.",
+            "Missing, malformed and non-finite numeric observations are excluded from numeric diagnostics.",
             "Zero-MAD samples are reported as unavailable rather than assigned a fabricated threshold.",
             "Indices refer to the supplied chronological bar sequence; no missing prices or bars are generated.",
             "Flags are statistical review prompts, not evidence of bad data or trading signals.",

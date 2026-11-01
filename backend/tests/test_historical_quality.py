@@ -1,3 +1,5 @@
+import json
+import math
 import unittest
 from app.historical_quality import build_historical_quality_diagnostics
 
@@ -30,7 +32,6 @@ class HistoricalQualityTests(unittest.TestCase):
 
     def test_outlier_flags_include_original_timestamp_and_value(self):
         bars = self.bars(30)
-        # Keep a non-zero baseline MAD so the injected spike is statistically testable.
         bars[25]["close"] = 250
         bars[25]["volume"] = 900
         result = build_historical_quality_diagnostics({"interval": "1h", "bars": bars})
@@ -64,6 +65,30 @@ class HistoricalQualityTests(unittest.TestCase):
         result = build_historical_quality_diagnostics({"interval": "weekly", "bars": self.bars(4)})
         self.assertEqual(result["timestamp_spacing"]["status"], "unsupported_interval")
         self.assertIsNone(result["timestamp_spacing"]["expected_interval_seconds"])
+
+    def test_non_finite_prices_and_volumes_are_excluded(self):
+        bars = self.bars(30)
+        bars[4]["close"] = float("nan")
+        bars[5]["close"] = float("inf")
+        bars[6]["close"] = float("-inf")
+        bars[7]["volume"] = float("nan")
+        bars[8]["volume"] = float("inf")
+        bars[9]["volume"] = float("-inf")
+        result = build_historical_quality_diagnostics({"interval": "1h", "bars": bars})
+        self.assertEqual(result["close_to_close_return_outliers"]["sample_count"], 25)
+        self.assertEqual(result["volume_outliers"]["sample_count"], 27)
+        json.dumps(result, allow_nan=False)
+
+    def test_malformed_and_missing_values_are_excluded(self):
+        bars = self.bars(25)
+        bars[3]["close"] = "bad-value"
+        bars[4].pop("close")
+        bars[5]["volume"] = "unknown"
+        bars[6].pop("volume")
+        result = build_historical_quality_diagnostics({"interval": "1h", "bars": bars})
+        self.assertEqual(result["close_to_close_return_outliers"]["sample_count"], 21)
+        self.assertEqual(result["volume_outliers"]["sample_count"], 23)
+        json.dumps(result, allow_nan=False)
 
 
 if __name__ == "__main__":

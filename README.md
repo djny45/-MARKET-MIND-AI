@@ -155,7 +155,7 @@ For manual setup, see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 | GET | `/api/research/timeframes` | Optional multi-timeframe comparison across stored 15m, 1h, 4h and 1d bars |
 | GET | `/api/research/export` | Download provenance-preserving historical evidence JSON with SHA-256 integrity metadata |
 | POST | `/api/research/compare-exports` | Compare two compatible historical evidence bundles |\n\nDeep terminal report (single or multi-timeframe):\n\n```bash\ncd backend\nPYTHONPATH=. python terminal_chart_report.py --symbol BTCUSD --mode single --interval 1h --limit 500 --deep\nPYTHONPATH=. python terminal_chart_report.py --symbol BTCUSD --mode multi --intervals 15m,1h,4h,1d --limit 500 --deep\nPYTHONPATH=. python terminal_chart_report.py --symbol BTCUSD --mode single --interval 1h --limit 500 --deep --correlate-symbols ETHUSD,SOLUSD\nPYTHONPATH=. python terminal_chart_report.py --symbol BTCUSD --mode single --interval 1h --limit 500 --deep --breadth-symbols ETHUSD,SOLUSD\n```\n\nThe deep report adds structural data-quality diagnostics, optional cross-asset correlation and market-breadth summaries from exact timestamp matches, and a consolidated `dashboard` summary. It does not infer freshness or missing exchange sessions without provider-specific schedules. See [deep analysis guide](docs/DEEP-ANALYSIS.md).
-| POST | `/api/workflows/execute` | Execute a directed research graph |
+| POST | `/api/research/orchestrate` | Aggregate specialist findings with explicit market coverage, evidence quality and disagreement reporting |\n| POST | `/api/workflows/execute` | Execute a directed research graph |
 
 ## Repository structure
 
@@ -279,3 +279,132 @@ This verifies the checks defined in the workflow at that commit; it is not a liv
 - `GET /api/research/cross-market-correlation?symbols=india:nse:RELIANCE,us:nasdaq:AAPL&interval=1d&limit=500&min_observations=20` — descriptive pairwise Pearson correlation of close-to-close returns on exact shared UTC timestamps. No forward-fill is applied; insufficient samples and zero-variance series return a null coefficient. See [four-market platform guide](docs/FOUR-MARKET-PLATFORM.md).
 
 Cross-market correlation is historical research only. Market sessions differ, so overlap may be sparse; correlations are not causal or predictive and are not trading signals. Synthetic observations remain explicitly labelled.
+
+
+## Deterministic worker dispatch (initial implementation)
+
+Worker profiles are still templates unless an operation is explicitly wired. The initial runtime exposes a capability report and a synchronous dispatch endpoint:
+
+- `GET /api/workers/capabilities` — reports all 550 profiles and distinguishes profiles with a mapped deterministic operation from template-only profiles.
+- `POST /api/workers/dispatch` — executes one allowlisted analytical operation for an authorized worker profile.
+
+Example request:
+
+```json
+{
+  "worker_id": "worker_001",
+  "operation": "sma",
+  "values": [100, 101, 102, 103],
+  "params": {"period": 2}
+}
+```
+
+This is bounded workflow-engine execution, not independent LLM inference or autonomous market research. Unsupported worker/operation combinations are rejected. Live data access, forecasts, recommendations, paper trading and broker execution are not part of this endpoint.
+
+
+## Versioned worker contracts and scoped research memory
+
+The deterministic worker runtime publishes contract version `1.0.0` in its capability report and dispatch responses. Each worker can store and retrieve its own append-only research notes:
+
+- `POST /api/workers/{worker_id}/memory` — add an `observation` or `methodology` note with source references and a data-quality label.
+- `GET /api/workers/{worker_id}/memory?limit=50&memory_type=observation` — read notes for that worker only.
+
+Memory is isolated by worker ID and stored in the configured SQLite database (`MARKET_MIND_DB`). Entries default to `pending_review`; the current API does not promote notes into shared knowledge, train models, authenticate source providers, or infer facts. This is a persistence foundation, not autonomous self-learning.
+
+
+### Worker evaluation
+
+Use `GET /api/workers/evaluations` to run a deterministic smoke evaluation across the unique worker operations currently wired to the workflow engine. The report includes per-operation pass/fail status and output-contract checks. It uses a fixed synthetic dataset and confirms wiring only; it is not a benchmark of analytical correctness, predictive performance, or live-market quality. The endpoint performs no external data retrieval and cannot place orders.
+
+
+### Evidence-gated cross-market research round
+
+Use `GET /api/agent-network/round` to assemble the existing shared India, US, crypto and forex research messages into a reviewable round. The response reports per-market message counts, distinct source-reference coverage, quality labels and markets that fail the provenance threshold. The gate checks coverage only; it does not authenticate sources or validate analytical conclusions. This is deterministic coordination, not autonomous LLM agents.
+
+
+## Research quality, delegation and shared knowledge (research-only)
+
+- `GET /api/benchmarks/indicators` runs fixed reference-fixture checks for selected SMA, EMA, returns, RSI, MACD, Bollinger and realized-volatility contracts. These are bounded correctness checks, not an exhaustive mathematical audit or predictive-performance test.
+- `POST /api/workers/delegate` routes a bounded sequence of explicitly authorized deterministic tasks between worker profiles. Tasks execute sequentially; dependencies may consume compatible array outputs.
+- `POST /api/workers/{worker_id}/memory/{memory_id}/review` requires a named reviewer and an explicit approve/reject decision. Only approved notes are copied to `GET /api/knowledge/shared`.
+- `POST /api/intelligence/coordinate` combines bounded worker dispatch with evidence aggregation. It remains deterministic and requires analyst review.
+- `GET /api/providers/catalogue` reports data-source readiness and rights checks. CSV import and synthetic fixtures are available; licensed vendor connectors are not implemented or activated.
+
+Provider activation requires documented data rights, venue/instrument entitlement, retention and redistribution review, credential validation, and connector tests. A catalogue entry is not a licence or a live connection. No autonomous model inference, broker execution, or live feed is enabled by these additions.
+
+
+## Session-aware historical gap audit
+
+`POST /api/research/session-gaps` compares stored bar timestamps with an explicitly supplied session calendar. It reports expected scheduled bars, missing timestamps, observations outside the configured schedule, duplicate timestamps, and invalid timestamps per source.
+
+Example request:
+
+```json
+{
+  "symbol": "RELIANCE",
+  "interval": "15m",
+  "limit": 500,
+  "market": "india",
+  "name": "NSE regular session (operator configured)",
+  "timezone": "Asia/Kolkata",
+  "weekdays": [0, 1, 2, 3, 4],
+  "session_open": "09:15",
+  "session_close": "15:30",
+  "holidays": ["2026-11-09"]
+}
+```
+
+The calendar is caller-supplied. Populate holidays, special sessions, early closes, venue-specific breaks, and the applicable timestamp convention from an authoritative exchange calendar and the data vendor's documentation. The endpoint does not fetch or infer official calendars, does not model overnight sessions or intraday breaks, and counts intraday bars only when a complete interval fits within the configured session. Daily bars are expected at session open. This is a gap diagnostic, not proof of provider failure or missing trading activity.
+
+
+## Cross-source indicator comparison
+
+`GET /api/research/source-indicators?symbol=RELIANCE&interval=15m&limit=500` computes each provider's indicator series independently and compares results only at exact shared UTC timestamps. It reports source-specific status and per-indicator minimum, maximum, and absolute spread for SMA-20, EMA-20, RSI-14, MACD(12,26,9), and Bollinger-20.
+
+A source with invalid timestamps/closes or duplicate UTC instants is blocked rather than silently repaired or deduplicated. This is a descriptive provider-disagreement report; it does not rank providers, identify a correct feed, verify data rights, or measure predictive accuracy.
+
+
+## Historical evaluation dataset manifest
+
+`GET /api/research/evaluation-manifest?symbol=RELIANCE&interval=1h&limit=500&train_ratio=0.6&validation_ratio=0.2&embargo_bars=1` creates source-isolated chronological development, validation and holdout partitions. It reports partition time ranges, observation counts, embargo ranges and a SHA-256 digest over canonicalized OHLCV and provenance fields.
+
+Each provider is partitioned independently. Invalid timestamps, non-finite OHLCV and duplicate timestamps within a source block that source. The endpoint does not shuffle observations, train a model, tune parameters, backtest a strategy or calculate performance. Embargoes reduce boundary adjacency but do not eliminate all look-ahead, survivorship, revision or selection bias.
+
+
+## Historical data revision audit
+
+- `GET /api/market-data/revisions?symbol=RELIANCE&interval=1h&source=vendor-feed&limit=100` lists detected changes to previously stored observations.
+- On a repeated import, the store compares OHLCV values and data-quality status with the prior row before updating it. Changed observations are written to an append-only `market_bar_revisions` table with prior/current values, SHA-256 fingerprints, source, timestamp and detection time.
+- A change to retrieval time alone is not treated as an OHLCV revision. New observations do not create revision records.
+- SQLite schema migration version 2 creates the revision ledger and version 3 creates the evaluation-manifest snapshot table and version 4 adds captured bar payloads with separate SHA-256 digests.
+
+The ledger can only detect changes observed by this application after the migration is installed. It cannot reconstruct earlier provider revisions, prove why a vendor changed a value, authenticate a provider, or guarantee tamper resistance against an operator with database write access. This is an audit aid for historical research, not a live-data feed or trading signal.
+
+
+### Revision-aware evaluation manifests
+
+The `GET /api/research/evaluation-manifest` endpoint accepts `revision_policy=annotate|exclude_revised|block_revised`. The default `annotate` retains current observations while flagging source datasets containing recorded revisions; `exclude_revised` removes revised current observations before chronological partitioning; `block_revised` prevents partitioning that source. Revision keys are joined against currently stored bars and are limited to changes recorded after the revision-audit migration. This cannot reconstruct pre-migration edits or authenticate provider data. The policy is a research-data governance control, not a guarantee against look-ahead, survivorship or selection bias.
+
+
+### Revision-aware source comparisons and reproducible manifest snapshots
+
+The `/api/research/source-indicators` endpoint accepts `revision_policy=annotate|exclude_revised|block_revised`. It reads the application's recorded revision keys and reports revised-observation counts per source. The default `annotate` policy keeps revised observations but flags analyst review; `exclude_revised` removes them before indicator calculation; `block_revised` prevents affected sources from contributing. Revision history is only available for changes observed after the revision-audit migration.
+
+Create a persisted evaluation-manifest snapshot with `POST /api/research/evaluation-manifest/snapshots` and a JSON body containing `symbol`, plus optional `interval`, `limit`, `train_ratio`, `validation_ratio`, `embargo_bars`, and `revision_policy`. Retrieve one with `GET /api/research/evaluation-manifest/snapshots/{snapshot_id}`, or list metadata with `GET /api/research/evaluation-manifest/snapshots?symbol=...`. Snapshot IDs are deterministic for the same manifest content and request parameters; repeated identical requests do not create duplicate rows. The stored payload includes the complete manifest, normalized request parameters, exact selected OHLCV/provenance bars, and separate SHA-256 digests for the manifest and captured bars. Snapshot identity includes both payload digests and request parameters.
+
+Use `GET /api/research/evaluation-manifest/snapshots/{snapshot_id}/verify` to recompute the stored manifest digest, captured-bar digest and deterministic snapshot identifier.
+ 
+ The result reports `verified`, `integrity_mismatch`, or `integrity_unverifiable`; it is intended to detect accidental payload corruption and inconsistent stored digests. Snapshots are application-level append-only records in SQLite, not cryptographically tamper-proof: a person with direct database write access can alter them. These endpoints preserve the exact selected local bar payload alongside research provenance and partition configuration; they do not train, tune, backtest or validate a strategy, authenticate market-data vendors, or grant data rights.
+
+## Holdout forecast evaluation
+
+`POST /api/research/evaluate-forecasts` evaluates caller-supplied forecast/realized-return pairs on a strictly labelled `holdout` partition. Each record must include timezone-aware `forecast_created_at`, `origin_timestamp`, and `target_timestamp` values; the forecast must have been recorded no later than its origin, and its target must be later than the origin. Duplicate origin/target pairs, non-finite values, missing source references, and non-holdout records are rejected.
+
+Each request requires 3–10,000 records and returns MAE, RMSE, mean error bias, zero-return baseline MAE, MAE skill relative to that baseline, and directional accuracy where both predicted and actual returns are nonzero. The endpoint does not generate forecasts, authenticate timestamps or source references, or establish future performance. The zero-return baseline is a descriptive comparator, not a trading strategy. No recommendations or orders are produced.
+
+
+### Snapshot-backed holdout forecast evaluation
+
+`POST /api/research/evaluate-snapshot-forecasts` accepts a `snapshot_id` and at least three forecast records. The endpoint first verifies the stored manifest, captured-bar digest and snapshot identifier. Each record must identify a source present in the snapshot, a forecast creation time no later than its origin, and both origin and target timestamps inside that source's holdout interval. Both timestamps must exactly match bars captured for that source.
+
+Realized returns are calculated by the service from the snapshot's origin and target close values; any caller-supplied `actual_return` is overwritten. This ties scoring to the exact captured dataset rather than trusting caller-supplied realized outcomes. Sources blocked by the manifest are rejected. If a snapshot used `exclude_revised` and reports revised observations, evaluation is blocked because the snapshot format does not yet preserve the exact excluded timestamp key list. Forecast creation timestamps and forecast values remain caller-supplied and are not independently authenticated. This is a narrow holdout scoring control, not a full model-validation framework, proof of predictive skill, or trading recommendation.

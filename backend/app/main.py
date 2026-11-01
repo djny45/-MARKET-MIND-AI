@@ -7,6 +7,10 @@ import json
 from datetime import datetime, timezone
 from .workflow import NODE_TYPES, execute_workflow
 from .workers import list_workers
+from .worker_runtime import dispatch_worker_task, worker_capabilities
+from .worker_memory import list_worker_memory, store_worker_memory
+from .worker_evaluation import evaluate_worker_capabilities
+from .analytical_benchmarks import run_analytical_benchmarks
 from .skill_catalog import list_skills, load_skill
 from .markets import market_catalog
 from .instruments import search_instruments
@@ -17,6 +21,8 @@ from . import indicators
 from .volume_indicators import calculate_volume_indicators
 from .liquidity_indicators import calculate_volume_profile
 from .performance import performance_metrics
+from .forecast_evaluation import evaluate_heldout_forecasts
+from .snapshot_forecast_evaluation import evaluate_snapshot_forecasts
 from . import workspace
 from .market_data import SyntheticFixtureAdapter, MarketDataBatch
 from . import market_store
@@ -24,6 +30,14 @@ from .market_events import store_market_events, query_market_events
 from .market_event_quality import diagnose_market_events
 from .agent_network import publish_message, read_messages, network_topology
 from .agent_collaboration import build_collaboration_brief
+from .cross_market_round import build_research_round
+from .research_orchestrator import build_research_brief
+from .indicator_benchmarks import run_indicator_benchmarks
+from .worker_delegation import delegate_worker_tasks
+from .shared_knowledge import review_worker_memory, list_shared_knowledge
+from .provider_registry import provider_catalogue
+from .provider_entitlements import validate_provider_entitlement
+from .central_orchestrator import coordinate_research
 from .trade_flow import build_trade_flow_buckets
 from .cross_market_correlation import build_cross_market_correlation
 from . import watchlist
@@ -35,6 +49,11 @@ from .deep_analysis import build_deep_analysis_report
 from .research_timeline import build_research_timeline
 from .csv_import import parse_historical_csv
 from .historical_quality import build_historical_quality_diagnostics
+from .indicator_replay import build_indicator_replay_report
+from .historical_integrity import build_historical_integrity_matrix
+from .session_calendar import build_session_gap_report
+from .source_indicator_comparison import compare_source_indicator_series
+from .evaluation_manifest import build_evaluation_manifest
 from .source_comparison import compare_source_observations
 from .research_export import build_research_evidence_bundle
 from .research_export_compare import compare_research_exports
@@ -101,8 +120,37 @@ class HistoricalCSVImportRequest(BaseModel):
  source: str = Field(min_length=1, max_length=80)
 
 
+class SessionCalendarRequest(BaseModel):
+ symbol: str = Field(min_length=1, max_length=32)
+ interval: Literal["15m", "1h", "4h", "1d"] = "1h"
+ limit: int = Field(default=500, ge=1, le=5000)
+ market: str = Field(default="unspecified", min_length=1, max_length=40)
+ name: str = Field(default="operator_supplied", min_length=1, max_length=80)
+ timezone: str = Field(min_length=1, max_length=64)
+ weekdays: list[int] = Field(min_length=1, max_length=7)
+ session_open: str = Field(min_length=5, max_length=5)
+ session_close: str = Field(min_length=5, max_length=5)
+ holidays: list[str] = Field(default_factory=list, max_length=1000)
+
+
 class HistoricalMarketEventsRequest(BaseModel):
  events: list[dict[str, Any]] = Field(min_length=1, max_length=1000)
+
+class ResearchFindingRequest(BaseModel):
+ market_group: Literal["india", "us", "crypto", "forex"]
+ topic: str = Field(min_length=1, max_length=80)
+ finding_key: str = Field(min_length=1, max_length=120)
+ unit: str | None = Field(default=None, max_length=40)
+ finding_value: str | int | float | bool | None
+ quality_status: Literal["verified_by_importer", "partial", "unverified", "synthetic"] = "unverified"
+ worker_id: str = Field(default="unspecified", min_length=1, max_length=96)
+ source_refs: list[str] = Field(default_factory=list, max_length=20)
+
+
+class ResearchOrchestrationRequest(BaseModel):
+ findings: list[ResearchFindingRequest] = Field(default_factory=list, max_length=1000)
+ requested_markets: list[Literal["india", "us", "crypto", "forex"]] = Field(default_factory=lambda: ["india", "us", "crypto", "forex"], min_length=1, max_length=4)
+
 
 class AgentResearchMessageRequest(BaseModel):
  agent_id: str = Field(min_length=1, max_length=96)
@@ -113,6 +161,55 @@ class AgentResearchMessageRequest(BaseModel):
  quality_status: Literal["verified_by_importer", "partial", "unverified", "synthetic"] = "unverified"
  payload: dict[str, Any] = Field(default_factory=dict)
 
+
+
+
+class WorkerDispatchRequest(BaseModel):
+ worker_id: str = Field(min_length=1, max_length=16)
+ operation: Literal["sma", "ema", "rsi", "macd", "bollinger", "returns", "volatility", "data_quality", "research_summary"]
+ values: list[float] = Field(min_length=2, max_length=10000)
+ params: dict[str, Any] = Field(default_factory=dict, max_length=30)
+
+
+class WorkerMemoryRequest(BaseModel):
+ memory_type: Literal["observation", "methodology"]
+ content: str = Field(min_length=1, max_length=4000)
+ source_refs: list[str] = Field(default_factory=list, max_length=20)
+ quality_status: Literal["verified_by_importer", "partial", "unverified", "synthetic"] = "unverified"
+
+
+class WorkerDelegationRequest(BaseModel):
+ tasks: list[dict[str, Any]] = Field(min_length=1, max_length=50)
+
+class WorkerMemoryReviewRequest(BaseModel):
+ decision: Literal["approve", "reject"]
+ reviewer: str = Field(min_length=1, max_length=120)
+ reason: str = Field(default="", max_length=1000)
+
+
+class CentralCoordinationRequest(BaseModel):
+ worker_tasks: list[dict[str, Any]] = Field(min_length=1, max_length=25)
+ values: list[float] = Field(min_length=2, max_length=10000)
+ findings: list[ResearchFindingRequest] = Field(default_factory=list, max_length=1000)
+ requested_markets: list[Literal["india", "us", "crypto", "forex"]] = Field(default_factory=lambda: ["india", "us", "crypto", "forex"], min_length=1, max_length=4)
+
+
+class ProviderEntitlementRequest(BaseModel):
+ provider: str = Field(min_length=1, max_length=120)
+ contract_reference: str = Field(min_length=1, max_length=300)
+ markets: list[Literal["india", "us", "crypto", "forex"]] = Field(min_length=1, max_length=4)
+ data_modes: list[Literal["historical", "live"]] = Field(min_length=1, max_length=2)
+ entitlement_expires: str = Field(min_length=10, max_length=10)
+ rights: dict[str, bool] = Field(default_factory=dict, max_length=20)
+
+
+class ForecastEvaluationRequest(BaseModel):
+ records: list[dict[str, Any]] = Field(min_length=3, max_length=10000)
+
+
+class SnapshotForecastEvaluationRequest(BaseModel):
+ snapshot_id: str = Field(min_length=64, max_length=64)
+ records: list[dict[str, Any]] = Field(min_length=3, max_length=10000)
 
 
 class SetupReportRequest(BaseModel):
@@ -172,6 +269,23 @@ def audit_events(symbol: str | None = None, interval: str | None = None, limit: 
  if limit < 1 or limit > 500:
   raise HTTPException(status_code=400, detail="limit must be between 1 and 500")
  return market_store.get_audit_events(symbol, interval, limit)
+
+
+@app.get("/api/market-data/revisions")
+def market_data_revisions(
+ symbol: str | None = None, interval: str | None = None,
+ source: str | None = None, limit: int = 100,
+):
+ """List audited changes to previously stored historical OHLCV observations."""
+ if symbol is not None and (not symbol.strip() or len(symbol) > 32):
+  raise HTTPException(status_code=400, detail="symbol must contain 1 to 32 characters")
+ if interval is not None and interval not in SUPPORTED_INTERVALS:
+  raise HTTPException(status_code=400, detail="interval must be one of 15m,1h,4h,1d")
+ if source is not None and (not source.strip() or len(source) > 128):
+  raise HTTPException(status_code=400, detail="source must contain 1 to 128 characters")
+ if limit < 1 or limit > 500:
+  raise HTTPException(status_code=400, detail="limit must be between 1 and 500")
+ return market_store.get_bar_revisions(symbol, interval, source, limit)
 
 
 @app.get("/api/market-data/overview")
@@ -370,6 +484,33 @@ def research_setup(request: SetupReportRequest):
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+@app.post("/api/research/evaluate-forecasts")
+def evaluate_research_forecasts(request: ForecastEvaluationRequest):
+ """Score caller-supplied forecasts on holdout data with timestamp leakage gates."""
+ try:
+  return evaluate_heldout_forecasts(request.records)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/research/evaluate-snapshot-forecasts")
+def evaluate_snapshot_research_forecasts(request: SnapshotForecastEvaluationRequest):
+ """Evaluate forecasts using realized returns calculated from a verified snapshot."""
+ snapshot_id = request.snapshot_id
+ if any(char not in "0123456789abcdef" for char in snapshot_id):
+  raise HTTPException(status_code=400, detail="snapshot_id must be a lowercase SHA-256 identifier")
+ snapshot = market_store.get_evaluation_manifest_snapshot(snapshot_id)
+ if snapshot is None:
+  raise HTTPException(status_code=404, detail="Evaluation manifest snapshot not found")
+ verification = market_store.verify_evaluation_manifest_snapshot(snapshot_id)
+ if verification is None or verification.get("status") != "verified":
+  raise HTTPException(status_code=409, detail="Evaluation snapshot failed integrity verification")
+ try:
+  return evaluate_snapshot_forecasts(snapshot, request.records)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @app.post("/api/analytics/performance")
 def analyze_performance(request: PerformanceRequest):
  try:
@@ -420,6 +561,18 @@ async def sample_market_data(symbol: str = "BTCUSD", interval: str = "1d", limit
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+@app.post("/api/research/orchestrate")
+def orchestrate_research(request: ResearchOrchestrationRequest):
+ """Aggregate supplied specialist findings with explicit evidence-quality and coverage labels."""
+ try:
+  return build_research_brief(
+   [finding.model_dump() for finding in request.findings],
+   request.requested_markets,
+  )
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @app.get("/api/agent-network")
 def agent_network():
  """Describe the deterministic four-market research message mesh."""
@@ -454,6 +607,17 @@ def agent_collaboration_brief(topic: str | None = None, limit: int = 500):
  try:
   shared = read_messages(None, topic, limit)
   return build_collaboration_brief(shared["messages"])
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/agent-network/round")
+def agent_research_round(topic: str | None = None, limit: int = 500,
+                         min_sources_per_market: int = 1):
+ """Assemble a provenance-gated cross-market research round for human review."""
+ try:
+  shared = read_messages(None, topic, limit)
+  return build_research_round(shared["messages"], min_sources_per_market=min_sources_per_market)
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -631,6 +795,170 @@ def research_source_comparison(symbol: str, interval: str = "1h", limit: int = 5
  if limit < 1 or limit > 5000:
   raise HTTPException(status_code=400, detail="limit must be between 1 and 5000")
  return compare_source_observations(market_store.get_bars(symbol, interval, limit))
+
+
+@app.get("/api/research/integrity")
+def research_historical_integrity(symbol: str, interval: str = "1h", limit: int = 500):
+ """Return per-source historical OHLCV integrity dimensions without composite scoring."""
+ if not symbol.strip() or len(symbol) > 32:
+  raise HTTPException(status_code=400, detail="symbol must contain 1 to 32 characters")
+ if interval not in SUPPORTED_INTERVALS:
+  raise HTTPException(status_code=400, detail="interval must be one of 15m,1h,4h,1d")
+ if limit < 1 or limit > 5000:
+  raise HTTPException(status_code=400, detail="limit must be between 1 and 5000")
+ return build_historical_integrity_matrix(market_store.get_bars(symbol, interval, limit))
+
+
+@app.post("/api/research/session-gaps")
+def research_session_gaps(payload: SessionCalendarRequest):
+ """Audit historical bar gaps against an explicit operator-supplied market calendar."""
+ history = market_store.get_bars(payload.symbol, payload.interval, payload.limit)
+ calendar = payload.dict(exclude={"symbol", "interval", "limit"})
+ try:
+  return build_session_gap_report(history, calendar)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/research/evaluation-manifest")
+def research_evaluation_manifest(
+ symbol: str,
+ interval: str = "1h",
+ limit: int = 500,
+ train_ratio: float = 0.60,
+ validation_ratio: float = 0.20,
+ embargo_bars: int = 1,
+ revision_policy: Literal["annotate", "exclude_revised", "block_revised"] = "annotate",
+):
+ """Create a source-isolated chronological dataset manifest; no model is trained."""
+ if not symbol.strip() or len(symbol) > 32:
+  raise HTTPException(status_code=400, detail="symbol must contain 1 to 32 characters")
+ if interval not in SUPPORTED_INTERVALS:
+  raise HTTPException(status_code=400, detail="interval must be one of 15m,1h,4h,1d")
+ if limit < 1 or limit > 5000:
+  raise HTTPException(status_code=400, detail="limit must be between 1 and 5000")
+ try:
+  return build_evaluation_manifest(
+   market_store.get_bars(symbol, interval, limit),
+   train_ratio=train_ratio,
+   validation_ratio=validation_ratio,
+   embargo_bars=embargo_bars,
+   revisioned_keys=market_store.get_revised_bar_keys(symbol, interval, limit)["keys"],
+   revision_policy=revision_policy,
+  )
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/research/evaluation-manifest/snapshots")
+def create_research_evaluation_snapshot(request: dict):
+ """Build and persist the exact evaluation manifest returned to the caller."""
+ symbol = str(request.get("symbol") or "").strip()
+ interval = str(request.get("interval") or "1h")
+ limit = request.get("limit", 500)
+ train_ratio = request.get("train_ratio", 0.60)
+ validation_ratio = request.get("validation_ratio", 0.20)
+ embargo_bars = request.get("embargo_bars", 1)
+ revision_policy = request.get("revision_policy", "annotate")
+ if not symbol or len(symbol) > 32:
+  raise HTTPException(status_code=400, detail="symbol must contain 1 to 32 characters")
+ if interval not in SUPPORTED_INTERVALS:
+  raise HTTPException(status_code=400, detail="interval must be one of 15m,1h,4h,1d")
+ if not isinstance(limit, int) or isinstance(limit, bool) or limit < 1 or limit > 5000:
+  raise HTTPException(status_code=400, detail="limit must be an integer between 1 and 5000")
+ try:
+  history = market_store.get_bars(symbol, interval, limit)
+  manifest = build_evaluation_manifest(
+   history,
+   train_ratio=train_ratio,
+   validation_ratio=validation_ratio,
+   embargo_bars=embargo_bars,
+   revisioned_keys=market_store.get_revised_bar_keys(symbol, interval, limit)["keys"],
+   revision_policy=revision_policy,
+  )
+  return market_store.create_evaluation_manifest_snapshot(
+   manifest,
+   {"symbol": symbol.upper(), "interval": interval, "limit": limit,
+    "train_ratio": train_ratio, "validation_ratio": validation_ratio,
+    "embargo_bars": embargo_bars, "revision_policy": revision_policy},
+   dataset_bars=history["bars"],
+  )
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/research/evaluation-manifest/snapshots")
+def list_research_evaluation_snapshots(symbol: str | None = None, limit: int = 50):
+ if symbol is not None and (not symbol.strip() or len(symbol) > 32):
+  raise HTTPException(status_code=400, detail="symbol must contain 1 to 32 characters")
+ if limit < 1 or limit > 100:
+  raise HTTPException(status_code=400, detail="limit must be between 1 and 100")
+ return market_store.list_evaluation_manifest_snapshots(symbol, limit)
+
+
+@app.get("/api/research/evaluation-manifest/snapshots/{snapshot_id}")
+def get_research_evaluation_snapshot(snapshot_id: str):
+ if len(snapshot_id) != 64 or any(char not in "0123456789abcdef" for char in snapshot_id):
+  raise HTTPException(status_code=400, detail="snapshot_id must be a lowercase SHA-256 identifier")
+ snapshot = market_store.get_evaluation_manifest_snapshot(snapshot_id)
+ if snapshot is None:
+  raise HTTPException(status_code=404, detail="Evaluation manifest snapshot not found")
+ return snapshot
+
+
+@app.get("/api/research/evaluation-manifest/snapshots/{snapshot_id}/verify")
+def verify_research_evaluation_snapshot(snapshot_id: str):
+ """Recompute stored manifest and identifier digests for integrity review."""
+ if len(snapshot_id) != 64 or any(char not in "0123456789abcdef" for char in snapshot_id):
+  raise HTTPException(status_code=400, detail="snapshot_id must be a lowercase SHA-256 identifier")
+ result = market_store.verify_evaluation_manifest_snapshot(snapshot_id)
+ if result is None:
+  raise HTTPException(status_code=404, detail="Evaluation manifest snapshot not found")
+ return result
+
+
+@app.get("/api/research/source-indicators")
+def research_source_indicators(
+ symbol: str, interval: str = "1h", limit: int = 500,
+ revision_policy: Literal["annotate", "exclude_revised", "block_revised"] = "annotate",
+):
+ """Compare independently calculated indicators across sources at exact shared UTC instants."""
+ if not symbol.strip() or len(symbol) > 32:
+  raise HTTPException(status_code=400, detail="symbol must contain 1 to 32 characters")
+ if interval not in SUPPORTED_INTERVALS:
+  raise HTTPException(status_code=400, detail="interval must be one of 15m,1h,4h,1d")
+ if limit < 1 or limit > 5000:
+  raise HTTPException(status_code=400, detail="limit must be between 1 and 5000")
+ try:
+  return compare_source_indicator_series(
+   market_store.get_bars(symbol, interval, limit),
+   revisioned_keys=market_store.get_revised_bar_keys(symbol, interval, limit)["keys"],
+   revision_policy=revision_policy,
+  )
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/research/indicator-replay")
+def research_indicator_replay(
+ symbol: str,
+ interval: str = "1h",
+ limit: int = 500,
+ checkpoints: int = 8,
+):
+ """Check causal prefix reproducibility of indicators over stored history."""
+ if not symbol.strip() or len(symbol) > 32:
+  raise HTTPException(status_code=400, detail="symbol must contain 1 to 32 characters")
+ if interval not in SUPPORTED_INTERVALS:
+  raise HTTPException(status_code=400, detail="interval must be one of 15m,1h,4h,1d")
+ if limit < 2 or limit > 5000:
+  raise HTTPException(status_code=400, detail="limit must be between 2 and 5000")
+ try:
+  return build_indicator_replay_report(
+   market_store.get_bars(symbol, interval, limit), checkpoints
+  )
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.get("/api/research/data-quality")
@@ -863,3 +1191,136 @@ def resume_workflow_run(run_id: str):
  }
  replay["resume_note"] = "Completed nodes from the last durable layer checkpoint were restored; incomplete nodes were scheduled again."
  return replay
+
+
+@app.get("/api/workers/capabilities")
+def get_worker_capabilities():
+ """Report the exact deterministic operations wired to worker profiles."""
+ return worker_capabilities()
+
+
+@app.get("/api/workers/evaluations")
+def get_worker_evaluations():
+ """Run fixed synthetic smoke tests for each unique mapped worker operation."""
+ return evaluate_worker_capabilities()
+
+
+@app.post("/api/workers/dispatch")
+def dispatch_research_worker(request: WorkerDispatchRequest):
+ """Run one explicitly authorized deterministic analytical worker task."""
+ try:
+  return dispatch_worker_task(
+   request.worker_id, request.operation, request.values, request.params
+  )
+ except KeyError as exc:
+  raise HTTPException(status_code=404, detail=str(exc)) from exc
+ except PermissionError as exc:
+  raise HTTPException(status_code=403, detail=str(exc)) from exc
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/workers/{worker_id}/memory")
+def add_worker_memory(worker_id: str, request: WorkerMemoryRequest):
+ """Append an evidence-linked observation or methodology note to one worker."""
+ try:
+  return store_worker_memory(
+   worker_id, request.memory_type, request.content,
+   request.source_refs, request.quality_status,
+  )
+ except KeyError as exc:
+  raise HTTPException(status_code=404, detail=str(exc)) from exc
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/workers/{worker_id}/memory")
+def get_worker_memory(worker_id: str, limit: int = 50, memory_type: str | None = None):
+ """Read one worker's isolated, append-only research notes."""
+ try:
+  return list_worker_memory(worker_id, limit, memory_type)
+ except KeyError as exc:
+  raise HTTPException(status_code=404, detail=str(exc)) from exc
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/analytics/benchmarks")
+def get_analytical_benchmarks():
+ """Run fixed analytical formula reference-vector checks."""
+ return run_analytical_benchmarks()
+
+
+@app.get("/api/benchmarks/indicators")
+def indicator_correctness_benchmarks():
+ """Run fixed reference-fixture checks for indicator formula contracts."""
+ return run_indicator_benchmarks()
+
+
+@app.post("/api/workers/delegate")
+def delegate_research_workers(request: WorkerDelegationRequest):
+ """Route a bounded sequence of deterministic tasks between authorized workers."""
+ try:
+  return delegate_worker_tasks(request.tasks)
+ except KeyError as exc:
+  raise HTTPException(status_code=404, detail=str(exc)) from exc
+ except PermissionError as exc:
+  raise HTTPException(status_code=403, detail=str(exc)) from exc
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/workers/{worker_id}/memory/{memory_id}/review")
+def review_research_memory(worker_id: str, memory_id: str, request: WorkerMemoryReviewRequest):
+ """Require a named human reviewer before any note enters shared knowledge."""
+ try:
+  return review_worker_memory(worker_id, memory_id, request.decision, request.reviewer, request.reason)
+ except KeyError as exc:
+  raise HTTPException(status_code=404, detail=str(exc)) from exc
+ except ValueError as exc:
+  raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@app.get("/api/knowledge/shared")
+def get_shared_research_knowledge(limit: int = 100):
+ try:
+  return list_shared_knowledge(limit)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/providers/catalogue")
+def get_provider_catalogue():
+ """Show source rights and connector readiness; no provider is activated."""
+ return provider_catalogue()
+
+
+@app.post("/api/intelligence/coordinate")
+def central_research_coordination(request: CentralCoordinationRequest):
+ """Coordinate bounded worker tasks and synthesize supplied findings for analyst review."""
+ try:
+  return coordinate_research(
+   request.worker_tasks,
+   request.values,
+   [finding.model_dump() for finding in request.findings],
+   request.requested_markets,
+  )
+ except KeyError as exc:
+  raise HTTPException(status_code=404, detail=str(exc)) from exc
+ except PermissionError as exc:
+  raise HTTPException(status_code=403, detail=str(exc)) from exc
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+
+
+
+@app.post("/api/providers/validate-entitlement")
+def validate_provider_rights(request: ProviderEntitlementRequest):
+ """Check an operator-supplied rights manifest; never activates a provider."""
+ try:
+  return validate_provider_entitlement(request.model_dump())
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+

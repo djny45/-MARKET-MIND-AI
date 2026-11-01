@@ -27,6 +27,7 @@ from .market_events import store_market_events, query_market_events
 from .market_event_quality import diagnose_market_events
 from .agent_network import publish_message, read_messages, network_topology
 from .agent_collaboration import build_collaboration_brief
+from .cross_market_round import build_research_round
 from .research_orchestrator import build_research_brief
 from .trade_flow import build_trade_flow_buckets
 from .cross_market_correlation import build_cross_market_correlation
@@ -501,6 +502,17 @@ def agent_collaboration_brief(topic: str | None = None, limit: int = 500):
  try:
   shared = read_messages(None, topic, limit)
   return build_collaboration_brief(shared["messages"])
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/agent-network/round")
+def agent_research_round(topic: str | None = None, limit: int = 500,
+                         min_sources_per_market: int = 1):
+ """Assemble a provenance-gated cross-market research round for human review."""
+ try:
+  shared = read_messages(None, topic, limit)
+  return build_research_round(shared["messages"], min_sources_per_market=min_sources_per_market)
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 

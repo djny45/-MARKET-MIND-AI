@@ -88,3 +88,15 @@ The `POST /api/workers/delegate` endpoint accepts a caller-authored DAG of up to
 ## Shared knowledge governance
 
 Worker notes remain isolated and pending review by default. The `POST /api/knowledge/review/{memory_id}` endpoint requires an explicit approve/reject decision, reviewer label and rationale. Approval requires at least one source reference and rejects synthetic fixture notes; approved entries are copied into a separate shared-knowledge table. The `GET /api/knowledge/shared` endpoint reads promoted entries. The current reviewer label is caller-supplied, not authenticated; these endpoints are for a trusted local environment only until authentication and authorization are implemented. Promotion does not independently verify source authenticity or truth.
+
+
+## Human-reviewed shared knowledge and central coordination
+
+- Worker memory can be reviewed through `POST /api/workers/{worker_id}/memory/{memory_id}/review`. Approval copies a note into the shared knowledge store; rejection leaves it out. The reviewer identity is recorded as a supplied label and is not authenticated by an identity provider.
+- `GET /api/knowledge/shared` returns approved entries only.
+- `POST /api/intelligence/coordinate` combines bounded worker delegation and caller-supplied findings into one evidence report. It is deterministic, not an autonomous central AI model.
+
+## Data-source licensing readiness
+
+- `GET /api/providers/catalogue` lists the existing manual CSV and synthetic fixture paths plus a not-yet-implemented licensed vendor adapter category.
+- No commercial vendor or exchange feed is activated. Before adding one, document the contract, venue/instrument entitlements, permitted storage, retention, redistribution and display rights, credential handling, and connector validation.

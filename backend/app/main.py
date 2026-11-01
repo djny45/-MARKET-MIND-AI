@@ -471,6 +471,19 @@ def _workflow_request_fingerprint(request_payload: dict) -> str:
  ).hexdigest()
 
 
+def _validate_checkpoint_integrity(request_payload: dict, checkpoint: dict, known_ids: set[str]) -> None:
+ expected = _workflow_request_fingerprint(request_payload)
+ if checkpoint.get("request_fingerprint") != expected:
+  raise HTTPException(status_code=409, detail="Checkpoint does not match the original workflow request.")
+ completed_ids = set(checkpoint.get("completed_node_ids", []))
+ if not completed_ids.issubset(known_ids):
+  raise HTTPException(status_code=409, detail="Checkpoint contains nodes not present in the saved workflow.")
+ results = checkpoint.get("results", {})
+ tasks = checkpoint.get("tasks", {})
+ if any(node_id not in results or tasks.get(node_id, {}).get("status") != "completed" for node_id in completed_ids):
+  raise HTTPException(status_code=409, detail="Checkpoint is incomplete or internally inconsistent.")
+
+
 def _execute_and_persist(request: WorkflowRequest, parent_run_id: str | None = None, initial_checkpoint: dict | None = None):
  try:
   if len(set(request.skill_ids)) != len(request.skill_ids):
@@ -486,21 +499,8 @@ def _execute_and_persist(request: WorkflowRequest, parent_run_id: str | None = N
   request_payload = request.model_dump()
   fingerprint = _workflow_request_fingerprint(request_payload)
   if initial_checkpoint:
-   saved_fingerprint = initial_checkpoint.get("request_fingerprint")
-   if saved_fingerprint != fingerprint:
-    raise HTTPException(status_code=409, detail="Checkpoint does not match the original workflow request.")
    known_ids = {str(node.get("id", "")) for node in request.nodes}
-   checkpoint_ids = set(initial_checkpoint.get("completed_node_ids", []))
-   checkpoint_results = initial_checkpoint.get("results", {})
-   checkpoint_tasks = initial_checkpoint.get("tasks", {})
-   if not checkpoint_ids.issubset(known_ids):
-    raise HTTPException(status_code=409, detail="Checkpoint contains nodes not present in the saved workflow.")
-   if any(
-    node_id not in checkpoint_results
-    or checkpoint_tasks.get(node_id, {}).get("status") != "completed"
-    for node_id in checkpoint_ids
-   ):
-    raise HTTPException(status_code=409, detail="Checkpoint is incomplete or internally inconsistent.")
+   _validate_checkpoint_integrity(request_payload, initial_checkpoint, known_ids)
   run_id = str(uuid.uuid4())
   record = workspace.create_execution(run_id, request_payload, parent_run_id)
   def persist_checkpoint(snapshot):

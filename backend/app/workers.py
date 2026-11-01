@@ -35,7 +35,7 @@ SKILL_BY_DEPARTMENT = {
     "data_quality": ["trader-risk", "rea-ci-tests-audit"],
     "risk_analytics": ["trader-risk", "trader-budget"],
     "pattern_recognition": ["trader-scanner", "trader-timemachine"],
-    "research_validation": ["trader-timemachine", "trader-risk", "rea-ci-tests-audit", "rea-analysis-optimization"],
+    "research_validation": ["trader-timemachine", "trader-risk", "rea-ci-tests-audit", "rea-analysis-optimization", "reverse-engineer-anything", "rea-tool-design"],
     "market_regimes": ["trader-timemachine", "trader-news"],
 }
 

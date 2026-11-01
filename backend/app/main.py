@@ -23,7 +23,8 @@ from . import market_store
 from .market_events import store_market_events, query_market_events
 from .market_event_quality import diagnose_market_events
 from .agent_network import publish_message, read_messages, network_topology
-from .agent_collaboration import build_collaboration_brief\nfrom .trade_flow import build_trade_flow_buckets
+from .agent_collaboration import build_collaboration_brief
+from .trade_flow import build_trade_flow_buckets
 from . import watchlist
 from .model_registry import list_model_integrations
 from .setup_report import build_setup_report

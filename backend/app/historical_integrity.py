@@ -42,6 +42,7 @@ def build_historical_integrity_matrix(history):
             "invalid_numeric_field_counts": {field: 0 for field in NUMERIC_FIELDS},
             "valid_numeric_field_counts": {field: 0 for field in NUMERIC_FIELDS},
             "invalid_ohlcv_structure_count": 0,
+            "complete_numeric_ohlcv_count": 0,
             "invalid_ohlcv_examples": [],
             "_instants": set(),
         })
@@ -71,6 +72,7 @@ def build_historical_integrity_matrix(history):
                 values[field] = numeric
 
         if len(values) == len(NUMERIC_FIELDS):
+            record["complete_numeric_ohlcv_count"] += 1
             structurally_valid = (
                 values["open"] > 0 and values["high"] > 0
                 and values["low"] > 0 and values["close"] > 0
@@ -100,9 +102,7 @@ def build_historical_integrity_matrix(history):
                 100 * record["valid_timestamp_count"] / record["observation_count"], 3
             ) if record["observation_count"] else None,
             "ohlcv_structure_valid_count": (
-                record["observation_count"] - record["invalid_ohlcv_structure_count"]
-                - sum(record["missing_field_counts"].values())
-                - sum(record["invalid_numeric_field_counts"].values())
+                record["complete_numeric_ohlcv_count"] - record["invalid_ohlcv_structure_count"]
             ),
         }
 

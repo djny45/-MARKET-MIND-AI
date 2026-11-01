@@ -36,3 +36,19 @@ Default feeds are examples and may change or become unavailable. Review sources 
 Every normalized event should carry provider, instrument ID, venue, event type, event time, received time, sequence where available, currency, price scale, delay status, entitlement and raw payload hash.
 
 Stale, delayed, corrected, out-of-order or unlicensed data must be flagged. Never silently substitute one venue's price for another.
+
+
+## Four primary market groups
+
+The product organizes coverage into four top-level groups while retaining asset class as a separate dimension:
+
+| Market group | Initial reference examples | Coverage caveat |
+|---|---|---|
+| India | NSE/BSE equities and indices; USDINR reference pair | Not a complete exchange master; exchange data requires appropriate entitlement |
+| US | NASDAQ/NYSE-listed equities and ETFs; S&P 500 and Treasury yield references | Reference examples only; venue data rights vary |
+| Crypto | BTC, ETH and SOL reference pairs | Venue-specific symbols and quote currencies must be mapped independently |
+| Forex | EURUSD, USDJPY, GBPUSD, USDINR and other major pairs | OTC market; no single consolidated tape |
+
+The API uses `market_group` for these domains and retains `market` for asset class. Example: `GET /api/instruments?market_group=india&market=equities`.
+
+The current directory is a curated reference catalogue, not an exchange-supplied security master. It contains no live quotes and does not prove data availability. See [FOUR-MARKET-PLATFORM.md](FOUR-MARKET-PLATFORM.md) for canonical identity, event schemas and provider readiness.

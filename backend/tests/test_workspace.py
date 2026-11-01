@@ -41,6 +41,22 @@ class WorkspaceTests(unittest.TestCase):
   self.assertEqual(loaded["status"],"running")
   self.assertEqual(loaded["checkpoint"]["completed_node_ids"],["a"])
   self.assertEqual(loaded["checkpoint"]["results"]["a"]["values"],[1,2])
+ def test_malformed_checkpoint_is_reported_without_crashing(self):
+  request={"nodes":[{"id":"a","type":"market_input"}],"edges":[],"inputs":{"data":[1]}}
+  workspace.create_execution("broken-checkpoint",request)
+  with workspace._connect() as con:
+   con.execute("UPDATE workflow_runs SET checkpoint_json=? WHERE id=?",("{broken","broken-checkpoint"))
+  loaded=workspace.get_execution("broken-checkpoint")
+  self.assertEqual(loaded["checkpoint"],{})
+  self.assertIn("checkpoint_error",loaded)
+ def test_non_object_checkpoint_is_reported_without_crashing(self):
+  request={"nodes":[{"id":"a","type":"market_input"}],"edges":[],"inputs":{"data":[1]}}
+  workspace.create_execution("wrong-shape-checkpoint",request)
+  with workspace._connect() as con:
+   con.execute("UPDATE workflow_runs SET checkpoint_json=? WHERE id=?",("[1,2]","wrong-shape-checkpoint"))
+  loaded=workspace.get_execution("wrong-shape-checkpoint")
+  self.assertEqual(loaded["checkpoint"],{})
+  self.assertIn("checkpoint_error",loaded)
  def test_graph_limits(self):
   with self.assertRaises(ValueError):
    workspace.save_workflow("Too big","",[{}]*251,[])

@@ -28,8 +28,15 @@ def _finite_close(value):
     return number if math.isfinite(number) and number > 0 else None
 
 
-def compare_source_indicator_series(history):
-    """Compute indicators independently per source and compare exact shared instants."""
+def compare_source_indicator_series(history, revisioned_keys=None, revision_policy="annotate"):
+    """Compute independent source indicators with an explicit revision policy."""
+    if revision_policy not in {"annotate", "exclude_revised", "block_revised"}:
+        raise ValueError("revision_policy must be annotate, exclude_revised, or block_revised")
+    revised = {
+        (str(item.get("source") or "unknown"), str(item.get("timestamp")))
+        for item in (revisioned_keys or [])
+        if isinstance(item, dict) and item.get("timestamp") is not None
+    }
     groups = {}
     for index, bar in enumerate(history.get("bars", [])):
         source = str(bar.get("source") or "unknown")
@@ -38,6 +45,31 @@ def compare_source_indicator_series(history):
     source_values = {}
     source_reports = {}
     for source, indexed_bars in sorted(groups.items()):
+        revised_bars = [
+            (index, bar) for index, bar in indexed_bars
+            if (source, str(bar.get("timestamp"))) in revised
+        ]
+        revision_info = {
+            "revision_policy": revision_policy,
+            "revised_observation_count": len(revised_bars),
+            "revision_review_required": bool(revised_bars) and revision_policy == "annotate",
+            "excluded_revised_observation_count": (
+                len(revised_bars) if revision_policy == "exclude_revised" else 0
+            ),
+        }
+        if revised_bars and revision_policy == "block_revised":
+            source_reports[source] = {
+                "status": "blocked_revised_observations",
+                "observation_count": len(indexed_bars),
+                "indicator_values_compared": False,
+                **revision_info,
+            }
+            continue
+        if revision_policy == "exclude_revised":
+            indexed_bars = [
+                (index, bar) for index, bar in indexed_bars
+                if (source, str(bar.get("timestamp"))) not in revised
+            ]
         parsed = []
         invalid = []
         seen = set()
@@ -66,6 +98,7 @@ def compare_source_indicator_series(history):
                 "invalid_observation_count": len(invalid),
                 "invalid_observations": invalid[:20],
                 "indicator_values_compared": False,
+                **revision_info,
             }
             continue
         if invalid:
@@ -113,6 +146,7 @@ def compare_source_indicator_series(history):
             "valid_observation_count": len(parsed),
             "indicator_values_compared": True,
             "parameters": {"sma": 20, "ema": 20, "rsi": 14, "macd": [12, 26, 9], "bollinger": 20},
+            **revision_info,
         }
 
     shared = {}
@@ -161,6 +195,7 @@ def compare_source_indicator_series(history):
             "Each source receives an independent chronological indicator calculation; provider bars are never interleaved.",
             "Only exact matching timezone-aware UTC instants are compared.",
             "Sources with invalid observations or duplicate UTC instants are blocked rather than silently repaired or deduplicated.",
+            "Revision policy is explicit: annotate flags revised current observations, exclude_revised removes them before calculation, and block_revised blocks affected sources.",
             "All providers use fixed SMA-20, EMA-20, RSI-14, MACD(12,26,9) and Bollinger-20 parameters.",
             "Indicator disagreement is descriptive; no provider is ranked or selected and no price series is treated as authoritative.",
             "This does not establish formula correctness, provider authenticity, data licensing or predictive accuracy.",

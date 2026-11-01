@@ -24,13 +24,13 @@ class CrossMarketCorrelationTests(unittest.TestCase):
 
     def test_timezone_offsets_normalize_to_same_utc_instants(self):
         result = build_cross_market_correlation({
-            "A": history([10, 11, 12], [
-                "2026-01-01T05:30:00+05:30", "2026-01-02T05:30:00+05:30", "2026-01-03T05:30:00+05:30"
+            "A": history([10, 11, 12, 13], [
+                "2026-01-01T05:30:00+05:30", "2026-01-02T05:30:00+05:30", "2026-01-03T05:30:00+05:30", "2026-01-04T05:30:00+05:30"
             ]),
-            "B": history([20, 22, 24], [
-                "2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z", "2026-01-03T00:00:00Z"
+            "B": history([20, 22, 24, 26], [
+                "2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z", "2026-01-03T00:00:00Z", "2026-01-04T00:00:00Z"
             ]),
-        }, "1d", min_observations=2)
+        }, "1d", min_observations=3)
         self.assertEqual(result["pairs"][0]["aligned_bar_count"], 3)
         self.assertAlmostEqual(result["pairs"][0]["correlation"], 1.0)
 

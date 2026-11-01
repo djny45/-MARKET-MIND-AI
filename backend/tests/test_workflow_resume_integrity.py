@@ -87,6 +87,17 @@ class WorkflowResumeIntegrityTests(unittest.TestCase):
                 resume_workflow_run("broken-run")
         self.assertEqual(error.exception.status_code, 409)
 
+    def test_resume_rejects_corrupted_persisted_request(self):
+        record = {
+            "request": {},
+            "checkpoint": {},
+            "request_error": "Stored workflow request is malformed; it cannot be replayed.",
+        }
+        with patch("app.main.workspace.get_execution", return_value=record):
+            with self.assertRaises(HTTPException) as error:
+                resume_workflow_run("broken-request")
+        self.assertEqual(error.exception.status_code, 409)
+
 
 if __name__ == "__main__":
     unittest.main()

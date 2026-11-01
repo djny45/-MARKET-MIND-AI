@@ -491,13 +491,22 @@ def _execute_and_persist(request: WorkflowRequest, parent_run_id: str | None = N
     raise HTTPException(status_code=409, detail="Checkpoint does not match the original workflow request.")
    known_ids = {str(node.get("id", "")) for node in request.nodes}
    checkpoint_ids = set(initial_checkpoint.get("completed_node_ids", []))
+   checkpoint_results = initial_checkpoint.get("results", {})
+   checkpoint_tasks = initial_checkpoint.get("tasks", {})
    if not checkpoint_ids.issubset(known_ids):
     raise HTTPException(status_code=409, detail="Checkpoint contains nodes not present in the saved workflow.")
+   if any(
+    node_id not in checkpoint_results
+    or checkpoint_tasks.get(node_id, {}).get("status") != "completed"
+    for node_id in checkpoint_ids
+   ):
+    raise HTTPException(status_code=409, detail="Checkpoint is incomplete or internally inconsistent.")
   run_id = str(uuid.uuid4())
   record = workspace.create_execution(run_id, request_payload, parent_run_id)
   def persist_checkpoint(snapshot):
    snapshot["request_fingerprint"] = fingerprint
    snapshot["checkpoint_schema_version"] = 1
+   snapshot["checkpointed_at"] = datetime.now(timezone.utc).isoformat()
    workspace.update_execution_checkpoint(run_id, snapshot, "running")
   result = execute_workflow(
    request.nodes, request.edges, request.inputs,
@@ -510,7 +519,8 @@ def _execute_and_persist(request: WorkflowRequest, parent_run_id: str | None = N
    {"completed_node_ids":[task["node_id"] for task in result["tasks"] if task["status"]=="completed"],
     "results":result["results"],"tasks":{task["node_id"]:task for task in result["tasks"]},
     "completed_layers":len(result["execution_layers"]),
-    "request_fingerprint":fingerprint,"checkpoint_schema_version":1},
+    "request_fingerprint":fingerprint,"checkpoint_schema_version":1,
+    "checkpointed_at":datetime.now(timezone.utc).isoformat()},
    result["status"], result,
   )
   result["run_id"] = run_id
@@ -559,7 +569,7 @@ def resume_workflow_run(run_id: str):
   and node_id in checkpoint.get("results", {})
  )
  checkpoint_age_seconds = None
- checkpoint_timestamp = record.get("updated_at")
+ checkpoint_timestamp = checkpoint.get("checkpointed_at") or record.get("updated_at")
  if checkpoint_timestamp:
   try:
    parsed = datetime.fromisoformat(checkpoint_timestamp.replace("Z", "+00:00"))

@@ -58,6 +58,7 @@ Specialist modules exchange deterministic records; this does not activate LLM ag
 | Worker-scoped evidence memory | Added; append-only SQLite notes per registered worker with source references, quality labels, bounded JSON validation and read filters; not autonomous learning or executable instructions |
 | Versioned specialist-worker contracts | Added v1.0.0 input/output shape contracts and evidence requirements for all 10 workflow node types; execution validates contract shapes before and after deterministic handlers |
 | Versioned 550-worker registry | Added registry v1.0.0, SHA-256 profile manifest, department counts, and deterministic integrity evaluation endpoint; profiles remain templates coordinated by one core |
+| Central research orchestrator | Added shared-core workflow coordination, worker-level result aggregation, contract-version references and a consolidated report with explicit provenance limitations; no LLM inference or broker execution |
 | Docker Compose development setup | Added |
 | CI quality workflow | Added; run status visible in GitHub Actions |
 | Market taxonomy and searchable instrument reference directory | Added |

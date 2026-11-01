@@ -30,7 +30,7 @@ def _finite_close(value):
 
 def compare_source_indicator_series(history, revisioned_keys=None, revision_policy="annotate"):
     """Compute independent source indicators with an explicit revision policy."""
-    if revision_policy not in {"annotate", "exclude_revised", "block_revised"}:
+    if not isinstance(revision_policy, str) or revision_policy not in {"annotate", "exclude_revised", "block_revised"}:
         raise ValueError("revision_policy must be annotate, exclude_revised, or block_revised")
     revised = {
         (str(item.get("source") or "unknown"), str(item.get("timestamp")))

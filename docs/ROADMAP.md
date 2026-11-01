@@ -105,3 +105,8 @@ Worker notes remain isolated and pending review by default. The `POST /api/worke
 ## Historical and live data licensing
 
 The `GET /api/providers/catalogue` endpoint is a metadata-only readiness register. The repository supports user-supplied historical CSV imports and synthetic fixtures; no licensed vendor historical or streaming connector is enabled. Before activating a source, record the legal entity and contract, permitted venues/instruments, historical depth, streaming entitlement, display and non-display rights, derived-data rights, retention limits, redistribution restrictions, geographic limits, credential handling, and vendor audit obligations. Connector activation remains disabled until contract review and technical acceptance checks are complete. Never label an imported file or feed as licensed merely because it is reachable.
+
+
+## Provider entitlement manifest gate
+
+The `POST /api/providers/validate-entitlement` endpoint validates an operator-supplied manifest for markets, historical/live modes, expiry, and declared display, non-display, storage, derived-data, redistribution, and retention rights. A complete manifest is only eligible for manual legal and technical review. It does not authenticate the contract, validate credentials, or activate a connector. Live and historical licensed connectors remain unimplemented pending an actual vendor agreement and approved integration.

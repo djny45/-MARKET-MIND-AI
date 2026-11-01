@@ -22,6 +22,7 @@ from .market_data import SyntheticFixtureAdapter, MarketDataBatch
 from . import market_store
 from .market_events import store_market_events, query_market_events
 from .market_event_quality import diagnose_market_events
+from .agent_network import publish_message, read_messages, network_topology
 from . import watchlist
 from .model_registry import list_model_integrations
 from .setup_report import build_setup_report
@@ -99,6 +100,16 @@ class HistoricalCSVImportRequest(BaseModel):
 
 class HistoricalMarketEventsRequest(BaseModel):
  events: list[dict[str, Any]] = Field(min_length=1, max_length=1000)
+
+class AgentResearchMessageRequest(BaseModel):
+ agent_id: str = Field(min_length=1, max_length=96)
+ market_group: Literal["india", "us", "crypto", "forex"]
+ topic: Literal["macro", "correlation", "volatility", "liquidity", "breadth", "event", "data_quality", "research_note", "regime"]
+ instrument_id: str | None = Field(default=None, max_length=96)
+ source_refs: list[str] = Field(default_factory=list, max_length=20)
+ quality_status: Literal["verified_by_importer", "partial", "unverified", "synthetic"] = "unverified"
+ payload: dict[str, Any] = Field(default_factory=dict)
+
 
 
 class SetupReportRequest(BaseModel):
@@ -402,6 +413,34 @@ async def sample_market_data(symbol: str = "BTCUSD", interval: str = "1d", limit
  try:
   batch = await SyntheticFixtureAdapter().get_bars(symbol, interval, limit)
   return batch.model_dump(mode="json")
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/agent-network")
+def agent_network():
+ """Describe the deterministic four-market research message mesh."""
+ return network_topology()
+
+
+@app.post("/api/agent-network/messages")
+def publish_agent_research_message(request: AgentResearchMessageRequest):
+ """Publish a structured research note to the shared four-market message bus."""
+ try:
+  return publish_message(request.model_dump())
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/agent-network/messages")
+def agent_research_messages(
+ market_group: str | None = None,
+ topic: str | None = None,
+ limit: int = 100,
+):
+ """Read shared research notes, optionally filtered by market or topic."""
+ try:
+  return read_messages(market_group, topic, limit)
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 

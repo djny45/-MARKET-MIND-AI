@@ -19,6 +19,7 @@ from . import workspace
 from .market_data import SyntheticFixtureAdapter, MarketDataBatch
 from . import market_store
 from . import watchlist
+from .model_registry import list_model_integrations
 from .setup_report import build_setup_report
 from .chart_research import build_chart_report
 from .multi_timeframe import build_multi_timeframe_report, SUPPORTED_INTERVALS
@@ -81,6 +82,12 @@ class SetupReportRequest(BaseModel):
  entry: float = Field(gt=0)
  stop: float = Field(gt=0)
  target: float = Field(gt=0)
+
+@app.get("/api/models")
+def model_integrations():
+ """List vendored model metadata without loading weights or enabling inference."""
+ return list_model_integrations()
+
 
 @app.get("/api/health")
 def health():

@@ -33,6 +33,14 @@ The platform is designed for research across four primary market groups: India, 
 - **Synthetic data is labelled:** the sample endpoint is a deterministic development fixture, never a live or historical price feed.
 - **Research only:** no paper trading, brokerage credentials, order routing, or automated execution.
 
+## Cross-market collaboration API
+
+- `GET /api/agent-network` — inspect the four-market research mesh.
+- `POST /api/agent-network/messages` — publish structured, source-linked research notes.
+- `GET /api/agent-network/messages` — read shared notes across markets or filter by market/topic.
+
+Specialist modules exchange deterministic records; this does not activate LLM agents, live feeds or trading execution. See [four-market architecture](docs/FOUR-MARKET-PLATFORM.md).
+
 ## Current implementation
 
 | Area | Current state |
@@ -44,6 +52,7 @@ The platform is designed for research across four primary market groups: India, 
 | DAG workflow execution and cycle detection | Implemented |
 | Data, SMA, EMA, RSI, MACD, Bollinger, returns, volatility and summary nodes | Implemented |
 | 550 worker profiles / 20 departments | Generated templates; not 550 completed agents |
+| Cross-market research agent message bus | Added; deterministic shared mesh across India, US, crypto and forex; no model inference or live feeds |
 | Docker Compose development setup | Added |
 | CI quality workflow | Added; run status visible in GitHub Actions |
 | Market taxonomy and searchable instrument reference directory | Added |

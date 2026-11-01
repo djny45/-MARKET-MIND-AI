@@ -496,14 +496,21 @@ def _validate_checkpoint_integrity(request_payload: dict, checkpoint: dict, know
      or not isinstance(tasks, dict)):
   raise HTTPException(status_code=409, detail="Checkpoint has an invalid internal structure.")
  completed_ids = set(completed_list)
- if not completed_ids.issubset(known_ids):
+ if (not completed_ids.issubset(known_ids)
+     or not set(results).issubset(known_ids)
+     or not set(tasks).issubset(known_ids)):
   raise HTTPException(status_code=409, detail="Checkpoint contains nodes not present in the saved workflow.")
- if any(not isinstance(tasks.get(node_id), dict)
-        or node_id not in results
-        or tasks[node_id].get("status") != "completed"
-        or tasks[node_id].get("node_id", node_id) != node_id
+ allowed_statuses = {"queued", "running", "completed", "failed", "skipped"}
+ if any(not isinstance(record, dict)
+        or record.get("node_id", node_id) != node_id
+        or record.get("status") not in allowed_statuses
+        for node_id, record in tasks.items()):
+  raise HTTPException(status_code=409, detail="Checkpoint contains an invalid task record.")
+ if any(node_id not in results or tasks.get(node_id, {}).get("status") != "completed"
         for node_id in completed_ids):
   raise HTTPException(status_code=409, detail="Checkpoint is incomplete or internally inconsistent.")
+ if not set(results).issubset(completed_ids):
+  raise HTTPException(status_code=409, detail="Checkpoint contains results for nodes not marked completed.")
  completed_layers = checkpoint.get("completed_layers", 0)
  if (not isinstance(completed_layers, int) or isinstance(completed_layers, bool)
      or completed_layers < 0):

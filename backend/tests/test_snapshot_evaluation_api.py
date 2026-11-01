@@ -7,7 +7,11 @@ from unittest.mock import patch
 
 from fastapi import HTTPException
 
-from app.main import create_research_evaluation_snapshot, evaluate_snapshot_holdout_forecasts
+from app.main import (
+    ForecastEvaluationRequest,
+    create_research_evaluation_snapshot,
+    evaluate_snapshot_holdout_forecasts,
+)
 from app.market_data import DataStatus, MarketDataBatch, OHLCVBar
 from app.market_store import store_batch
 
@@ -50,7 +54,7 @@ class SnapshotBoundEvaluationApiTests(unittest.TestCase):
             with patch.dict(os.environ, {"MARKET_MIND_DB": os.path.join(directory, "eval.sqlite")}):
                 snapshot, now = self._create_snapshot(os.environ["MARKET_MIND_DB"])
                 result = evaluate_snapshot_holdout_forecasts(
-                    snapshot["snapshot_id"], {"records": self._records(now)}
+                    snapshot["snapshot_id"], ForecastEvaluationRequest(records=self._records(now))
                 )
                 self.assertEqual(result["partition"], "holdout")
                 self.assertEqual(result["snapshot"]["snapshot_id"], snapshot["snapshot_id"])
@@ -64,7 +68,7 @@ class SnapshotBoundEvaluationApiTests(unittest.TestCase):
                 rows = self._records(now)
                 rows[0]["target_timestamp"] = (now + timedelta(days=20)).isoformat()
                 with self.assertRaises(HTTPException) as error:
-                    evaluate_snapshot_holdout_forecasts(snapshot["snapshot_id"], {"records": rows})
+                    evaluate_snapshot_holdout_forecasts(snapshot["snapshot_id"], ForecastEvaluationRequest(records=rows))
                 self.assertEqual(error.exception.status_code, 400)
                 self.assertIn("inside the snapshot holdout range", error.exception.detail)
 

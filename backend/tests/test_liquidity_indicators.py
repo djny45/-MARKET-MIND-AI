@@ -1,6 +1,6 @@
 import pytest
 
-from backend.app.liquidity_indicators import calculate_volume_profile
+from app.liquidity_indicators import calculate_volume_profile
 
 
 def test_volume_profile_returns_poc_and_value_area():

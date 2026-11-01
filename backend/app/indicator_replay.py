@@ -86,6 +86,7 @@ def build_indicator_replay_report(history, checkpoints=8):
             "bar_index": index,
             "timestamp": bars[index].get("timestamp"),
             "prefix_observation_count": index + 1,
+            "values": actual_values,
             "compared_indicators": len(actual_values),
             "mismatch_count": len(mismatches),
             "mismatched_indicators": mismatches,

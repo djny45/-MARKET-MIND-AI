@@ -70,10 +70,6 @@ class WorkerMemoryTests(unittest.TestCase):
             list_worker_memory("worker_001", limit=0)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
     def test_explicit_human_approval_promotes_evidence_linked_memory(self):
         from app.worker_memory import review_worker_memory, list_shared_knowledge
         entry = store_worker_memory(
@@ -96,3 +92,7 @@ if __name__ == "__main__":
         unreferenced = store_worker_memory("worker_001", "observation", "No refs", [], "partial")
         with self.assertRaisesRegex(ValueError, "source reference"):
             review_worker_memory(unreferenced["memory_id"], "approve", "reviewer", "reviewed")
+
+
+if __name__ == "__main__":
+    unittest.main()

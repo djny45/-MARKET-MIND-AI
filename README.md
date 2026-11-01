@@ -362,3 +362,10 @@ The calendar is caller-supplied. Populate holidays, special sessions, early clos
 `GET /api/research/source-indicators?symbol=RELIANCE&interval=15m&limit=500` computes each provider's indicator series independently and compares results only at exact shared UTC timestamps. It reports source-specific status and per-indicator minimum, maximum, and absolute spread for SMA-20, EMA-20, RSI-14, MACD(12,26,9), and Bollinger-20.
 
 A source with invalid timestamps/closes or duplicate UTC instants is blocked rather than silently repaired or deduplicated. This is a descriptive provider-disagreement report; it does not rank providers, identify a correct feed, verify data rights, or measure predictive accuracy.
+
+
+## Historical evaluation dataset manifest
+
+`GET /api/research/evaluation-manifest?symbol=RELIANCE&interval=1h&limit=500&train_ratio=0.6&validation_ratio=0.2&embargo_bars=1` creates source-isolated chronological development, validation and holdout partitions. It reports partition time ranges, observation counts, embargo ranges and a SHA-256 digest over canonicalized OHLCV and provenance fields.
+
+Each provider is partitioned independently. Invalid timestamps, non-finite OHLCV and duplicate timestamps within a source block that source. The endpoint does not shuffle observations, train a model, tune parameters, backtest a strategy or calculate performance. Embargoes reduce boundary adjacency but do not eliminate all look-ahead, survivorship, revision or selection bias.

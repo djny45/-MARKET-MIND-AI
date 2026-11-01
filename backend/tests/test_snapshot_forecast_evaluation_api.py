@@ -84,6 +84,22 @@ class SnapshotForecastEvaluationApiTests(unittest.TestCase):
             self.assertEqual(error.exception.status_code, 400)
             self.assertIn("outside the source holdout partition", error.exception.detail)
 
+    def test_origin_outside_holdout_partition_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            snapshot = self._create_snapshot(directory)
+            rows = self._records()
+            rows[0]["origin_timestamp"] = "2026-02-02T00:00:00+00:00"
+            rows[0]["forecast_created_at"] = "2026-02-02T00:00:00+00:00"
+            rows[0]["target_timestamp"] = "2026-02-04T00:00:00+00:00"
+            with self.assertRaises(HTTPException) as error:
+                evaluate_snapshot_research_forecasts(
+                    SnapshotForecastEvaluationRequest(
+                        snapshot_id=snapshot["snapshot_id"], records=rows
+                    )
+                )
+            self.assertEqual(error.exception.status_code, 400)
+            self.assertIn("origin_timestamp is outside the source holdout partition", error.exception.detail)
+
     def test_unknown_snapshot_is_not_evaluated(self):
         with tempfile.TemporaryDirectory() as directory:
             with patch.dict(os.environ, {"MARKET_MIND_DB": os.path.join(directory, "missing.sqlite")}):

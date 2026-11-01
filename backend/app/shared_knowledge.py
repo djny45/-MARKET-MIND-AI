@@ -20,6 +20,11 @@ def _shared_connect():
     return db
 
 def review_worker_memory(worker_id, memory_id, decision, reviewer, reason=""):
+    """Review a worker note and atomically promote approved evidence into shared storage.
+
+    The reviewer label is caller-supplied; authentication must be provided by the
+    deployment layer before this endpoint is exposed to multiple users.
+    """
     _validate_worker(worker_id)
     if decision not in {"approve", "reject"}:
         raise ValueError("decision must be approve or reject")
@@ -34,18 +39,32 @@ def review_worker_memory(worker_id, memory_id, decision, reviewer, reason=""):
             raise KeyError("pending worker memory was not found")
         if row["review_status"] != "pending_review":
             raise ValueError("memory entry has already been reviewed")
-        status = "approved" if decision == "approve" else "rejected"
+        refs = json.loads(row["source_refs_json"])
+        if decision == "approve":
+            if not refs:
+                raise ValueError("shared knowledge approval requires at least one source reference")
+            if row["quality_status"] == "synthetic":
+                raise ValueError("synthetic fixture notes cannot be promoted to shared knowledge")
+            db.execute("""CREATE TABLE IF NOT EXISTS shared_knowledge (
+                knowledge_id TEXT PRIMARY KEY, source_memory_id TEXT NOT NULL UNIQUE,
+                worker_id TEXT NOT NULL, content TEXT NOT NULL, source_refs_json TEXT NOT NULL,
+                quality_status TEXT NOT NULL, approved_by TEXT NOT NULL, approved_at TEXT NOT NULL,
+                status TEXT NOT NULL)""")
+            knowledge_id = str(uuid.uuid4())
+            approved_at = datetime.now(timezone.utc).isoformat()
+            db.execute("INSERT INTO shared_knowledge VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                       (knowledge_id, memory_id, worker_id, row["content"], row["source_refs_json"],
+                        row["quality_status"], reviewer.strip(), approved_at, "approved"))
+            status = "approved"
+        else:
+            knowledge_id, approved_at, status = None, None, "rejected"
         db.execute("UPDATE worker_memory SET review_status=? WHERE memory_id=?", (status, memory_id))
-    if decision == "reject":
-        return {"memory_id": memory_id, "review_status": "rejected", "reason": reason}
-    knowledge_id = str(uuid.uuid4())
-    approved_at = datetime.now(timezone.utc).isoformat()
-    with _shared_connect() as db:
-        db.execute("INSERT INTO shared_knowledge VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                   (knowledge_id, memory_id, worker_id, row["content"], row["source_refs_json"],
-                    row["quality_status"], reviewer.strip(), approved_at, "approved"))
-    return {"knowledge_id": knowledge_id, "memory_id": memory_id, "worker_id": worker_id,
-            "review_status": "approved", "approved_by": reviewer.strip(), "approved_at": approved_at}
+    return {
+        "knowledge_id": knowledge_id, "memory_id": memory_id, "worker_id": worker_id,
+        "review_status": status, "approved_by": reviewer.strip(),
+        "reason": reason, "approved_at": approved_at,
+        "reviewer_identity_authenticated": False,
+    }
 
 def list_shared_knowledge(limit=100):
     if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 500:

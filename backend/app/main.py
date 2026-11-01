@@ -492,8 +492,13 @@ def _validate_checkpoint_integrity(request_payload: dict, checkpoint: dict, know
  if any(not isinstance(tasks.get(node_id), dict)
         or node_id not in results
         or tasks[node_id].get("status") != "completed"
+        or tasks[node_id].get("node_id", node_id) != node_id
         for node_id in completed_ids):
   raise HTTPException(status_code=409, detail="Checkpoint is incomplete or internally inconsistent.")
+ completed_layers = checkpoint.get("completed_layers", 0)
+ if (not isinstance(completed_layers, int) or isinstance(completed_layers, bool)
+     or completed_layers < 0):
+  raise HTTPException(status_code=409, detail="Checkpoint has an invalid completed-layer count.")
 
 
 def _execute_and_persist(request: WorkflowRequest, parent_run_id: str | None = None, initial_checkpoint: dict | None = None):

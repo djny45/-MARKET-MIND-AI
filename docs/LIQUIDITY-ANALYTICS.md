@@ -60,3 +60,16 @@ Keep imported code isolated under `third_party/`. Any future adapter must:
 3. return provenance and data-quality metadata;
 4. distinguish observed values from approximations;
 5. avoid execution, order routing, or actionable trade recommendations.
+
+
+## Historical trade flow analytics
+
+The historical trade-flow endpoint aggregates imported trade events into deterministic UTC time buckets:
+
+- `GET /api/market-data/trade-flow?instrument_id=india:nse:RELIANCE&bucket_seconds=60&limit=5000`
+- Optional filters: `provider`, `venue`, `start`, `end`.
+- Each bucket reports trade count, total volume, buy volume, sell volume, unknown-side volume, known-side delta and side-classification coverage.
+- Cumulative volume delta (CVD) is returned only when every trade in the queried sample has a known buy/sell side. If any event has unknown side, CVD is withheld for the entire sample; unknown volume is not treated as zero.
+- The response reports matching vs sampled events and whether the configured limit truncated the sample.
+
+Side labels are supplied by the historical importer and are not independently verified. A "buy" or "sell" classification must be interpreted according to the source's documented aggressor/initiator convention. These are descriptive historical analytics, not live order flow, signals or execution inputs.

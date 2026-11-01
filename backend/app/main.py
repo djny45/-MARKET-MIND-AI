@@ -10,6 +10,7 @@ from .workers import list_workers
 from .skill_catalog import list_skills, load_skill
 from .markets import market_catalog
 from .instruments import search_instruments
+from .instrument_master import search_instrument_master, sync_reference_catalogue, register_provider_identifier
 from .pipeline import system_capabilities
 from .news import ingest_news
 from . import indicators
@@ -77,6 +78,14 @@ class LiquidityProfileRequest(BaseModel):
 
 class WatchlistRequest(BaseModel):
  symbol: str = Field(min_length=1, max_length=32)
+
+
+class ProviderIdentifierRequest(BaseModel):
+ instrument_id: str = Field(min_length=1, max_length=128)
+ provider: str = Field(min_length=1, max_length=128)
+ venue: str = Field(min_length=1, max_length=128)
+ external_id: str = Field(min_length=1, max_length=128)
+ identifier_type: str = Field(default="provider_symbol", min_length=1, max_length=128)
 
 
 class HistoricalCSVImportRequest(BaseModel):
@@ -243,6 +252,32 @@ def instruments(q: str = "", market: str | None = None, market_group: str | None
  if limit < 1 or limit > 100:
   raise HTTPException(status_code=400, detail="limit must be between 1 and 100")
  return search_instruments(q, market, limit, market_group)
+
+@app.get("/api/instrument-master")
+def instrument_master(q: str = "", market_group: str | None = None,
+                      market: str | None = None, limit: int = 50):
+ """Search persistent multi-market reference metadata; no quote data is implied."""
+ try:
+  sync_reference_catalogue()
+  return search_instrument_master(q, market_group, market, limit)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/instrument-master/identifiers")
+def add_provider_identifier(request: ProviderIdentifierRequest):
+ """Register a provider-native identifier against a canonical instrument ID."""
+ try:
+  sync_reference_catalogue()
+  return register_provider_identifier(
+   request.instrument_id, request.provider, request.venue,
+   request.external_id, request.identifier_type,
+  )
+ except KeyError as exc:
+  raise HTTPException(status_code=404, detail=str(exc)) from exc
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
 
 @app.get("/api/news")
 async def news_feed():

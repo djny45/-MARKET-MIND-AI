@@ -11,6 +11,7 @@ from .worker_runtime import dispatch_worker_task, worker_capabilities
 from .worker_memory import list_worker_memory, store_worker_memory
 from .worker_evaluation import evaluate_worker_capabilities
 from .analytical_benchmarks import run_analytical_benchmarks
+from .worker_coordinator import delegate_worker_tasks
 from .skill_catalog import list_skills, load_skill
 from .markets import market_catalog
 from .instruments import search_instruments
@@ -1063,3 +1064,16 @@ def central_research_coordination(request: CentralCoordinationRequest):
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+
+
+@app.post("/api/workers/delegate")
+def delegate_research_workers(request: WorkerDelegationRequest):
+ """Run a caller-authored DAG across authorized deterministic workers."""
+ try:
+  return delegate_worker_tasks(
+   [task.model_dump(exclude_none=True) for task in request.tasks], request.values
+  )
+ except PermissionError as exc:
+  raise HTTPException(status_code=403, detail=str(exc)) from exc
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc

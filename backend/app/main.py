@@ -22,7 +22,7 @@ from .market_data import SyntheticFixtureAdapter, MarketDataBatch
 from . import market_store
 from .market_events import store_market_events, query_market_events
 from .market_event_quality import diagnose_market_events
-from .agent_network import publish_message, read_messages, network_topology
+from .agent_network import publish_message, read_messages, network_topology\nfrom .agent_collaboration import build_collaboration_brief
 from . import watchlist
 from .model_registry import list_model_integrations
 from .setup_report import build_setup_report
@@ -441,6 +441,16 @@ def agent_research_messages(
  """Read shared research notes, optionally filtered by market or topic."""
  try:
   return read_messages(market_group, topic, limit)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/agent-network/brief")
+def agent_collaboration_brief(topic: str | None = None, limit: int = 500):
+ """Build a deterministic cross-market roundtable from shared research notes."""
+ try:
+  shared = read_messages(None, topic, limit)
+  return build_collaboration_brief(shared["messages"])
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 

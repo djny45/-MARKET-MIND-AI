@@ -72,7 +72,7 @@ class MarketStoreTests(unittest.IsolatedAsyncioTestCase):
                     version = connection.execute(
                         "SELECT MAX(version) FROM schema_migrations"
                     ).fetchone()[0]
-                self.assertEqual(version, 3)
+                self.assertEqual(version, 4)
 
     async def test_local_market_overview_summarizes_stored_coverage(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -188,7 +188,7 @@ class MarketStoreTests(unittest.IsolatedAsyncioTestCase):
                 revision_table = connection.execute(
                     "SELECT 1 FROM sqlite_master WHERE type='table' AND name='market_bar_revisions'"
                 ).fetchone()
-            self.assertEqual(version, 3)
+            self.assertEqual(version, 4)
             self.assertIsNotNone(revision_table)
 
 

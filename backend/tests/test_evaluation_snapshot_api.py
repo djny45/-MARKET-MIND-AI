@@ -2,6 +2,7 @@ import os
 import tempfile
 import unittest
 from unittest.mock import patch
+from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException
 
@@ -10,7 +11,7 @@ from app.main import (
     get_research_evaluation_snapshot,
     list_research_evaluation_snapshots,
 )
-from app.market_data import SyntheticFixtureAdapter
+from app.market_data import DataStatus, MarketDataBatch, OHLCVBar
 from app.market_store import store_batch
 
 
@@ -18,7 +19,16 @@ class EvaluationSnapshotApiTests(unittest.IsolatedAsyncioTestCase):
     async def test_create_get_and_list_snapshot_endpoints(self):
         with tempfile.TemporaryDirectory() as directory:
             with patch.dict(os.environ, {"MARKET_MIND_DB": os.path.join(directory, "snapshots.sqlite")}):
-                batch = await SyntheticFixtureAdapter().get_bars("BTCUSD", "1d", 40)
+                now = datetime(2026, 1, 1, tzinfo=timezone.utc)
+                bars = [OHLCVBar(
+                    timestamp=now + timedelta(days=index),
+                    open=100 + index, high=102 + index, low=99 + index,
+                    close=101 + index, volume=1000 + index,
+                ) for index in range(40)]
+                batch = MarketDataBatch(
+                    symbol="BTCUSD", interval="1d", status=DataStatus.HISTORICAL,
+                    source="test-history", retrieved_at=now, bars=bars,
+                )
                 store_batch(batch)
                 saved = create_research_evaluation_snapshot({
                     "symbol": "BTCUSD", "interval": "1d", "limit": 40,

@@ -39,7 +39,7 @@ This roadmap is a plan, not a claim that features already exist. Mark an item co
 - [x] Version the deterministic worker contract and expose contract version in capabilities and dispatch responses.
 - [x] Add bounded deterministic worker dispatch with explicit capability authorization and a capability-status API.
 - [x] Add a typed evidence-first research aggregation API with market coverage, source references, quality labels and disagreement reporting.
-- [x] Add provenance-gated cross-market research round assembly and read-only API.\n- [x] Add bounded worker-to-worker delegation through caller-authored task DAGs.\n- [ ] Build central research orchestrator.
+- [x] Add provenance-gated cross-market research round assembly and read-only API.\n- [x] Add bounded worker-to-worker delegation through caller-authored task DAGs.\n- [x] Add central deterministic coordinator combining worker delegation and evidence-first market synthesis.
 - [x] Add deterministic worker capability smoke-evaluation suite and read-only evaluation API.\n- [x] Add fixed analytical reference-vector correctness benchmarks and a read-only evaluation API.\n- [ ] Add broader property-based, independent-library, and longitudinal benchmark coverage.\n- [ ] Add worker registry governance.
 - [x] Add isolated append-only worker research memory with source references and pending-review status.\n- [x] Add explicit human-reviewed promotion into shared knowledge with source-reference requirements.\n- [ ] Add authenticated reviewer identity and multi-user authorization before deployment.
 - [ ] Build visual node-based research workflows.
@@ -100,3 +100,8 @@ Worker notes remain isolated and pending review by default. The `POST /api/knowl
 
 - `GET /api/providers/catalogue` lists the existing manual CSV and synthetic fixture paths plus a not-yet-implemented licensed vendor adapter category.
 - No commercial vendor or exchange feed is activated. Before adding one, document the contract, venue/instrument entitlements, permitted storage, retention, redistribution and display rights, credential handling, and connector validation.
+
+
+## Historical and live data licensing
+
+The `GET /api/providers/catalogue` endpoint is a metadata-only readiness register. The current repository supports user-supplied historical CSV imports and synthetic fixtures; no licensed vendor historical or streaming connector is enabled. Before activating a source, record the legal entity and contract, permitted venues/instruments, historical depth, streaming entitlement, display and non-display rights, derived-data rights, retention limits, redistribution restrictions, geographic limits, credential handling, and vendor audit obligations. Connector activation remains disabled until the contract and technical acceptance checks are reviewed. Never label an imported file or feed as licensed merely because it is reachable.

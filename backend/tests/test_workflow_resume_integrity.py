@@ -76,6 +76,20 @@ class WorkflowResumeIntegrityTests(unittest.TestCase):
             _validate_checkpoint_integrity(request, checkpoint, {"a"})
         self.assertEqual(error.exception.status_code, 409)
 
+    def test_checkpoint_integrity_rejects_mismatched_task_identity(self):
+        request, checkpoint = self._valid_checkpoint()
+        checkpoint["tasks"]["a"]["node_id"] = "different-node"
+        with self.assertRaises(HTTPException) as error:
+            _validate_checkpoint_integrity(request, checkpoint, {"a"})
+        self.assertEqual(error.exception.status_code, 409)
+
+    def test_checkpoint_integrity_rejects_invalid_completed_layer_count(self):
+        request, checkpoint = self._valid_checkpoint()
+        checkpoint["completed_layers"] = True
+        with self.assertRaises(HTTPException) as error:
+            _validate_checkpoint_integrity(request, checkpoint, {"a"})
+        self.assertEqual(error.exception.status_code, 409)
+
     def test_resume_rejects_corrupted_persisted_checkpoint(self):
         record = {
             "request": {"nodes": [], "edges": [], "inputs": {}},

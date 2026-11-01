@@ -67,5 +67,17 @@ class HeldoutForecastEvaluationTests(unittest.TestCase):
             evaluate_heldout_forecasts([])
 
 
+    def test_numeric_overflow_and_oversized_provenance_are_rejected(self):
+        rows = records()
+        rows[0]["predicted_return"] = 1e308
+        rows[0]["actual_return"] = -1e308
+        with self.assertRaisesRegex(ValueError, "finite numeric evaluation range"):
+            evaluate_heldout_forecasts(rows)
+        rows = records()
+        rows[0]["source_refs"] = ["x"] * 21
+        with self.assertRaisesRegex(ValueError, "1 to 20"):
+            evaluate_heldout_forecasts(rows)
+
+
 if __name__ == "__main__":
     unittest.main()

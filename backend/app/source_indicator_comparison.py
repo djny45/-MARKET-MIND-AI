@@ -108,6 +108,7 @@ def compare_source_indicator_series(history, revisioned_keys=None, revision_poli
                 "invalid_observation_count": len(invalid),
                 "invalid_observations": invalid[:20],
                 "indicator_values_compared": False,
+                **revision_info,
             }
             continue
         if len(parsed) < 2:
@@ -115,6 +116,7 @@ def compare_source_indicator_series(history, revisioned_keys=None, revision_poli
                 "status": "insufficient_source_history",
                 "observation_count": len(indexed_bars),
                 "indicator_values_compared": False,
+                **revision_info,
             }
             continue
 

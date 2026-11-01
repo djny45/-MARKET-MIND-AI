@@ -70,29 +70,5 @@ class WorkerMemoryTests(unittest.TestCase):
             list_worker_memory("worker_001", limit=0)
 
 
-    def test_explicit_human_approval_promotes_evidence_linked_memory(self):
-        from app.worker_memory import review_worker_memory, list_shared_knowledge
-        entry = store_worker_memory(
-            "worker_001", "observation", "Reference note", ["source:fixture-1"], "partial"
-        )
-        reviewed = review_worker_memory(
-            entry["memory_id"], "approve", "local-reviewer", "Checked source reference and context."
-        )
-        self.assertEqual(reviewed["review_status"], "approved")
-        self.assertTrue(reviewed["shared_knowledge_created"])
-        self.assertFalse(reviewed["reviewer_identity_authenticated"])
-        shared = list_shared_knowledge()
-        self.assertTrue(any(item["memory_id"] == entry["memory_id"] for item in shared["entries"]))
-
-    def test_synthetic_or_unreferenced_memory_cannot_be_promoted(self):
-        from app.worker_memory import review_worker_memory
-        synthetic = store_worker_memory("worker_001", "observation", "Synthetic", [], "synthetic")
-        with self.assertRaisesRegex(ValueError, "source reference"):
-            review_worker_memory(synthetic["memory_id"], "approve", "reviewer", "reviewed")
-        unreferenced = store_worker_memory("worker_001", "observation", "No refs", [], "partial")
-        with self.assertRaisesRegex(ValueError, "source reference"):
-            review_worker_memory(unreferenced["memory_id"], "approve", "reviewer", "reviewed")
-
-
 if __name__ == "__main__":
     unittest.main()

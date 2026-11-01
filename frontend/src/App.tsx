@@ -324,7 +324,7 @@ export default function App() {
      {volumeReport&&<div className="volume-indicator-grid">
       {[
        ['OBV','obv','On-Balance Volume'],['ADL','adl','Accumulation / Distribution'],['CMF','cmf','Chaikin Money Flow'],['MFI','mfi','Money Flow Index'],['VWAP','vwap','Volume-weighted average price'],['RELATIVE VOLUME','relative_volume','Volume / rolling average'],['VOLUME OSCILLATOR','volume_oscillator','Fast vs slow volume EMA'],['VOLUME ROC','volume_rate_of_change','Volume rate of change'],['FORCE INDEX','force_index','Price change × volume'],['EASE OF MOVEMENT','ease_of_movement','Price movement relative to volume'],['VPT','vpt','Volume Price Trend'],['CHAIKIN OSC.','chaikin_oscillator','A/D line EMA spread']
-      ].map(([label,key,description]:any)=><div className="volume-indicator-cell" key={key}><small>{label}</small><b>{volumeReport[key]?.at(-1)===null||volumeReport[key]?.at(-1)===undefined?'INSUFFICIENT HISTORY':Number(volumeReport[key].at(-1)).toLocaleString(undefined,{maximumFractionDigits:4})}</b><span>{description}</span></div>)}
+      ].map(([label,key,description]:any)=><div className="volume-indicator-cell" key={key}><small>{label}</small><b>{volumeReport[key]?.[volumeReport[key].length-1]===null||volumeReport[key]?.[volumeReport[key].length-1]===undefined?'INSUFFICIENT HISTORY':Number(volumeReport[key][volumeReport[key].length-1]).toLocaleString(undefined,{maximumFractionDigits:4})}</b><span>{description}</span></div>)}
      </div>}
      <small>Historical calculations from the loaded bar sequence. Early readings may be less stable; missing values reflect warm-up or zero-volume conditions.</small>
     </div>

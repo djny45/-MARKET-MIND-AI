@@ -17,7 +17,7 @@ class ServiceStatusTests(unittest.TestCase):
             self.assertEqual(result["status"], "ready")
             self.assertTrue(result["checks"]["database"]["reachable"])
             self.assertTrue(result["checks"]["database"]["market_bars_schema"])
-            self.assertEqual(result["checks"]["database"]["schema_version"], 1)
+            self.assertEqual(result["checks"]["database"]["schema_version"], 2)
             self.assertFalse(result["execution"]["paper_trading"])
             self.assertFalse(result["execution"]["broker_execution"])
 

@@ -189,3 +189,22 @@ The shared message bus can be assembled into a deterministic collaboration brief
 - Different supplied values are surfaced for analyst review. Matching values are described as agreement only, never proof of causality or statistical consensus.
 
 This is a read-only aggregation of existing research notes. It does not autonomously dispatch agents, load an AI model, create market data, synchronize sessions, or produce trade signals. Each market domain can publish and read the shared bus; the brief gives analysts a compact cross-market view of those conversations.
+
+
+## Historical cross-market return correlation
+
+Pairwise correlation is available from locally stored OHLCV bars:
+
+```text
+GET /api/research/cross-market-correlation?symbols=india:nse:RELIANCE,us:nasdaq:AAPL&interval=1d&limit=500&min_observations=20
+```
+
+- Accepts 2–12 unique symbols and one supported interval (15m, 1h, 4h or 1d).
+- Normalizes timezone-aware bar timestamps to UTC and aligns only exact shared instants.
+- Calculates Pearson correlation on simple close-to-close returns between consecutive shared timestamps.
+- Does not forward-fill missing sessions or guess market calendars.
+- Returns pair-specific overlap counts, sample endpoints, source labels and data-status labels.
+- Returns a null coefficient when the minimum return sample is not met or either return series has zero variance.
+- The default minimum is 20 return observations; callers may set 3–5,000.
+
+The interval parameter is caller-supplied and must represent comparable bar durations. Since India, US, crypto and OTC forex have different sessions, an exact timestamp intersection can be sparse. Pairwise samples may therefore differ. Do not interpret a coefficient as causality, a forecast, or a trading signal. Synthetic status is surfaced in instrument metadata and must not be mixed with empirical historical observations.

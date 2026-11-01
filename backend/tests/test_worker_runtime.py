@@ -33,6 +33,12 @@ class WorkerRuntimeTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             dispatch_worker_task("worker_001", "sma", [1])
 
+    def test_non_finite_worker_observations_are_rejected(self):
+        for invalid in (float("nan"), float("inf"), float("-inf")):
+            with self.subTest(invalid=invalid):
+                with self.assertRaisesRegex(ValueError, "finite numeric"):
+                    dispatch_worker_task("worker_001", "sma", [1.0, invalid, 3.0])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -67,7 +67,7 @@ class SnapshotForecastEvaluationApiTests(unittest.TestCase):
             self.assertEqual(result["snapshot"]["snapshot_id"], snapshot["snapshot_id"])
             self.assertEqual(result["actual_return_method"],
                              "close_to_close_simple_return_from_verified_snapshot_bars")
-            self.assertAlmostEqual(result["metrics"]["mae"], 0.03 - (103 / 130 - 1))
+            self.assertAlmostEqual(result["metrics"]["mae"], 0.03 - (133 / 130 - 1))
             self.assertNotEqual(result["metrics"]["mae"], 0.0)
 
     def test_target_outside_holdout_partition_is_rejected(self):

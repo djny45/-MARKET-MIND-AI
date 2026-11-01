@@ -320,3 +320,14 @@ Use `GET /api/workers/evaluations` to run a deterministic smoke evaluation acros
 ### Evidence-gated cross-market research round
 
 Use `GET /api/agent-network/round` to assemble the existing shared India, US, crypto and forex research messages into a reviewable round. The response reports per-market message counts, distinct source-reference coverage, quality labels and markets that fail the provenance threshold. The gate checks coverage only; it does not authenticate sources or validate analytical conclusions. This is deterministic coordination, not autonomous LLM agents.
+
+
+## Research quality, delegation and shared knowledge (research-only)
+
+- `GET /api/benchmarks/indicators` runs fixed reference-fixture checks for selected SMA, EMA, returns, RSI, MACD, Bollinger and realized-volatility contracts. These are bounded correctness checks, not an exhaustive mathematical audit or predictive-performance test.
+- `POST /api/workers/delegate` routes a bounded sequence of explicitly authorized deterministic tasks between worker profiles. Tasks execute sequentially; dependencies may consume compatible array outputs.
+- `POST /api/workers/{worker_id}/memory/{memory_id}/review` requires a named reviewer and an explicit approve/reject decision. Only approved notes are copied to `GET /api/knowledge/shared`.
+- `POST /api/intelligence/coordinate` combines bounded worker dispatch with evidence aggregation. It remains deterministic and requires analyst review.
+- `GET /api/providers/catalogue` reports data-source readiness and rights checks. CSV import and synthetic fixtures are available; licensed vendor connectors are not implemented or activated.
+
+Provider activation requires documented data rights, venue/instrument entitlement, retention and redistribution review, credential validation, and connector tests. A catalogue entry is not a licence or a live connection. No autonomous model inference, broker execution, or live feed is enabled by these additions.

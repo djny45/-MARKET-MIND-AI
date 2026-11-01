@@ -1,6 +1,8 @@
 import os
 import tempfile
 import unittest
+
+from fastapi import HTTPException
 from unittest.mock import patch
 
 from app.main import WorkerMemoryRequest, add_worker_memory, get_worker_memory
@@ -36,6 +38,7 @@ class WorkerMemoryApiTests(unittest.TestCase):
         request = WorkerMemoryRequest(memory_type="observation", content={"note": "x"})
         with self.assertRaises(Exception):
             add_worker_memory("worker_9999", request)
+        self.assertEqual(error.exception.status_code, 400)
 
 
 if __name__ == "__main__":

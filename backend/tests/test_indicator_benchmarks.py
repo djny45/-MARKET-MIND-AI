@@ -1,7 +1,7 @@
 import unittest
 
 from app.indicator_benchmarks import run_indicator_benchmarks
-from app.indicators import rsi
+from app.indicators import rsi, sma
 
 
 class IndicatorBenchmarkTests(unittest.TestCase):
@@ -19,6 +19,12 @@ class IndicatorBenchmarkTests(unittest.TestCase):
 
     def test_monotonic_rise_rsi_is_one_hundred_after_warmup(self):
         self.assertEqual(rsi([1.0, 2.0, 3.0, 4.0], 2), [None, 100.0, 100.0])
+
+    def test_indicators_reject_nan_and_infinite_observations(self):
+        for invalid in (float("nan"), float("inf"), float("-inf")):
+            with self.subTest(invalid=invalid):
+                with self.assertRaisesRegex(ValueError, "finite numeric"):
+                    sma([1.0, invalid, 3.0], 2)
 
 
 if __name__ == "__main__":

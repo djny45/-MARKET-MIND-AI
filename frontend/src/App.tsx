@@ -211,7 +211,7 @@ export default function App() {
    setCsvMessage('IMPORTED '+body.stored+' BARS · '+body.symbol+' · '+body.interval+' · '+body.source)
    const historyResponse=await fetch(API+'/api/market-data/history?'+new URLSearchParams({symbol:researchSymbol.trim(),interval:researchInterval,limit:'500'}).toString())
    const historyBody=await historyResponse.json()
-   if(historyResponse.ok){setResearchBars(historyBody.bars||[]);setHistoryMeta({source:historyBody.source,status:historyBody.status,retrieved_at:historyBody.retrieved_at,source_count:historyBody.source_count,timestamp_count:historyBody.timestamp_count,duplicate_timestamp_observations:historyBody.duplicate_timestamp_observations,first_timestamp:historyBody.first_timestamp,last_timestamp:historyBody.last_timestamp,sources:historyBody.sources})}
+   if(historyResponse.ok){setVolumeReport(null);setVolumeError('');setResearchBars(historyBody.bars||[]);setHistoryMeta({source:historyBody.source,status:historyBody.status,retrieved_at:historyBody.retrieved_at,source_count:historyBody.source_count,timestamp_count:historyBody.timestamp_count,duplicate_timestamp_observations:historyBody.duplicate_timestamp_observations,first_timestamp:historyBody.first_timestamp,last_timestamp:historyBody.last_timestamp,sources:historyBody.sources})}
    const timelineResponse=await fetch(API+'/api/research/timeline?'+new URLSearchParams({symbol:researchSymbol.trim(),interval:researchInterval,limit:'200'}).toString())
    const timelineBody=await timelineResponse.json()
    if(timelineResponse.ok){setResearchTimeline(timelineBody.events||[]);setTimelineError('')}else{setTimelineError(timelineBody.detail||'Timeline refresh unavailable')}
@@ -233,7 +233,7 @@ export default function App() {
    await loadHistoricalQuality(chosen)
    const historyResponse=await fetch(API+'/api/market-data/history?'+new URLSearchParams({symbol:researchSymbol.trim(),interval:chosen,limit:'500'}).toString())
    const historyBody=await historyResponse.json()
-   if(historyResponse.ok){setResearchBars(historyBody.bars||[]);setHistoryMeta({source:historyBody.source,status:historyBody.status,retrieved_at:historyBody.retrieved_at,source_count:historyBody.source_count,timestamp_count:historyBody.timestamp_count,duplicate_timestamp_observations:historyBody.duplicate_timestamp_observations,first_timestamp:historyBody.first_timestamp,last_timestamp:historyBody.last_timestamp,sources:historyBody.sources})}
+   if(historyResponse.ok){setVolumeReport(null);setVolumeError('');setResearchBars(historyBody.bars||[]);setHistoryMeta({source:historyBody.source,status:historyBody.status,retrieved_at:historyBody.retrieved_at,source_count:historyBody.source_count,timestamp_count:historyBody.timestamp_count,duplicate_timestamp_observations:historyBody.duplicate_timestamp_observations,first_timestamp:historyBody.first_timestamp,last_timestamp:historyBody.last_timestamp,sources:historyBody.sources})}
    else {setResearchBars([]);setHistoryMeta(null)}
    setTimelineBusy(true);setTimelineError('')
    const timelineResponse=await fetch(API+'/api/research/timeline?'+new URLSearchParams({symbol:researchSymbol.trim(),interval:chosen,limit:'200'}).toString())
@@ -395,7 +395,7 @@ export default function App() {
        <small>Exact timestamp matches only; no interpolation or forward-filling. These are historical calculations, not signals.</small>
       </div>}
       <div className="research-cluster-tools">
-       <label>CHART TIMEFRAME</label><select value={researchInterval} onChange={async e=>{const interval=e.target.value;setResearchInterval(interval);setSelectedCluster(null);await loadHistoricalQuality(interval);try{const r=await fetch(API+'/api/market-data/history?'+new URLSearchParams({symbol:researchSymbol.trim(),interval,limit:'500'}).toString());const d=await r.json();setResearchBars(r.ok?(d.bars||[]):[]);setHistoryMeta(r.ok?{source:d.source,status:d.status,retrieved_at:d.retrieved_at}:null)}catch{setResearchBars([]);setHistoryMeta(null)}}}>{researchIntervals.split(',').map(x=>x.trim()).filter(Boolean).map(x=><option key={x} value={x}>{x}</option>)}</select>
+       <label>CHART TIMEFRAME</label><select value={researchInterval} onChange={async e=>{const interval=e.target.value;setResearchInterval(interval);setSelectedCluster(null);setVolumeReport(null);setVolumeError('');await loadHistoricalQuality(interval);try{const r=await fetch(API+'/api/market-data/history?'+new URLSearchParams({symbol:researchSymbol.trim(),interval,limit:'500'}).toString());const d=await r.json();setVolumeReport(null);setVolumeError('');setResearchBars(r.ok?(d.bars||[]):[]);setHistoryMeta(r.ok?{source:d.source,status:d.status,retrieved_at:d.retrieved_at}:null)}catch{setResearchBars([]);setHistoryMeta(null)}}}>{researchIntervals.split(',').map(x=>x.trim()).filter(Boolean).map(x=><option key={x} value={x}>{x}</option>)}</select>
        <small>{researchBars.length} stored observations · {historyMeta?.source||'source unavailable'} · {historyMeta?.status||'status unavailable'}</small>
        {historyMeta&&<small>Sources {historyMeta.source_count??'—'} · distinct timestamps {historyMeta.timestamp_count??'—'} · overlapping observations {historyMeta.duplicate_timestamp_observations??'—'}</small>}
        {historyMeta&&<small>Range {historyMeta.first_timestamp||'—'} → {historyMeta.last_timestamp||'—'} · retrieved {historyMeta.retrieved_at||'—'}</small>}
@@ -440,6 +440,8 @@ export default function App() {
      <article className="overview-card"><span>WATCHLIST</span><strong>{watchlistItems.length}</strong><small>Saved instrument references</small></article>
      <article className="overview-card"><span>RESEARCH WORKERS</span><strong>{workers.length||550}</strong><small>Templates, not active autonomous agents</small></article>
      <article className="overview-card"><span>EXECUTION MODE</span><strong>DISABLED</strong><small>Broker connections and order execution are not configured</small></article>
+     <article className="overview-card"><span>STORED OBSERVATIONS</span><strong>{marketOverview?.coverage?.reduce((sum:number,item:any)=>sum+(item.observation_count||0),0)??'—'}</strong><small>Total locally stored OHLCV rows in this overview</small></article>
+     <article className="overview-card"><span>RECORDED SOURCES</span><strong>{marketOverview?.coverage?new Set(marketOverview.coverage.flatMap((item:any)=>item.sources||[])).size:'—'}</strong><small>Distinct source labels across stored coverage</small></article>
     </div>
     <div className="overview-columns">
      <section className="overview-panel"><div className="overview-panel-head"><div><b>STORED MARKET DATA</b><small>Local historical observations only</small></div><button className="soft-btn" onClick={()=>setActiveTab('WATCHLIST')}>OPEN WATCHLIST</button></div>

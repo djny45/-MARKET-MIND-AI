@@ -64,5 +64,39 @@ class IndicatorReplayTests(unittest.TestCase):
             self.assertEqual(first_by_index[index]["values"], second_by_index[index]["values"])
 
 
+    def test_multi_source_histories_are_replayed_independently(self):
+        base = history(30)["bars"]
+        alpha = [{**bar, "source": "alpha"} for bar in base]
+        beta = [{**bar, "source": "beta", "close": bar["close"] * 2} for bar in base]
+        result = build_indicator_replay_report(
+            {"symbol": "TEST", "interval": "1h", "bars": alpha + beta}, checkpoints=4
+        )
+        self.assertEqual(result["source_count"], 2)
+        self.assertEqual(result["evaluated_source_count"], 2)
+        self.assertEqual(result["causal_consistency"], "pass")
+        self.assertEqual(result["source_reports"]["alpha"]["bars_replayed"], 30)
+        self.assertEqual(result["source_reports"]["beta"]["bars_replayed"], 30)
+        self.assertNotEqual(
+            result["source_reports"]["alpha"]["comparisons"][0]["indicator_values"]["ema"],
+            result["source_reports"]["beta"]["comparisons"][0]["indicator_values"]["ema"],
+        )
+
+    def test_source_with_one_observation_is_not_mixed_into_another_source(self):
+        bars = [{**bar, "source": "alpha"} for bar in history(12)["bars"]]
+        bars.append({**bars[0], "source": "beta"})
+        result = build_indicator_replay_report({"bars": bars}, checkpoints=3)
+        self.assertEqual(result["source_reports"]["beta"]["status"], "insufficient_source_history")
+        self.assertEqual(result["source_reports"]["alpha"]["bars_replayed"], 12)
+
+    def test_future_extension_preserves_actual_values_at_shared_checkpoints(self):
+        original = history(40)
+        extended = {"bars": original["bars"] + history(10)["bars"]}
+        first = build_indicator_replay_report(original, checkpoints=4)
+        second = build_indicator_replay_report(extended, checkpoints=4)
+        first_by_index = {item["bar_index"]: item["indicator_values"] for item in first["comparisons"]}
+        second_by_index = {item["bar_index"]: item["indicator_values"] for item in second["comparisons"]}
+        for index in set(first_by_index).intersection(second_by_index):
+            self.assertEqual(first_by_index[index], second_by_index[index])
+
 if __name__ == "__main__":
     unittest.main()

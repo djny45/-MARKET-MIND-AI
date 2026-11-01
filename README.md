@@ -131,7 +131,7 @@ For manual setup, see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 | DELETE | `/api/watchlist/{symbol}` | Remove an instrument from the local watchlist |
 | GET | `/api/nodes` | Supported workflow node definitions |
 | GET | `/api/workers` | Worker profile catalogue |
-| GET | `/api/instruments?q=` | Search reference instrument metadata |
+| GET | `/api/instruments?q=` | Search curated instrument examples by market group and asset class |\n| GET | `/api/instrument-master` | Search persistent four-market instrument reference metadata |\n| POST | `/api/instrument-master/identifiers` | Register provider-native identifiers against canonical instrument IDs |
 | GET | `/api/news` | Fetch configured official RSS headlines |
 | POST | `/api/news/ingest` | Trigger RSS ingestion |
 | POST | `/api/indicators` | Calculate deterministic indicator series |

@@ -829,8 +829,9 @@ def create_research_evaluation_snapshot(request: dict):
  if not isinstance(limit, int) or isinstance(limit, bool) or limit < 1 or limit > 5000:
   raise HTTPException(status_code=400, detail="limit must be an integer between 1 and 5000")
  try:
+  history = market_store.get_bars(symbol, interval, limit)
   manifest = build_evaluation_manifest(
-   market_store.get_bars(symbol, interval, limit),
+   history,
    train_ratio=train_ratio,
    validation_ratio=validation_ratio,
    embargo_bars=embargo_bars,
@@ -842,6 +843,7 @@ def create_research_evaluation_snapshot(request: dict):
    {"symbol": symbol.upper(), "interval": interval, "limit": limit,
     "train_ratio": train_ratio, "validation_ratio": validation_ratio,
     "embargo_bars": embargo_bars, "revision_policy": revision_policy},
+   dataset_bars=history["bars"],
   )
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc

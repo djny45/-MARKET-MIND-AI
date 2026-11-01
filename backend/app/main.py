@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 from typing import Any, Literal
 import hashlib
 import json
+from datetime import datetime, timezone
 from .workflow import NODE_TYPES, execute_workflow
 from .workers import list_workers
 from .skill_catalog import list_skills, load_skill
@@ -549,7 +550,32 @@ def resume_workflow_run(run_id: str):
  if record is None:
   raise HTTPException(status_code=404, detail="Workflow run not found")
  request = WorkflowRequest(**record["request"])
- replay = _execute_and_persist(request, parent_run_id=run_id, initial_checkpoint=record.get("checkpoint"))
+ checkpoint = record.get("checkpoint") or {}
+ completed_ids = checkpoint.get("completed_node_ids", [])
+ checkpoint_tasks = checkpoint.get("tasks", {})
+ restored_count = sum(
+  1 for node_id in completed_ids
+  if checkpoint_tasks.get(node_id, {}).get("status") == "completed"
+  and node_id in checkpoint.get("results", {})
+ )
+ checkpoint_age_seconds = None
+ checkpoint_timestamp = record.get("updated_at")
+ if checkpoint_timestamp:
+  try:
+   parsed = datetime.fromisoformat(checkpoint_timestamp.replace("Z", "+00:00"))
+   if parsed.tzinfo is None:
+    parsed = parsed.replace(tzinfo=timezone.utc)
+   checkpoint_age_seconds = max(0.0, (datetime.now(timezone.utc) - parsed).total_seconds())
+  except (TypeError, ValueError):
+   checkpoint_age_seconds = None
+ replay = _execute_and_persist(request, parent_run_id=run_id, initial_checkpoint=checkpoint)
  replay["resume_mode"] = "checkpoint_resume"
+ replay["recovery"] = {
+  "source_run_id": run_id,
+  "restored_task_count": restored_count,
+  "checkpoint_age_seconds": round(checkpoint_age_seconds, 3) if checkpoint_age_seconds is not None else None,
+  "checkpoint_schema_version": checkpoint.get("checkpoint_schema_version"),
+  "checkpoint_completed_layers": checkpoint.get("completed_layers", 0),
+ }
  replay["resume_note"] = "Completed nodes from the last durable layer checkpoint were restored; incomplete nodes were scheduled again."
  return replay

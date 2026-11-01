@@ -8,10 +8,8 @@ from datetime import datetime, timezone
 from .workflow import NODE_TYPES, execute_workflow
 from .workers import list_workers
 from .worker_runtime import dispatch_worker_task, worker_capabilities
-from .worker_memory import list_worker_memory, store_worker_memory, review_worker_memory, list_shared_knowledge
+from .worker_memory import list_worker_memory, store_worker_memory
 from .worker_evaluation import evaluate_worker_capabilities
-from .analytical_benchmarks import run_analytical_benchmarks
-from .worker_coordinator import delegate_worker_tasks
 from .skill_catalog import list_skills, load_skill
 from .markets import market_catalog
 from .instruments import search_instruments
@@ -168,7 +166,8 @@ class WorkerMemoryReviewRequest(BaseModel):
 
 
 class CentralCoordinationRequest(BaseModel):
- worker_tasks: list[dict[str, Any]] = Field(min_length=1, max_length=50)
+ worker_tasks: list[dict[str, Any]] = Field(min_length=1, max_length=25)
+ values: list[float] = Field(min_length=2, max_length=10000)
  findings: list[ResearchFindingRequest] = Field(default_factory=list, max_length=1000)
  requested_markets: list[Literal["india", "us", "crypto", "forex"]] = Field(default_factory=lambda: ["india", "us", "crypto", "forex"], min_length=1, max_length=4)
 
@@ -998,12 +997,6 @@ def get_worker_memory(worker_id: str, limit: int = 50, memory_type: str | None =
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@app.get("/api/analytics/benchmarks")
-def get_analytical_benchmarks():
- """Run deterministic formula checks against fixed reference vectors."""
- return run_analytical_benchmarks()
-
-
 @app.get("/api/benchmarks/indicators")
 def indicator_correctness_benchmarks():
  """Run fixed reference-fixture checks for indicator formula contracts."""
@@ -1054,6 +1047,7 @@ def central_research_coordination(request: CentralCoordinationRequest):
  try:
   return coordinate_research(
    request.worker_tasks,
+   request.values,
    [finding.model_dump() for finding in request.findings],
    request.requested_markets,
   )
@@ -1066,21 +1060,3 @@ def central_research_coordination(request: CentralCoordinationRequest):
 
 
 
-
-@app.post("/api/knowledge/review/{memory_id}")
-def review_shared_knowledge(memory_id: str, request: WorkerMemoryReviewRequest):
- """Explicitly approve or reject a pending worker note for shared use."""
- try:
-  return review_worker_memory(memory_id, request.decision, request.reviewer_id, request.rationale)
- except KeyError as exc:
-  raise HTTPException(status_code=404, detail=str(exc)) from exc
- except ValueError as exc:
-  raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-
-@app.get("/api/knowledge/shared")
-def get_shared_knowledge(limit: int = 100):
- try:
-  return list_shared_knowledge(limit)
- except ValueError as exc:
-  raise HTTPException(status_code=400, detail=str(exc)) from exc

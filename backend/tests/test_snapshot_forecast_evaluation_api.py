@@ -67,14 +67,14 @@ class SnapshotForecastEvaluationApiTests(unittest.TestCase):
             self.assertEqual(result["snapshot"]["snapshot_id"], snapshot["snapshot_id"])
             self.assertEqual(result["actual_return_method"],
                              "close_to_close_simple_return_from_verified_snapshot_bars")
-            self.assertAlmostEqual(result["metrics"]["mae"], 0.03 - (133 / 130 - 1))
+            self.assertAlmostEqual(result["metrics"]["mae"], 0.03 - ((3 / 130 + 3 / 131 + 3 / 132) / 3))
             self.assertNotEqual(result["metrics"]["mae"], 0.0)
 
     def test_target_outside_holdout_partition_is_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
             snapshot = self._create_snapshot(directory)
             rows = self._records()
-            rows[0]["target_timestamp"] = "2026-01-26T00:00:00+00:00"
+            rows[0]["origin_timestamp"] = "2026-01-25T00:00:00+00:00"\n            rows[0]["forecast_created_at"] = "2026-01-25T00:00:00+00:00"\n            rows[0]["target_timestamp"] = "2026-01-26T00:00:00+00:00"
             with self.assertRaises(HTTPException) as error:
                 evaluate_snapshot_research_forecasts(
                     SnapshotForecastEvaluationRequest(

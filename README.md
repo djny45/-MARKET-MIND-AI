@@ -52,7 +52,7 @@ Specialist modules exchange deterministic records; this does not activate LLM ag
 | FastAPI service and health endpoint | Implemented |
 | DAG workflow execution and cycle detection | Implemented |
 | Data, SMA, EMA, RSI, MACD, Bollinger, returns, volatility and summary nodes | Implemented |
-| 550 worker profiles / 20 departments | Generated templates; not 550 completed agents |
+| 550+ AI analytical worker profiles / 20 departments | Shared central intelligence; profiles are templates, not 550 separate models or active runtime processes |
 | Cross-market research agent message bus | Added; deterministic shared mesh across India, US, crypto and forex; no model inference or live feeds |
 | Docker Compose development setup | Added |
 | CI quality workflow | Added; run status visible in GitHub Actions |
@@ -70,7 +70,7 @@ Specialist modules exchange deterministic records; this does not activate LLM ag
 
 ## Shared agent skill playbooks
 
-Ten upstream day-trader skill definitions are vendored under [`.agents/skills/day-trader-skill/`](.agents/skills/day-trader-skill/README.md). The 550 worker profiles now carry department-based `skill_refs` so the orchestration layer can select relevant research guidance without injecting every playbook into every task. These profiles remain templates, not 550 active agents. Skill references do not execute scripts or grant permissions. The broker/order-execution skill is excluded; the application remains research-only with no brokerage routing.
+Ten upstream day-trader skill definitions are vendored under [`.agents/skills/day-trader-skill/`](.agents/skills/day-trader-skill/README.md). The 550+ AI analytical worker profiles carry department-based `skill_refs` so the orchestration layer can select relevant research guidance without injecting every playbook into every task. These profiles are AI analytical worker templates coordinated by one shared central intelligence core; they are not 550 separate models or 550 continuously running processes. A worker becomes executable only when its handler is implemented, validated, and registered. Skill references do not execute scripts or grant permissions. The broker/order-execution skill is excluded; the application remains research-only with no brokerage routing.
 
 ## Visual workflow model
 

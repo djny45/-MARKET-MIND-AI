@@ -93,16 +93,15 @@ def build_session_gap_report(history, calendar):
     for index, bar, instant in parsed:
         source = str(bar.get("source") or "unknown")
         report = by_source.setdefault(source, {
-            "observed_count": 0, "matched_scheduled_count": 0,
-            "outside_schedule_count": 0, "duplicate_timestamp_count": 0,
-            "_seen": set(),
+            "observed_count": 0, "outside_schedule_count": 0,
+            "duplicate_timestamp_count": 0, "_seen": set(), "_matched": set(),
         })
         report["observed_count"] += 1
         if instant in report["_seen"]:
             report["duplicate_timestamp_count"] += 1
         report["_seen"].add(instant)
         if instant in expected_all:
-            report["matched_scheduled_count"] += 1
+            report["_matched"].add(instant)
         else:
             report["outside_schedule_count"] += 1
 
@@ -115,7 +114,7 @@ def build_session_gap_report(history, calendar):
         source_reports[source] = {
             "observed_count": report["observed_count"],
             "expected_scheduled_count": len(expected_all),
-            "matched_scheduled_count": report["matched_scheduled_count"],
+            "matched_scheduled_count": len(report["_matched"]),
             "missing_scheduled_count": len(missing),
             "outside_schedule_count": report["outside_schedule_count"],
             "duplicate_timestamp_count": report["duplicate_timestamp_count"],

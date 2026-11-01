@@ -7,6 +7,7 @@ import json
 from datetime import datetime, timezone
 from .workflow import NODE_TYPES, execute_workflow
 from .workers import list_workers
+from .worker_runtime import worker_runtime_status
 from .skill_catalog import list_skills, load_skill
 from .markets import market_catalog
 from .instruments import search_instruments
@@ -231,6 +232,12 @@ def provider_status():
 @app.get("/api/nodes")
 def nodes():
  return {"nodes":list(NODE_TYPES.values())}
+
+@app.get("/api/worker-runtime")
+def worker_runtime():
+ """Report specialist routing coverage and the actual inference/execution boundary."""
+ return worker_runtime_status()
+
 
 @app.get("/api/workers")
 def workers(department: str | None = None, limit: int = 550):

@@ -22,6 +22,7 @@ from .volume_indicators import calculate_volume_indicators
 from .liquidity_indicators import calculate_volume_profile
 from .performance import performance_metrics
 from .forecast_evaluation import evaluate_heldout_forecasts
+from .snapshot_forecast_evaluation import evaluate_snapshot_forecasts
 from . import workspace
 from .market_data import SyntheticFixtureAdapter, MarketDataBatch
 from . import market_store
@@ -203,6 +204,11 @@ class ProviderEntitlementRequest(BaseModel):
 
 
 class ForecastEvaluationRequest(BaseModel):
+ records: list[dict[str, Any]] = Field(min_length=3, max_length=10000)
+
+
+class SnapshotForecastEvaluationRequest(BaseModel):
+ snapshot_id: str = Field(min_length=64, max_length=64)
  records: list[dict[str, Any]] = Field(min_length=3, max_length=10000)
 
 
@@ -483,6 +489,24 @@ def evaluate_research_forecasts(request: ForecastEvaluationRequest):
  """Score caller-supplied forecasts on holdout data with timestamp leakage gates."""
  try:
   return evaluate_heldout_forecasts(request.records)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/research/evaluate-snapshot-forecasts")
+def evaluate_snapshot_research_forecasts(request: SnapshotForecastEvaluationRequest):
+ """Evaluate forecasts using realized returns calculated from a verified snapshot."""
+ snapshot_id = request.snapshot_id
+ if any(char not in "0123456789abcdef" for char in snapshot_id):
+  raise HTTPException(status_code=400, detail="snapshot_id must be a lowercase SHA-256 identifier")
+ snapshot = market_store.get_evaluation_manifest_snapshot(snapshot_id)
+ if snapshot is None:
+  raise HTTPException(status_code=404, detail="Evaluation manifest snapshot not found")
+ verification = market_store.verify_evaluation_manifest_snapshot(snapshot_id)
+ if verification is None or verification.get("status") != "verified":
+  raise HTTPException(status_code=409, detail="Evaluation snapshot failed integrity verification")
+ try:
+  return evaluate_snapshot_forecasts(snapshot, request.records)
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 

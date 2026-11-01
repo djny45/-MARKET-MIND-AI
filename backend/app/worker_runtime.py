@@ -7,6 +7,8 @@ fetch market data, or place orders.
 from .workers import list_workers
 from .workflow import NODE_TYPES, execute_workflow
 
+WORKER_CONTRACT_VERSION = "1.0.0"
+
 # Explicit opt-in mappings. Unmapped specialties remain descriptive templates.
 SPECIALTY_OPERATIONS = {
     "trend": {"sma", "ema"},
@@ -33,6 +35,7 @@ def worker_capabilities():
         })
     executable_count = sum(item["status"] == "executable" for item in executable)
     return {
+        "worker_contract_version": WORKER_CONTRACT_VERSION,
         "worker_profiles": len(workers),
         "executable_profiles": executable_count,
         "template_only_profiles": len(workers) - executable_count,
@@ -66,6 +69,7 @@ def dispatch_worker_task(worker_id, operation, values, params=None):
     result = execute_workflow([node], [], {"worker-task": values}, max_workers=1)
     task = result["tasks"][0]
     return {
+        "worker_contract_version": WORKER_CONTRACT_VERSION,
         "worker_id": worker_id,
         "worker_name": worker["name"],
         "department": worker["department"],

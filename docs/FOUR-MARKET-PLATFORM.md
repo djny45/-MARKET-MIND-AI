@@ -33,6 +33,27 @@ The instrument reference endpoint is metadata-only:
 - Each catalogue row includes `instrument_id`, `symbol`, `name`, `market`, `market_group`, `instrument_type`, `venue`, `currency` and `metadata_status=reference_only`.
 - The initial catalogue is a small curated reference set, not a complete exchange instrument master and not a quote source.
 
+## Persistent instrument master
+
+The SQLite-backed reference registry is available through:
+
+- `GET /api/instrument-master?q=&market_group=india&market=equities&limit=50`
+- `POST /api/instrument-master/identifiers`
+
+Provider identifier registration body:
+
+```json
+{
+  "instrument_id": "india:nse:RELIANCE",
+  "provider": "provider-name",
+  "venue": "NSE",
+  "external_id": "provider-native-symbol",
+  "identifier_type": "provider_symbol"
+}
+```
+
+The curated reference catalogue is idempotently seeded into local SQLite storage. Provider identifiers are namespaced by provider, venue and external ID, so identical native symbols at different venues/providers do not collide. The API returns reference metadata only and explicitly reports that quotes are not included. The initial registry is not a complete exchange master and must be reconciled against authorized provider reference files before production use.
+
 ## Data domains and event contracts
 
 ### Common reference entities

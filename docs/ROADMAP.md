@@ -39,7 +39,7 @@ This roadmap is a plan, not a claim that features already exist. Mark an item co
 - [x] Version the deterministic worker contract and expose contract version in capabilities and dispatch responses.
 - [x] Add bounded deterministic worker dispatch with explicit capability authorization and a capability-status API.
 - [x] Add a typed evidence-first research aggregation API with market coverage, source references, quality labels and disagreement reporting.
-- [ ] Build central research orchestrator.
+- [x] Add provenance-gated cross-market research round assembly and read-only API.\n- [ ] Build central research orchestrator.
 - [x] Add deterministic worker capability smoke-evaluation suite and read-only evaluation API.\n- [ ] Add analytical correctness benchmarks, worker registry governance, and longitudinal evaluation.
 - [x] Add isolated append-only worker research memory with source references and pending-review status.\n- [ ] Add human-reviewed promotion into shared knowledge.
 - [ ] Build visual node-based research workflows.
@@ -69,3 +69,7 @@ A module is considered implemented only when it has:
 ## Worker evaluation contract
 
 The `GET /api/workers/evaluations` endpoint runs one fixed synthetic fixture per unique deterministic operation currently mapped to worker profiles. It checks successful dispatch and basic output shape. A passing result confirms wiring only; it does not validate analytical correctness, predictive skill, live-data quality, or trading performance. The endpoint is read-only and does not access external providers or execute orders.
+
+## Cross-market research rounds
+
+The `GET /api/agent-network/round` endpoint assembles already-published India, US, crypto and forex research messages. It reports per-market message counts, distinct source-reference coverage, quality-label counts, and a human-review gate. A round is marked incomplete when any requested market lacks the configured minimum number of distinct source references. Passing this gate checks provenance coverage only: it does not authenticate sources or validate findings. The workflow is deterministic and does not invoke independent LLM agents.

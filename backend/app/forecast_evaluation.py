@@ -58,8 +58,9 @@ def evaluate_heldout_forecasts(records):
         predicted = _finite(record.get("predicted_return"), "predicted_return")
         actual = _finite(record.get("actual_return"), "actual_return")
         refs = record.get("source_refs")
-        if not isinstance(refs, list) or not refs or any(not isinstance(ref, str) or not ref.strip() for ref in refs):
-            raise ValueError(f"record {index} requires non-empty source_refs")
+        if (not isinstance(refs, list) or not refs or len(refs) > 20
+                or any(not isinstance(ref, str) or not ref.strip() or len(ref) > 500 for ref in refs)):
+            raise ValueError(f"record {index} requires 1 to 20 non-empty source_refs of at most 500 characters")
         source_refs.update(ref.strip() for ref in refs)
         parsed.append((target, predicted, actual))
 
@@ -67,6 +68,8 @@ def evaluate_heldout_forecasts(records):
     errors = [predicted - actual for _, predicted, actual in parsed]
     absolute_errors = [abs(error) for error in errors]
     squared_errors = [error * error for error in errors]
+    if any(not math.isfinite(value) for value in errors + absolute_errors + squared_errors):
+        raise ValueError("forecast errors exceed the finite numeric evaluation range")
     actuals = [actual for _, _, actual in parsed]
     predictions = [predicted for _, predicted, _ in parsed]
     directional = [

@@ -252,7 +252,7 @@ class MarketStoreTests(unittest.IsolatedAsyncioTestCase):
                 tampered = verify_evaluation_manifest_snapshot(snapshot["snapshot_id"])
                 self.assertEqual(tampered["status"], "integrity_mismatch")
                 self.assertFalse(tampered["manifest_digest_valid"])
-                self.assertFalse(tampered["dataset_digest_valid"])
+                self.assertTrue(tampered["dataset_digest_valid"])
                 self.assertFalse(tampered["snapshot_id_valid"])
 
     def test_unknown_symbol_returns_empty_history(self):

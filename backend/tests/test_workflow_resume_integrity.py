@@ -44,6 +44,37 @@ class WorkflowResumeIntegrityTests(unittest.TestCase):
             _validate_checkpoint_integrity(request, checkpoint, {"a"})
         self.assertEqual(error.exception.status_code, 409)
 
+    def test_checkpoint_integrity_rejects_non_list_completed_ids(self):
+        request, checkpoint = self._valid_checkpoint()
+        checkpoint["completed_node_ids"] = "a"
+        with self.assertRaises(HTTPException) as error:
+            _validate_checkpoint_integrity(request, checkpoint, {"a"})
+        self.assertEqual(error.exception.status_code, 409)
+
+    def test_checkpoint_integrity_rejects_duplicate_completed_ids(self):
+        request, checkpoint = self._valid_checkpoint()
+        checkpoint["completed_node_ids"] = ["a", "a"]
+        with self.assertRaises(HTTPException) as error:
+            _validate_checkpoint_integrity(request, checkpoint, {"a"})
+        self.assertEqual(error.exception.status_code, 409)
+
+    def test_checkpoint_integrity_rejects_non_mapping_results_and_tasks(self):
+        request, checkpoint = self._valid_checkpoint()
+        for field in ("results", "tasks"):
+            with self.subTest(field=field):
+                invalid = dict(checkpoint)
+                invalid[field] = []
+                with self.assertRaises(HTTPException) as error:
+                    _validate_checkpoint_integrity(request, invalid, {"a"})
+                self.assertEqual(error.exception.status_code, 409)
+
+    def test_checkpoint_integrity_rejects_non_mapping_task_record(self):
+        request, checkpoint = self._valid_checkpoint()
+        checkpoint["tasks"]["a"] = "completed"
+        with self.assertRaises(HTTPException) as error:
+            _validate_checkpoint_integrity(request, checkpoint, {"a"})
+        self.assertEqual(error.exception.status_code, 409)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -279,3 +279,24 @@ This verifies the checks defined in the workflow at that commit; it is not a liv
 - `GET /api/research/cross-market-correlation?symbols=india:nse:RELIANCE,us:nasdaq:AAPL&interval=1d&limit=500&min_observations=20` — descriptive pairwise Pearson correlation of close-to-close returns on exact shared UTC timestamps. No forward-fill is applied; insufficient samples and zero-variance series return a null coefficient. See [four-market platform guide](docs/FOUR-MARKET-PLATFORM.md).
 
 Cross-market correlation is historical research only. Market sessions differ, so overlap may be sparse; correlations are not causal or predictive and are not trading signals. Synthetic observations remain explicitly labelled.
+
+
+## Deterministic worker dispatch (initial implementation)
+
+Worker profiles are still templates unless an operation is explicitly wired. The initial runtime exposes a capability report and a synchronous dispatch endpoint:
+
+- `GET /api/workers/capabilities` — reports all 550 profiles and distinguishes profiles with a mapped deterministic operation from template-only profiles.
+- `POST /api/workers/dispatch` — executes one allowlisted analytical operation for an authorized worker profile.
+
+Example request:
+
+```json
+{
+  "worker_id": "worker_001",
+  "operation": "sma",
+  "values": [100, 101, 102, 103],
+  "params": {"period": 2}
+}
+```
+
+This is bounded workflow-engine execution, not independent LLM inference or autonomous market research. Unsupported worker/operation combinations are rejected. Live data access, forecasts, recommendations, paper trading and broker execution are not part of this endpoint.

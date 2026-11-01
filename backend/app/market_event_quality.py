@@ -32,7 +32,7 @@ def diagnose_market_events(events):
                                         "kind": "received_before_event"})
         key = (event.get("provider"), event.get("venue"), event.get("instrument_id"), event.get("event_type"))
         if event.get("sequence_number") is not None:
-            groups[key].append((event["sequence_number"], index, event.get("event_id")))
+            groups[key].append((event["sequence_number"], index, event.get("event_id"), event_time))
         if event.get("event_type") == "order_book_snapshot":
             payload = event.get("payload") or {}
             bids, asks = payload.get("bids") or [], payload.get("asks") or []
@@ -52,16 +52,16 @@ def diagnose_market_events(events):
                                            "issues": problems})
     sequence_gaps, duplicate_sequences, out_of_order = [], [], []
     for key, records in groups.items():
-        ordered = sorted(records, key=lambda item: item[1])
+        ordered = sorted(records, key=lambda item: (item[3] if item[3] is not None else float("inf"), item[0]))
         seen = {}
-        for sequence, index, event_id in ordered:
+        for sequence, index, event_id, _event_time in ordered:
             if sequence in seen:
                 duplicate_sequences.append({"scope": list(key), "sequence_number": sequence,
                                             "first_event_index": seen[sequence], "event_index": index,
                                             "event_id": event_id})
             else:
                 seen[sequence] = index
-        for (prev_seq, prev_idx, _), (seq, idx, event_id) in zip(ordered, ordered[1:]):
+        for (prev_seq, prev_idx, _, _), (seq, idx, event_id, _event_time) in zip(ordered, ordered[1:]):
             if seq < prev_seq:
                 out_of_order.append({"scope": list(key), "previous_sequence": prev_seq,
                                      "sequence_number": seq, "event_index": idx, "event_id": event_id})
@@ -87,7 +87,7 @@ def diagnose_market_events(events):
             "interpretation": "Checks require bids sorted descending and asks ascending; locked/crossed snapshots are flagged for review, not repaired."
         },
         "methodology": [
-            "Sequence numbers are compared only within provider/venue/instrument/event-type groups.",
+            "Sequence numbers are compared in event-time order only within provider/venue/instrument/event-type groups; equal-time records are ordered by sequence number.",
             "A gap is not proof of data loss unless the provider guarantees contiguous sequence semantics.",
             "Diagnostics are review prompts, not data-authenticity proofs, execution inputs or trading signals.",
             "Only the queried event sample is inspected; pagination or a larger limit may be needed for full-history review."

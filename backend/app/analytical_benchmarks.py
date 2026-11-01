@@ -22,7 +22,7 @@ def run_analytical_benchmarks():
                       "expected": expected, "actual": actual})
 
     check("sma_partial_window", indicators.sma([1, 2, 3], 2), [1.0, 1.5, 2.5])
-    check("ema_recursive", indicators.ema([1, 2, 3], 2), [1.0, 2.3333333333333335, 2.777777777777778])
+    check("ema_recursive", indicators.ema([1, 2, 3], 2), [1.0, 1.6666666666666665, 2.5555555555555554])
     check("simple_returns", indicators.returns([100, 110, 121]), [0.1, 0.1])
     check("rsi_no_losses", indicators.rsi([100, 101, 102, 103], 2), [None, 100.0, 100.0])
 

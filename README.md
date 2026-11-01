@@ -315,3 +315,8 @@ Memory is isolated by worker ID and stored in the configured SQLite database (`M
 ### Worker evaluation
 
 Use `GET /api/workers/evaluations` to run a deterministic smoke evaluation across the unique worker operations currently wired to the workflow engine. The report includes per-operation pass/fail status and output-contract checks. It uses a fixed synthetic dataset and confirms wiring only; it is not a benchmark of analytical correctness, predictive performance, or live-market quality. The endpoint performs no external data retrieval and cannot place orders.
+
+
+### Evidence-gated cross-market research round
+
+Use `GET /api/agent-network/round` to assemble the existing shared India, US, crypto and forex research messages into a reviewable round. The response reports per-market message counts, distinct source-reference coverage, quality labels and markets that fail the provenance threshold. The gate checks coverage only; it does not authenticate sources or validate analytical conclusions. This is deterministic coordination, not autonomous LLM agents.

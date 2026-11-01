@@ -331,3 +331,27 @@ Use `GET /api/agent-network/round` to assemble the existing shared India, US, cr
 - `GET /api/providers/catalogue` reports data-source readiness and rights checks. CSV import and synthetic fixtures are available; licensed vendor connectors are not implemented or activated.
 
 Provider activation requires documented data rights, venue/instrument entitlement, retention and redistribution review, credential validation, and connector tests. A catalogue entry is not a licence or a live connection. No autonomous model inference, broker execution, or live feed is enabled by these additions.
+
+
+## Session-aware historical gap audit
+
+`POST /api/research/session-gaps` compares stored bar timestamps with an explicitly supplied session calendar. It reports expected scheduled bars, missing timestamps, observations outside the configured schedule, duplicate timestamps, and invalid timestamps per source.
+
+Example request:
+
+```json
+{
+  "symbol": "RELIANCE",
+  "interval": "15m",
+  "limit": 500,
+  "market": "india",
+  "name": "NSE regular session (operator configured)",
+  "timezone": "Asia/Kolkata",
+  "weekdays": [0, 1, 2, 3, 4],
+  "session_open": "09:15",
+  "session_close": "15:30",
+  "holidays": ["2026-11-09"]
+}
+```
+
+The calendar is caller-supplied. Populate holidays, special sessions, early closes, venue-specific breaks, and the applicable timestamp convention from an authoritative exchange calendar and the data vendor's documentation. The endpoint does not fetch or infer official calendars, does not model overnight sessions or intraday breaks, and counts intraday bars only when a complete interval fits within the configured session. Daily bars are expected at session open. This is a gap diagnostic, not proof of provider failure or missing trading activity.

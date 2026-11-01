@@ -485,6 +485,57 @@ def get_evaluation_manifest_snapshot(snapshot_id: str) -> dict | None:
     return _decode_evaluation_snapshot(row)
 
 
+
+def verify_evaluation_manifest_snapshot(snapshot_id: str) -> dict | None:
+    """Recompute snapshot payload and identifier digests to detect accidental corruption."""
+    with _connect() as connection:
+        row = connection.execute(
+            "SELECT snapshot_id, symbol, interval, manifest_sha256, "
+            "request_parameters, manifest_json FROM evaluation_manifest_snapshots "
+            "WHERE snapshot_id=?",
+            (snapshot_id,),
+        ).fetchone()
+    if row is None:
+        return None
+    try:
+        manifest = json.loads(row["manifest_json"])
+        parameters = json.loads(row["request_parameters"])
+        canonical_manifest = json.dumps(
+            manifest, sort_keys=True, separators=(",", ":"),
+            ensure_ascii=False, allow_nan=False,
+        )
+        canonical_parameters = json.dumps(
+            parameters, sort_keys=True, separators=(",", ":"),
+            ensure_ascii=False, allow_nan=False,
+        )
+        actual_digest = hashlib.sha256(canonical_manifest.encode("utf-8")).hexdigest()
+        actual_id = hashlib.sha256(
+            (row["symbol"] + "|" + row["interval"] + "|" + actual_digest + "|" + canonical_parameters).encode("utf-8")
+        ).hexdigest()
+        digest_valid = actual_digest == row["manifest_sha256"]
+        identifier_valid = actual_id == row["snapshot_id"]
+        status = "verified" if digest_valid and identifier_valid else "integrity_mismatch"
+        return {
+            "snapshot_id": row["snapshot_id"],
+            "status": status,
+            "manifest_digest_valid": digest_valid,
+            "snapshot_id_valid": identifier_valid,
+            "expected_manifest_sha256": row["manifest_sha256"],
+            "actual_manifest_sha256": actual_digest,
+            "research_only": True,
+            "data_note": "This detects payload/identifier mismatches against stored digests; it is not tamper-proof if an actor can rewrite both data and digests in SQLite.",
+        }
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return {
+            "snapshot_id": row["snapshot_id"],
+            "status": "integrity_unverifiable",
+            "manifest_digest_valid": False,
+            "snapshot_id_valid": False,
+            "research_only": True,
+            "data_note": "Stored snapshot JSON could not be canonically decoded.",
+        }
+
+
 def list_evaluation_manifest_snapshots(symbol: str | None = None, limit: int = 50) -> dict:
     safe_limit = max(1, min(int(limit), 100))
     with _connect() as connection:

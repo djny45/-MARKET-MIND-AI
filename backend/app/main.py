@@ -9,6 +9,7 @@ from .workflow import NODE_TYPES, execute_workflow
 from .workers import list_workers
 from .worker_runtime import dispatch_worker_task, worker_capabilities
 from .worker_memory import list_worker_memory, store_worker_memory
+from .worker_evaluation import evaluate_worker_capabilities
 from .skill_catalog import list_skills, load_skill
 from .markets import market_catalog
 from .instruments import search_instruments
@@ -915,6 +916,12 @@ def resume_workflow_run(run_id: str):
 def get_worker_capabilities():
  """Report the exact deterministic operations wired to worker profiles."""
  return worker_capabilities()
+
+
+@app.get("/api/workers/evaluations")
+def get_worker_evaluations():
+ """Run fixed synthetic smoke tests for each unique mapped worker operation."""
+ return evaluate_worker_capabilities()
 
 
 @app.post("/api/workers/dispatch")

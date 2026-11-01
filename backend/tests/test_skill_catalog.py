@@ -9,7 +9,14 @@ class SkillCatalogTests(unittest.TestCase):
         ids = {skill["id"] for skill in skills}
         self.assertEqual(len(skills), 14)
         self.assertNotIn("trader-broker", ids)
-        self.assertTrue(all(skill["mode"] == "research_and_paper_only" for skill in skills))
+        self.assertTrue(all(
+            skill["mode"] == "research_and_paper_only"
+            for skill in skills if skill["id"].startswith("trader-")
+        ))
+        self.assertTrue(all(
+            skill["mode"] == "engineering_research"
+            for skill in skills if skill["id"].startswith("rea-") or skill["id"] == "reverse-engineer-anything"
+        ))
         self.assertTrue(all(skill["available"] for skill in skills))
 
     def test_allowlisted_skill_can_be_loaded(self):

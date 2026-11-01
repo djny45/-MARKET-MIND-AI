@@ -79,11 +79,15 @@ def evaluate_heldout_forecasts(records):
     zero_baseline_mae = sum(abs(value) for value in actuals) / len(actuals)
     mae = sum(absolute_errors) / len(absolute_errors)
     rmse = math.sqrt(sum(squared_errors) / len(squared_errors))
+    if not all(math.isfinite(value) for value in (zero_baseline_mae, mae, rmse)):
+        raise ValueError("aggregate metrics exceed the finite numeric evaluation range")
     directional_accuracy = (
         sum((predicted > 0) == (actual > 0) for predicted, actual in directional) / len(directional)
         if directional else None
     )
     skill = 1.0 - mae / zero_baseline_mae if zero_baseline_mae else None
+    if skill is not None and not math.isfinite(skill):
+        raise ValueError("baseline skill exceeds the finite numeric evaluation range")
 
     return {
         "mode": "heldout_forecast_error_evaluation",

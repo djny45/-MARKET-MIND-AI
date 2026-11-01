@@ -9,6 +9,7 @@ from .workflow import NODE_TYPES, execute_workflow
 from .workers import list_workers
 from .worker_runtime import worker_runtime_status
 from .worker_memory import append_memory, read_memory
+from .worker_registry import evaluate_registry, registry_manifest
 from .skill_catalog import list_skills, load_skill
 from .markets import market_catalog
 from .instruments import search_instruments
@@ -260,6 +261,12 @@ def get_worker_memory(worker_id: str, memory_type: str | None = None, limit: int
   return read_memory(worker_id, memory_type, limit)
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/worker-registry")
+def worker_registry():
+ """Return the versioned 550-profile registry manifest and integrity evaluation."""
+ return {"manifest": registry_manifest(), "evaluation": evaluate_registry()}
 
 
 @app.get("/api/worker-runtime")

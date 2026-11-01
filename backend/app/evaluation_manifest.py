@@ -48,9 +48,17 @@ def _valid_bar(bar):
 
 
 def build_evaluation_manifest(
-    history, train_ratio=0.60, validation_ratio=0.20, embargo_bars=1
+    history, train_ratio=0.60, validation_ratio=0.20, embargo_bars=1,
+    revisioned_keys=None, revision_policy="annotate",
 ):
-    """Create non-overlapping chronological partitions; no model is trained."""
+    """Create chronological partitions with an explicit historical-revision policy."""
+    if revision_policy not in {"annotate", "exclude_revised", "block_revised"}:
+        raise ValueError("revision_policy must be annotate, exclude_revised, or block_revised")
+    revisioned = {
+        (str(item.get("source") or "unknown"), str(item.get("timestamp")))
+        for item in (revisioned_keys or [])
+        if isinstance(item, dict) and item.get("timestamp") is not None
+    }
     if (
         not isinstance(train_ratio, (int, float)) or isinstance(train_ratio, bool)
         or not math.isfinite(train_ratio) or not 0.1 <= train_ratio <= 0.8
@@ -83,6 +91,33 @@ def build_evaluation_manifest(
     source_manifests = {}
     total_valid = 0
     for source, indexed in sorted(grouped.items()):
+        revised = [
+            (original_index, bar) for original_index, bar in indexed
+            if (source, str(bar.get("timestamp"))) in revisioned
+        ]
+        revision_info = {
+            "revision_policy": revision_policy,
+            "revised_observation_count": len(revised),
+            "revision_review_required": bool(revised) and revision_policy == "annotate",
+        }
+        if revised and revision_policy == "block_revised":
+            source_manifests[source] = {
+                "status": "blocked_revised_observations",
+                "observation_count": len(indexed),
+                "dataset_sha256": None,
+                "partitions": {},
+                "embargo": [],
+                **revision_info,
+            }
+            continue
+        if revision_policy == "exclude_revised":
+            indexed = [
+                (original_index, bar) for original_index, bar in indexed
+                if (source, str(bar.get("timestamp"))) not in revisioned
+            ]
+        revision_info["excluded_revised_observation_count"] = (
+            len(revised) if revision_policy == "exclude_revised" else 0
+        )
         parsed = []
         invalid = []
         for original_index, bar in indexed:
@@ -104,6 +139,7 @@ def build_evaluation_manifest(
                 "dataset_sha256": None,
                 "partitions": {},
                 "embargo": [],
+                **revision_info,
             }
             continue
 
@@ -122,6 +158,7 @@ def build_evaluation_manifest(
                 "dataset_sha256": None,
                 "partitions": {},
                 "embargo": [],
+                **revision_info,
             }
             continue
 
@@ -136,6 +173,7 @@ def build_evaluation_manifest(
                 "dataset_sha256": digest,
                 "partitions": {},
                 "embargo": [],
+                **revision_info,
             }
             continue
 
@@ -158,6 +196,7 @@ def build_evaluation_manifest(
                 "dataset_sha256": digest,
                 "partitions": {},
                 "embargo": [],
+                **revision_info,
             }
             continue
 
@@ -195,6 +234,7 @@ def build_evaluation_manifest(
             "dataset_sha256": digest,
             "partitions": partitions,
             "embargo": embargo,
+            **revision_info,
             "partition_policy": {
                 "train_ratio": train_ratio,
                 "validation_ratio": validation_ratio,
@@ -218,6 +258,8 @@ def build_evaluation_manifest(
             "Partitions are chronological and are not shuffled.",
             "Embargo observations are excluded between development, validation and holdout partitions.",
             "The dataset digest is SHA-256 over canonicalized source and stored OHLCV/provenance fields.",
+            "Revision policy is explicit: annotate retains and flags revised observations, exclude_revised removes them before partitioning, and block_revised blocks any source with a revised current observation.",
+            "Revision detection is limited to changes recorded after the revision-audit migration; it cannot reconstruct earlier revisions.",
             "Invalid timestamps, non-finite OHLCV and duplicate source timestamps block that source.",
             "This creates a reproducible partition manifest only; it does not train, tune, backtest or evaluate a model.",
             "Embargo bars reduce direct boundary adjacency but do not by themselves eliminate every form of look-ahead, survivorship, revision or selection bias.",

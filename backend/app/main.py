@@ -260,6 +260,23 @@ def audit_events(symbol: str | None = None, interval: str | None = None, limit: 
  return market_store.get_audit_events(symbol, interval, limit)
 
 
+@app.get("/api/market-data/revisions")
+def market_data_revisions(
+ symbol: str | None = None, interval: str | None = None,
+ source: str | None = None, limit: int = 100,
+):
+ """List audited changes to previously stored historical OHLCV observations."""
+ if symbol is not None and (not symbol.strip() or len(symbol) > 32):
+  raise HTTPException(status_code=400, detail="symbol must contain 1 to 32 characters")
+ if interval is not None and interval not in SUPPORTED_INTERVALS:
+  raise HTTPException(status_code=400, detail="interval must be one of 15m,1h,4h,1d")
+ if source is not None and (not source.strip() or len(source) > 128):
+  raise HTTPException(status_code=400, detail="source must contain 1 to 128 characters")
+ if limit < 1 or limit > 500:
+  raise HTTPException(status_code=400, detail="limit must be between 1 and 500")
+ return market_store.get_bar_revisions(symbol, interval, source, limit)
+
+
 @app.get("/api/market-data/overview")
 def market_data_overview(limit: int = 200):
  """Summarize locally stored instrument and timeframe coverage."""

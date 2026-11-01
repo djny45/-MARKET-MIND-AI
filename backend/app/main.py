@@ -812,8 +812,65 @@ def research_evaluation_manifest(
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+@app.post("/api/research/evaluation-manifest/snapshots")
+def create_research_evaluation_snapshot(request: dict):
+ """Build and persist the exact evaluation manifest returned to the caller."""
+ symbol = str(request.get("symbol") or "").strip()
+ interval = str(request.get("interval") or "1h")
+ limit = request.get("limit", 500)
+ train_ratio = request.get("train_ratio", 0.60)
+ validation_ratio = request.get("validation_ratio", 0.20)
+ embargo_bars = request.get("embargo_bars", 1)
+ revision_policy = request.get("revision_policy", "annotate")
+ if not symbol or len(symbol) > 32:
+  raise HTTPException(status_code=400, detail="symbol must contain 1 to 32 characters")
+ if interval not in SUPPORTED_INTERVALS:
+  raise HTTPException(status_code=400, detail="interval must be one of 15m,1h,4h,1d")
+ if not isinstance(limit, int) or isinstance(limit, bool) or limit < 1 or limit > 5000:
+  raise HTTPException(status_code=400, detail="limit must be an integer between 1 and 5000")
+ try:
+  manifest = build_evaluation_manifest(
+   market_store.get_bars(symbol, interval, limit),
+   train_ratio=train_ratio,
+   validation_ratio=validation_ratio,
+   embargo_bars=embargo_bars,
+   revisioned_keys=market_store.get_revised_bar_keys(symbol, interval, limit)["keys"],
+   revision_policy=revision_policy,
+  )
+  return market_store.create_evaluation_manifest_snapshot(
+   manifest,
+   {"symbol": symbol.upper(), "interval": interval, "limit": limit,
+    "train_ratio": train_ratio, "validation_ratio": validation_ratio,
+    "embargo_bars": embargo_bars, "revision_policy": revision_policy},
+  )
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/research/evaluation-manifest/snapshots")
+def list_research_evaluation_snapshots(symbol: str | None = None, limit: int = 50):
+ if symbol is not None and (not symbol.strip() or len(symbol) > 32):
+  raise HTTPException(status_code=400, detail="symbol must contain 1 to 32 characters")
+ if limit < 1 or limit > 100:
+  raise HTTPException(status_code=400, detail="limit must be between 1 and 100")
+ return market_store.list_evaluation_manifest_snapshots(symbol, limit)
+
+
+@app.get("/api/research/evaluation-manifest/snapshots/{snapshot_id}")
+def get_research_evaluation_snapshot(snapshot_id: str):
+ if len(snapshot_id) != 64 or any(char not in "0123456789abcdef" for char in snapshot_id):
+  raise HTTPException(status_code=400, detail="snapshot_id must be a lowercase SHA-256 identifier")
+ snapshot = market_store.get_evaluation_manifest_snapshot(snapshot_id)
+ if snapshot is None:
+  raise HTTPException(status_code=404, detail="Evaluation manifest snapshot not found")
+ return snapshot
+
+
 @app.get("/api/research/source-indicators")
-def research_source_indicators(symbol: str, interval: str = "1h", limit: int = 500):
+def research_source_indicators(
+ symbol: str, interval: str = "1h", limit: int = 500,
+ revision_policy: Literal["annotate", "exclude_revised", "block_revised"] = "annotate",
+):
  """Compare independently calculated indicators across sources at exact shared UTC instants."""
  if not symbol.strip() or len(symbol) > 32:
   raise HTTPException(status_code=400, detail="symbol must contain 1 to 32 characters")
@@ -821,7 +878,14 @@ def research_source_indicators(symbol: str, interval: str = "1h", limit: int = 5
   raise HTTPException(status_code=400, detail="interval must be one of 15m,1h,4h,1d")
  if limit < 1 or limit > 5000:
   raise HTTPException(status_code=400, detail="limit must be between 1 and 5000")
- return compare_source_indicator_series(market_store.get_bars(symbol, interval, limit))
+ try:
+  return compare_source_indicator_series(
+   market_store.get_bars(symbol, interval, limit),
+   revisioned_keys=market_store.get_revised_bar_keys(symbol, interval, limit)["keys"],
+   revision_policy=revision_policy,
+  )
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.get("/api/research/indicator-replay")

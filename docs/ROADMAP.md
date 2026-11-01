@@ -40,7 +40,7 @@ This roadmap is a plan, not a claim that features already exist. Mark an item co
 - [x] Add bounded deterministic worker dispatch with explicit capability authorization and a capability-status API.
 - [x] Add a typed evidence-first research aggregation API with market coverage, source references, quality labels and disagreement reporting.
 - [x] Add provenance-gated cross-market research round assembly and read-only API.\n- [ ] Build central research orchestrator.
-- [x] Add deterministic worker capability smoke-evaluation suite and read-only evaluation API.\n- [ ] Add analytical correctness benchmarks, worker registry governance, and longitudinal evaluation.
+- [x] Add deterministic worker capability smoke-evaluation suite and read-only evaluation API.\n- [x] Add fixed analytical reference-vector correctness benchmarks and a read-only evaluation API.\n- [ ] Add broader property-based, independent-library, and longitudinal benchmark coverage.\n- [ ] Add worker registry governance.
 - [x] Add isolated append-only worker research memory with source references and pending-review status.\n- [ ] Add human-reviewed promotion into shared knowledge.
 - [ ] Build visual node-based research workflows.
 - [ ] Add explainability, evidence coverage, and disagreement reporting.
@@ -73,3 +73,8 @@ The `GET /api/workers/evaluations` endpoint runs one fixed synthetic fixture per
 ## Cross-market research rounds
 
 The `GET /api/agent-network/round` endpoint assembles already-published India, US, crypto and forex research messages. It reports per-market message counts, distinct source-reference coverage, quality-label counts, and a human-review gate. A round is marked incomplete when any requested market lacks the configured minimum number of distinct source references. Passing this gate checks provenance coverage only: it does not authenticate sources or validate findings. The workflow is deterministic and does not invoke independent LLM agents.
+
+
+## Analytical correctness benchmarks
+
+The `GET /api/analytics/benchmarks` endpoint checks fixed hand-computable vectors for SMA, EMA, returns, RSI, MACD, Bollinger bands, and realized volatility. It checks formula behavior and output values for a narrow deterministic fixture set. Passing does not establish correctness across all edge cases, data vendors, market regimes, or predictive performance. The SMA test explicitly records the implementation's current partial-window convention. No live data or order execution is involved.

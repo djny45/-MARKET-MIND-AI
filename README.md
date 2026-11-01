@@ -384,3 +384,12 @@ The ledger can only detect changes observed by this application after the migrat
 ### Revision-aware evaluation manifests
 
 The `GET /api/research/evaluation-manifest` endpoint accepts `revision_policy=annotate|exclude_revised|block_revised`. The default `annotate` retains current observations while flagging source datasets containing recorded revisions; `exclude_revised` removes revised current observations before chronological partitioning; `block_revised` prevents partitioning that source. Revision keys are joined against currently stored bars and are limited to changes recorded after the revision-audit migration. This cannot reconstruct pre-migration edits or authenticate provider data. The policy is a research-data governance control, not a guarantee against look-ahead, survivorship or selection bias.
+
+
+### Revision-aware source comparisons and reproducible manifest snapshots
+
+The `/api/research/source-indicators` endpoint accepts `revision_policy=annotate|exclude_revised|block_revised`. It reads the application's recorded revision keys and reports revised-observation counts per source. The default `annotate` policy keeps revised observations but flags analyst review; `exclude_revised` removes them before indicator calculation; `block_revised` prevents affected sources from contributing. Revision history is only available for changes observed after the revision-audit migration.
+
+Create a persisted evaluation-manifest snapshot with `POST /api/research/evaluation-manifest/snapshots` and a JSON body containing `symbol`, plus optional `interval`, `limit`, `train_ratio`, `validation_ratio`, `embargo_bars`, and `revision_policy`. Retrieve one with `GET /api/research/evaluation-manifest/snapshots/{snapshot_id}`, or list metadata with `GET /api/research/evaluation-manifest/snapshots?symbol=...`. Snapshot IDs are deterministic for the same manifest content and request parameters; repeated identical requests do not create duplicate rows. The stored payload includes the complete manifest, normalized request parameters and SHA-256 digest.
+
+Snapshots are application-level append-only records in SQLite, not cryptographically tamper-proof: a person with direct database write access can alter them. These endpoints preserve research provenance and partition configuration; they do not train, tune, backtest or validate a strategy, authenticate market-data vendors, or grant data rights.

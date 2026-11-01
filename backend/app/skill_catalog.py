@@ -3,6 +3,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SKILL_ROOT = REPO_ROOT / ".agents" / "skills" / "day-trader-skill"
+REA_SKILL_ROOT = REPO_ROOT / ".agents" / "skills" / "rea"
 
 SKILL_DESCRIPTIONS = {
     "trader-alerts": "Alert interpretation and notification research.",
@@ -17,32 +18,63 @@ SKILL_DESCRIPTIONS = {
     "trader-timemachine": "Historical and time-series research.",
 }
 
+REA_SKILL_DESCRIPTIONS = {
+    "reverse-engineer-anything": "Evidence-led analysis of user-supplied applications, packages, and binaries.",
+    "rea-analysis-optimization": "Optimize analysis workflows while preserving correctness and evidence.",
+    "rea-ci-tests-audit": "Audit CI and tests for false passes, fixture drift, and missing regression coverage.",
+    "rea-tool-design": "Design investigation tools, interfaces, provider contracts, and evidence semantics.",
+}
+
 
 def list_skills():
     """Return only allowlisted research playbooks present in the repository."""
-    return [
+    trading = [
         {
             "id": slug,
             "description": description,
             "path": f".agents/skills/day-trader-skill/{slug}/SKILL.md",
             "available": (SKILL_ROOT / slug / "SKILL.md").is_file(),
             "mode": "research_and_paper_only",
+            "requires_external_tools": False,
         }
         for slug, description in SKILL_DESCRIPTIONS.items()
     ]
+    engineering = [
+        {
+            "id": slug,
+            "description": description,
+            "path": f".agents/skills/rea/{slug}/SKILL.md",
+            "available": (REA_SKILL_ROOT / slug / "SKILL.md").is_file(),
+            "mode": "engineering_research",
+            "requires_external_tools": True,
+        }
+        for slug, description in REA_SKILL_DESCRIPTIONS.items()
+    ]
+    return trading + engineering
 
 
 def load_skill(slug: str):
     """Load one allowlisted playbook; never resolve caller-supplied filesystem paths."""
-    if slug not in SKILL_DESCRIPTIONS:
+    if slug in SKILL_DESCRIPTIONS:
+        root = SKILL_ROOT
+        description = SKILL_DESCRIPTIONS[slug]
+        mode = "research_and_paper_only"
+        requires_external_tools = False
+    elif slug in REA_SKILL_DESCRIPTIONS:
+        root = REA_SKILL_ROOT
+        description = REA_SKILL_DESCRIPTIONS[slug]
+        mode = "engineering_research"
+        requires_external_tools = True
+    else:
         raise KeyError(slug)
-    path = SKILL_ROOT / slug / "SKILL.md"
+    path = root / slug / "SKILL.md"
     if not path.is_file():
         raise FileNotFoundError(slug)
     return {
         "id": slug,
-        "description": SKILL_DESCRIPTIONS[slug],
+        "description": description,
         "content": path.read_text(encoding="utf-8"),
-        "mode": "research_and_paper_only",
+        "mode": mode,
+        "requires_external_tools": requires_external_tools,
         "broker_execution": False,
     }

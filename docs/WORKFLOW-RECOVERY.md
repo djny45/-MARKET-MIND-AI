@@ -22,3 +22,15 @@ inside a layer can cause that layer's unfinished nodes to run again. Checkpoint 
 is local SQLite state and inherits the deployment's backup and disk durability
 properties. This feature is for deterministic research and paper-only workflows;
 it does not enable brokerage connectivity, order routing, or live trading.
+
+## Recovery observability
+
+The resume response reports the source run ID, number of restored task outputs,
+checkpoint age in seconds, checkpoint schema version, and completed layer count.
+The Run History inspector surfaces the restored-task count and checkpoint age.
+Each snapshot carries its own UTC timestamp so age is measured from the checkpoint,
+not merely from the parent run's creation time.
+
+Before restoration, the API verifies that every completed node has both a saved
+result and a task record marked completed. Internally inconsistent checkpoints are
+rejected with HTTP 409 rather than partially restored.

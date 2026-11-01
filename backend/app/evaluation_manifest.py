@@ -52,7 +52,7 @@ def build_evaluation_manifest(
     revisioned_keys=None, revision_policy="annotate",
 ):
     """Create chronological partitions with an explicit historical-revision policy."""
-    if revision_policy not in {"annotate", "exclude_revised", "block_revised"}:
+    if not isinstance(revision_policy, str) or revision_policy not in {"annotate", "exclude_revised", "block_revised"}:
         raise ValueError("revision_policy must be annotate, exclude_revised, or block_revised")
     revisioned = {
         (str(item.get("source") or "unknown"), str(item.get("timestamp")))

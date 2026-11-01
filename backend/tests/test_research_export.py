@@ -20,7 +20,7 @@ class ResearchEvidenceBundleTests(unittest.TestCase):
                    "retrieved_at": "2026-01-02T01:00:00Z",
                    "first_timestamp": bars[0]["timestamp"], "last_timestamp": bars[1]["timestamp"]}
         bundle = build_research_evidence_bundle("btcusd", "1h", history, {"status": "available"})
-        self.assertEqual(bundle["schema_version"], "1.1")
+        self.assertEqual(bundle["schema_version"], "1.2")
         integrity = bundle.pop("integrity")
         canonical = json.dumps(bundle, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
         expected_digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
@@ -29,6 +29,8 @@ class ResearchEvidenceBundleTests(unittest.TestCase):
         bundle["integrity"] = integrity
         self.assertEqual(bundle["scope"]["symbol"], "BTCUSD")
         self.assertEqual(bundle["observations"], bars)
+        self.assertEqual(bundle["historical_integrity"]["source_count"], 2)
+        self.assertEqual(bundle["historical_integrity"]["shared_utc_timestamp_count"], 1)
         self.assertEqual(bundle["source_comparison"]["shared_timestamp_count"], 1)
         self.assertEqual(bundle["source_comparison"]["comparisons"][0]["source_count"], 2)
         self.assertEqual(bundle["deep_research"], {"status": "available"})
@@ -38,6 +40,8 @@ class ResearchEvidenceBundleTests(unittest.TestCase):
         bundle = build_research_evidence_bundle("ETHUSD", "1h", {"bars": [], "sources": []})
         self.assertEqual(bundle["observations"], [])
         self.assertEqual(bundle["scope"]["observation_count"], 0)
+        self.assertEqual(bundle["historical_integrity"]["observation_count"], 0)
+        self.assertEqual(bundle["historical_integrity"]["source_count"], 0)
         self.assertEqual(bundle["source_comparison"]["shared_timestamp_count"], 0)
 
 

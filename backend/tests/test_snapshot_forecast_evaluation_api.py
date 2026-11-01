@@ -40,7 +40,7 @@ class SnapshotForecastEvaluationApiTests(unittest.TestCase):
     def _records(self):
         base = datetime(2026, 1, 1, tzinfo=timezone.utc)
         rows = []
-        for origin_index, target_index in [(30, 33), (31, 34), (32, 35)]:
+        for origin_index, target_index in [(33, 34), (34, 35), (35, 36)]:
             origin = base + timedelta(days=origin_index)
             target = base + timedelta(days=target_index)
             rows.append({
@@ -67,7 +67,7 @@ class SnapshotForecastEvaluationApiTests(unittest.TestCase):
             self.assertEqual(result["snapshot"]["snapshot_id"], snapshot["snapshot_id"])
             self.assertEqual(result["actual_return_method"],
                              "close_to_close_simple_return_from_verified_snapshot_bars")
-            self.assertAlmostEqual(result["metrics"]["mae"], 0.03 - ((3 / 130 + 3 / 131 + 3 / 132) / 3))
+            self.assertAlmostEqual(result["metrics"]["mae"], sum(abs(0.03 - 3 / value) for value in (133, 134, 135)) / 3)
             self.assertNotEqual(result["metrics"]["mae"], 0.0)
 
     def test_target_outside_holdout_partition_is_rejected(self):

@@ -32,10 +32,10 @@ SKILL_BY_DEPARTMENT = {
     "news_intelligence": ["trader-news"],
     "event_analysis": ["trader-news", "trader-analyst"],
     "portfolio_analytics": ["trader-risk", "trader-budget"],
-    "data_quality": ["trader-risk"],
+    "data_quality": ["trader-risk", "rea-ci-tests-audit"],
     "risk_analytics": ["trader-risk", "trader-budget"],
     "pattern_recognition": ["trader-scanner", "trader-timemachine"],
-    "research_validation": ["trader-timemachine", "trader-risk"],
+    "research_validation": ["trader-timemachine", "trader-risk", "rea-ci-tests-audit", "rea-analysis-optimization"],
     "market_regimes": ["trader-timemachine", "trader-news"],
 }
 

@@ -36,10 +36,14 @@ This roadmap is a plan, not a claim that features already exist. Mark an item co
 - [ ] Add historical evaluation framework with bias and data-quality checks.
 
 ## Phase 4 — Intelligence and workflow canvas
-- [ ] Define typed specialist-worker contracts.
-- [ ] Build central research orchestrator.
-- [ ] Add worker registry, versioning, and evaluation suite.
-- [ ] Add worker-specific research memory and reviewed shared knowledge.
+- [ ] Define complete typed specialist-worker input/output contracts.
+- [ ] Build central research orchestrator with model-backed inference and evidence-grounded synthesis.
+- [x] Add initial shared-core worker registry and deterministic routing for supported workflow node types.
+- [ ] Add worker registry versioning and a broader evaluation suite.
+- [x] Add append-only worker-scoped evidence memory with provenance and quality labels.
+- [ ] Add reviewed shared knowledge, memory lifecycle controls, and human approval workflows.
+
+Current boundary: worker routing invokes existing deterministic Python handlers. The 550 profiles are not independent models; LLM inference, autonomous self-learning, and brokerage execution remain disabled.
 - [ ] Build visual node-based research workflows.
 - [ ] Add explainability, evidence coverage, and disagreement reporting.
 

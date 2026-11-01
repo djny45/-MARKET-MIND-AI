@@ -97,8 +97,20 @@ def get_execution(run_id):
     if row is None:
         return None
     record=dict(row)
-    record["request"]=json.loads(record.pop("request_json"))
-    record["result"]=json.loads(record.pop("result_json"))
+    try:
+        record["request"]=json.loads(record.pop("request_json"))
+        if not isinstance(record["request"], dict):
+            raise ValueError("Stored request has an invalid format.")
+    except (TypeError, ValueError, json.JSONDecodeError):
+        record["request"]={}
+        record["request_error"]="Stored workflow request is malformed; it cannot be replayed."
+    try:
+        record["result"]=json.loads(record.pop("result_json"))
+        if not isinstance(record["result"], dict):
+            raise ValueError("Stored result has an invalid format.")
+    except (TypeError, ValueError, json.JSONDecodeError):
+        record["result"]={}
+        record["result_error"]="Stored workflow result is malformed."
     checkpoint_json=record.pop("checkpoint_json", "{}")
     try:
         checkpoint=json.loads(checkpoint_json)

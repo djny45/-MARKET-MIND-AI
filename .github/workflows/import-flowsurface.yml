@@ -1,0 +1,42 @@
+name: Import Flowsurface source
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/import-flowsurface.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: import-flowsurface-main
+  cancel-in-progress: false
+
+jobs:
+  vendor-flowsurface:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out MARKET-MIND-AI
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Fetch pinned Flowsurface source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e third_party/Flowsurface
+          git clone --no-checkout https://github.com/flowsurface-rs/flowsurface.git /tmp/flowsurface
+          git -C /tmp/flowsurface checkout --detach 50c06caac0cf7ce9c3bcaabcf99fbd4e4e0f6746
+          mkdir -p third_party/Flowsurface
+          rsync -a --delete --exclude='.git' --exclude='.github' /tmp/flowsurface/ third_party/Flowsurface/
+          test -f third_party/Flowsurface/LICENSE
+          test -f third_party/Flowsurface/Cargo.toml
+          test ! -e third_party/Flowsurface/.github/keys/signing-key.asc
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add third_party/Flowsurface
+          git commit -m "Vendor Flowsurface source at 50c06ca"
+          git push origin HEAD:main

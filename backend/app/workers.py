@@ -50,11 +50,11 @@ def list_workers():
             "name": f"{specialty.replace('_', ' ').title()} Analyst {i+1:03d}",
             "department": department,
             "specialty": specialty,
-            "kind": "analytical_module",
+            "kind": "ai_analytical_worker",
             "model": "shared_central_intelligence",
             "memory_namespace": f"workers/worker_{i+1:03d}",
             "skill_refs": SKILL_BY_DEPARTMENT.get(department, []),
             "status": "template",
-            "note": "Generated worker profile; activate only after implementation and validation."
+            "note": "AI analytical worker template; execution requires an implemented, validated handler in the shared central intelligence runtime."
         })
     return workers

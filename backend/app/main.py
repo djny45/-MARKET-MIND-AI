@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from .workflow import NODE_TYPES, execute_workflow
 from .workers import list_workers
 from .worker_runtime import worker_runtime_status
+from .worker_memory import append_memory, read_memory
 from .skill_catalog import list_skills, load_skill
 from .markets import market_catalog
 from .instruments import search_instruments
@@ -104,6 +105,13 @@ class HistoricalCSVImportRequest(BaseModel):
 
 class HistoricalMarketEventsRequest(BaseModel):
  events: list[dict[str, Any]] = Field(min_length=1, max_length=1000)
+
+class WorkerMemoryRequest(BaseModel):
+ memory_type: Literal["observation", "method_note", "validation_result", "open_question"]
+ content: dict[str, Any] = Field(default_factory=dict)
+ source_refs: list[str] = Field(default_factory=list, max_length=20)
+ quality_status: Literal["verified_by_importer", "partial", "unverified", "synthetic"] = "unverified"
+
 
 class AgentResearchMessageRequest(BaseModel):
  agent_id: str = Field(min_length=1, max_length=96)
@@ -232,6 +240,27 @@ def provider_status():
 @app.get("/api/nodes")
 def nodes():
  return {"nodes":list(NODE_TYPES.values())}
+
+@app.post("/api/workers/{worker_id}/memory")
+def add_worker_memory(worker_id: str, request: WorkerMemoryRequest):
+ """Append an evidence-linked research note to one registered worker profile."""
+ try:
+  return append_memory(
+   worker_id, request.memory_type, request.content,
+   request.source_refs, request.quality_status,
+  )
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/workers/{worker_id}/memory")
+def get_worker_memory(worker_id: str, memory_type: str | None = None, limit: int = 50):
+ """Read append-only research notes scoped to one registered worker profile."""
+ try:
+  return read_memory(worker_id, memory_type, limit)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
 
 @app.get("/api/worker-runtime")
 def worker_runtime():

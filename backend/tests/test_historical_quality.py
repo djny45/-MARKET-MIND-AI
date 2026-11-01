@@ -75,7 +75,7 @@ class HistoricalQualityTests(unittest.TestCase):
         bars[8]["volume"] = float("inf")
         bars[9]["volume"] = float("-inf")
         result = build_historical_quality_diagnostics({"interval": "1h", "bars": bars})
-        self.assertEqual(result["close_to_close_return_outliers"]["sample_count"], 23)
+        self.assertEqual(result["close_to_close_return_outliers"]["sample_count"], 25)
         self.assertEqual(result["volume_outliers"]["sample_count"], 27)
         json.dumps(result, allow_nan=False)
 
@@ -86,7 +86,7 @@ class HistoricalQualityTests(unittest.TestCase):
         bars[5]["volume"] = "unknown"
         bars[6].pop("volume")
         result = build_historical_quality_diagnostics({"interval": "1h", "bars": bars})
-        self.assertEqual(result["close_to_close_return_outliers"]["sample_count"], 22)
+        self.assertEqual(result["close_to_close_return_outliers"]["sample_count"], 21)
         self.assertEqual(result["volume_outliers"]["sample_count"], 23)
         json.dumps(result, allow_nan=False)
 

@@ -1,37 +1,82 @@
-"""Searchable instrument reference directory.
+"""Searchable, provider-neutral multi-market instrument reference directory.
 
-This catalogue contains identifiers and metadata only. It does not provide quotes,
-market status, recommendations or a claim of complete global coverage.
+Metadata only: this catalogue is not an exchange master, quote feed, or claim of
+complete venue coverage. Provider identifiers and entitlements must be mapped
+separately before ingesting market observations.
 """
-INSTRUMENTS = [
- {"symbol":"AAPL","name":"Apple Inc.","market":"equities","venue":"NASDAQ","currency":"USD"},
- {"symbol":"MSFT","name":"Microsoft Corporation","market":"equities","venue":"NASDAQ","currency":"USD"},
- {"symbol":"NVDA","name":"NVIDIA Corporation","market":"equities","venue":"NASDAQ","currency":"USD"},
- {"symbol":"GOOGL","name":"Alphabet Inc.","market":"equities","venue":"NASDAQ","currency":"USD"},
- {"symbol":"AMZN","name":"Amazon.com Inc.","market":"equities","venue":"NASDAQ","currency":"USD"},
- {"symbol":"RELIANCE","name":"Reliance Industries Ltd.","market":"equities","venue":"NSE","currency":"INR"},
- {"symbol":"TCS","name":"Tata Consultancy Services Ltd.","market":"equities","venue":"NSE","currency":"INR"},
- {"symbol":"INFY","name":"Infosys Ltd.","market":"equities","venue":"NSE","currency":"INR"},
- {"symbol":"HDFCBANK","name":"HDFC Bank Ltd.","market":"equities","venue":"NSE","currency":"INR"},
- {"symbol":"SPY","name":"SPDR S&P 500 ETF Trust","market":"funds","venue":"NYSE Arca","currency":"USD"},
- {"symbol":"QQQ","name":"Invesco QQQ Trust","market":"funds","venue":"NASDAQ","currency":"USD"},
- {"symbol":"NIFTY50","name":"NIFTY 50","market":"indices","venue":"NSE","currency":"INR"},
- {"symbol":"SPX","name":"S&P 500 Index","market":"indices","venue":"Cboe","currency":"USD"},
- {"symbol":"NDX","name":"Nasdaq-100 Index","market":"indices","venue":"NASDAQ","currency":"USD"},
- {"symbol":"EURUSD","name":"Euro / US Dollar","market":"fx","venue":"OTC","currency":"USD"},
- {"symbol":"USDJPY","name":"US Dollar / Japanese Yen","market":"fx","venue":"OTC","currency":"JPY"},
- {"symbol":"GBPUSD","name":"British Pound / US Dollar","market":"fx","venue":"OTC","currency":"USD"},
- {"symbol":"XAUUSD","name":"Gold Spot / US Dollar","market":"commodities","venue":"OTC","currency":"USD"},
- {"symbol":"WTI","name":"WTI Crude Oil","market":"commodities","venue":"NYMEX","currency":"USD"},
- {"symbol":"BRENT","name":"Brent Crude Oil","market":"commodities","venue":"ICE","currency":"USD"},
- {"symbol":"BTCUSD","name":"Bitcoin / US Dollar","market":"digital_assets","venue":"Multi-venue","currency":"USD"},
- {"symbol":"ETHUSD","name":"Ether / US Dollar","market":"digital_assets","venue":"Multi-venue","currency":"USD"},
- {"symbol":"SOLUSD","name":"Solana / US Dollar","market":"digital_assets","venue":"Multi-venue","currency":"USD"},
- {"symbol":"US10Y","name":"US 10-Year Treasury Yield","market":"rates_credit","venue":"US Treasury","currency":"USD"},
+from copy import deepcopy
+
+# market_group partitions the four requested coverage domains. market remains
+# the asset-class taxonomy used by existing callers.
+_RAW_INSTRUMENTS = [
+    ("AAPL", "Apple Inc.", "equities", "us", "NASDAQ", "USD", "equity"),
+    ("MSFT", "Microsoft Corporation", "equities", "us", "NASDAQ", "USD", "equity"),
+    ("NVDA", "NVIDIA Corporation", "equities", "us", "NASDAQ", "USD", "equity"),
+    ("GOOGL", "Alphabet Inc.", "equities", "us", "NASDAQ", "USD", "equity"),
+    ("AMZN", "Amazon.com Inc.", "equities", "us", "NASDAQ", "USD", "equity"),
+    ("SPY", "SPDR S&P 500 ETF Trust", "funds", "us", "NYSE Arca", "USD", "etf"),
+    ("QQQ", "Invesco QQQ Trust", "funds", "us", "NASDAQ", "USD", "etf"),
+    ("SPX", "S&P 500 Index", "indices", "us", "Cboe", "USD", "equity_index"),
+    ("NDX", "Nasdaq-100 Index", "indices", "us", "NASDAQ", "USD", "equity_index"),
+    ("US10Y", "US 10-Year Treasury Yield", "rates_credit", "us", "US Treasury", "USD", "government_yield"),
+    ("RELIANCE", "Reliance Industries Ltd.", "equities", "india", "NSE", "INR", "equity"),
+    ("TCS", "Tata Consultancy Services Ltd.", "equities", "india", "NSE", "INR", "equity"),
+    ("INFY", "Infosys Ltd.", "equities", "india", "NSE", "INR", "equity"),
+    ("HDFCBANK", "HDFC Bank Ltd.", "equities", "india", "NSE", "INR", "equity"),
+    ("NIFTY50", "NIFTY 50", "indices", "india", "NSE", "INR", "equity_index"),
+    ("NIFTYBANK", "NIFTY Bank", "indices", "india", "NSE", "INR", "equity_index"),
+    ("SENSEX", "BSE SENSEX", "indices", "india", "BSE", "INR", "equity_index"),
+    ("USDINR", "US Dollar / Indian Rupee", "fx", "forex", "OTC", "INR", "spot_fx"),
+    ("EURUSD", "Euro / US Dollar", "fx", "forex", "OTC", "USD", "spot_fx"),
+    ("USDJPY", "US Dollar / Japanese Yen", "fx", "forex", "OTC", "JPY", "spot_fx"),
+    ("GBPUSD", "British Pound / US Dollar", "fx", "forex", "OTC", "USD", "spot_fx"),
+    ("AUDUSD", "Australian Dollar / US Dollar", "fx", "forex", "OTC", "USD", "spot_fx"),
+    ("USDCAD", "US Dollar / Canadian Dollar", "fx", "forex", "OTC", "CAD", "spot_fx"),
+    ("USDCHF", "US Dollar / Swiss Franc", "fx", "forex", "OTC", "CHF", "spot_fx"),
+    ("NZDUSD", "New Zealand Dollar / US Dollar", "fx", "forex", "OTC", "USD", "spot_fx"),
+    ("BTCUSD", "Bitcoin / US Dollar", "digital_assets", "crypto", "Multi-venue", "USD", "spot_crypto"),
+    ("BTCUSDT", "Bitcoin / Tether", "digital_assets", "crypto", "Multi-venue", "USDT", "spot_crypto"),
+    ("ETHUSD", "Ether / US Dollar", "digital_assets", "crypto", "Multi-venue", "USD", "spot_crypto"),
+    ("ETHUSDT", "Ether / Tether", "digital_assets", "crypto", "Multi-venue", "USDT", "spot_crypto"),
+    ("SOLUSD", "Solana / US Dollar", "digital_assets", "crypto", "Multi-venue", "USD", "spot_crypto"),
+    ("XAUUSD", "Gold Spot / US Dollar", "commodities", "forex", "OTC", "USD", "spot_metal"),
+    ("WTI", "WTI Crude Oil", "commodities", "us", "NYMEX", "USD", "commodity_future"),
+    ("BRENT", "Brent Crude Oil", "commodities", "us", "ICE", "USD", "commodity_future"),
 ]
-def search_instruments(query="", market=None, limit=30):
- q=query.strip().casefold()
- rows=[x for x in INSTRUMENTS if (not market or x["market"]==market)
-       and (not q or q in x["symbol"].casefold() or q in x["name"].casefold())]
- return {"count":len(rows[:max(1,min(limit,100))]),"instruments":rows[:max(1,min(limit,100))],
-  "data_type":"reference_metadata_only","quotes_included":False}
+
+def _make_instrument(row):
+    symbol, name, asset_class, group, venue, currency, instrument_type = row
+    return {
+        "instrument_id": f"{group}:{venue.lower().replace(' ', '-') }:{symbol}".replace(":", ":", 1),
+        "symbol": symbol,
+        "name": name,
+        "market": asset_class,
+        "market_group": group,
+        "instrument_type": instrument_type,
+        "venue": venue,
+        "currency": currency,
+        "metadata_status": "reference_only",
+        "quotes_included": False,
+    }
+
+INSTRUMENTS = [_make_instrument(row) for row in _RAW_INSTRUMENTS]
+
+def search_instruments(query="", market=None, limit=30, market_group=None):
+    """Search reference metadata; never implies quote availability."""
+    q = query.strip().casefold()
+    rows = [
+        item for item in INSTRUMENTS
+        if (not market or item["market"] == market)
+        and (not market_group or item["market_group"] == market_group)
+        and (not q or q in item["symbol"].casefold()
+             or q in item["name"].casefold()
+             or q in item["venue"].casefold())
+    ]
+    safe_limit = max(1, min(int(limit), 100))
+    return {
+        "count": len(rows[:safe_limit]),
+        "instruments": deepcopy(rows[:safe_limit]),
+        "data_type": "reference_metadata_only",
+        "quotes_included": False,
+        "coverage_note": "Curated reference examples only; not a complete exchange instrument master.",
+    }

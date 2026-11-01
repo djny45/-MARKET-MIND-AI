@@ -56,6 +56,7 @@ Specialist modules exchange deterministic records; this does not activate LLM ag
 | Cross-market research agent message bus | Added; deterministic shared mesh across India, US, crypto and forex; no model inference or live feeds |
 | Shared-core specialist worker routing | Added; workflow nodes map to validated worker profiles and deterministic handlers, with assignment metadata and runtime capability endpoint; no LLM inference or autonomous learning |
 | Worker-scoped evidence memory | Added; append-only SQLite notes per registered worker with source references, quality labels, bounded JSON validation and read filters; not autonomous learning or executable instructions |
+| Versioned specialist-worker contracts | Added v1.0.0 input/output shape contracts and evidence requirements for all 10 workflow node types; execution validates contract shapes before and after deterministic handlers |
 | Docker Compose development setup | Added |
 | CI quality workflow | Added; run status visible in GitHub Actions |
 | Market taxonomy and searchable instrument reference directory | Added |

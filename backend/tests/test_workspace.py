@@ -57,6 +57,18 @@ class WorkspaceTests(unittest.TestCase):
   loaded=workspace.get_execution("wrong-shape-checkpoint")
   self.assertEqual(loaded["checkpoint"],{})
   self.assertIn("checkpoint_error",loaded)
+
+ def test_malformed_request_and_result_are_reported_without_crashing(self):
+  request={"nodes":[],"edges":[],"inputs":{}}
+  workspace.create_execution("broken-payloads",request)
+  with workspace._connect() as con:
+   con.execute("UPDATE workflow_runs SET request_json=?, result_json=? WHERE id=?",
+    ("{broken","[1,2]","broken-payloads"))
+  loaded=workspace.get_execution("broken-payloads")
+  self.assertEqual(loaded["request"],{})
+  self.assertEqual(loaded["result"],{})
+  self.assertIn("request_error",loaded)
+  self.assertIn("result_error",loaded)
  def test_graph_limits(self):
   with self.assertRaises(ValueError):
    workspace.save_workflow("Too big","",[{}]*251,[])

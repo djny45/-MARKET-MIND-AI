@@ -60,3 +60,24 @@ Implemented areas:
 ## Scope boundary
 
 This is a historical market-research and data-quality workspace. It does not provide brokerage connectivity, order placement, personalized investment recommendations, or guaranteed live market data. Keep execution disabled.
+
+
+## Four-market architecture update — 2026-11-01
+
+Implemented:
+- Expanded the metadata-only instrument reference catalogue with explicit market groups: India, US, crypto and forex.
+- Added stable internal reference identifiers, asset-class labels, instrument types, venue and quote-currency metadata.
+- Added `market_group` filtering to `GET /api/instruments`, preserving the existing `market` asset-class filter.
+- Added regression tests for all four market groups, metadata-only semantics and venue search.
+- Added [Four-Market Platform Blueprint](docs/FOUR-MARKET-PLATFORM.md), covering canonical identifiers, historical event schemas, provider entitlements, data quality and staged implementation.
+
+Not implemented by this update:
+- No new live/delayed data connectors or provider credentials.
+- No claim of complete exchange instrument coverage.
+- No venue-aware global observation database migration yet; the existing OHLCV store retains its current symbol-based key.
+- No CVD, footprint or order-book depth from OHLCV estimates.
+- No broker integration, order routing or execution.
+
+Verification:
+- The previous quality-check workflow for commit `1b68619b9f87b7afb2a9c563812f0a5884298451` passed all four jobs.
+- New commits in this four-market update require their own CI run before being considered verified.

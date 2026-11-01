@@ -35,5 +35,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git remote add kronos https://github.com/shiyu-coder/Kronos.git
           git fetch --no-tags kronos 67b630e67f6a18c9e9be918d9b4337c960db1e9a
-          git subtree add --prefix=third_party/Kronos kronos/67b630e67f6a18c9e9be918d9b4337c960db1e9a --squash -m "Vendor Kronos upstream source at 67b630e"
+          git subtree add --prefix=third_party/Kronos FETCH_HEAD --squash -m "Vendor Kronos upstream source at 67b630e"
           git push origin HEAD:main

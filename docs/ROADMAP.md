@@ -41,6 +41,7 @@ This roadmap is a plan, not a claim that features already exist. Mark an item co
 - [ ] Build central research orchestrator with model-backed inference and evidence-grounded synthesis.
 - [x] Add initial shared-core worker registry and deterministic routing for supported workflow node types.
 - [ ] Add worker registry versioning and a broader evaluation suite.
+- [x] Add registry v1.0.0 manifest, deterministic SHA-256 digest, 550-profile/20-department integrity checks and registry status API; deeper per-worker behavioural evaluations remain pending.
 - [x] Add append-only worker-scoped evidence memory with provenance and quality labels.
 - [ ] Add reviewed shared knowledge, memory lifecycle controls, and human approval workflows.
 

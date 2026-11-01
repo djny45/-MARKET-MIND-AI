@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from .workflow import NODE_TYPES, execute_workflow
 from .workers import list_workers
 from .worker_runtime import dispatch_worker_task, worker_capabilities
-from .worker_memory import list_worker_memory, store_worker_memory
+from .worker_memory import list_worker_memory, store_worker_memory, review_worker_memory, list_shared_knowledge
 from .worker_evaluation import evaluate_worker_capabilities
 from .analytical_benchmarks import run_analytical_benchmarks
 from .worker_coordinator import delegate_worker_tasks
@@ -1065,3 +1065,22 @@ def central_research_coordination(request: CentralCoordinationRequest):
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+
+
+@app.post("/api/knowledge/review/{memory_id}")
+def review_shared_knowledge(memory_id: str, request: WorkerMemoryReviewRequest):
+ """Explicitly approve or reject a pending worker note for shared use."""
+ try:
+  return review_worker_memory(memory_id, request.decision, request.reviewer_id, request.rationale)
+ except KeyError as exc:
+  raise HTTPException(status_code=404, detail=str(exc)) from exc
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/knowledge/shared")
+def get_shared_knowledge(limit: int = 100):
+ try:
+  return list_shared_knowledge(limit)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc

@@ -5,7 +5,8 @@ from unittest.mock import patch
 
 from fastapi import HTTPException
 
-from app.main import HistoricalMarketEventsRequest, import_historical_market_events, historical_market_events
+from app.main import (HistoricalMarketEventsRequest, import_historical_market_events,
+                      historical_market_events, historical_market_event_quality)
 
 
 class HistoricalMarketEventsApiTests(unittest.TestCase):
@@ -31,6 +32,24 @@ class HistoricalMarketEventsApiTests(unittest.TestCase):
         found = historical_market_events("india:nse:RELIANCE", "trade", None, "NSE", None, None, 50)
         self.assertEqual(found["count"], 1)
         self.assertEqual(found["events"][0]["event_time"], "2026-10-30T03:45:00+00:00")
+
+    def test_quality_endpoint_reports_sequence_gap(self):
+        payloads = []
+        for event_id, sequence in (("quality-1", 1), ("quality-3", 3)):
+            payloads.append({
+                "event_id": event_id, "instrument_id": "india:nse:RELIANCE",
+                "event_type": "trade", "provider": "quality-test", "venue": "NSE",
+                "event_time": "2026-10-30T09:15:00+05:30",
+                "received_at": "2026-10-30T09:15:01+05:30",
+                "sequence_number": sequence, "status": "historical",
+                "payload": {"price": 1450, "quantity": 10, "side": "unknown"},
+            })
+        import_historical_market_events(HistoricalMarketEventsRequest(events=payloads))
+        result = historical_market_event_quality(
+            "india:nse:RELIANCE", "trade", "quality-test", "NSE", None, None, 50
+        )
+        self.assertEqual(result["sequence_integrity"]["gap_count"], 1)
+        self.assertEqual(result["sampled_events"], 2)
 
     def test_invalid_event_returns_http_400(self):
         with self.assertRaises(HTTPException) as error:

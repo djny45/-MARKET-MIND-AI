@@ -52,10 +52,10 @@ def review_worker_memory(worker_id, memory_id, decision, reviewer, reason=""):
                 status TEXT NOT NULL)""")
             knowledge_id = str(uuid.uuid4())
             approved_at = datetime.now(timezone.utc).isoformat()
-            db.execute("INSERT INTO worker_shared_knowledge
+            db.execute("""INSERT INTO worker_shared_knowledge
                 (knowledge_id, source_memory_id, worker_id, content, source_refs_json,
                  quality_status, approved_by, approved_at, status)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                        (knowledge_id, memory_id, worker_id, row["content"], row["source_refs_json"],
                         row["quality_status"], reviewer.strip(), approved_at, "approved"))
             status = "approved"

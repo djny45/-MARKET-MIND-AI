@@ -369,3 +369,13 @@ A source with invalid timestamps/closes or duplicate UTC instants is blocked rat
 `GET /api/research/evaluation-manifest?symbol=RELIANCE&interval=1h&limit=500&train_ratio=0.6&validation_ratio=0.2&embargo_bars=1` creates source-isolated chronological development, validation and holdout partitions. It reports partition time ranges, observation counts, embargo ranges and a SHA-256 digest over canonicalized OHLCV and provenance fields.
 
 Each provider is partitioned independently. Invalid timestamps, non-finite OHLCV and duplicate timestamps within a source block that source. The endpoint does not shuffle observations, train a model, tune parameters, backtest a strategy or calculate performance. Embargoes reduce boundary adjacency but do not eliminate all look-ahead, survivorship, revision or selection bias.
+
+
+## Historical data revision audit
+
+- `GET /api/market-data/revisions?symbol=RELIANCE&interval=1h&source=vendor-feed&limit=100` lists detected changes to previously stored observations.
+- On a repeated import, the store compares OHLCV values and data-quality status with the prior row before updating it. Changed observations are written to an append-only `market_bar_revisions` table with prior/current values, SHA-256 fingerprints, source, timestamp and detection time.
+- A change to retrieval time alone is not treated as an OHLCV revision. New observations do not create revision records.
+- SQLite schema migration version 2 creates the revision ledger for existing databases.
+
+The ledger can only detect changes observed by this application after the migration is installed. It cannot reconstruct earlier provider revisions, prove why a vendor changed a value, authenticate a provider, or guarantee tamper resistance against an operator with database write access. This is an audit aid for historical research, not a live-data feed or trading signal.

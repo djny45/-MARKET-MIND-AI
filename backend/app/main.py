@@ -10,6 +10,7 @@ from .workers import list_workers
 from .worker_runtime import dispatch_worker_task, worker_capabilities
 from .worker_memory import list_worker_memory, store_worker_memory
 from .worker_evaluation import evaluate_worker_capabilities
+from .analytical_benchmarks import run_analytical_benchmarks
 from .skill_catalog import list_skills, load_skill
 from .markets import market_catalog
 from .instruments import search_instruments
@@ -974,3 +975,9 @@ def get_worker_memory(worker_id: str, limit: int = 50, memory_type: str | None =
   raise HTTPException(status_code=404, detail=str(exc)) from exc
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/analytics/benchmarks")
+def get_analytical_benchmarks():
+ """Run deterministic formula checks against fixed reference vectors."""
+ return run_analytical_benchmarks()

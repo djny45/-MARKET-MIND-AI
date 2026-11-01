@@ -60,6 +60,32 @@ class SourceIndicatorComparisonTests(unittest.TestCase):
         self.assertEqual(result["source_reports"]["alpha"]["status"], "blocked_invalid_observations")
         self.assertEqual(result["source_reports"]["alpha"]["invalid_observation_count"], 1)
 
+    def test_revision_policy_annotates_excludes_and_blocks_revised_source_rows(self):
+        first = bars("alpha")
+        second = bars("beta")
+        revised = [{"source": "alpha", "timestamp": first[5]["timestamp"]}]
+        annotated = compare_source_indicator_series(
+            {"bars": first + second}, revisioned_keys=revised
+        )
+        self.assertEqual(annotated["source_reports"]["alpha"]["revised_observation_count"], 1)
+        self.assertTrue(annotated["source_reports"]["alpha"]["revision_review_required"])
+        excluded = compare_source_indicator_series(
+            {"bars": first + second}, revisioned_keys=revised,
+            revision_policy="exclude_revised",
+        )
+        self.assertEqual(excluded["source_reports"]["alpha"]["valid_observation_count"], 39)
+        self.assertEqual(excluded["source_reports"]["alpha"]["excluded_revised_observation_count"], 1)
+        blocked = compare_source_indicator_series(
+            {"bars": first + second}, revisioned_keys=revised,
+            revision_policy="block_revised",
+        )
+        self.assertEqual(blocked["source_reports"]["alpha"]["status"], "blocked_revised_observations")
+        self.assertEqual(blocked["evaluated_source_count"], 1)
+
+    def test_unknown_revision_policy_is_rejected(self):
+        with self.assertRaises(ValueError):
+            compare_source_indicator_series({"bars": bars("alpha")}, revision_policy="ignore")
+
     def test_single_source_returns_no_cross_source_comparisons(self):
         result = compare_source_indicator_series({"bars": bars("alpha")})
         self.assertEqual(result["source_count"], 1)

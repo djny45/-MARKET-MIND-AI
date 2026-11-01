@@ -300,3 +300,13 @@ Example request:
 ```
 
 This is bounded workflow-engine execution, not independent LLM inference or autonomous market research. Unsupported worker/operation combinations are rejected. Live data access, forecasts, recommendations, paper trading and broker execution are not part of this endpoint.
+
+
+## Versioned worker contracts and scoped research memory
+
+The deterministic worker runtime publishes contract version `1.0.0` in its capability report and dispatch responses. Each worker can store and retrieve its own append-only research notes:
+
+- `POST /api/workers/{worker_id}/memory` — add an `observation` or `methodology` note with source references and a data-quality label.
+- `GET /api/workers/{worker_id}/memory?limit=50&memory_type=observation` — read notes for that worker only.
+
+Memory is isolated by worker ID and stored in the configured SQLite database (`MARKET_MIND_DB`). Entries default to `pending_review`; the current API does not promote notes into shared knowledge, train models, authenticate source providers, or infer facts. This is a persistence foundation, not autonomous self-learning.

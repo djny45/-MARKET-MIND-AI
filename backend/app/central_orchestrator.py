@@ -1,17 +1,25 @@
-"""Central deterministic coordinator for bounded research tasks and evidence synthesis."""
-from .worker_delegation import delegate_worker_tasks
-from .research_orchestrator import build_research_brief
+"""Central deterministic coordinator for bounded tasks and evidence synthesis."""
+from .worker_coordinator import delegate_worker_tasks
+from .cross_market_round import build_research_round
 
-def coordinate_research(worker_tasks, findings, requested_markets=None):
-    if not isinstance(findings, list) or len(findings) > 1000:
-        raise ValueError("findings must be a list of at most 1000 records")
-    delegation = delegate_worker_tasks(worker_tasks)
-    brief = build_research_brief(findings, requested_markets)
+
+def coordinate_research(worker_tasks, values, messages, requested_markets=None,
+                        min_sources_per_market=1):
+    """Coordinate a caller-authored worker DAG and cross-market evidence gate."""
+    delegation = delegate_worker_tasks(worker_tasks, values)
+    evidence_round = build_research_round(
+        messages, requested_markets=requested_markets,
+        min_sources_per_market=min_sources_per_market,
+    )
+    ready = (
+        delegation.get("status") == "completed"
+        and evidence_round.get("status") == "ready_for_human_review"
+    )
     return {
-        "orchestrator_version": "1.0.0",
-        "status": "ready_for_human_review" if brief.get("missing_market_groups") == [] else "incomplete_market_coverage",
+        "orchestrator_version": "2.0.0",
+        "status": "ready_for_human_review" if ready else "incomplete_or_blocked",
         "worker_delegation": delegation,
-        "research_brief": brief,
+        "cross_market_evidence": evidence_round,
         "coordination_policy": {
             "worker_tasks_are_bounded": True,
             "evidence_is_caller_supplied": True,

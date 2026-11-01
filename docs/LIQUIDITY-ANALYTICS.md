@@ -24,7 +24,7 @@ Included research modules:
 
 ## Liquidity analytics inventory
 
-The existing core volume-indicator endpoint already covers OBV, ADL, Chaikin Oscillator, CMF, MFI, Force Index, Ease of Movement, VPT, NVI, PVI, VWAP, relative volume, volume oscillator, volume ROC and volume SMA.
+The API now exposes `POST /api/indicators/liquidity-profile` for an OHLCV-based approximate volume profile. Request fields are `high`, `low`, `close`, `volume`, optional `bins` (2–500, default 48), and `value_area_pct` (1–100, default 70). The response includes the volume-at-price histogram, POC, value-area high/low, local high/low volume nodes, and explicit approximation metadata. It does not claim to be a true trade-level profile. Regression tests cover normal, flat-price, and invalid-input cases.\n\nThe existing core volume-indicator endpoint already covers OBV, ADL, Chaikin Oscillator, CMF, MFI, Force Index, Ease of Movement, VPT, NVI, PVI, VWAP, relative volume, volume oscillator, volume ROC and volume SMA.
 
 The vendored library adds profile and tick-based research methods. The broader liquidity data model should distinguish the following input classes:
 

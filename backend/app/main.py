@@ -13,6 +13,7 @@ from .instruments import search_instruments
 from .pipeline import system_capabilities
 from .news import ingest_news
 from . import indicators
+from .volume_indicators import calculate_volume_indicators
 from .performance import performance_metrics
 from . import workspace
 from .market_data import SyntheticFixtureAdapter, MarketDataBatch
@@ -54,6 +55,14 @@ class WorkflowRequest(BaseModel):
 class IndicatorRequest(BaseModel):
  values: list[float] = Field(min_length=2)
  period: int = Field(default=14, ge=1, le=10000)
+
+class VolumeIndicatorRequest(BaseModel):
+ high: list[float] = Field(min_length=2, max_length=10000)
+ low: list[float] = Field(min_length=2, max_length=10000)
+ close: list[float] = Field(min_length=2, max_length=10000)
+ volume: list[float] = Field(min_length=2, max_length=10000)
+ period: int = Field(default=20, ge=1, le=10000)
+
 
 class WatchlistRequest(BaseModel):
  symbol: str = Field(min_length=1, max_length=32)
@@ -221,6 +230,15 @@ async def news_feed():
 async def news():
  result=await ingest_news()
  return result
+
+@app.post("/api/indicators/volume")
+def calculate_volume(request: VolumeIndicatorRequest):
+ """Calculate descriptive OHLCV volume indicators for historical research only."""
+ try:
+  return calculate_volume_indicators(request.high, request.low, request.close, request.volume, request.period)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
 
 @app.post("/api/indicators")
 def calculate(request: IndicatorRequest):

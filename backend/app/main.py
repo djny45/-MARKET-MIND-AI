@@ -30,6 +30,10 @@ from .agent_network import publish_message, read_messages, network_topology
 from .agent_collaboration import build_collaboration_brief
 from .cross_market_round import build_research_round
 from .research_orchestrator import build_research_brief
+from .indicator_benchmarks import run_indicator_benchmarks
+from .worker_delegation import delegate_worker_tasks
+from .shared_knowledge import review_worker_memory, list_shared_knowledge
+from .provider_registry import provider_catalogue
 from .trade_flow import build_trade_flow_buckets
 from .cross_market_correlation import build_cross_market_correlation
 from . import watchlist
@@ -150,6 +154,15 @@ class WorkerMemoryRequest(BaseModel):
  content: str = Field(min_length=1, max_length=4000)
  source_refs: list[str] = Field(default_factory=list, max_length=20)
  quality_status: Literal["verified_by_importer", "partial", "unverified", "synthetic"] = "unverified"
+
+
+class WorkerDelegationRequest(BaseModel):
+ tasks: list[dict[str, Any]] = Field(min_length=1, max_length=50)
+
+class WorkerMemoryReviewRequest(BaseModel):
+ decision: Literal["approve", "reject"]
+ reviewer: str = Field(min_length=1, max_length=120)
+ reason: str = Field(default="", max_length=1000)
 
 
 class SetupReportRequest(BaseModel):
@@ -981,3 +994,47 @@ def get_worker_memory(worker_id: str, limit: int = 50, memory_type: str | None =
 def get_analytical_benchmarks():
  """Run deterministic formula checks against fixed reference vectors."""
  return run_analytical_benchmarks()
+
+
+@app.get("/api/benchmarks/indicators")
+def indicator_correctness_benchmarks():
+ """Run fixed reference-fixture checks for indicator formula contracts."""
+ return run_indicator_benchmarks()
+
+
+@app.post("/api/workers/delegate")
+def delegate_research_workers(request: WorkerDelegationRequest):
+ """Route a bounded sequence of deterministic tasks between authorized workers."""
+ try:
+  return delegate_worker_tasks(request.tasks)
+ except KeyError as exc:
+  raise HTTPException(status_code=404, detail=str(exc)) from exc
+ except PermissionError as exc:
+  raise HTTPException(status_code=403, detail=str(exc)) from exc
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/workers/{worker_id}/memory/{memory_id}/review")
+def review_research_memory(worker_id: str, memory_id: str, request: WorkerMemoryReviewRequest):
+ """Require a named human reviewer before any note enters shared knowledge."""
+ try:
+  return review_worker_memory(worker_id, memory_id, request.decision, request.reviewer, request.reason)
+ except KeyError as exc:
+  raise HTTPException(status_code=404, detail=str(exc)) from exc
+ except ValueError as exc:
+  raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@app.get("/api/knowledge/shared")
+def get_shared_research_knowledge(limit: int = 100):
+ try:
+  return list_shared_knowledge(limit)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/providers/catalogue")
+def get_provider_catalogue():
+ """Show source rights and connector readiness; no provider is activated."""
+ return provider_catalogue()

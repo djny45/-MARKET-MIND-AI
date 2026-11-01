@@ -40,7 +40,7 @@ This roadmap is a plan, not a claim that features already exist. Mark an item co
 - [x] Add bounded deterministic worker dispatch with explicit capability authorization and a capability-status API.
 - [x] Add a typed evidence-first research aggregation API with market coverage, source references, quality labels and disagreement reporting.
 - [ ] Build central research orchestrator.
-- [ ] Add worker registry, versioning, and evaluation suite.
+- [x] Add deterministic worker capability smoke-evaluation suite and read-only evaluation API.\n- [ ] Add analytical correctness benchmarks, worker registry governance, and longitudinal evaluation.
 - [x] Add isolated append-only worker research memory with source references and pending-review status.\n- [ ] Add human-reviewed promotion into shared knowledge.
 - [ ] Build visual node-based research workflows.
 - [ ] Add explainability, evidence coverage, and disagreement reporting.
@@ -65,3 +65,7 @@ A module is considered implemented only when it has:
 3. Data provenance and timestamp handling where relevant.
 4. Security and licence review.
 5. User-facing documentation and known limitations.
+
+## Worker evaluation contract
+
+The `GET /api/workers/evaluations` endpoint runs one fixed synthetic fixture per unique deterministic operation currently mapped to worker profiles. It checks successful dispatch and basic output shape. A passing result confirms wiring only; it does not validate analytical correctness, predictive skill, live-data quality, or trading performance. The endpoint is read-only and does not access external providers or execute orders.

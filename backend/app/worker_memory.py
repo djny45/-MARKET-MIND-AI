@@ -2,7 +2,7 @@
 
 Entries are evidence-linked notes, not model training data or autonomous beliefs.
 Only observations and methodology notes are accepted; promotion to shared
-knowledge requires a separate human review workflow that is not implemented.
+knowledge requires a separate human review workflow.
 """
 import json
 import os
@@ -39,20 +39,6 @@ def _connect():
         )
     """)
     db.execute("CREATE INDEX IF NOT EXISTS idx_worker_memory_worker_time ON worker_memory(worker_id, created_at)")
-    db.execute("""
-        CREATE TABLE IF NOT EXISTS shared_knowledge (
-            knowledge_id TEXT PRIMARY KEY,
-            memory_id TEXT NOT NULL UNIQUE,
-            worker_id TEXT NOT NULL,
-            memory_type TEXT NOT NULL,
-            content TEXT NOT NULL,
-            source_refs_json TEXT NOT NULL,
-            quality_status TEXT NOT NULL,
-            approved_by TEXT NOT NULL,
-            approval_rationale TEXT NOT NULL,
-            approved_at TEXT NOT NULL
-        )
-    """)
     return db
 
 def _validate_worker(worker_id):
@@ -116,78 +102,4 @@ def list_worker_memory(worker_id, limit=50, memory_type=None):
         "schema_version": MEMORY_SCHEMA_VERSION, "entries": entries,
         "memory_policy": "append_only_pending_review",
         "note": "Stored notes are not model training data, verified facts, or automatically shared knowledge.",
-    }
-
-
-
-def review_worker_memory(memory_id, decision, reviewer_id, rationale):
-    """Explicitly approve or reject one pending worker note.
-
-    reviewer_id is an asserted local reviewer label, not authenticated identity.
-    """
-    if not isinstance(memory_id, str) or not memory_id.strip() or len(memory_id) > 64:
-        raise ValueError("memory_id is required")
-    if decision not in {"approve", "reject"}:
-        raise ValueError("decision must be approve or reject")
-    if not isinstance(reviewer_id, str) or not reviewer_id.strip() or len(reviewer_id) > 96:
-        raise ValueError("reviewer_id must contain 1 to 96 characters")
-    if not isinstance(rationale, str) or not rationale.strip() or len(rationale) > 1000:
-        raise ValueError("rationale must contain 1 to 1000 characters")
-
-    now = datetime.now(timezone.utc).isoformat()
-    with _connect() as db:
-        row = db.execute(
-            "SELECT * FROM worker_memory WHERE memory_id=?", (memory_id,)
-        ).fetchone()
-        if row is None:
-            raise KeyError("memory_id was not found")
-        if row["review_status"] != "pending_review":
-            raise ValueError("memory entry has already been reviewed")
-        refs = json.loads(row["source_refs_json"])
-        if decision == "approve":
-            if not refs:
-                raise ValueError("shared knowledge approval requires at least one source reference")
-            if row["quality_status"] == "synthetic":
-                raise ValueError("synthetic fixture notes cannot be promoted to shared knowledge")
-            knowledge_id = str(uuid.uuid4())
-            db.execute(
-                """INSERT INTO shared_knowledge VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (knowledge_id, memory_id, row["worker_id"], row["memory_type"],
-                 row["content"], row["source_refs_json"], row["quality_status"],
-                 reviewer_id.strip(), rationale.strip(), now),
-            )
-            status = "approved"
-        else:
-            knowledge_id = None
-            status = "rejected"
-        db.execute(
-            "UPDATE worker_memory SET review_status=? WHERE memory_id=?",
-            (status, memory_id),
-        )
-    return {
-        "memory_id": memory_id, "knowledge_id": knowledge_id,
-        "review_status": status, "reviewed_by": reviewer_id.strip(),
-        "rationale": rationale.strip(), "reviewed_at": now,
-        "shared_knowledge_created": decision == "approve",
-        "reviewer_identity_authenticated": False,
-    }
-
-
-def list_shared_knowledge(limit=100):
-    if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 500:
-        raise ValueError("limit must be between 1 and 500")
-    with _connect() as db:
-        rows = db.execute(
-            "SELECT * FROM shared_knowledge ORDER BY approved_at DESC LIMIT ?",
-            (limit,),
-        ).fetchall()
-    entries = []
-    for row in rows:
-        item = dict(row)
-        item["source_refs"] = json.loads(item.pop("source_refs_json"))
-        entries.append(item)
-    return {
-        "count": len(entries), "entries": entries,
-        "policy": "explicit_human_approval_required",
-        "note": "Reviewer labels are caller-supplied and not authenticated; protect these endpoints behind authentication before multi-user deployment.",
     }

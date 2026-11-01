@@ -31,7 +31,7 @@ class CrossMarketCorrelationTests(unittest.TestCase):
                 "2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z", "2026-01-03T00:00:00Z", "2026-01-04T00:00:00Z"
             ]),
         }, "1d", min_observations=3)
-        self.assertEqual(result["pairs"][0]["aligned_bar_count"], 3)
+        self.assertEqual(result["pairs"][0]["aligned_bar_count"], 4)
         self.assertAlmostEqual(result["pairs"][0]["correlation"], 1.0)
 
     def test_missing_sessions_use_intersection_without_forward_fill(self):

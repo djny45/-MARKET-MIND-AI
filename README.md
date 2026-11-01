@@ -379,3 +379,8 @@ Each provider is partitioned independently. Invalid timestamps, non-finite OHLCV
 - SQLite schema migration version 2 creates the revision ledger for existing databases.
 
 The ledger can only detect changes observed by this application after the migration is installed. It cannot reconstruct earlier provider revisions, prove why a vendor changed a value, authenticate a provider, or guarantee tamper resistance against an operator with database write access. This is an audit aid for historical research, not a live-data feed or trading signal.
+
+
+### Revision-aware evaluation manifests
+
+The `GET /api/research/evaluation-manifest` endpoint accepts `revision_policy=annotate|exclude_revised|block_revised`. The default `annotate` retains current observations while flagging source datasets containing recorded revisions; `exclude_revised` removes revised current observations before chronological partitioning; `block_revised` prevents partitioning that source. Revision keys are joined against currently stored bars and are limited to changes recorded after the revision-audit migration. This cannot reconstruct pre-migration edits or authenticate provider data. The policy is a research-data governance control, not a guarantee against look-ahead, survivorship or selection bias.

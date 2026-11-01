@@ -4,6 +4,8 @@ Worker profiles remain templates. A profile can execute only an explicitly
 mapped deterministic workflow operation; this module does not invoke an LLM,
 fetch market data, or place orders.
 """
+from math import isfinite
+
 from .workers import list_workers
 from .workflow import NODE_TYPES, execute_workflow
 
@@ -61,12 +63,18 @@ def dispatch_worker_task(worker_id, operation, values, params=None):
         raise PermissionError("worker profile is not authorized for this operation")
     if not isinstance(values, list) or not 2 <= len(values) <= 10000:
         raise ValueError("values must contain between 2 and 10000 observations")
+    try:
+        numeric_values = [float(value) for value in values]
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ValueError("values must contain finite numeric observations") from exc
+    if not all(isfinite(value) for value in numeric_values):
+        raise ValueError("values must contain finite numeric observations")
     if params is None:
         params = {}
     if not isinstance(params, dict):
         raise ValueError("params must be an object")
     node = {"id": "worker-task", "type": operation, "data": params}
-    result = execute_workflow([node], [], {"worker-task": values}, max_workers=1)
+    result = execute_workflow([node], [], {"worker-task": numeric_values}, max_workers=1)
     task = result["tasks"][0]
     return {
         "worker_contract_version": WORKER_CONTRACT_VERSION,

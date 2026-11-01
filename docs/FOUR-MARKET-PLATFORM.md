@@ -176,3 +176,16 @@ API:
 Supported topics: macro, correlation, volatility, liquidity, breadth, event, data_quality, research_note and regime. Quality labels are caller-supplied metadata and are not independently authenticated. The message bus preserves source references and publication timestamps; it does not infer causal links, synchronize market sessions, validate conclusions or guarantee complete data.
 
 **Important implementation boundary:** these are deterministic software research modules and a persistent message bus, not independent LLM agents. No model inference, live exchange feed, broker connection, order routing or trading execution is enabled. Data remains historical/manual-import or synthetic fixture data.
+
+
+## Cross-market research roundtable
+
+The shared message bus can be assembled into a deterministic collaboration brief:
+
+- `GET /api/agent-network/brief?limit=500` — summarize shared messages from all market groups.
+- Optional `topic` filter limits the brief to one supported research topic.
+- The response reports message counts by market and quality label, participating markets, topic counts, and comparable structured findings.
+- To make a finding comparable, a message payload may include scalar `finding_key`, `finding_value` and optional `unit` fields. Only matching topic/key/unit groups are compared.
+- Different supplied values are surfaced for analyst review. Matching values are described as agreement only, never proof of causality or statistical consensus.
+
+This is a read-only aggregation of existing research notes. It does not autonomously dispatch agents, load an AI model, create market data, synchronize sessions, or produce trade signals. Each market domain can publish and read the shared bus; the brief gives analysts a compact cross-market view of those conversations.

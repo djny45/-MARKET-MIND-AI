@@ -1,0 +1,491 @@
+use super::composition::PanelPresentation;
+use super::layout::place_non_overlapping_labels;
+use super::painting::PixelGeometry;
+use super::presentation::IndicatorView;
+use super::scene::{ChartCoordinates, Scene, XAxis};
+use data::chart::axis::PanelYValueRange;
+use data::chart::kline::{composition::PanelScaleMode, table_columns};
+use data::chart::ticks::{
+    Y_LABEL_DENSITY,
+    x::{TimeTickLabel, TimeTickTier},
+    x_labels_that_fit,
+    y::{TickValue, YAxisScale},
+    y_labels_that_fit,
+};
+use exchange::{Timeframe, unit::Price};
+
+use super::layout::label_bounds_overlap;
+use super::painting::PaintInputs;
+use super::{CHAR_W, TEXT_SIZE, Y_AXIS_GUTTER, Y_AXIS_LABEL_LEFT_INSET};
+use crate::style;
+use iced::theme::palette::Extended;
+use iced::widget::canvas;
+use iced::{Point, Rectangle};
+
+const MIN_X_TICK_PX: f32 = 80.0;
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum AxisLabelColor {
+    Primary,
+    Secondary,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct AxisLabel {
+    bounds: Rectangle,
+    content: String,
+    position: Point,
+    align_x: iced::advanced::text::Alignment,
+    color: AxisLabelColor,
+    overlap_y: Option<f32>,
+}
+
+#[derive(Debug, Default, Clone, PartialEq)]
+pub(super) struct AxisInputs {
+    labels: Vec<AxisLabel>,
+}
+
+impl AxisInputs {
+    fn push_y_label(
+        &mut self,
+        bounds: Rectangle,
+        content: String,
+        position: Point,
+        overlap_y: Option<f32>,
+    ) {
+        self.labels.push(AxisLabel {
+            bounds,
+            content,
+            position,
+            align_x: iced::Alignment::Start.into(),
+            color: AxisLabelColor::Primary,
+            overlap_y,
+        });
+    }
+
+    fn push_x_label(&mut self, bounds: Rectangle, content: String, x: f32, color: AxisLabelColor) {
+        self.labels.push(AxisLabel {
+            bounds,
+            overlap_y: None,
+            color,
+            content,
+            position: Point::new(x, bounds.height / 2.0),
+            align_x: iced::advanced::text::Alignment::Center,
+        });
+    }
+
+    pub(super) fn required_gutter(&self) -> f32 {
+        let widest = self
+            .labels
+            .iter()
+            .map(|label| label.content.chars().count() as f32 * CHAR_W)
+            .fold(0.0, f32::max);
+        (widest + Y_AXIS_LABEL_LEFT_INSET * 2.0).max(Y_AXIS_GUTTER)
+    }
+
+    pub(super) fn paint(
+        &self,
+        frame: &mut PaintInputs,
+        palette: &Extended,
+        ticker_centers: &[f32],
+    ) {
+        for label in &self.labels {
+            let visible = label.overlap_y.is_none_or(|y| {
+                !ticker_centers
+                    .iter()
+                    .copied()
+                    .any(|center| label_bounds_overlap(y, TEXT_SIZE, center, TEXT_SIZE + 4.0, 2.0))
+            });
+            if visible {
+                let color = match label.color {
+                    AxisLabelColor::Primary => palette.background.base.text,
+                    AxisLabelColor::Secondary => palette.background.strongest.text,
+                };
+                frame.with_clip(label.bounds, |frame| {
+                    frame.fill_text(canvas::Text {
+                        content: label.content.clone(),
+                        position: label.position,
+                        color,
+                        size: TEXT_SIZE.into(),
+                        align_x: label.align_x,
+                        align_y: iced::Alignment::Center.into(),
+                        font: style::AZERET_MONO,
+                        ..Default::default()
+                    });
+                });
+            }
+        }
+    }
+}
+
+fn div_ceil(value: i64, divisor: i64) -> i64 {
+    let quotient = value.div_euclid(divisor);
+    let remainder = value.rem_euclid(divisor);
+    if remainder == 0 {
+        quotient
+    } else {
+        quotient.saturating_add(1)
+    }
+}
+
+fn nice_step_units(rough: i64) -> i64 {
+    let rough = rough.max(1);
+    let mut magnitude = 1i64;
+
+    while magnitude <= rough / 10 {
+        magnitude = magnitude.saturating_mul(10);
+    }
+
+    let fraction = rough as f64 / magnitude as f64;
+    let multiplier = if fraction <= 1.0 {
+        1
+    } else if fraction <= 2.0 {
+        2
+    } else if fraction <= 5.0 {
+        5
+    } else {
+        10
+    };
+
+    multiplier * magnitude
+}
+
+fn unit_ticks(min_x: i64, max_x: i64, width_px: f32, min_tick_px: f32) -> (Vec<i64>, i64) {
+    let span = (max_x - min_x).max(1);
+    let target_ticks = (width_px / min_tick_px.max(1.0)).floor().max(2.0);
+    let rough_step = ((span as f32) / target_ticks).ceil().max(1.0) as i64;
+    let step = nice_step_units(rough_step);
+
+    let first = div_ceil(min_x, step).saturating_mul(step);
+    let mut ticks = Vec::new();
+    let mut current = first;
+    for _ in 0..=4096 {
+        if current > max_x {
+            break;
+        }
+        ticks.push(current);
+        current = current.saturating_add(step);
+    }
+
+    (ticks, step)
+}
+
+pub(super) struct AxisView<'a> {
+    pub(super) scene: &'a Scene,
+    pub(super) coordinates: ChartCoordinates<'a>,
+    pub(super) indicators: IndicatorView<'a>,
+}
+
+impl AxisView<'_> {
+    fn y_axis_label_specs(&self) -> Vec<(usize, String, f32)> {
+        let scene = self.scene;
+        let labels_for_height =
+            |height: f32| y_labels_that_fit(height, TEXT_SIZE, Y_LABEL_DENSITY).max(2) as i32;
+        let mut labels = Vec::new();
+        let uses_display_space_ticks = matches!(
+            scene.primary.mode,
+            PanelScaleMode::PercentFromBase | PanelScaleMode::Logarithmic
+        ) || scene.primary.display_domain_override.is_some();
+
+        if !uses_display_space_ticks {
+            if let Some(ticker) = self.coordinates.base_ticker_info() {
+                use data::chart::ticks::y::PriceAxis;
+
+                let price_axis =
+                    PriceAxis::new(ticker.min_ticksize.into(), Some(ticker.min_ticksize));
+                let (min_price_value, max_price_value) = scene
+                    .primary
+                    .value_scale
+                    .values_f32(scene.primary.domain.active());
+                let min_price = min_price_value as f64;
+                let max_price = max_price_value as f64;
+                let labels_can_fit = labels_for_height(scene.primary_plot().height);
+                let y_ticks = price_axis.ticks(min_price, max_price, labels_can_fit);
+                let step_value = y_ticks.step.unwrap_or(1.0) as f32;
+
+                for tick in y_ticks.ticks {
+                    let TickValue::PriceUnits(units) = tick.value else {
+                        continue;
+                    };
+                    let price = Price::from_units(units).to_f32_lossy();
+                    let value = price;
+                    let y = scene.map_primary_plot_value(value).clamp(
+                        scene.primary_plot().y,
+                        scene.primary_plot().y + scene.primary_plot().height,
+                    );
+                    labels.push((
+                        scene.primary.panel_index,
+                        scene.format_primary_axis_label(value, step_value),
+                        y,
+                    ));
+                }
+            } else {
+                let (min_domain_value, max_domain_value) = scene
+                    .primary
+                    .value_scale
+                    .values_f32(scene.primary.domain.active());
+                let min_value = min_domain_value as f64;
+                let max_value = max_domain_value as f64;
+                let y_ticks = YAxisScale::Linear.ticks(
+                    min_value,
+                    max_value,
+                    labels_for_height(scene.primary_plot().height),
+                );
+                let step_value = y_ticks.step.unwrap_or(1.0) as f32;
+
+                for tick in y_ticks.ticks {
+                    let TickValue::Float(value) = tick.value else {
+                        continue;
+                    };
+                    let value = value as f32;
+                    let y = scene.map_primary_plot_value(value).clamp(
+                        scene.primary_plot().y,
+                        scene.primary_plot().y + scene.primary_plot().height,
+                    );
+                    labels.push((
+                        scene.primary.panel_index,
+                        scene.format_primary_axis_label(value, step_value),
+                        y,
+                    ));
+                }
+            }
+        } else {
+            let (min_display, max_display) = scene.primary_domain_display_values();
+            let scale = if matches!(scene.primary.mode, PanelScaleMode::PercentFromBase) {
+                YAxisScale::Percent
+            } else {
+                YAxisScale::Linear
+            };
+            let y_ticks = scale.ticks(
+                f64::from(min_display),
+                f64::from(max_display),
+                labels_for_height(scene.primary_plot().height),
+            );
+            let step = y_ticks.step.unwrap_or(1.0) as f32;
+
+            for tick in y_ticks.ticks {
+                let ratio = tick.ratio as f32;
+                let TickValue::Float(tick) = tick.value else {
+                    continue;
+                };
+                let y = scene.map_primary_plot_ratio(ratio);
+                labels.push((
+                    scene.primary.panel_index,
+                    scene.format_primary_axis_label(tick as f32, step),
+                    y,
+                ));
+            }
+        }
+
+        for indicator in &scene.indicator_panels {
+            if self.indicators.indicator_is_unavailable(indicator.value_id) {
+                continue;
+            }
+            let panel_index = indicator.panel_index;
+            if matches!(indicator.presentation, PanelPresentation::Table) {
+                let Some(value_id) = indicator.value_id else {
+                    continue;
+                };
+                let Some(panel) = scene.layout.panel(panel_index) else {
+                    continue;
+                };
+                let Some(kind) = self.indicators.indicator_kind(value_id) else {
+                    continue;
+                };
+                let columns = table_columns(kind);
+                let row_height = (panel.plot.height / columns.len().max(1) as f32).max(1.0);
+                for (row, column) in columns.iter().enumerate() {
+                    labels.push((
+                        panel_index,
+                        column.label.to_string(),
+                        panel.plot.y + row as f32 * row_height + row_height * 0.5,
+                    ));
+                }
+                continue;
+            }
+
+            let Some(panel) = scene.layout.panel(panel_index) else {
+                continue;
+            };
+            let Some(range) =
+                PanelYValueRange::from_units(indicator.domain.active(), indicator.value_scale)
+            else {
+                continue;
+            };
+            labels.extend(
+                range
+                    .axis_labels(
+                        indicator.value_scale,
+                        self.coordinates.panel_value_label_policy(panel_index),
+                        panel.plot.y,
+                        panel.plot.height,
+                        TEXT_SIZE,
+                    )
+                    .into_iter()
+                    .map(|(text, y)| (panel_index, text, y)),
+            );
+        }
+
+        self.resolve_y_axis_label_overlaps(&mut labels);
+        labels
+    }
+
+    fn resolve_y_axis_label_overlaps(&self, labels: &mut Vec<(usize, String, f32)>) {
+        let scene = self.scene;
+        for panel_index in 0..scene.layout.panels.len() {
+            let Some(panel) = scene.layout.panel(panel_index) else {
+                continue;
+            };
+
+            let indices: Vec<usize> = labels
+                .iter()
+                .enumerate()
+                .filter_map(|(index, (label_panel, _, _))| {
+                    (*label_panel == panel_index).then_some(index)
+                })
+                .collect();
+            let desired_centers: Vec<f32> = indices.iter().map(|&index| labels[index].2).collect();
+            let placements = place_non_overlapping_labels(
+                &desired_centers,
+                panel.plot.y,
+                panel.plot.y + panel.plot.height,
+                TEXT_SIZE,
+                2.0,
+            );
+
+            for (index, placement) in indices.into_iter().zip(placements) {
+                if let Some(center) = placement {
+                    labels[index].2 = center;
+                } else {
+                    labels[index].1.clear();
+                }
+            }
+        }
+
+        labels.retain(|(_, text, _)| !text.is_empty());
+    }
+
+    pub(super) fn y_labels(&self) -> AxisInputs {
+        let scene = self.scene;
+        let mut inputs = AxisInputs::default();
+        for (panel_index, content, y) in self.y_axis_label_specs() {
+            let Some(axis) = scene.layout.panel(panel_index) else {
+                continue;
+            };
+            inputs.push_y_label(
+                axis.y_axis,
+                content,
+                Point::new(Y_AXIS_LABEL_LEFT_INSET, axis.y_axis_label_y(y, TEXT_SIZE)),
+                (panel_index == scene.primary.panel_index).then_some(y),
+            );
+        }
+        inputs
+    }
+
+    pub(super) fn x_labels(&self, pixels: PixelGeometry) -> AxisInputs {
+        let scene = self.scene;
+        let mut inputs = AxisInputs::default();
+        let plot_width = scene.x_axis_plot_width();
+        let bounds = Rectangle {
+            x: 0.0,
+            y: 0.0,
+            width: plot_width,
+            height: scene.layout.regions.x_axis.height,
+        };
+
+        if let XAxis::Time { timeframe, .. } = scene.x.axis
+            && let Some((earliest, latest, earliest_unit, latest_unit)) = (|| {
+                let spacing = scene.logical_bar_spacing();
+                let right_unit = scene.effective_right_x_unit();
+                let visible_units = plot_width / spacing;
+                let earliest_unit = (right_unit - visible_units + 1.0).floor() as i64;
+                let latest_unit = right_unit.ceil() as i64;
+                Some((
+                    scene.time_for_x_unit(earliest_unit)?,
+                    scene.time_for_x_unit(latest_unit)?,
+                    earliest_unit,
+                    latest_unit,
+                ))
+            })()
+        {
+            let span_ms = latest
+                .as_u64()
+                .saturating_sub(earliest.as_u64())
+                .max(timeframe.to_milliseconds());
+            for label in TimeTickLabel::for_range(
+                earliest,
+                latest,
+                span_ms,
+                plot_width,
+                CHAR_W,
+                x_labels_that_fit(plot_width, CHAR_W) as i32,
+                timeframe,
+                self.coordinates.timezone,
+            ) {
+                let color = match label.tier {
+                    TimeTickTier::Secondary => AxisLabelColor::Secondary,
+                    TimeTickTier::Main => AxisLabelColor::Primary,
+                };
+                let tick_unit = earliest_unit as f32
+                    + (label.x_pos / plot_width) * (latest_unit - earliest_unit) as f32;
+                let x = pixels.snap_x_to_cell(scene.map_x_plot_f32(tick_unit));
+                inputs.push_x_label(bounds, label.content, x, color);
+            }
+            return inputs;
+        }
+
+        if matches!(scene.x.axis, XAxis::Tick { .. }) {
+            let target_spacing = data::chart::ticks::x_label_spacing_px(TEXT_SIZE);
+            let mut last_x: Option<f32> = None;
+            scene.for_each_bar(self.coordinates.series, |series_index, _, _, unit, _| {
+                if series_index != 0 {
+                    return;
+                }
+                let x = pixels.snap_x_to_cell(scene.map_x_plot(unit));
+                if last_x.is_some_and(|previous| (x - previous).abs() < target_spacing) {
+                    return;
+                }
+                let Some(time) = self.coordinates.tick_time_for_unit(scene.x.axis, unit) else {
+                    return;
+                };
+                let Some(content) = self.coordinates.timezone.format_with_kind(
+                    time.as_u64() as i64,
+                    data::config::timezone::TimeLabelKind::Axis {
+                        timeframe: Timeframe::MS100,
+                    },
+                ) else {
+                    return;
+                };
+                inputs.push_x_label(bounds, content, x, AxisLabelColor::Primary);
+                last_x = Some(x);
+            });
+            return inputs;
+        }
+
+        let (ticks, step_units) = unit_ticks(
+            scene.x.min_unit,
+            scene.x.max_unit,
+            plot_width,
+            MIN_X_TICK_PX.max(40.0),
+        );
+        let mut ticks_with_bounds = Vec::with_capacity(ticks.len().saturating_add(2));
+        if let Some(first) = ticks.first().copied() {
+            ticks_with_bounds.push(first.saturating_sub(step_units));
+        }
+        ticks_with_bounds.extend(ticks);
+        if let Some(last) = ticks_with_bounds.last().copied() {
+            ticks_with_bounds.push(last.saturating_add(step_units));
+        }
+        for tick in ticks_with_bounds {
+            let x = pixels.snap_x_to_cell(scene.map_x_plot(tick));
+            inputs.push_x_label(
+                bounds,
+                self.coordinates
+                    .format_x_label(scene.x.axis, tick, step_units),
+                x,
+                AxisLabelColor::Primary,
+            );
+        }
+        inputs
+    }
+}

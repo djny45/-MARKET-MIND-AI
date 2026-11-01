@@ -1,0 +1,260 @@
+use chrono::{DateTime, Datelike, Timelike};
+use serde::{Deserialize, Deserializer};
+
+pub(crate) fn stable_hash(bytes: &[u8]) -> u64 {
+    bytes.iter().fold(0xcbf2_9ce4_8422_2325, |hash, byte| {
+        hash.wrapping_mul(0x0000_0100_0000_01b3)
+            .wrapping_add(u64::from(*byte))
+    })
+}
+
+pub fn reorder_vec<T>(items: &mut Vec<T>, index: usize, target: usize) -> Option<()> {
+    if index >= items.len() || target > items.len() {
+        return None;
+    }
+
+    if target != index {
+        let item = items.remove(index);
+        items.insert(if index < target { target - 1 } else { target }, item);
+    }
+
+    Some(())
+}
+
+pub fn unique_name<'a>(
+    proposed: &str,
+    existing: impl Iterator<Item = &'a str>,
+    max_chars: usize,
+) -> String {
+    let existing = existing.collect::<Vec<_>>();
+    let proposed = proposed.trim();
+    let mut name = proposed.chars().take(max_chars).collect::<String>();
+    let mut suffix = 2;
+
+    while existing.contains(&name.as_str()) {
+        let ending = format!(" ({suffix})");
+        let prefix = proposed
+            .chars()
+            .take(max_chars.saturating_sub(ending.len()))
+            .collect::<String>();
+        name = format!("{prefix}{ending}");
+        suffix += 1;
+    }
+
+    name
+}
+
+pub fn ok_or_default<'a, T, D>(deserializer: D) -> Result<T, D::Error>
+where
+    T: Deserialize<'a> + Default,
+    D: Deserializer<'a>,
+{
+    let v: serde_json::Value = Deserialize::deserialize(deserializer)?;
+    Ok(T::deserialize(v).unwrap_or_default())
+}
+
+pub fn abbr_large_numbers(value: f64) -> String {
+    let abs_value = value.abs();
+    let sign = if value < 0.0 { "-" } else { "" };
+
+    match abs_value {
+        v if v >= 1_000_000_000.0 => {
+            format!("{}{:.3}b", sign, v / 1_000_000_000.0)
+        }
+        v if v >= 1_000_000.0 => format!("{}{:.2}m", sign, v / 1_000_000.0),
+        v if v >= 10_000.0 => format!("{}{:.1}k", sign, v / 1_000.0),
+        v if v >= 1_000.0 => format!("{}{:.2}k", sign, v / 1_000.0),
+        v if v >= 100.0 => format!("{}{:.0}", sign, v),
+        v if v >= 10.0 => format!("{}{:.1}", sign, v),
+        v if v >= 1.0 => format!("{}{:.2}", sign, v),
+        v if v >= 0.001 => format!("{}{:.3}", sign, v),
+        v if v >= 0.0001 => format!("{}{:.4}", sign, v),
+        v if v >= 0.00001 => format!("{}{:.5}", sign, v),
+        _ => {
+            if abs_value == 0.0 {
+                "0".to_string()
+            } else {
+                let s = format!("{}{:.3}", sign, abs_value);
+                s.trim_end_matches('0').trim_end_matches('.').to_string()
+            }
+        }
+    }
+}
+
+pub fn format_with_commas(num: f64) -> String {
+    if num == 0.0 {
+        return "0".to_string();
+    }
+
+    let abs_num = num.abs();
+    let decimals = match abs_num {
+        n if n >= 1000.0 => 0,
+        n if n >= 100.0 => 1,
+        n if n >= 10.0 => 2,
+        _ => 3,
+    };
+
+    let is_negative = num < 0.0;
+
+    if abs_num < 1000.0 {
+        return format!(
+            "{}{:.*}",
+            if is_negative { "-" } else { "" },
+            decimals,
+            abs_num
+        );
+    }
+
+    let s = format!("{:.*}", decimals, abs_num);
+
+    let (integer_part, decimal_part) = match s.find('.') {
+        Some(pos) => (&s[..pos], Some(&s[pos..])),
+        None => (s.as_str(), None),
+    };
+
+    let mut result = {
+        let num_commas = (integer_part.len() - 1) / 3;
+        let decimal_len = decimal_part.map_or(0, str::len);
+
+        String::with_capacity(
+            usize::from(is_negative) + integer_part.len() + num_commas + decimal_len,
+        )
+    };
+
+    if is_negative {
+        result.push('-');
+    }
+
+    let digits_len = integer_part.len();
+    for (i, ch) in integer_part.chars().enumerate() {
+        result.push(ch);
+
+        let pos_from_right = digits_len - i - 1;
+        if i < digits_len - 1 && pos_from_right % 3 == 0 {
+            result.push(',');
+        }
+    }
+
+    if let Some(decimal) = decimal_part {
+        result.push_str(decimal);
+    }
+
+    result
+}
+
+pub fn round_to_next_tick(value: f32, tick_size: f32, down: bool) -> f32 {
+    if down {
+        (value / tick_size).floor() * tick_size
+    } else {
+        (value / tick_size).ceil() * tick_size
+    }
+}
+
+pub fn currency_abbr(price: f32) -> String {
+    match price {
+        p if p > 1_000_000_000.0 => format!("${:.2}b", p / 1_000_000_000.0),
+        p if p > 1_000_000.0 => format!("${:.1}m", p / 1_000_000.0),
+        p if p > 1000.0 => format!("${:.2}k", p / 1000.0),
+        _ => format!("${:.2}", price),
+    }
+}
+
+pub fn pct_change(change: f32) -> String {
+    match change {
+        c if c > 0.0 => format!("+{:.2}%", c),
+        _ => format!("{:.2}%", change),
+    }
+}
+
+pub fn format_duration_ms(diff_ms: u64) -> String {
+    const DAY_MS: u64 = 86_400_000;
+    const HOUR_MS: u64 = 3_600_000;
+    const MINUTE_MS: u64 = 60_000;
+    const SECOND_MS: u64 = 1_000;
+
+    if diff_ms >= DAY_MS {
+        let days = diff_ms / DAY_MS;
+        let hours = (diff_ms % DAY_MS) / HOUR_MS;
+        if hours > 0 {
+            format!("{}d {}h", days, hours)
+        } else {
+            format!("{}d", days)
+        }
+    } else if diff_ms >= HOUR_MS {
+        let hours = diff_ms / HOUR_MS;
+        let mins = (diff_ms % HOUR_MS) / MINUTE_MS;
+        if mins > 0 {
+            format!("{}h {}m", hours, mins)
+        } else {
+            format!("{}h", hours)
+        }
+    } else if diff_ms >= MINUTE_MS {
+        let mins = diff_ms / MINUTE_MS;
+        let secs = (diff_ms % MINUTE_MS) / SECOND_MS;
+        if secs > 0 {
+            format!("{}m {}s", mins, secs)
+        } else {
+            format!("{}m", mins)
+        }
+    } else if diff_ms >= 5_000 {
+        format!("{}s", diff_ms / SECOND_MS)
+    } else {
+        format!("{}ms", diff_ms)
+    }
+}
+
+/// Round a positive value up to the nearest "nice" `1/2/5 * 10^k`.
+pub fn round_125(v: f64) -> f64 {
+    if !v.is_finite() || v <= 0.0 {
+        return 1.0;
+    }
+
+    let base = 10.0f64.powf(v.log10().floor());
+    let fraction = v / base;
+    let mult = if fraction <= 1.0 {
+        1.0
+    } else if fraction <= 2.0 {
+        2.0
+    } else if fraction <= 5.0 {
+        5.0
+    } else {
+        10.0
+    };
+    mult * base
+}
+
+pub fn reset_to_start_of_day_utc(dt: DateTime<chrono::Utc>) -> DateTime<chrono::Utc> {
+    dt.with_hour(0)
+        .unwrap_or(dt)
+        .with_minute(0)
+        .unwrap_or(dt)
+        .with_second(0)
+        .unwrap_or(dt)
+        .with_nanosecond(0)
+        .unwrap_or(dt)
+}
+
+pub fn reset_to_start_of_month_utc(dt: DateTime<chrono::Utc>) -> DateTime<chrono::Utc> {
+    reset_to_start_of_day_utc(dt.with_day(1).unwrap_or(dt))
+}
+
+pub fn reset_to_start_of_year_utc(dt: DateTime<chrono::Utc>) -> DateTime<chrono::Utc> {
+    reset_to_start_of_month_utc(dt.with_month(1).unwrap_or(dt))
+}
+
+/// Compact relative timestamp for the metadata freshness label.
+/// Future-dated stamps clamp to "just now".
+pub fn relative_time_label(updated: chrono::DateTime<chrono::Utc>) -> String {
+    let elapsed = chrono::Utc::now()
+        .signed_duration_since(updated)
+        .to_std()
+        .unwrap_or_default();
+    let secs = elapsed.as_secs();
+
+    match secs {
+        0..=59 => "just now".to_string(),
+        60..=3_599 => format!("{} min ago", secs / 60),
+        3_600..=86_399 => format!("{} h ago", secs / 3_600),
+        _ => format!("{} d ago", secs / 86_400),
+    }
+}

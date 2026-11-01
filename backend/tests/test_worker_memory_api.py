@@ -36,7 +36,7 @@ class WorkerMemoryApiTests(unittest.TestCase):
 
     def test_api_rejects_unknown_worker(self):
         request = WorkerMemoryRequest(memory_type="observation", content={"note": "x"})
-        with self.assertRaises(Exception):
+        with self.assertRaises(HTTPException) as error:
             add_worker_memory("worker_9999", request)
         self.assertEqual(error.exception.status_code, 400)
 

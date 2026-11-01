@@ -4,7 +4,7 @@ import unittest
 from unittest.mock import patch
 
 from app.agent_network import publish_message, read_messages, network_topology
-from app.main import AgentResearchMessageRequest, publish_agent_research_message, agent_research_messages
+from app.main import (AgentResearchMessageRequest, publish_agent_research_message,\n                      agent_research_messages, agent_collaboration_brief)
 
 
 class AgentNetworkTests(unittest.TestCase):
@@ -59,6 +59,18 @@ class AgentNetworkTests(unittest.TestCase):
         result = agent_research_messages(None, "macro", 10)
         self.assertEqual(published["market_group"], "india")
         self.assertEqual(result["count"], 1)
+
+    def test_api_cross_market_brief(self):
+        publish_message(self.message("brief-india", "india", payload={
+            "finding_key": "risk_context", "finding_value": "elevated", "unit": "label"
+        }))
+        publish_message(self.message("brief-us", "us", payload={
+            "finding_key": "risk_context", "finding_value": "elevated", "unit": "label"
+        }))
+        brief = agent_collaboration_brief(None, 20)
+        self.assertTrue(brief["cross_market_context_available"])
+        self.assertEqual(brief["messages_reviewed"], 2)
+        self.assertEqual(brief["finding_comparisons"][0]["matching_value_groups"], 1)
 
 
 if __name__ == "__main__":

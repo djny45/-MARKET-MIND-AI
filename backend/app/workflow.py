@@ -6,6 +6,7 @@ from typing import Any
 import math
 
 from . import indicators
+from .worker_runtime import assign_worker
 
 NODE_TYPES = {
  "market_input":{"type":"market_input","label":"Market Input","category":"data","inputs":[],"outputs":["data"],"description":"Accept normalized numeric observations."},
@@ -93,14 +94,20 @@ def execute_workflow(
                 raise ValueError(f"Unsupported node type: {kind}")
             dependencies = list(incoming[node_id])
             metadata = node.get("data", {}) or {}
+            worker_assignment = assign_worker(kind, metadata.get("worker_id"))
             assigned_worker = metadata.get("workerName") or (
                 metadata.get("label") if metadata.get("category") == "worker" else None
-            ) or "workflow-engine"
+            ) or worker_assignment["worker_name"]
             task_records[node_id] = {
                 "task_id": f"task:{node_id}",
                 "node_id": node_id,
                 "node_type": kind,
                 "assigned_worker": str(assigned_worker),
+                "assigned_worker_id": worker_assignment["worker_id"],
+                "worker_department": worker_assignment["department"],
+                "worker_specialty": worker_assignment["specialty"],
+                "intelligence_core": worker_assignment["intelligence_core"],
+                "execution_mode": worker_assignment["execution_mode"],
                 "dependency_ids": dependencies,
                 "layer": layer_index,
                 "status": "queued",

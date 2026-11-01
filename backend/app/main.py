@@ -49,6 +49,7 @@ from .csv_import import parse_historical_csv
 from .historical_quality import build_historical_quality_diagnostics
 from .indicator_replay import build_indicator_replay_report
 from .historical_integrity import build_historical_integrity_matrix
+from .session_calendar import build_session_gap_report
 from .source_comparison import compare_source_observations
 from .research_export import build_research_evidence_bundle
 from .research_export_compare import compare_research_exports
@@ -113,6 +114,19 @@ class HistoricalCSVImportRequest(BaseModel):
  symbol: str = Field(min_length=1, max_length=32)
  interval: str = Field(min_length=1, max_length=16)
  source: str = Field(min_length=1, max_length=80)
+
+
+class SessionCalendarRequest(BaseModel):
+ symbol: str = Field(min_length=1, max_length=32)
+ interval: Literal["15m", "1h", "4h", "1d"] = "1h"
+ limit: int = Field(default=500, ge=1, le=5000)
+ market: str = Field(default="unspecified", min_length=1, max_length=40)
+ name: str = Field(default="operator_supplied", min_length=1, max_length=80)
+ timezone: str = Field(min_length=1, max_length=64)
+ weekdays: list[int] = Field(min_length=1, max_length=7)
+ session_open: str = Field(min_length=5, max_length=5)
+ session_close: str = Field(min_length=5, max_length=5)
+ holidays: list[str] = Field(default_factory=list, max_length=1000)
 
 
 class HistoricalMarketEventsRequest(BaseModel):
@@ -736,6 +750,17 @@ def research_historical_integrity(symbol: str, interval: str = "1h", limit: int 
  if limit < 1 or limit > 5000:
   raise HTTPException(status_code=400, detail="limit must be between 1 and 5000")
  return build_historical_integrity_matrix(market_store.get_bars(symbol, interval, limit))
+
+
+@app.post("/api/research/session-gaps")
+def research_session_gaps(payload: SessionCalendarRequest):
+ """Audit historical bar gaps against an explicit operator-supplied market calendar."""
+ history = market_store.get_bars(payload.symbol, payload.interval, payload.limit)
+ calendar = payload.model_dump(exclude={"symbol", "interval", "limit"})
+ try:
+  return build_session_gap_report(history, calendar)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.get("/api/research/indicator-replay")

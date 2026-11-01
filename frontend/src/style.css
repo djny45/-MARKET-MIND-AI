@@ -193,3 +193,11 @@
 .legend-candle{background:#62b58e}
 .legend-volume{background:#667f91}
 .chart-host{min-height:280px}
+
+.liquidity-profile-bars{display:grid;gap:4px;max-height:360px;overflow:auto;padding:8px;border:1px solid #29343e;border-radius:4px;background:#0f161d}
+.liquidity-profile-row{display:grid;grid-template-columns:82px minmax(0,1fr) 42px;align-items:center;gap:9px;min-height:14px}
+.liquidity-profile-row>small{font:9px 'DM Mono';color:#91a0ac;text-align:right}
+.liquidity-profile-track{height:9px;background:#1b2731;border-radius:2px;overflow:hidden}
+.liquidity-profile-track i{display:block;height:100%;background:#b68a4d;border-radius:2px;min-width:1px}
+.liquidity-profile-panel{border-color:#4b4030}
+@media(max-width:650px){.liquidity-profile-row{grid-template-columns:70px minmax(0,1fr) 38px;gap:6px}}

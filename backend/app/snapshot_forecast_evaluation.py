@@ -73,6 +73,8 @@ def evaluate_snapshot_forecasts(snapshot, records):
             raise ValueError(f"record {index} target_timestamp must be after origin_timestamp")
         holdout_start = _instant(holdout["first_timestamp_utc"], "holdout start")
         holdout_end = _instant(holdout["last_timestamp_utc"], "holdout end")
+        if not holdout_start <= origin <= holdout_end:
+            raise ValueError(f"record {index} origin_timestamp is outside the source holdout partition")
         if not holdout_start <= target <= holdout_end:
             raise ValueError(f"record {index} target_timestamp is outside the source holdout partition")
         bars = by_source.get(source, {})

@@ -39,6 +39,7 @@ This roadmap is a plan, not a claim that features already exist. Mark an item co
 - [ ] Define complete typed specialist-worker input/output contracts.
 - [x] Add versioned v1.0.0 contract definitions and runtime shape validation for all 10 currently supported workflow node types; detailed domain schemas and mandatory provenance enforcement remain pending.
 - [ ] Build central research orchestrator with model-backed inference and evidence-grounded synthesis.
+- [x] Implement initial deterministic shared-core orchestration API with worker result aggregation, contract references, registry integrity gate and consolidated descriptive report; model-backed inference and source-provenance attachment remain pending.
 - [x] Add initial shared-core worker registry and deterministic routing for supported workflow node types.
 - [ ] Add worker registry versioning and a broader evaluation suite.
 - [x] Add registry v1.0.0 manifest, deterministic SHA-256 digest, 550-profile/20-department integrity checks and registry status API; deeper per-worker behavioural evaluations remain pending.

@@ -477,6 +477,15 @@ def _validate_checkpoint_integrity(request_payload: dict, checkpoint: dict, know
  expected = _workflow_request_fingerprint(request_payload)
  if checkpoint.get("request_fingerprint") != expected:
   raise HTTPException(status_code=409, detail="Checkpoint does not match the original workflow request.")
+ if checkpoint.get("checkpoint_schema_version") != 1:
+  raise HTTPException(status_code=409, detail="Checkpoint schema version is missing or unsupported.")
+ checkpoint_timestamp = checkpoint.get("checkpointed_at")
+ if not isinstance(checkpoint_timestamp, str):
+  raise HTTPException(status_code=409, detail="Checkpoint timestamp is missing or invalid.")
+ try:
+  datetime.fromisoformat(checkpoint_timestamp.replace("Z", "+00:00"))
+ except ValueError as exc:
+  raise HTTPException(status_code=409, detail="Checkpoint timestamp is invalid.") from exc
  completed_list = checkpoint.get("completed_node_ids", [])
  results = checkpoint.get("results", {})
  tasks = checkpoint.get("tasks", {})

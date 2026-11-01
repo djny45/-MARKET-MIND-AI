@@ -62,7 +62,7 @@ def _connect():
     version = connection.execute(
         "SELECT COALESCE(MAX(version), 0) FROM schema_migrations"
     ).fetchone()[0]
-    if version > 2:
+    if version > 3:
         connection.close()
         raise sqlite3.DatabaseError("database_schema_version_is_newer_than_this_application")
     if version < 1:
@@ -94,6 +94,26 @@ def _connect():
         connection.execute(
             "INSERT INTO schema_migrations(version, applied_at) VALUES (?, ?)",
             (2, datetime.now(timezone.utc).isoformat()),
+        )
+    if version < 3:
+        connection.execute("""
+            CREATE TABLE IF NOT EXISTS evaluation_manifest_snapshots (
+                snapshot_id TEXT PRIMARY KEY,
+                symbol TEXT NOT NULL,
+                interval TEXT NOT NULL,
+                manifest_sha256 TEXT NOT NULL,
+                request_parameters TEXT NOT NULL,
+                manifest_json TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+        """)
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_evaluation_snapshots_scope "
+            "ON evaluation_manifest_snapshots(symbol, interval, created_at DESC)"
+        )
+        connection.execute(
+            "INSERT INTO schema_migrations(version, applied_at) VALUES (?, ?)",
+            (3, datetime.now(timezone.utc).isoformat()),
         )
     connection.execute(
         "CREATE INDEX IF NOT EXISTS idx_market_bars_lookup "
@@ -400,4 +420,96 @@ def get_revised_bar_keys(symbol: str, interval: str, limit: int = 5000) -> dict:
         "keys": [{"source": row["source"], "timestamp": row["timestamp"]} for row in rows],
         "limit": safe_limit,
         "data_note": "Keys identify currently stored observations with revision history recorded by this application; pre-migration revisions cannot be reconstructed.",
+    }
+
+
+def create_evaluation_manifest_snapshot(manifest: dict, request_parameters: dict) -> dict:
+    """Persist a reproducible manifest payload and its content digest."""
+    if not isinstance(manifest, dict) or not isinstance(request_parameters, dict):
+        raise ValueError("manifest and request_parameters must be objects")
+    symbol = str(manifest.get("symbol") or "").strip().upper()
+    interval = str(manifest.get("interval") or "").strip()
+    if not symbol or not interval:
+        raise ValueError("manifest must include symbol and interval")
+    payload = json.dumps(
+        manifest, sort_keys=True, separators=(",", ":"),
+        ensure_ascii=False, allow_nan=False,
+    )
+    parameters = json.dumps(
+        request_parameters, sort_keys=True, separators=(",", ":"),
+        ensure_ascii=False, allow_nan=False,
+    )
+    digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+    snapshot_id = hashlib.sha256(
+        (symbol + "|" + interval + "|" + digest + "|" + parameters).encode("utf-8")
+    ).hexdigest()
+    created_at = datetime.now(timezone.utc).isoformat()
+    with _connect() as connection:
+        connection.execute("""
+            INSERT OR IGNORE INTO evaluation_manifest_snapshots (
+                snapshot_id, symbol, interval, manifest_sha256,
+                request_parameters, manifest_json, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (snapshot_id, symbol, interval, digest, parameters, payload, created_at))
+        row = connection.execute(
+            "SELECT snapshot_id, symbol, interval, manifest_sha256, "
+            "request_parameters, manifest_json, created_at "
+            "FROM evaluation_manifest_snapshots WHERE snapshot_id=?",
+            (snapshot_id,),
+        ).fetchone()
+    return _decode_evaluation_snapshot(row)
+
+
+def _decode_evaluation_snapshot(row):
+    if row is None:
+        return None
+    return {
+        "snapshot_id": row["snapshot_id"],
+        "symbol": row["symbol"],
+        "interval": row["interval"],
+        "manifest_sha256": row["manifest_sha256"],
+        "request_parameters": json.loads(row["request_parameters"]),
+        "manifest": json.loads(row["manifest_json"]),
+        "created_at": row["created_at"],
+    }
+
+
+def get_evaluation_manifest_snapshot(snapshot_id: str) -> dict | None:
+    with _connect() as connection:
+        row = connection.execute(
+            "SELECT snapshot_id, symbol, interval, manifest_sha256, "
+            "request_parameters, manifest_json, created_at "
+            "FROM evaluation_manifest_snapshots WHERE snapshot_id=?",
+            (snapshot_id,),
+        ).fetchone()
+    return _decode_evaluation_snapshot(row)
+
+
+def list_evaluation_manifest_snapshots(symbol: str | None = None, limit: int = 50) -> dict:
+    safe_limit = max(1, min(int(limit), 100))
+    with _connect() as connection:
+        if symbol:
+            rows = connection.execute(
+                "SELECT snapshot_id, symbol, interval, manifest_sha256, "
+                "request_parameters, manifest_json, created_at "
+                "FROM evaluation_manifest_snapshots WHERE symbol=? "
+                "ORDER BY created_at DESC LIMIT ?",
+                (symbol.strip().upper(), safe_limit),
+            ).fetchall()
+        else:
+            rows = connection.execute(
+                "SELECT snapshot_id, symbol, interval, manifest_sha256, "
+                "request_parameters, manifest_json, created_at "
+                "FROM evaluation_manifest_snapshots ORDER BY created_at DESC LIMIT ?",
+                (safe_limit,),
+            ).fetchall()
+    return {
+        "count": len(rows),
+        "snapshots": [
+            {key: value for key, value in _decode_evaluation_snapshot(row).items()
+             if key != "manifest"}
+            for row in rows
+        ],
+        "limit": safe_limit,
+        "data_note": "Snapshots preserve the exact generated manifest payload and request parameters. SQLite application-level append-only behavior is not tamper-proof against database writers.",
     }

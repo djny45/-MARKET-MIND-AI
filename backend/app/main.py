@@ -21,6 +21,7 @@ from . import indicators
 from .volume_indicators import calculate_volume_indicators
 from .liquidity_indicators import calculate_volume_profile
 from .performance import performance_metrics
+from .forecast_evaluation import evaluate_heldout_forecasts
 from . import workspace
 from .market_data import SyntheticFixtureAdapter, MarketDataBatch
 from . import market_store
@@ -199,6 +200,10 @@ class ProviderEntitlementRequest(BaseModel):
  data_modes: list[Literal["historical", "live"]] = Field(min_length=1, max_length=2)
  entitlement_expires: str = Field(min_length=10, max_length=10)
  rights: dict[str, bool] = Field(default_factory=dict, max_length=20)
+
+
+class ForecastEvaluationRequest(BaseModel):
+ records: list[dict[str, Any]] = Field(min_length=3, max_length=10000)
 
 
 class SetupReportRequest(BaseModel):
@@ -472,6 +477,15 @@ def research_setup(request: SetupReportRequest):
   return build_setup_report(request.symbol, request.direction, request.entry, request.stop, request.target)
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+@app.post("/api/research/evaluate-forecasts")
+def evaluate_research_forecasts(request: ForecastEvaluationRequest):
+ """Score caller-supplied forecasts on holdout data with timestamp leakage gates."""
+ try:
+  return evaluate_heldout_forecasts(request.records)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
 
 @app.post("/api/analytics/performance")
 def analyze_performance(request: PerformanceRequest):

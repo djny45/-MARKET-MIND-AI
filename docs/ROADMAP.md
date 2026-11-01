@@ -33,7 +33,7 @@ This roadmap is a plan, not a claim that features already exist. Mark an item co
 - [x] Add descriptive weekday/calendar-month seasonality analytics with sample-size limitations.
 - [ ] Add fundamentals, filings, news, and macro research panels.
 - [ ] Add source-cited research reports and exportable methodology notes.
-- [x] Add source-isolated chronological evaluation dataset manifests with SHA-256 provenance digests, explicit embargoes, and invalid-data gates.\n- [ ] Add model/strategy evaluation framework with leakage, survivorship, revision, and selection-bias controls.
+- [x] Add source-isolated chronological evaluation dataset manifests with SHA-256 provenance digests, explicit embargoes, and invalid-data gates.\n- [x] Add snapshot-backed holdout forecast scoring with verified dataset digests and service-derived realized returns.\n- [ ] Complete a broader model/strategy evaluation framework with leakage, survivorship, revision, and selection-bias controls.
 
 ## Phase 4 — Intelligence and workflow canvas
 - [x] Version the deterministic worker contract and expose contract version in capabilities and dispatch responses.

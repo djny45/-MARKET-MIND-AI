@@ -7,8 +7,8 @@ class AnalyticalBenchmarkTests(unittest.TestCase):
     def test_all_reference_vectors_pass(self):
         report = run_analytical_benchmarks()
         self.assertEqual(report["status"], "passed", report["cases"])
-        self.assertEqual(report["total"], 11)
-        self.assertEqual(report["failed"], 0)
+        self.assertEqual(report["case_count"], 11)
+        self.assertEqual(report["failed_cases"], 0)
 
     def test_report_discloses_scope_and_limitations(self):
         report = run_analytical_benchmarks()

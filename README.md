@@ -38,6 +38,7 @@ The platform is designed for research across four primary market groups: India, 
 - `GET /api/agent-network` — inspect the four-market research mesh.
 - `POST /api/agent-network/messages` — publish structured, source-linked research notes.
 - `GET /api/agent-network/messages` — read shared notes across markets or filter by market/topic.
+- `GET /api/agent-network/brief` — build a deterministic cross-market roundtable with per-market coverage, quality labels and comparable structured findings.
 
 Specialist modules exchange deterministic records; this does not activate LLM agents, live feeds or trading execution. See [four-market architecture](docs/FOUR-MARKET-PLATFORM.md).
 

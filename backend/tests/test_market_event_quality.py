@@ -10,7 +10,10 @@ def base(event_id, sequence, event_type="trade", payload=None, event_time="2026-
 
 class MarketEventQualityTests(unittest.TestCase):
     def test_sequence_gaps_duplicates_and_ordering(self):
-        result = diagnose_market_events([base("a", 1), base("b", 4), base("c", 4), base("d", 2)])
+        events = [base("a", 1), base("b", 4), base("c", 4), base("d", 2)]
+        for minute, event in enumerate(events):
+            event["event_time"] = f"2026-10-31T10:{minute:02d}:00Z"
+        result = diagnose_market_events(events)
         self.assertEqual(result["sequence_integrity"]["gap_count"], 1)
         self.assertEqual(result["sequence_integrity"]["duplicate_sequence_count"], 1)
         self.assertEqual(result["sequence_integrity"]["out_of_order_count"], 1)

@@ -62,7 +62,7 @@ def _connect():
     version = connection.execute(
         "SELECT COALESCE(MAX(version), 0) FROM schema_migrations"
     ).fetchone()[0]
-    if version > 3:
+    if version > 4:
         connection.close()
         raise sqlite3.DatabaseError("database_schema_version_is_newer_than_this_application")
     if version < 1:
@@ -114,6 +114,16 @@ def _connect():
         connection.execute(
             "INSERT INTO schema_migrations(version, applied_at) VALUES (?, ?)",
             (3, datetime.now(timezone.utc).isoformat()),
+        )
+    if version < 4:
+        connection.execute("ALTER TABLE evaluation_manifest_snapshots ADD COLUMN dataset_json TEXT NOT NULL DEFAULT '[]'")
+        connection.execute("ALTER TABLE evaluation_manifest_snapshots ADD COLUMN dataset_sha256 TEXT NOT NULL DEFAULT ''")
+        connection.execute("ALTER TABLE evaluation_manifest_snapshots ADD COLUMN snapshot_format_version INTEGER NOT NULL DEFAULT 1")
+        empty_dataset_digest = hashlib.sha256(b"[]").hexdigest()
+        connection.execute("UPDATE evaluation_manifest_snapshots SET dataset_sha256=? WHERE dataset_sha256=''", (empty_dataset_digest,))
+        connection.execute(
+            "INSERT INTO schema_migrations(version, applied_at) VALUES (?, ?)",
+            (4, datetime.now(timezone.utc).isoformat()),
         )
     connection.execute(
         "CREATE INDEX IF NOT EXISTS idx_market_bars_lookup "
@@ -423,39 +433,42 @@ def get_revised_bar_keys(symbol: str, interval: str, limit: int = 5000) -> dict:
     }
 
 
-def create_evaluation_manifest_snapshot(manifest: dict, request_parameters: dict) -> dict:
-    """Persist a reproducible manifest payload and its content digest."""
+def create_evaluation_manifest_snapshot(manifest: dict, request_parameters: dict,
+                                          dataset_bars: list | None = None) -> dict:
+    """Persist the manifest and exact selected OHLCV/provenance observations."""
     if not isinstance(manifest, dict) or not isinstance(request_parameters, dict):
         raise ValueError("manifest and request_parameters must be objects")
+    if dataset_bars is None:
+        dataset_bars = []
+    if not isinstance(dataset_bars, list) or len(dataset_bars) > 5000:
+        raise ValueError("dataset_bars must be a list of at most 5000 observations")
+    if any(not isinstance(bar, dict) for bar in dataset_bars):
+        raise ValueError("every dataset observation must be an object")
     symbol = str(manifest.get("symbol") or "").strip().upper()
     interval = str(manifest.get("interval") or "").strip()
     if not symbol or not interval:
         raise ValueError("manifest must include symbol and interval")
-    payload = json.dumps(
-        manifest, sort_keys=True, separators=(",", ":"),
-        ensure_ascii=False, allow_nan=False,
-    )
-    parameters = json.dumps(
-        request_parameters, sort_keys=True, separators=(",", ":"),
-        ensure_ascii=False, allow_nan=False,
-    )
+    payload = json.dumps(manifest, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+    parameters = json.dumps(request_parameters, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+    dataset_payload = json.dumps(dataset_bars, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
     digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+    dataset_digest = hashlib.sha256(dataset_payload.encode("utf-8")).hexdigest()
     snapshot_id = hashlib.sha256(
-        (symbol + "|" + interval + "|" + digest + "|" + parameters).encode("utf-8")
+        (symbol + "|" + interval + "|" + digest + "|" + dataset_digest + "|" + parameters + "|format=2").encode("utf-8")
     ).hexdigest()
     created_at = datetime.now(timezone.utc).isoformat()
     with _connect() as connection:
         connection.execute("""
             INSERT OR IGNORE INTO evaluation_manifest_snapshots (
                 snapshot_id, symbol, interval, manifest_sha256,
-                request_parameters, manifest_json, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (snapshot_id, symbol, interval, digest, parameters, payload, created_at))
+                request_parameters, manifest_json, created_at,
+                dataset_json, dataset_sha256, snapshot_format_version
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 2)
+        """, (snapshot_id, symbol, interval, digest, parameters, payload, created_at, dataset_payload, dataset_digest))
         row = connection.execute(
-            "SELECT snapshot_id, symbol, interval, manifest_sha256, "
-            "request_parameters, manifest_json, created_at "
-            "FROM evaluation_manifest_snapshots WHERE snapshot_id=?",
-            (snapshot_id,),
+            "SELECT snapshot_id, symbol, interval, manifest_sha256, request_parameters, "
+            "manifest_json, created_at, dataset_json, dataset_sha256, snapshot_format_version "
+            "FROM evaluation_manifest_snapshots WHERE snapshot_id=?", (snapshot_id,)
         ).fetchone()
     return _decode_evaluation_snapshot(row)
 
@@ -464,12 +477,11 @@ def _decode_evaluation_snapshot(row):
     if row is None:
         return None
     return {
-        "snapshot_id": row["snapshot_id"],
-        "symbol": row["symbol"],
-        "interval": row["interval"],
-        "manifest_sha256": row["manifest_sha256"],
+        "snapshot_id": row["snapshot_id"], "symbol": row["symbol"], "interval": row["interval"],
+        "manifest_sha256": row["manifest_sha256"], "dataset_sha256": row["dataset_sha256"],
+        "snapshot_format_version": row["snapshot_format_version"],
         "request_parameters": json.loads(row["request_parameters"]),
-        "manifest": json.loads(row["manifest_json"]),
+        "manifest": json.loads(row["manifest_json"]), "dataset_bars": json.loads(row["dataset_json"]),
         "created_at": row["created_at"],
     }
 
@@ -477,61 +489,56 @@ def _decode_evaluation_snapshot(row):
 def get_evaluation_manifest_snapshot(snapshot_id: str) -> dict | None:
     with _connect() as connection:
         row = connection.execute(
-            "SELECT snapshot_id, symbol, interval, manifest_sha256, "
-            "request_parameters, manifest_json, created_at "
-            "FROM evaluation_manifest_snapshots WHERE snapshot_id=?",
-            (snapshot_id,),
+            "SELECT snapshot_id, symbol, interval, manifest_sha256, request_parameters, "
+            "manifest_json, created_at, dataset_json, dataset_sha256, snapshot_format_version "
+            "FROM evaluation_manifest_snapshots WHERE snapshot_id=?", (snapshot_id,)
         ).fetchone()
     return _decode_evaluation_snapshot(row)
 
 
-
 def verify_evaluation_manifest_snapshot(snapshot_id: str) -> dict | None:
-    """Recompute snapshot payload and identifier digests to detect accidental corruption."""
+    """Verify both the manifest and captured dataset payloads."""
     with _connect() as connection:
         row = connection.execute(
-            "SELECT snapshot_id, symbol, interval, manifest_sha256, "
-            "request_parameters, manifest_json FROM evaluation_manifest_snapshots "
-            "WHERE snapshot_id=?",
-            (snapshot_id,),
+            "SELECT snapshot_id, symbol, interval, manifest_sha256, request_parameters, "
+            "manifest_json, dataset_json, dataset_sha256, snapshot_format_version "
+            "FROM evaluation_manifest_snapshots WHERE snapshot_id=?", (snapshot_id,)
         ).fetchone()
     if row is None:
         return None
     try:
         manifest = json.loads(row["manifest_json"])
         parameters = json.loads(row["request_parameters"])
-        canonical_manifest = json.dumps(
-            manifest, sort_keys=True, separators=(",", ":"),
-            ensure_ascii=False, allow_nan=False,
-        )
-        canonical_parameters = json.dumps(
-            parameters, sort_keys=True, separators=(",", ":"),
-            ensure_ascii=False, allow_nan=False,
-        )
+        dataset_bars = json.loads(row["dataset_json"])
+        canonical_manifest = json.dumps(manifest, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+        canonical_parameters = json.dumps(parameters, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+        canonical_dataset = json.dumps(dataset_bars, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
         actual_digest = hashlib.sha256(canonical_manifest.encode("utf-8")).hexdigest()
-        actual_id = hashlib.sha256(
-            (row["symbol"] + "|" + row["interval"] + "|" + actual_digest + "|" + canonical_parameters).encode("utf-8")
-        ).hexdigest()
-        digest_valid = actual_digest == row["manifest_sha256"]
+        actual_dataset_digest = hashlib.sha256(canonical_dataset.encode("utf-8")).hexdigest()
+        if row["snapshot_format_version"] >= 2:
+            identity = (row["symbol"] + "|" + row["interval"] + "|" + actual_digest + "|" +
+                        actual_dataset_digest + "|" + canonical_parameters + "|format=2")
+        else:
+            identity = row["symbol"] + "|" + row["interval"] + "|" + actual_digest + "|" + canonical_parameters
+        actual_id = hashlib.sha256(identity.encode("utf-8")).hexdigest()
+        manifest_valid = actual_digest == row["manifest_sha256"]
+        dataset_valid = actual_dataset_digest == row["dataset_sha256"]
         identifier_valid = actual_id == row["snapshot_id"]
-        status = "verified" if digest_valid and identifier_valid else "integrity_mismatch"
         return {
             "snapshot_id": row["snapshot_id"],
-            "status": status,
-            "manifest_digest_valid": digest_valid,
+            "status": "verified" if manifest_valid and dataset_valid and identifier_valid else "integrity_mismatch",
+            "manifest_digest_valid": manifest_valid, "dataset_digest_valid": dataset_valid,
             "snapshot_id_valid": identifier_valid,
-            "expected_manifest_sha256": row["manifest_sha256"],
-            "actual_manifest_sha256": actual_digest,
+            "expected_manifest_sha256": row["manifest_sha256"], "actual_manifest_sha256": actual_digest,
+            "expected_dataset_sha256": row["dataset_sha256"], "actual_dataset_sha256": actual_dataset_digest,
             "research_only": True,
             "data_note": "This detects payload/identifier mismatches against stored digests; it is not tamper-proof if an actor can rewrite both data and digests in SQLite.",
         }
     except (TypeError, ValueError, json.JSONDecodeError):
         return {
-            "snapshot_id": row["snapshot_id"],
-            "status": "integrity_unverifiable",
-            "manifest_digest_valid": False,
-            "snapshot_id_valid": False,
-            "research_only": True,
+            "snapshot_id": row["snapshot_id"], "status": "integrity_unverifiable",
+            "manifest_digest_valid": False, "dataset_digest_valid": False,
+            "snapshot_id_valid": False, "research_only": True,
             "data_note": "Stored snapshot JSON could not be canonically decoded.",
         }
 
@@ -541,24 +548,20 @@ def list_evaluation_manifest_snapshots(symbol: str | None = None, limit: int = 5
     with _connect() as connection:
         if symbol:
             rows = connection.execute(
-                "SELECT snapshot_id, symbol, interval, manifest_sha256, "
-                "request_parameters, manifest_json, created_at "
-                "FROM evaluation_manifest_snapshots WHERE symbol=? "
+                "SELECT snapshot_id, symbol, interval, manifest_sha256, request_parameters, manifest_json, created_at, dataset_json, dataset_sha256, snapshot_format_version FROM evaluation_manifest_snapshots WHERE symbol=? "
                 "ORDER BY created_at DESC LIMIT ?",
                 (symbol.strip().upper(), safe_limit),
             ).fetchall()
         else:
             rows = connection.execute(
-                "SELECT snapshot_id, symbol, interval, manifest_sha256, "
-                "request_parameters, manifest_json, created_at "
-                "FROM evaluation_manifest_snapshots ORDER BY created_at DESC LIMIT ?",
+                "SELECT snapshot_id, symbol, interval, manifest_sha256, request_parameters, manifest_json, created_at, dataset_json, dataset_sha256, snapshot_format_version FROM evaluation_manifest_snapshots ORDER BY created_at DESC LIMIT ?",
                 (safe_limit,),
             ).fetchall()
     return {
         "count": len(rows),
         "snapshots": [
             {key: value for key, value in _decode_evaluation_snapshot(row).items()
-             if key != "manifest"}
+             if key not in {"manifest", "dataset_bars"}}
             for row in rows
         ],
         "limit": safe_limit,

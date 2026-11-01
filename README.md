@@ -55,6 +55,7 @@ Specialist modules exchange deterministic records; this does not activate LLM ag
 | 550 AI analytical worker profiles / 20 departments | Shared central intelligence; supported workflow nodes are routed to deterministic handlers; profiles are not 550 separate models or active runtime processes |
 | Cross-market research agent message bus | Added; deterministic shared mesh across India, US, crypto and forex; no model inference or live feeds |
 | Shared-core specialist worker routing | Added; workflow nodes map to validated worker profiles and deterministic handlers, with assignment metadata and runtime capability endpoint; no LLM inference or autonomous learning |
+| Worker-scoped evidence memory | Added; append-only SQLite notes per registered worker with source references, quality labels, bounded JSON validation and read filters; not autonomous learning or executable instructions |
 | Docker Compose development setup | Added |
 | CI quality workflow | Added; run status visible in GitHub Actions |
 | Market taxonomy and searchable instrument reference directory | Added |
@@ -71,7 +72,7 @@ Specialist modules exchange deterministic records; this does not activate LLM ag
 
 ## Shared agent skill playbooks
 
-Ten upstream day-trader skill definitions are vendored under [`.agents/skills/day-trader-skill/`](.agents/skills/day-trader-skill/README.md). The 550+ AI analytical worker profiles carry department-based `skill_refs` so the orchestration layer can select relevant research guidance without injecting every playbook into every task. These profiles are AI analytical worker templates coordinated by one shared central intelligence core; they are not 550 separate models or 550 continuously running processes. Supported workflow node types now route through a validated specialist registry to existing deterministic Python handlers. LLM inference, autonomous learning, and brokerage execution remain disabled. Skill references do not execute scripts or grant permissions. The broker/order-execution skill is excluded; the application remains research-only with no brokerage routing.
+Ten upstream day-trader skill definitions are vendored under [`.agents/skills/day-trader-skill/`](.agents/skills/day-trader-skill/README.md). The 550+ AI analytical worker profiles carry department-based `skill_refs` so the orchestration layer can select relevant research guidance without injecting every playbook into every task. These profiles are AI analytical worker templates coordinated by one shared central intelligence core; they are not 550 separate models or 550 continuously running processes. Supported workflow node types now route through a validated specialist registry to existing deterministic Python handlers. LLM inference, autonomous learning, and brokerage execution remain disabled. Worker memory is an append-only evidence-note store; it does not train models, treat stored text as instructions, or independently verify claims. Skill references do not execute scripts or grant permissions. The broker/order-execution skill is excluded; the application remains research-only with no brokerage routing.
 
 ## Visual workflow model
 
@@ -133,6 +134,8 @@ For manual setup, see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 |---|---|---|
 | GET | `/api/health` | Service health and execution boundary |
 | GET | `/api/worker-runtime` | Specialist worker routing coverage and explicit inference/execution capability status |
+| POST | `/api/workers/{worker_id}/memory` | Append a bounded, provenance-labelled research note to a registered worker |
+| GET | `/api/workers/{worker_id}/memory` | Read worker-scoped notes with optional type and limit filters |
 | GET | `/api/ready` | SQLite dependency readiness; HTTP 503 when unavailable |
 | GET | `/api/providers/status` | Implemented adapter availability; distinguishes synthetic fixture from live providers |
 | GET | `/api/audit/events` | Recent market-data ingestion audit events |

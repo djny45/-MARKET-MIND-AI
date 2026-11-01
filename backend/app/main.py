@@ -25,6 +25,7 @@ from .market_event_quality import diagnose_market_events
 from .agent_network import publish_message, read_messages, network_topology
 from .agent_collaboration import build_collaboration_brief
 from .trade_flow import build_trade_flow_buckets
+from .cross_market_correlation import build_cross_market_correlation
 from . import watchlist
 from .model_registry import list_model_integrations
 from .setup_report import build_setup_report
@@ -502,6 +503,28 @@ def historical_trade_flow(
   return build_trade_flow_buckets(
    result["events"], bucket_seconds, result["total_matching"], limit,
   )
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/research/cross-market-correlation")
+def cross_market_correlation(
+ symbols: str,
+ interval: str = "1d",
+ limit: int = 500,
+ min_observations: int = 20,
+):
+ """Compare aligned historical close-to-close returns across stored instruments."""
+ names = sorted({item.strip().upper() for item in symbols.split(",") if item.strip()})
+ if len(names) < 2 or len(names) > 12:
+  raise HTTPException(status_code=400, detail="symbols must contain 2 to 12 unique instruments")
+ if interval not in SUPPORTED_INTERVALS:
+  raise HTTPException(status_code=400, detail="interval must be one of 15m,1h,4h,1d")
+ if limit < 3 or limit > 5000:
+  raise HTTPException(status_code=400, detail="limit must be between 3 and 5000")
+ histories = {name: market_store.get_bars(name, interval, limit) for name in names}
+ try:
+  return build_cross_market_correlation(histories, interval, min_observations)
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 

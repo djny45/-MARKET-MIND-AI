@@ -4,7 +4,8 @@ import unittest
 from unittest.mock import patch
 
 from app.agent_network import publish_message, read_messages, network_topology
-from app.main import (AgentResearchMessageRequest, publish_agent_research_message,\n                      agent_research_messages, agent_collaboration_brief)
+from app.main import (AgentResearchMessageRequest, publish_agent_research_message,
+                      agent_research_messages, agent_collaboration_brief)
 
 
 class AgentNetworkTests(unittest.TestCase):

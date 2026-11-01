@@ -1,0 +1,39 @@
+name: Import Kronos source
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/import-kronos.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: import-kronos-main
+  cancel-in-progress: false
+
+jobs:
+  vendor-kronos:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out MARKET-MIND-AI
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Import pinned upstream Kronos source
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -e third_party/Kronos ]; then
+            echo "third_party/Kronos already exists; refusing to overwrite it."
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote add kronos https://github.com/shiyu-coder/Kronos.git
+          git fetch --no-tags kronos 67b630e67f6a18c9e9be918d9b4337c960db1e9a
+          git subtree add --prefix=third_party/Kronos kronos/67b630e67f6a18c9e9be918d9b4337c960db1e9a --squash -m "Vendor Kronos upstream source at 67b630e"
+          git push origin HEAD:main

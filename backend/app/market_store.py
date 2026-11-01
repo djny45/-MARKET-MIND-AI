@@ -1,5 +1,7 @@
 """SQLite storage for normalized market bars with provenance metadata."""
 import os
+import json
+import hashlib
 import sqlite3
 from contextlib import closing
 from datetime import datetime, timezone
@@ -60,13 +62,38 @@ def _connect():
     version = connection.execute(
         "SELECT COALESCE(MAX(version), 0) FROM schema_migrations"
     ).fetchone()[0]
-    if version > 1:
+    if version > 2:
         connection.close()
         raise sqlite3.DatabaseError("database_schema_version_is_newer_than_this_application")
     if version < 1:
         connection.execute(
             "INSERT INTO schema_migrations(version, applied_at) VALUES (?, ?)",
             (1, datetime.now(timezone.utc).isoformat()),
+        )
+    if version < 2:
+        connection.execute("""
+            CREATE TABLE IF NOT EXISTS market_bar_revisions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                symbol TEXT NOT NULL,
+                interval TEXT NOT NULL,
+                timestamp TEXT NOT NULL,
+                source TEXT NOT NULL,
+                previous_values TEXT NOT NULL,
+                revised_values TEXT NOT NULL,
+                previous_sha256 TEXT NOT NULL,
+                revised_sha256 TEXT NOT NULL,
+                previous_status TEXT NOT NULL,
+                revised_status TEXT NOT NULL,
+                changed_at TEXT NOT NULL
+            )
+        """)
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_market_bar_revisions_scope "
+            "ON market_bar_revisions(symbol, interval, source, id DESC)"
+        )
+        connection.execute(
+            "INSERT INTO schema_migrations(version, applied_at) VALUES (?, ?)",
+            (2, datetime.now(timezone.utc).isoformat()),
         )
     connection.execute(
         "CREATE INDEX IF NOT EXISTS idx_market_bars_lookup "
@@ -86,7 +113,44 @@ def store_batch(batch: MarketDataBatch) -> dict:
         )
         for bar in batch.bars
     ]
+    revision_count = 0
     with _connect() as connection:
+        for row in rows:
+            symbol, interval, timestamp, open_, high, low, close, volume, status, source, retrieved_at = row
+            existing = connection.execute("""
+                SELECT open, high, low, close, volume, status
+                FROM market_bars
+                WHERE symbol=? AND interval=? AND timestamp=? AND source=?
+            """, (symbol, interval, timestamp, source)).fetchone()
+            if existing is None:
+                continue
+            previous_values = {
+                "open": existing["open"], "high": existing["high"],
+                "low": existing["low"], "close": existing["close"],
+                "volume": existing["volume"],
+            }
+            revised_values = {
+                "open": open_, "high": high, "low": low,
+                "close": close, "volume": volume,
+            }
+            previous_payload = json.dumps(previous_values, sort_keys=True, separators=(",", ":"), allow_nan=False)
+            revised_payload = json.dumps(revised_values, sort_keys=True, separators=(",", ":"), allow_nan=False)
+            if previous_payload != revised_payload or existing["status"] != status:
+                connection.execute("""
+                    INSERT INTO market_bar_revisions (
+                        symbol, interval, timestamp, source,
+                        previous_values, revised_values,
+                        previous_sha256, revised_sha256,
+                        previous_status, revised_status, changed_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    symbol, interval, timestamp, source,
+                    previous_payload, revised_payload,
+                    hashlib.sha256(previous_payload.encode("utf-8")).hexdigest(),
+                    hashlib.sha256(revised_payload.encode("utf-8")).hexdigest(),
+                    existing["status"], status, retrieved_at,
+                ))
+                revision_count += 1
         connection.executemany("""
             INSERT INTO market_bars (
                 symbol, interval, timestamp, open, high, low, close, volume,
@@ -119,7 +183,47 @@ def store_batch(batch: MarketDataBatch) -> dict:
         "last_timestamp": ordered_bars[-1].timestamp.isoformat() if ordered_bars else None,
         "ordering": "chronological",
         "duplicate_timestamps": 0,
-        "data_note": "Batch timestamps are unique and stored chronologically; source and retrieval metadata are retained.",
+        "revision_count": revision_count,
+        "data_note": "Changed existing OHLCV/status observations are recorded in an append-only revision audit before the current row is updated. Retrieval-time-only changes are not content revisions.",
+    }
+
+
+
+def get_bar_revisions(symbol: str | None = None, interval: str | None = None,
+                      source: str | None = None, limit: int = 100) -> dict:
+    """Return append-only revision records for previously stored observations."""
+    safe_limit = max(1, min(int(limit), 500))
+    clauses = []
+    parameters = []
+    if symbol:
+        clauses.append("symbol=?")
+        parameters.append(symbol.strip().upper())
+    if interval:
+        clauses.append("interval=?")
+        parameters.append(interval.strip())
+    if source:
+        clauses.append("source=?")
+        parameters.append(source.strip())
+    where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+    with _connect() as connection:
+        rows = connection.execute(
+            "SELECT id, symbol, interval, timestamp, source, previous_values, "
+            "revised_values, previous_sha256, revised_sha256, previous_status, "
+            "revised_status, changed_at FROM market_bar_revisions" +
+            where + " ORDER BY id DESC LIMIT ?",
+            (*parameters, safe_limit),
+        ).fetchall()
+    revisions = []
+    for row in rows:
+        item = dict(row)
+        item["previous_values"] = json.loads(item["previous_values"])
+        item["revised_values"] = json.loads(item["revised_values"])
+        revisions.append(item)
+    return {
+        "count": len(revisions),
+        "revisions": revisions,
+        "limit": safe_limit,
+        "data_note": "Revision history records changes observed by this application after its audit table was introduced. It cannot reconstruct edits made before migration, prove vendor intent, or authenticate source data.",
     }
 
 

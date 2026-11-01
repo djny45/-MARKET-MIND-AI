@@ -6,7 +6,7 @@ from unittest.mock import patch
 from fastapi import HTTPException
 
 from app.main import (HistoricalMarketEventsRequest, import_historical_market_events,
-                      historical_market_events, historical_market_event_quality)
+                      historical_market_events, historical_market_event_quality, historical_trade_flow)
 
 
 class HistoricalMarketEventsApiTests(unittest.TestCase):
@@ -50,6 +50,26 @@ class HistoricalMarketEventsApiTests(unittest.TestCase):
         )
         self.assertEqual(result["sequence_integrity"]["gap_count"], 1)
         self.assertEqual(result["sampled_events"], 2)
+
+    def test_trade_flow_api_withholds_cvd_for_unknown_side(self):
+        payloads = []
+        for event_id, minute, side, quantity in (
+            ("flow-buy", "09:15:01", "buy", 5),
+            ("flow-unknown", "09:15:20", "unknown", 3),
+        ):
+            payloads.append({
+                "event_id": event_id, "instrument_id": "india:nse:RELIANCE",
+                "event_type": "trade", "provider": "flow-test", "venue": "NSE",
+                "event_time": f"2026-10-30T{minute}+05:30",
+                "received_at": f"2026-10-30T{minute}+05:30",
+                "status": "historical",
+                "payload": {"price": 1450, "quantity": quantity, "side": side},
+            })
+        import_historical_market_events(HistoricalMarketEventsRequest(events=payloads))
+        result = historical_trade_flow("india:nse:RELIANCE", 60, "flow-test", "NSE", None, None, 5000)
+        self.assertFalse(result["cvd_available"])
+        self.assertEqual(result["buckets"][0]["unknown_volume"], 3)
+        self.assertIsNone(result["buckets"][0]["cumulative_volume_delta"])
 
     def test_invalid_event_returns_http_400(self):
         with self.assertRaises(HTTPException) as error:

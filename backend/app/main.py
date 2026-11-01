@@ -866,6 +866,17 @@ def get_research_evaluation_snapshot(snapshot_id: str):
  return snapshot
 
 
+@app.get("/api/research/evaluation-manifest/snapshots/{snapshot_id}/verify")
+def verify_research_evaluation_snapshot(snapshot_id: str):
+ """Recompute stored manifest and identifier digests for integrity review."""
+ if len(snapshot_id) != 64 or any(char not in "0123456789abcdef" for char in snapshot_id):
+  raise HTTPException(status_code=400, detail="snapshot_id must be a lowercase SHA-256 identifier")
+ result = market_store.verify_evaluation_manifest_snapshot(snapshot_id)
+ if result is None:
+  raise HTTPException(status_code=404, detail="Evaluation manifest snapshot not found")
+ return result
+
+
 @app.get("/api/research/source-indicators")
 def research_source_indicators(
  symbol: str, interval: str = "1h", limit: int = 500,

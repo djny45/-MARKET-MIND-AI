@@ -94,6 +94,21 @@ def run_indicator_benchmarks():
     )
     record("bollinger_zero_variance", band_ok, "all bands equal 10", bands)
 
+    nonzero_bands = bollinger([1.0, 2.0, 3.0], period=3, deviations=2)
+    expected_sd = sqrt(2.0 / 3.0)
+    expected_upper = 2.0 + 2.0 * expected_sd
+    expected_lower = 2.0 - 2.0 * expected_sd
+    nonzero_ok = (
+        isclose(nonzero_bands["middle"][-1], 2.0, rel_tol=TOLERANCE, abs_tol=TOLERANCE)
+        and isclose(nonzero_bands["upper"][-1], expected_upper, rel_tol=TOLERANCE, abs_tol=TOLERANCE)
+        and isclose(nonzero_bands["lower"][-1], expected_lower, rel_tol=TOLERANCE, abs_tol=TOLERANCE)
+    )
+    record("bollinger_population_standard_deviation", nonzero_ok,
+           {"middle": 2.0, "upper": expected_upper, "lower": expected_lower},
+           {"middle": nonzero_bands["middle"][-1], "upper": nonzero_bands["upper"][-1],
+            "lower": nonzero_bands["lower"][-1]},
+           "Uses population standard deviation over the three-observation window.")
+
     vol = realized_volatility([100.0, 101.0, 100.0, 102.0])
     rs = returns([100.0, 101.0, 100.0, 102.0])
     mean = sum(rs) / len(rs)

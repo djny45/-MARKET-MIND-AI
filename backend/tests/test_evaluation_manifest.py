@@ -118,6 +118,44 @@ class EvaluationManifestTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     build_evaluation_manifest({"bars": bars()}, **kwargs)
 
+
+    def test_revision_policy_annotates_revised_observations_by_default(self):
+        data = bars(count=30)
+        revised = [{"source": "feed-a", "timestamp": data[5]["timestamp"]}]
+        result = build_evaluation_manifest({"bars": data}, revisioned_keys=revised)
+        report = result["source_manifests"]["feed-a"]
+        self.assertEqual(report["status"], "ready")
+        self.assertEqual(report["revised_observation_count"], 1)
+        self.assertTrue(report["revision_review_required"])
+        self.assertEqual(report["excluded_revised_observation_count"], 0)
+
+    def test_revision_policy_excludes_revised_rows_before_partitioning(self):
+        data = bars(count=30)
+        revised = [{"source": "feed-a", "timestamp": data[5]["timestamp"]}]
+        result = build_evaluation_manifest(
+            {"bars": data}, revisioned_keys=revised, revision_policy="exclude_revised"
+        )
+        report = result["source_manifests"]["feed-a"]
+        self.assertEqual(report["status"], "ready")
+        self.assertEqual(report["observation_count"], 29)
+        self.assertEqual(report["excluded_revised_observation_count"], 1)
+        self.assertFalse(report["revision_review_required"])
+
+    def test_revision_policy_blocks_source_with_revised_observation(self):
+        data = bars(count=30)
+        revised = [{"source": "feed-a", "timestamp": data[5]["timestamp"]}]
+        result = build_evaluation_manifest(
+            {"bars": data}, revisioned_keys=revised, revision_policy="block_revised"
+        )
+        report = result["source_manifests"]["feed-a"]
+        self.assertEqual(report["status"], "blocked_revised_observations")
+        self.assertEqual(report["revised_observation_count"], 1)
+        self.assertEqual(report["partitions"], {})
+
+    def test_revision_policy_rejects_unknown_value(self):
+        with self.assertRaises(ValueError):
+            build_evaluation_manifest({"bars": bars()}, revision_policy="ignore")
+
     def test_empty_history_is_a_valid_empty_manifest(self):
         result = build_evaluation_manifest({"symbol": "TEST", "bars": []})
         self.assertEqual(result["source_count"], 0)

@@ -19,6 +19,15 @@ class MarketDataContractTests(unittest.TestCase):
                 low=9, close=11, volume=100,
             )
 
+    def test_bar_rejects_infinite_price_and_nan_volume(self):
+        for values in (
+            {"open": float("inf"), "high": 12, "low": 9, "close": 11, "volume": 100},
+            {"open": 10, "high": 12, "low": 9, "close": 11, "volume": float("nan")},
+        ):
+            with self.subTest(values=values):
+                with self.assertRaisesRegex(ValidationError, "finite"):
+                    OHLCVBar(timestamp="2026-01-01T00:00:00Z", **values)
+
     def test_bar_rejects_invalid_ohlc_range(self):
         with self.assertRaises(ValidationError):
             OHLCVBar(

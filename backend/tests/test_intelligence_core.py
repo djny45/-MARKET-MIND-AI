@@ -23,8 +23,10 @@ class SharedIntelligenceCoreTests(unittest.TestCase):
     def test_rejects_non_loopback_ollama_host(self):
         env = {"OLLAMA_BASE_URL": "http://example.com:11434",
                "INTELLIGENCE_CORE_ENABLED": "true"}
+        # Patch the standard-library socket module directly. This is resilient
+        # to the core changing how it imports/re-exports socket.
         with patch.dict(os.environ, env, clear=True), patch(
-            "app.intelligence_core.socket.getaddrinfo",
+            "socket.getaddrinfo",
             return_value=[(2, 1, 6, "", ("203.0.113.4", 11434))],
         ):
             with self.assertRaises(IntelligenceCoreError):

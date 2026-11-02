@@ -1,6 +1,5 @@
 import unittest
 from unittest.mock import patch
-from datetime import datetime, timezone
 
 from app.market_data import DataStatus
 from app.yahoo_finance_adapter import YahooFinanceAdapter
@@ -38,6 +37,19 @@ class YahooFinanceAdapterTests(unittest.IsolatedAsyncioTestCase):
         for args in [("", "1d", 5), ("AAPL", "5m", 5), ("AAPL", "1d", 0), ("AAPL", "1d", 5001)]:
             with self.subTest(args=args), self.assertRaises(ValueError):
                 await adapter.get_bars(*args)
+
+    async def test_rejects_4h_instead_of_mislabelling_hourly_data(self):
+        adapter = YahooFinanceAdapter()
+        with self.assertRaisesRegex(ValueError, "4h aggregation is not supported"):
+            await adapter.get_bars("AAPL", "4h", 10)
+
+    async def test_negative_provider_volume_is_not_silently_clamped(self):
+        adapter = YahooFinanceAdapter()
+        payload = chart_payload()
+        payload["chart"]["result"][0]["indicators"]["quote"][0]["volume"][0] = -10
+        with patch.object(adapter, "_fetch_chart", return_value=payload):
+            with self.assertRaises(ValueError):
+                await adapter.get_bars("AAPL", "1d", 10)
 
     async def test_empty_provider_result_raises_clear_error(self):
         adapter = YahooFinanceAdapter()

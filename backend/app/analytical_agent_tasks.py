@@ -100,31 +100,43 @@ def execute_queued_research_task(task_id: str) -> None:
         db.execute("UPDATE analytical_agent_tasks SET status=?,result_json=?,updated_at=? WHERE task_id=?",
                    (status, _json(result), updated, task_id))
 
-def recover_interrupted_research_tasks() -> dict:
-    """Requeue tasks left running by a process interruption.
+def recover_interrupted_research_tasks(stale_after_seconds: int = 900) -> dict:
+    """Requeue only stale running tasks; this explicit operation never dispatches.
 
-    This is an explicit recovery operation; it does not itself dispatch work.
+    A grace period reduces the chance of requeueing work that is still active.
     """
-    now = datetime.now(timezone.utc).isoformat()
+    if (isinstance(stale_after_seconds, bool) or not isinstance(stale_after_seconds, int)
+            or stale_after_seconds < 1):
+        raise ValueError("stale_after_seconds must be a positive integer")
+    now_dt = datetime.now(timezone.utc)
+    now = now_dt.isoformat()
+    cutoff = datetime.fromtimestamp(
+        now_dt.timestamp() - stale_after_seconds, timezone.utc
+    ).isoformat()
     with _connect() as db:
-        running = db.execute(
-            "SELECT task_id FROM analytical_agent_tasks WHERE status='running'"
+        stale = db.execute(
+            "SELECT task_id FROM analytical_agent_tasks WHERE status='running' AND updated_at < ?",
+            (cutoff,),
         ).fetchall()
         db.execute(
-            "UPDATE analytical_agent_tasks SET status='queued',updated_at=? WHERE status='running'",
-            (now,),
+            "UPDATE analytical_agent_tasks SET status='queued',updated_at=? "
+            "WHERE status='running' AND updated_at < ?",
+            (now, cutoff),
         )
+        still_running = db.execute(
+            "SELECT COUNT(*) FROM analytical_agent_tasks WHERE status='running'"
+        ).fetchone()[0]
         queued = db.execute(
             "SELECT task_id FROM analytical_agent_tasks WHERE status='queued' ORDER BY created_at"
         ).fetchall()
     return {
-        "requeued_interrupted_count": len(running),
+        "requeued_interrupted_count": len(stale),
         "queued_task_ids": [row["task_id"] for row in queued],
-        "recovery_mode": "manual_requeue_no_dispatch",
-        "note": "Requeued tasks require explicit dispatch; recovery does not automatically execute them.",
+        "still_running_count": still_running,
+        "stale_after_seconds": stale_after_seconds,
+        "recovery_mode": "manual_stale_requeue_no_dispatch",
+        "note": "Only tasks older than the recovery grace period are requeued; dispatch remains explicit.",
     }
-
-
 def submit_research_task(agent_id: str, brief: str, data: dict | list | None = None) -> dict:
     brain = brain_config(agent_id)
     if not isinstance(brief, str) or not brief.strip() or len(brief) > 4000:

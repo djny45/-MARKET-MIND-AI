@@ -278,7 +278,17 @@ def list_recent_task_activity(limit: int = 500) -> dict:
                FROM analytical_agent_tasks ORDER BY updated_at DESC LIMIT ?""",
             (limit,),
         ).fetchall()
+        event_rows = db.execute(
+            """SELECT event_id,task_id,worker_id,event_type,from_status,to_status,occurred_at,detail_json
+               FROM analytical_agent_task_events ORDER BY event_id DESC LIMIT ?""",
+            (min(limit, 1000),),
+        ).fetchall()
     tasks = [{**dict(row), "agent_id": row["worker_id"]} for row in rows]
+    recent_events = []
+    for row in reversed(event_rows):
+        event = dict(row)
+        event["detail"] = json.loads(event.pop("detail_json"))
+        recent_events.append(event)
     counts = {status: sum(task["status"] == status for task in tasks)
               for status in ("queued", "running", "completed", "failed")}
     latest_by_agent = {}
@@ -289,8 +299,10 @@ def list_recent_task_activity(limit: int = 500) -> dict:
         "status_counts": counts,
         "latest_by_agent": latest_by_agent,
         "tasks": tasks,
-        "source": "persisted_sqlite_task_records",
-        "note": "This snapshot reflects recorded task lifecycle states, not continuous agent activity.",
+        "recent_audit_events": recent_events,
+        "audit_event_count": len(recent_events),
+        "source": "persisted_sqlite_task_records_and_audit_events",
+        "note": "This snapshot reflects recorded task lifecycle states and bounded audit events, not continuous agent activity.",
     }
 
 

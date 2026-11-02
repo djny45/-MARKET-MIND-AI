@@ -59,13 +59,35 @@ class AgentSupervisorTests(unittest.TestCase):
         queued = enqueue_research_task("worker_002", "recover sample")
         import sqlite3
         with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
-            db.execute("UPDATE analytical_agent_tasks SET status='running' WHERE task_id=?",
-                       (queued["task_id"],))
+            db.execute(
+                "UPDATE analytical_agent_tasks SET status='running',updated_at=? WHERE task_id=?",
+                ("2000-01-01T00:00:00+00:00", queued["task_id"]),
+            )
         result = recover_interrupted_research_tasks()
         self.assertEqual(result["requeued_interrupted_count"], 1)
         self.assertIn(queued["task_id"], result["queued_task_ids"])
         self.assertEqual(get_research_task(queued["task_id"])["status"], "queued")
-        self.assertEqual(result["recovery_mode"], "manual_requeue_no_dispatch")
+        self.assertEqual(result["recovery_mode"], "manual_stale_requeue_no_dispatch")
+        self.assertEqual(result["stale_after_seconds"], 900)
+
+    def test_recovery_preserves_recent_running_task(self):
+        queued = enqueue_research_task("worker_005", "active task sample")
+        import sqlite3
+        with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+            db.execute(
+                "UPDATE analytical_agent_tasks SET status='running' WHERE task_id=?",
+                (queued["task_id"],),
+            )
+        result = recover_interrupted_research_tasks()
+        self.assertEqual(result["requeued_interrupted_count"], 0)
+        self.assertEqual(result["still_running_count"], 1)
+        self.assertEqual(get_research_task(queued["task_id"])["status"], "running")
+
+    def test_recovery_grace_period_must_be_positive_integer(self):
+        with self.assertRaises(ValueError):
+            recover_interrupted_research_tasks(stale_after_seconds=0)
+        with self.assertRaises(ValueError):
+            recover_interrupted_research_tasks(stale_after_seconds=True)
 
     def test_dispatch_bounds_are_validated(self):
         with self.assertRaises(ValueError):

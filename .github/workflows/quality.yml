@@ -2,7 +2,8 @@ name: Quality checks
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'feat/**', 'feature/**']
+  workflow_dispatch:
   pull_request:
     branches: [main]
   schedule:

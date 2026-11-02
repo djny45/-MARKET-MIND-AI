@@ -74,7 +74,7 @@ export default function LearningLab({ api, agents }: Props) {
         <div className="overview-panel-head"><div><b>FEEDBACK BY AGENT</b><small>Reviewer ratings, not strategy profitability</small></div></div>
         <input className="learning-search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Filter agent IDs…" />
         <div className="learning-list">{filtered.map((a: LearningAgent) => <button key={a.worker_id} className={agentId===a.worker_id?'learning-agent active':'learning-agent'} onClick={()=>setAgentId(a.worker_id)}>
-          <span><b>{agents.find(x=>x.id===a.worker_id)?.name || a.worker_id}</b><small>{a.worker_id} · {a.evaluation_status.replaceAll('_',' ')}</small></span>
+          <span><b>{agents.find(x=>x.id===a.worker_id)?.name || a.worker_id}</b><small>{a.worker_id} · {a.evaluation_status.replace(/_/g,' ')}</small></span>
           <span><strong>{a.feedback_count}</strong><small>feedback</small></span><span><strong>{a.improvement_proposals}</strong><small>proposals</small></span>
         </button>)}</div>
         <small className="learning-note">Showing up to 100 of 550 agents. Feedback summaries use the latest stored records per agent.</small>

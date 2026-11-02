@@ -102,6 +102,13 @@ class AgentLearningFeedbackRequest(BaseModel):
  outcome: Literal["helpful", "partially_helpful", "not_helpful", "unverified"]
  metrics: dict[str, Any] = Field(default_factory=dict)
 
+class AgentProposalReviewRequest(BaseModel):
+ reviewer: str = Field(min_length=1, max_length=120)
+ decision: Literal["approve", "reject"]
+ review_note: str = Field(min_length=1, max_length=2000)
+ tests_checked: bool
+ rollback_plan: str = Field(min_length=1, max_length=2000)
+
 class AgentUpdateProposalRequest(BaseModel):
  title: str = Field(min_length=1, max_length=160)
  rationale: str = Field(min_length=1, max_length=4000)
@@ -467,6 +474,61 @@ def analytical_agent_update_proposal(worker_id: str, request: AgentUpdateProposa
           "status": "pending_review", "applied": False}
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+
+@app.post("/api/analytical-agents/{worker_id}/update-proposals/{proposal_id}/review")
+def analytical_agent_review_update_proposal(
+ worker_id: str, proposal_id: str, request: AgentProposalReviewRequest
+):
+ """Append a human review decision; this records evidence and never applies changes."""
+ try:
+  notes = read_memory(worker_id, "method_note", 200)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+ proposal_record = next(
+  (item for item in notes["memory"]
+   if item["memory_id"] == proposal_id
+   and isinstance(item.get("content", {}).get("update_proposal"), dict)),
+  None,
+ )
+ if proposal_record is None:
+  raise HTTPException(status_code=404, detail="proposal not found for this worker")
+ review = {
+  "review_type": "update_proposal_human_review",
+  "proposal_id": proposal_id,
+  "proposal_created_at": proposal_record["created_at"],
+  "proposal_content_sha256": hashlib.sha256(
+   json.dumps(
+    proposal_record["content"]["update_proposal"],
+    sort_keys=True, ensure_ascii=False
+   ).encode("utf-8")
+  ).hexdigest(),
+  "reviewer": request.reviewer.strip(),
+  "decision": request.decision,
+  "review_note": request.review_note.strip(),
+  "tests_checked": request.tests_checked,
+  "rollback_plan": request.rollback_plan.strip(),
+  "applied": False,
+  "auto_apply": False,
+ }
+ if not review["reviewer"] or not review["review_note"] or not review["rollback_plan"]:
+  raise HTTPException(status_code=422, detail="reviewer, note, and rollback plan must be non-empty")
+ try:
+  record = append_memory(
+   worker_id, "validation_result", {"proposal_review": review},
+   source_refs=[proposal_id], quality_status="unverified",
+  )
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+ return {
+  "review": review,
+  "review_memory_id": record["memory_id"],
+  "status": "review_recorded",
+  "proposal_changed": False,
+  "applied": False,
+  "auto_apply": False,
+ }
 
 @app.get("/api/worker-registry")
 def worker_registry():

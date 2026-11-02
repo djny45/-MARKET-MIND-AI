@@ -263,7 +263,7 @@ def list_task_audit_events(
         event = dict(row)
         event["detail"] = json.loads(event.pop("detail_json"))
         events.append(event)
-    next_cursor = rows[0]["event_id"] if len(rows) == limit else None
+    next_cursor = rows[-1]["event_id"] if len(rows) == limit else None
     return {
         "task_id": task_id, "count": len(events), "events": events,
         "next_before_event_id": next_cursor,

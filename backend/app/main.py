@@ -370,12 +370,12 @@ def analytical_agent_task_detail(task_id: str):
  return record
 
 @app.get("/api/analytical-agent-tasks/{task_id}/audit")
-def analytical_agent_task_audit(task_id: str, limit: int = 100):
- """Return bounded chronological lifecycle audit events for one task."""
+def analytical_agent_task_audit(task_id: str, limit: int = 100, event_type: str | None = None):
+ """Return bounded chronological lifecycle audit events, optionally filtered by event type."""
  if get_research_task(task_id) is None:
   raise HTTPException(status_code=404, detail="Analytical-agent task not found")
  try:
-  return list_task_audit_events(task_id, limit)
+  return list_task_audit_events(task_id, limit, event_type)
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 

@@ -25,9 +25,28 @@ def evaluate_registry() -> dict:
         errors.append("agent_core_mismatch")
     if any(worker.get("department") not in DEPARTMENTS for worker in workers):
         errors.append("unknown_department")
-    allowed_skill_ids = {skill["id"] for skill in list_skills()}
-    if any(skill_id not in allowed_skill_ids for worker in workers for skill_id in worker.get("skill_refs", [])):
+    catalog_skills = list_skills()
+    allowed_skill_ids = {skill["id"] for skill in catalog_skills}
+    all_skill_refs = [skill_id for worker in workers for skill_id in worker.get("skill_refs", [])]
+    if any(skill_id not in allowed_skill_ids for skill_id in all_skill_refs):
         errors.append("unknown_skill_reference")
+    if any(len(worker.get("skill_refs", [])) != len(set(worker.get("skill_refs", []))) for worker in workers):
+        errors.append("duplicate_worker_skill_reference")
+    pack_skill_ids = {skill["id"] for skill in catalog_skills if skill["id"].startswith("mm-skill-")}
+    assigned_pack_skill_ids = {skill_id for skill_id in all_skill_refs if skill_id.startswith("mm-skill-")}
+    missing_pack_skill_ids = sorted(pack_skill_ids - assigned_pack_skill_ids)
+    if missing_pack_skill_ids:
+        errors.append("unassigned_research_pack_skill")
+    skill_ref_counts = {
+        department: sum(len(worker.get("skill_refs", [])) for worker in workers if worker.get("department") == department)
+        for department in DEPARTMENTS
+    }
+    pack_skill_coverage = {
+        "catalog_pack_skill_count": len(pack_skill_ids),
+        "assigned_unique_pack_skill_count": len(assigned_pack_skill_ids & pack_skill_ids),
+        "missing_pack_skill_ids": missing_pack_skill_ids,
+        "coverage_ratio": round(len(assigned_pack_skill_ids & pack_skill_ids) / len(pack_skill_ids), 4) if pack_skill_ids else 1.0,
+    }
     required = {"id", "name", "department", "specialty", "kind", "model",
                 "memory_namespace", "skill_refs", "status"}
     if any(not required.issubset(worker) for worker in workers):
@@ -42,6 +61,9 @@ def evaluate_registry() -> dict:
         "worker_count": len(workers),  # legacy API compatibility
         "department_count": len(DEPARTMENTS),
         "department_counts": counts,
+        "skill_reference_counts_by_department": skill_ref_counts,
+        "research_pack_skill_coverage": pack_skill_coverage,
+        "total_skill_reference_count": len(all_skill_refs),
         "shared_intelligence_core": EXPECTED_CORE,
         "profile_digest_sha256": digest,
         "valid": not errors,

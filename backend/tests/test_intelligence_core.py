@@ -31,13 +31,15 @@ class SharedIntelligenceCoreTests(unittest.TestCase):
                 intelligence_core_status()
 
     def test_research_payload_is_bounded(self):
-        env = {"OLLAMA_BASE_URL": "http://localhost:11434", "INTELLIGENCE_CORE_ENABLED": "true"}
-        loopback = [(2, 1, 6, "", ("127.0.0.1", 11434))]
-        with patch.dict(os.environ, env, clear=True), patch(
-            "app.intelligence_core.socket.getaddrinfo", return_value=loopback
+        enabled_status = {
+            "enabled": True,
+            "model": "phi3",
+        }
+        with patch("app.intelligence_core.intelligence_core_status", return_value=enabled_status), patch(
+            "app.intelligence_core._configured_url", return_value="http://127.0.0.1:11434"
         ):
             with self.assertRaises(IntelligenceCoreError):
-                synthesize_research({"large": "x" * 25000})
+                synthesize_research({"large": "x" * 30000})
 
 
 if __name__ == "__main__":

@@ -8,6 +8,7 @@ from app.analytical_agent_tasks import (
     dispatch_queued_research_tasks,
     enqueue_research_task,
     get_research_task,
+    recover_interrupted_research_tasks,
 )
 
 
@@ -40,6 +41,18 @@ class AgentSupervisorTests(unittest.TestCase):
         self.assertEqual(result["max_concurrency"], 1)
         task = get_research_task(queued["task_id"])
         self.assertEqual(task["status"], "completed")
+
+    def test_recovery_requeues_interrupted_tasks_without_dispatch(self):
+        queued = enqueue_research_task("worker_002", "recover sample")
+        import sqlite3
+        with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+            db.execute("UPDATE analytical_agent_tasks SET status='running' WHERE task_id=?",
+                       (queued["task_id"],))
+        result = recover_interrupted_research_tasks()
+        self.assertEqual(result["requeued_interrupted_count"], 1)
+        self.assertIn(queued["task_id"], result["queued_task_ids"])
+        self.assertEqual(get_research_task(queued["task_id"])["status"], "queued")
+        self.assertEqual(result["recovery_mode"], "manual_requeue_no_dispatch")
 
     def test_dispatch_bounds_are_validated(self):
         with self.assertRaises(ValueError):

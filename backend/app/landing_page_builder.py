@@ -79,7 +79,7 @@ def build_landing_page(worker_id: str, request: dict) -> dict:
 <title>{safe_title}</title>
 <style>
 :root{{--accent:{accent};--bg:{background};--fg:{foreground}}}
-*{{box-sizing:border-box}}body{{margin:0;background:radial-gradient(ellipse at top,var(--accent)18,transparent 55%),var(--bg);color:var(--fg);font:16px/1.6 system-ui,sans-serif}}
+*{{box-sizing:border-box}}body{{margin:0;background:radial-gradient(ellipse at top,#171a1f,transparent 55%),var(--bg);color:var(--fg);font:16px/1.6 system-ui,sans-serif}}
 main{{max-width:980px;margin:auto;padding:64px 24px}}header{{padding:56px 0}}.brand{{color:var(--accent);letter-spacing:.16em;text-transform:uppercase;font-size:.8rem}}
 h1{{font-size:clamp(2.4rem,7vw,5rem);line-height:1.05;max-width:850px;margin:.5em 0}}.subtitle{{font-size:1.25rem;max-width:720px;color:#cbd5e1}}
 .grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}}.card{{border:1px solid #ffffff20;border-radius:18px;padding:24px;background:#ffffff08}}.card h2{{color:var(--accent)}}.cta{{display:inline-block;margin-top:28px;padding:14px 22px;border-radius:999px;background:var(--accent);color:#111;text-decoration:none;font-weight:700}}footer{{margin-top:64px;color:#94a3b8;font-size:.8rem}}

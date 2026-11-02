@@ -12,7 +12,7 @@ from .intelligence_core import synthesize_research
 
 MAX_COUNCIL_SIZE = 8
 MAX_BRIEF_CHARS = 4000
-MAX_DATA_CHARS = 10000
+MAX_DATA_CHARS = 10000\nMAX_BATCH_TASKS = 550
 
 
 def run_agent_council(agent_ids: list[str], brief: str, data: dict | list | None = None) -> dict:
@@ -81,4 +81,44 @@ def run_agent_council(agent_ids: list[str], brief: str, data: dict | list | None
         "research_boundary": "supplied_data_only_no_live_market_fetch",
         "paper_trading": False,
         "broker_execution": False,
+    }
+
+
+def run_agent_batch(agent_ids: list[str], brief: str, data: dict | list | None = None) -> dict:
+    """Run a bounded batch across the registry (up to 550 agents) with clear per-agent outcomes.
+
+    This is synchronous fan-out through the existing shared inference provider.
+    It is not 550 independent model processes or a durable parallel queue.
+    """
+    from .analytical_agent_tasks import submit_research_task
+    if not isinstance(agent_ids, list) or not 1 <= len(agent_ids) <= MAX_BATCH_TASKS:
+        raise ValueError(f"agent_ids must contain between 1 and {MAX_BATCH_TASKS} registered agents")
+    if len(set(agent_ids)) != len(agent_ids):
+        raise ValueError("agent_ids must be unique")
+    results = []
+    for agent_id in agent_ids:
+        try:
+            task = submit_research_task(agent_id, brief, data)
+            results.append({
+                "agent_id": agent_id,
+                "task_id": task.get("task_id"),
+                "status": task.get("status", "unknown"),
+                "execution_mode": task.get("execution_mode"),
+                "result": task.get("result"),
+                "error": task.get("error"),
+            })
+        except ValueError as exc:
+            results.append({"agent_id": agent_id, "status": "rejected", "error": str(exc)})
+    counts = {}
+    for item in results:
+        counts[item["status"]] = counts.get(item["status"], 0) + 1
+    return {
+        "agent_count_requested": len(agent_ids),
+        "agent_count_accepted": sum(item["status"] != "rejected" for item in results),
+        "status_counts": counts,
+        "execution_mode": "bounded_sequential_shared_provider",
+        "note": "Batch fan-out uses the existing shared inference provider sequentially. It does not imply 550 independent model instances or parallel autonomous workers.",
+        "paper_trading": False,
+        "broker_execution": False,
+        "results": results,
     }

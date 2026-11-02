@@ -74,6 +74,24 @@ class MarketDataContractTests(unittest.TestCase):
                 bars=[bar, bar],
             )
 
+    def test_batch_rejects_out_of_order_timestamps(self):
+        older = {
+            "timestamp": "2026-01-01T00:00:00Z",
+            "open": 10, "high": 12, "low": 9, "close": 11, "volume": 100,
+        }
+        newer = {
+            "timestamp": "2026-01-02T00:00:00Z",
+            "open": 11, "high": 13, "low": 10, "close": 12, "volume": 110,
+        }
+        base = {
+            "symbol": "BTCUSD", "interval": "1d", "status": "historical",
+            "source": "provider-x", "retrieved_at": "2026-01-03T00:00:00Z",
+        }
+        valid = MarketDataBatch(**base, bars=[older, newer])
+        self.assertEqual(valid.bars[0].timestamp.isoformat(), "2026-01-01T00:00:00+00:00")
+        with self.assertRaises(ValidationError):
+            MarketDataBatch(**base, bars=[newer, older])
+
     def test_bar_rejects_low_above_high_even_when_open_and_close_are_lower(self):
         with self.assertRaises(ValidationError):
             OHLCVBar(

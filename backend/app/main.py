@@ -17,6 +17,7 @@ from .research_orchestrator import orchestrate_research
 from .intelligence_core import intelligence_core_status, synthesize_research, IntelligenceCoreError
 from .synthesis_review import build_synthesis_review
 from .skill_catalog import list_skills, load_skill
+from .landing_page_builder import build_landing_page
 from .markets import market_catalog
 from .instruments import search_instruments
 from .instrument_master import search_instrument_master, sync_reference_catalogue, register_provider_identifier
@@ -108,6 +109,16 @@ class AgentProposalReviewRequest(BaseModel):
  review_note: str = Field(min_length=1, max_length=2000)
  tests_checked: bool
  rollback_plan: str = Field(min_length=1, max_length=2000)
+
+class AgentLandingPageRequest(BaseModel):
+ title: str = Field(min_length=1, max_length=120)
+ subtitle: str = Field(default="", max_length=300)
+ description: str = Field(default="", max_length=1200)
+ brand: str = Field(default="MARKET-MIND", max_length=80)
+ theme: Literal["amber", "blue", "violet", "emerald"] = "amber"
+ sections: list[dict[str, str]] = Field(default_factory=list, max_length=12)
+ cta_label: str = Field(default="", max_length=80)
+ cta_url: str = Field(default="", max_length=500)
 
 class AgentUpdateProposalRequest(BaseModel):
  title: str = Field(min_length=1, max_length=160)
@@ -574,6 +585,14 @@ def skill_detail(skill_id: str):
   raise HTTPException(status_code=404, detail="Research skill not found") from exc
  except FileNotFoundError as exc:
   raise HTTPException(status_code=404, detail="Research skill file is unavailable") from exc
+
+@app.post("/api/agents/{worker_id}/landing-page")
+def create_agent_landing_page(worker_id: str, request: AgentLandingPageRequest):
+ """Render a worker's validated landing-page draft as static HTML; never deploy or execute scripts."""
+ try:
+  return build_landing_page(worker_id, request.model_dump())
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 @app.get("/api/markets")
 def markets():

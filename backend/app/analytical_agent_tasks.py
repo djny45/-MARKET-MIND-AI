@@ -139,7 +139,7 @@ def submit_research_task(agent_id: str, brief: str, data: dict | list | None = N
     now = datetime.now(timezone.utc).isoformat()
     with _connect() as db:
         db.execute("""INSERT INTO analytical_agent_tasks
-          (task_id,agent_id,task_type,status,input_json,result_json,brain_context_sha256,created_at,updated_at)
+          (task_id,worker_id,task_type,status,input_json,result_json,brain_context_sha256,created_at,updated_at)
           VALUES (?,?,?,?,?,?,?,?,?)""",
           (task_id, agent_id, TASK_TYPE, "running", input_json, "{}", brain["brain_context_sha256"], now, now))
 
@@ -196,7 +196,7 @@ def list_research_tasks(agent_id: str, limit: int = 20) -> dict:
           FROM analytical_agent_tasks WHERE worker_id=? ORDER BY created_at DESC LIMIT ?""",
           (agent_id, limit)).fetchall()
         total = db.execute("SELECT COUNT(*) FROM analytical_agent_tasks WHERE worker_id=?", (agent_id,)).fetchone()[0]
-    return {"agent_id": agent_id, "count": len(rows), "total": total, "tasks": [dict(row) for row in rows]}
+    return {"agent_id": agent_id, "count": len(rows), "total": total, "tasks": [{**dict(row), "agent_id": row["worker_id"]} for row in rows]}
 
 
 def list_recent_task_activity(limit: int = 500) -> dict:
@@ -209,7 +209,7 @@ def list_recent_task_activity(limit: int = 500) -> dict:
                FROM analytical_agent_tasks ORDER BY updated_at DESC LIMIT ?""",
             (limit,),
         ).fetchall()
-    tasks = [dict(row) for row in rows]
+    tasks = [{**dict(row), "agent_id": row["worker_id"]} for row in rows]
     counts = {status: sum(task["status"] == status for task in tasks)
               for status in ("queued", "running", "completed", "failed")}
     latest_by_agent = {}

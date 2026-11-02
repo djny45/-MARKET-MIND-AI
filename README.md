@@ -287,3 +287,21 @@ This verifies the checks defined in the workflow at that commit; it is not a liv
 - `GET /api/research/cross-market-correlation?symbols=india:nse:RELIANCE,us:nasdaq:AAPL&interval=1d&limit=500&min_observations=20` — descriptive pairwise Pearson correlation of close-to-close returns on exact shared UTC timestamps. No forward-fill is applied; insufficient samples and zero-variance series return a null coefficient. See [four-market platform guide](docs/FOUR-MARKET-PLATFORM.md).
 
 Cross-market correlation is historical research only. Market sessions differ, so overlap may be sparse; correlations are not causal or predictive and are not trading signals. Synthetic observations remain explicitly labelled.
+
+
+## Human review gate for model synthesis
+
+Optional shared-core synthesis is an **untrusted draft**, not authoritative research. The prototype review endpoint `POST /api/research/synthesis/review` accepts a draft, structured claims, a supplied source registry, and an explicit `approve` or `reject` decision. Approval is blocked when claims lack source IDs or cite IDs absent from the supplied registry. The returned review record is stateless: it is not persisted, does not verify source authenticity or claim entailment, and does not authorize investment decisions. Keep this endpoint behind trusted local access; authentication and authorization are mandatory before public deployment.
+
+Example payload:
+
+```json
+{
+  "draft": "Draft summary text",
+  "claims": [{"text": "Claim wording", "source_refs": ["source-1"]}],
+  "source_registry": [{"source_id": "source-1", "title": "Imported source"}],
+  "decision": "approve",
+  "reviewer": "reviewer-id",
+  "review_note": "Reviewed against the provided material"
+}
+```

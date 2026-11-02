@@ -4,6 +4,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SKILL_ROOT = REPO_ROOT / ".agents" / "skills" / "day-trader-skill"
 REA_SKILL_ROOT = REPO_ROOT / ".agents" / "skills" / "rea"
+STAGESHOW_SKILL_ROOT = REPO_ROOT / ".agents" / "skills" / "stageshow"
 
 SKILL_DESCRIPTIONS = {
     "trader-alerts": "Alert interpretation and notification research.",
@@ -23,6 +24,10 @@ REA_SKILL_DESCRIPTIONS = {
     "rea-analysis-optimization": "Optimize analysis workflows while preserving correctness and evidence.",
     "rea-ci-tests-audit": "Audit CI and tests for false passes, fixture drift, and missing regression coverage.",
     "rea-tool-design": "Design investigation tools, interfaces, provider contracts, and evidence semantics.",
+}
+
+UI_SKILL_DESCRIPTIONS = {
+    "stageshow": "Create polished React product UI mockups, dashboard stills, and cursor/motion demos; use only for frontend/design tasks.",
 }
 
 
@@ -50,7 +55,15 @@ def list_skills():
         }
         for slug, description in REA_SKILL_DESCRIPTIONS.items()
     ]
-    return trading + engineering
+    ui_design = [{
+        "id": slug,
+        "description": description,
+        "path": ".agents/skills/stageshow/SKILL.md",
+        "available": (STAGESHOW_SKILL_ROOT / "SKILL.md").is_file(),
+        "mode": "ui_design_only",
+        "requires_external_tools": True,
+    } for slug, description in UI_SKILL_DESCRIPTIONS.items()]
+    return trading + engineering + ui_design
 
 
 def load_skill(slug: str):
@@ -65,9 +78,14 @@ def load_skill(slug: str):
         description = REA_SKILL_DESCRIPTIONS[slug]
         mode = "engineering_research"
         requires_external_tools = True
+    elif slug in UI_SKILL_DESCRIPTIONS:
+        root = STAGESHOW_SKILL_ROOT
+        description = UI_SKILL_DESCRIPTIONS[slug]
+        mode = "ui_design_only"
+        requires_external_tools = True
     else:
         raise KeyError(slug)
-    path = root / slug / "SKILL.md"
+    path = root / "SKILL.md" if slug in UI_SKILL_DESCRIPTIONS else root / slug / "SKILL.md"
     if not path.is_file():
         raise FileNotFoundError(slug)
     return {

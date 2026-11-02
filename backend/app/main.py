@@ -11,6 +11,7 @@ from .worker_runtime import worker_runtime_status
 from .worker_memory import append_memory, read_memory
 from .worker_registry import evaluate_registry, registry_manifest
 from .analytical_agent_runtime import runtime_manifest, brain_config, validate_learning_feedback, validate_update_proposal
+from .analytical_agent_tasks import submit_research_task, get_research_task, list_research_tasks
 from .research_orchestrator import orchestrate_research
 from .intelligence_core import intelligence_core_status, synthesize_research, IntelligenceCoreError
 from .synthesis_review import build_synthesis_review
@@ -83,6 +84,10 @@ class SynthesisReviewRequest(BaseModel):
  reviewer: str = Field(min_length=1, max_length=120)
  review_note: str = Field(default="", max_length=1000)
 
+
+class AgentResearchTaskRequest(BaseModel):
+ brief: str = Field(min_length=1, max_length=4000)
+ data: dict[str, Any] | list[Any] | None = None
 
 class AgentLearningFeedbackRequest(BaseModel):
  summary: str = Field(min_length=1, max_length=4000)
@@ -294,6 +299,30 @@ def get_worker_memory(worker_id: str, memory_type: str | None = None, limit: int
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+
+@app.post("/api/analytical-agents/{worker_id}/tasks")
+def analytical_agent_submit_task(worker_id: str, request: AgentResearchTaskRequest):
+ """Run a bounded research brief with one worker context and the shared core."""
+ try:
+  return submit_research_task(worker_id, request.brief, request.data)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+@app.get("/api/analytical-agents/{worker_id}/tasks")
+def analytical_agent_list_tasks(worker_id: str, limit: int = 20):
+ """List persisted tasks for one specialist worker."""
+ try:
+  return list_research_tasks(worker_id, limit)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+@app.get("/api/analytical-agent-tasks/{task_id}")
+def analytical_agent_task_detail(task_id: str):
+ """Retrieve one persisted analytical-agent task and its result."""
+ record = get_research_task(task_id)
+ if record is None:
+  raise HTTPException(status_code=404, detail="Analytical-agent task not found")
+ return record
 
 @app.get("/api/analytical-agents/runtime")
 def analytical_agent_runtime():

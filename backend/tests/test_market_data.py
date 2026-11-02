@@ -23,6 +23,8 @@ class MarketDataContractTests(unittest.TestCase):
         for values in (
             {"open": float("inf"), "high": 12, "low": 9, "close": 11, "volume": 100},
             {"open": 10, "high": 12, "low": 9, "close": 11, "volume": float("nan")},
+            {"open": 10, "high": float("-inf"), "low": 9, "close": 11, "volume": 100},
+            {"open": 10, "high": 12, "low": 9, "close": 11, "volume": float("inf")},
         ):
             with self.subTest(values=values):
                 with self.assertRaisesRegex(ValidationError, "finite"):

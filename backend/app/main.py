@@ -11,7 +11,7 @@ from .worker_runtime import worker_runtime_status
 from .worker_memory import append_memory, read_memory
 from .worker_registry import evaluate_registry, registry_manifest
 from .analytical_agent_runtime import runtime_manifest, brain_config, validate_learning_feedback, validate_update_proposal
-from .analytical_agent_tasks import submit_research_task, get_research_task, list_research_tasks, enqueue_research_task, execute_queued_research_task, recover_interrupted_research_tasks, list_recent_task_activity
+from .analytical_agent_tasks import submit_research_task, get_research_task, list_research_tasks, enqueue_research_task, execute_queued_research_task, recover_interrupted_research_tasks, list_recent_task_activity, agent_supervisor_status, dispatch_queued_research_tasks
 from .research_orchestrator import orchestrate_research
 from .intelligence_core import intelligence_core_status, synthesize_research, IntelligenceCoreError
 from .synthesis_review import build_synthesis_review
@@ -85,6 +85,11 @@ class SynthesisReviewRequest(BaseModel):
  decision: Literal["approve", "reject"]
  reviewer: str = Field(min_length=1, max_length=120)
  review_note: str = Field(default="", max_length=1000)
+
+
+class AgentSupervisorDispatchRequest(BaseModel):
+ limit: int = Field(default=50, ge=1, le=550)
+ max_concurrency: int = Field(default=4, ge=1, le=16)
 
 
 class AgentResearchTaskRequest(BaseModel):
@@ -335,6 +340,21 @@ def agent_network_activity(limit: int = 500):
   return list_recent_task_activity(limit)
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+@app.get("/api/analytical-agent-supervisor/status")
+def analytical_agent_supervisor_status():
+ """Return task counts and bounded supervisor capability status."""
+ return agent_supervisor_status()
+
+
+@app.post("/api/analytical-agent-supervisor/dispatch")
+def analytical_agent_supervisor_dispatch(request: AgentSupervisorDispatchRequest):
+ """Explicitly dispatch a bounded queued-task snapshot on this process."""
+ try:
+  return dispatch_queued_research_tasks(request.limit, request.max_concurrency)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
 
 @app.post("/api/analytical-agent-tasks/recover")
 def analytical_agent_recover_tasks():

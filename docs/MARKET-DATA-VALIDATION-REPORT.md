@@ -29,6 +29,8 @@ else:
 | `generated_at` | UTC time when the report was generated |
 | `retrieved_at` | Batch retrieval timestamp (valid reports only) |
 | `valid` | Whether the batch passed the MarketDataBatch contract |
+| `result` | Machine-readable status: `valid` or `invalid` |
+| `error_count` | Number of field-level validation errors |
 | `bar_count` | Number of bars for valid payloads; null when invalid |
 | `errors` | Field-level validation errors |
 | `warnings` | Batch warnings preserved from the source contract |

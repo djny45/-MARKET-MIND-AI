@@ -14,6 +14,13 @@ class WorkerRegistryTests(unittest.TestCase):
         self.assertEqual(result["shared_intelligence_core"], EXPECTED_CORE)
         self.assertEqual(sum(result["department_counts"].values()), EXPECTED_WORKER_COUNT)
         self.assertEqual(len(result["department_counts"]), 20)
+        coverage = result["research_pack_skill_coverage"]
+        self.assertEqual(coverage["catalog_pack_skill_count"], 300)
+        self.assertEqual(coverage["assigned_unique_pack_skill_count"], 300)
+        self.assertEqual(coverage["coverage_ratio"], 1.0)
+        self.assertEqual(coverage["missing_pack_skill_ids"], [])
+        self.assertEqual(sum(result["skill_reference_counts_by_department"].values()),
+                         result["total_skill_reference_count"])
 
     def test_registry_manifest_is_versioned_and_hashed(self):
         manifest = registry_manifest()

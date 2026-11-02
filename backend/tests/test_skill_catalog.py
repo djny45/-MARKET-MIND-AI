@@ -7,7 +7,7 @@ class SkillCatalogTests(unittest.TestCase):
     def test_catalog_contains_only_allowlisted_research_skills(self):
         skills = list_skills()
         by_id = {skill["id"]: skill for skill in skills}
-        self.assertEqual(len(skills), 17)
+        self.assertEqual(len(skills), 18)
         self.assertNotIn("trader-broker", by_id)
         self.assertTrue(all(
             skill["mode"] == "research_and_paper_only"
@@ -67,6 +67,17 @@ class SkillCatalogTests(unittest.TestCase):
         self.assertIn("Stooq", result["content"])
         self.assertEqual(result["mode"], "market_data_research_only")
         self.assertFalse(result["broker_execution"])
+
+    def test_quant_research_evaluation_skill_is_allowlisted_and_research_only(self):
+        skills = {skill["id"]: skill for skill in list_skills()}
+        skill = skills["quant-research-evaluation"]
+        self.assertTrue(skill["available"])
+        self.assertEqual(skill["mode"], "research_evaluation_only")
+        self.assertFalse(skill["requires_external_tools"])
+        loaded = load_skill("quant-research-evaluation")
+        self.assertIn("Chronological separation", loaded["content"])
+        self.assertIn("Qlib", loaded["content"])
+        self.assertFalse(loaded["broker_execution"])
 
     def test_unknown_and_broker_skills_are_rejected(self):
         for slug in ("trader-broker", "../README.md", "missing-skill"):

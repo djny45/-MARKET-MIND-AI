@@ -3,6 +3,7 @@
 This module reports structural contract failures; it does not authenticate providers,
 certify licensing, or infer missing market sessions.
 """
+from datetime import datetime, timezone
 from typing import Any
 
 from pydantic import ValidationError
@@ -28,6 +29,8 @@ def validate_market_data_payload(payload: Any) -> dict[str, Any]:
             for item in exc.errors()
         ]
         return {
+            "schema_version": 1,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
             "valid": False,
             "bar_count": None,
             "symbol": None,
@@ -46,6 +49,9 @@ def validate_market_data_payload(payload: Any) -> dict[str, Any]:
 
     timestamps = [bar.timestamp for bar in batch.bars]
     return {
+        "schema_version": 1,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "retrieved_at": batch.retrieved_at.isoformat(),
         "valid": True,
         "bar_count": len(batch.bars),
         "symbol": batch.symbol,

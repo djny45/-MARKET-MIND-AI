@@ -197,3 +197,29 @@ def list_research_tasks(worker_id: str, limit: int = 20) -> dict:
           (worker_id, limit)).fetchall()
         total = db.execute("SELECT COUNT(*) FROM analytical_agent_tasks WHERE worker_id=?", (worker_id,)).fetchone()[0]
     return {"worker_id": worker_id, "count": len(rows), "total": total, "tasks": [dict(row) for row in rows]}
+
+
+def list_recent_task_activity(limit: int = 500) -> dict:
+    """Return a bounded cross-agent task activity snapshot for the network UI."""
+    if not isinstance(limit, int) or not 1 <= limit <= 1000:
+        raise ValueError("limit must be between 1 and 1000")
+    with _connect() as db:
+        rows = db.execute(
+            """SELECT task_id,worker_id,task_type,status,created_at,updated_at
+               FROM analytical_agent_tasks ORDER BY updated_at DESC LIMIT ?""",
+            (limit,),
+        ).fetchall()
+    tasks = [dict(row) for row in rows]
+    counts = {status: sum(task["status"] == status for task in tasks)
+              for status in ("queued", "running", "completed", "failed")}
+    latest_by_agent = {}
+    for task in tasks:
+        latest_by_agent.setdefault(task["worker_id"], task)
+    return {
+        "task_count": len(tasks),
+        "status_counts": counts,
+        "latest_by_agent": latest_by_agent,
+        "tasks": tasks,
+        "source": "persisted_sqlite_task_records",
+        "note": "This snapshot reflects recorded task lifecycle states, not continuous agent activity.",
+    }

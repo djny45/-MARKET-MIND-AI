@@ -38,7 +38,7 @@ This roadmap is a plan, not a claim that features already exist. Mark an item co
 ## Phase 4 — Intelligence and workflow canvas
 - [ ] Define complete typed specialist-worker input/output contracts.
 - [x] Add versioned v1.0.0 contract definitions and runtime shape validation for all 10 currently supported workflow node types; detailed domain schemas and mandatory provenance enforcement remain pending.
-- [ ] Build central research orchestrator with model-backed inference and evidence-grounded synthesis.
+- [ ] Build central research orchestrator with model-backed inference and evidence-grounded synthesis.\n- [x] Add an optional single-core local Ollama provider boundary (loopback-only, disabled by default, bounded synthesis input, timeout/failure fallback and status API); end-to-end evidence-grounded synthesis integration remains pending.
 - [x] Implement initial deterministic shared-core orchestration API with worker result aggregation, contract references, registry integrity gate and consolidated descriptive report; model-backed inference and source-provenance attachment remain pending.
 - [x] Add initial shared-core worker registry and deterministic routing for supported workflow node types.
 - [ ] Add worker registry versioning and a broader evaluation suite.
@@ -46,7 +46,7 @@ This roadmap is a plan, not a claim that features already exist. Mark an item co
 - [x] Add append-only worker-scoped evidence memory with provenance and quality labels.
 - [ ] Add reviewed shared knowledge, memory lifecycle controls, and human approval workflows.
 
-Current boundary: worker routing invokes existing deterministic Python handlers. The 550 profiles are not independent models; LLM inference, autonomous self-learning, and brokerage execution remain disabled.
+Current boundary: worker routing invokes existing deterministic Python handlers. The 550 profiles are not independent models. Optional Ollama is a single shared, loopback-only summarization provider and is disabled by default; autonomous self-learning and brokerage execution remain disabled.
 - [ ] Build visual node-based research workflows.
 - [ ] Add explainability, evidence coverage, and disagreement reporting.
 

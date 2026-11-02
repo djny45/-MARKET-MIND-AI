@@ -43,6 +43,61 @@ class SharedIntelligenceCoreTests(unittest.TestCase):
             with self.assertRaises(IntelligenceCoreError):
                 synthesize_research({"large": "x" * 30000})
 
+    def test_freellmapi_synthesis_sends_request_and_returns_summary(self):
+        import json
+        from unittest.mock import Mock
+
+        env = {
+            "INTELLIGENCE_CORE_ENABLED": "true",
+            "INTELLIGENCE_CORE_PROVIDER": "freellmapi",
+        }
+        response = Mock()
+        response.read.return_value = json.dumps({
+            "choices": [{"message": {"content": "Concise summary"}}]
+        }).encode("utf-8")
+        response.__enter__ = Mock(return_value=response)
+        response.__exit__ = Mock(return_value=False)
+        opener = Mock(return_value=response)
+
+        with patch.dict(os.environ, env, clear=True), patch(
+            "app.intelligence_core.intelligence_core_status",
+            return_value={"enabled": True, "model": "test-model"},
+        ), patch(
+            "app.intelligence_core.configured_freellmapi",
+            return_value=("http://127.0.0.1:3001", "test-key", "test-model"),
+        ):
+            result = synthesize_research({"facts": ["source-backed fact"]}, opener=opener)
+
+        request = opener.call_args.args[0]
+        self.assertEqual(request.full_url, "http://127.0.0.1:3001/v1/chat/completions")
+        self.assertEqual(request.get_header("Authorization"), "Bearer test-key")
+        sent = json.loads(request.data.decode("utf-8"))
+        self.assertEqual(sent["model"], "test-model")
+        self.assertFalse(sent["stream"])
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual(result["provider"], "freellmapi_local")
+        self.assertEqual(result["summary"], "Concise summary")
+
+    def test_freellmapi_unavailable_returns_safe_fallback(self):
+        from urllib.error import URLError
+        from unittest.mock import Mock
+
+        env = {"INTELLIGENCE_CORE_ENABLED": "true",
+               "INTELLIGENCE_CORE_PROVIDER": "freellmapi"}
+        with patch.dict(os.environ, env, clear=True), patch(
+            "app.intelligence_core.intelligence_core_status",
+            return_value={"enabled": True, "model": "test-model"},
+        ), patch(
+            "app.intelligence_core.configured_freellmapi",
+            return_value=("http://127.0.0.1:3001", "test-key", "test-model"),
+        ):
+            result = synthesize_research(
+                {"facts": []}, opener=Mock(side_effect=URLError("offline"))
+            )
+        self.assertEqual(result["status"], "provider_unavailable")
+        self.assertIsNone(result["summary"])
+        self.assertTrue(result["reason"])
+
 
 if __name__ == "__main__":
     unittest.main()

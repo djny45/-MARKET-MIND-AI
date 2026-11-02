@@ -81,5 +81,24 @@ class HistoricalQualityTests(unittest.TestCase):
         self.assertNotIn(10, result["volume_outliers"]["flagged_bar_indices"])
 
 
+    def test_malformed_history_and_bar_rows_are_reported_without_crashing(self):
+        empty = build_historical_quality_diagnostics(None)
+        self.assertEqual(empty["bars_checked"], 0)
+        self.assertEqual(empty["timestamp_integrity"]["invalid_timestamp_count"], 0)
+
+        result = build_historical_quality_diagnostics({
+            "interval": "1h",
+            "bars": [None, "bad-row", {"timestamp": "not-a-timestamp"}],
+        })
+        self.assertEqual(result["bars_checked"], 3)
+        self.assertEqual(result["timestamp_integrity"]["invalid_timestamp_count"], 3)
+        self.assertEqual(result["invalid_numeric_values"]["close_count"], 3)
+        self.assertEqual(result["invalid_numeric_values"]["volume_count"], 3)
+
+    def test_non_list_bars_are_treated_as_empty_history(self):
+        result = build_historical_quality_diagnostics({"interval": "1h", "bars": "not-a-list"})
+        self.assertEqual(result["bars_checked"], 0)
+        self.assertEqual(result["close_to_close_return_outliers"]["status"], "insufficient_history")
+
 if __name__ == "__main__":
     unittest.main()

@@ -1,6 +1,6 @@
-"""Persistent bounded research-task lifecycle for individual analytical workers.
+"""Persistent bounded research-task lifecycle for specialist AI agents.
 
-Tasks use each worker's distinct context and scoped memory, with one shared
+Tasks use each agent's distinct context and scoped memory, with one shared
 intelligence provider. This is a synchronous first milestone, not a cloud
 scheduler or continuously running autonomous agent.
 """
@@ -25,12 +25,12 @@ def _connect():
     db = sqlite3.connect(path, timeout=10)
     db.row_factory = sqlite3.Row
     db.execute("""CREATE TABLE IF NOT EXISTS analytical_agent_tasks (
-        task_id TEXT PRIMARY KEY, worker_id TEXT NOT NULL, task_type TEXT NOT NULL,
+        task_id TEXT PRIMARY KEY, agent_id TEXT NOT NULL, task_type TEXT NOT NULL,
         status TEXT NOT NULL, input_json TEXT NOT NULL, result_json TEXT NOT NULL,
         brain_context_sha256 TEXT NOT NULL, created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
     )""")
-    db.execute("CREATE INDEX IF NOT EXISTS idx_agent_tasks_worker_time ON analytical_agent_tasks(worker_id,created_at)")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_agent_tasks_agent_time ON analytical_agent_tasks(agent_id,created_at)")
     return db
 
 def _json(value):
@@ -39,9 +39,9 @@ def _json(value):
     except (TypeError, ValueError) as exc:
         raise ValueError("Task data must be finite JSON-compatible values.") from exc
 
-def enqueue_research_task(worker_id: str, brief: str, data: dict | list | None = None) -> dict:
-    """Persist a queued task; a process-local background runner will pick it up."""
-    brain = brain_config(worker_id)
+def enqueue_research_task(agent_id: str, brief: str, data: dict | list | None = None) -> dict:
+    """Persist a queued task; the process-local background runner will pick it up."""
+    brain = brain_config(agent_id)
     if not isinstance(brief, str) or not brief.strip() or len(brief) > 4000:
         raise ValueError("brief must be a non-empty string of at most 4000 characters")
     if data is not None and not isinstance(data, (dict, list)):
@@ -54,10 +54,10 @@ def enqueue_research_task(worker_id: str, brief: str, data: dict | list | None =
     now = datetime.now(timezone.utc).isoformat()
     with _connect() as db:
         db.execute("""INSERT INTO analytical_agent_tasks
-          (task_id,worker_id,task_type,status,input_json,result_json,brain_context_sha256,created_at,updated_at)
+          (task_id,agent_id,task_type,status,input_json,result_json,brain_context_sha256,created_at,updated_at)
           VALUES (?,?,?,?,?,?,?,?,?)""",
-          (task_id, worker_id, TASK_TYPE, "queued", input_json, "{}", brain["brain_context_sha256"], now, now))
-    return {"task_id": task_id, "worker_id": worker_id, "status": "queued",
+          (task_id, agent_id, TASK_TYPE, "queued", input_json, "{}", brain["brain_context_sha256"], now, now))
+    return {"task_id": task_id, "agent_id": agent_id, "status": "queued",
             "created_at": now, "updated_at": now, "brain_context_sha256": brain["brain_context_sha256"],
             "execution_mode": "process_local_background_task"}
 
@@ -76,17 +76,17 @@ def execute_queued_research_task(task_id: str) -> None:
         if claimed.rowcount != 1:
             return
         task_input = json.loads(row["input_json"])
-        worker_id = row["worker_id"]
-        brain = brain_config(worker_id)
+        agent_id = row["agent_id"]
+        brain = brain_config(agent_id)
     payload = {
-        "worker": {"id": worker_id, "department": brain["department"], "specialty": brain["specialty"]},
+        "agent": {"id": agent_id, "department": brain["department"], "specialty": brain["specialty"]},
         "task": task_input,
         "constraints": ["Use supplied data only.", "Distinguish facts, assumptions, and unknowns.",
                        "Do not invent missing market data.", "No trade execution or investment certainty."],
     }
     try:
         synthesis = synthesize_research(payload)
-        result = {"worker_id": worker_id, "brain_context_sha256": row["brain_context_sha256"],
+        result = {"agent_id": agent_id, "brain_context_sha256": row["brain_context_sha256"],
                   "brief": task_input["brief"], "input_data_received": task_input["data"] is not None,
                   "shared_core_result": synthesis,
                   "result_mode": "shared_core_synthesis" if synthesis.get("status") == "completed" else "provider_unavailable_or_not_configured",
@@ -125,8 +125,8 @@ def recover_interrupted_research_tasks() -> dict:
     }
 
 
-def submit_research_task(worker_id: str, brief: str, data: dict | list | None = None) -> dict:
-    brain = brain_config(worker_id)
+def submit_research_task(agent_id: str, brief: str, data: dict | list | None = None) -> dict:
+    brain = brain_config(agent_id)
     if not isinstance(brief, str) or not brief.strip() or len(brief) > 4000:
         raise ValueError("brief must be a non-empty string of at most 4000 characters")
     if data is not None and not isinstance(data, (dict, list)):
@@ -139,13 +139,13 @@ def submit_research_task(worker_id: str, brief: str, data: dict | list | None = 
     now = datetime.now(timezone.utc).isoformat()
     with _connect() as db:
         db.execute("""INSERT INTO analytical_agent_tasks
-          (task_id,worker_id,task_type,status,input_json,result_json,brain_context_sha256,created_at,updated_at)
+          (task_id,agent_id,task_type,status,input_json,result_json,brain_context_sha256,created_at,updated_at)
           VALUES (?,?,?,?,?,?,?,?,?)""",
-          (task_id, worker_id, TASK_TYPE, "running", input_json, "{}", brain["brain_context_sha256"], now, now))
+          (task_id, agent_id, TASK_TYPE, "running", input_json, "{}", brain["brain_context_sha256"], now, now))
 
-    # The configured core sees only supplied user data and the worker's role.
+    # The configured core sees only supplied user data and the agent's role.
     research_payload = {
-        "worker": {"id": worker_id, "department": brain["department"], "specialty": brain["specialty"]},
+        "agent": {"id": agent_id, "department": brain["department"], "specialty": brain["specialty"]},
         "task": task_input,
         "constraints": ["Use supplied data only.", "Distinguish facts, assumptions, and unknowns.",
                        "Do not invent missing market data.", "No trade execution or investment certainty."],
@@ -153,7 +153,7 @@ def submit_research_task(worker_id: str, brief: str, data: dict | list | None = 
     try:
         synthesis = synthesize_research(research_payload)
         result = {
-            "worker_id": worker_id,
+            "agent_id": agent_id,
             "brain_context_sha256": brain["brain_context_sha256"],
             "brief": brief.strip(),
             "input_data_received": data is not None,
@@ -170,7 +170,7 @@ def submit_research_task(worker_id: str, brief: str, data: dict | list | None = 
     with _connect() as db:
         db.execute("UPDATE analytical_agent_tasks SET status=?,result_json=?,updated_at=? WHERE task_id=?",
                    (status, result_json, updated, task_id))
-    return {"task_id": task_id, "worker_id": worker_id, "status": status,
+    return {"task_id": task_id, "agent_id": agent_id, "status": status,
             "created_at": now, "updated_at": updated, "result": result,
             "execution_mode": "bounded_synchronous_shared_core"}
 
@@ -180,23 +180,23 @@ def get_research_task(task_id: str) -> dict | None:
     if row is None:
         return None
     return {
-        "task_id": row["task_id"], "worker_id": row["worker_id"],
+        "task_id": row["task_id"], "agent_id": row["agent_id"],
         "task_type": row["task_type"], "status": row["status"],
         "input": json.loads(row["input_json"]), "result": json.loads(row["result_json"]),
         "brain_context_sha256": row["brain_context_sha256"],
         "created_at": row["created_at"], "updated_at": row["updated_at"],
     }
 
-def list_research_tasks(worker_id: str, limit: int = 20) -> dict:
-    brain_config(worker_id)
+def list_research_tasks(agent_id: str, limit: int = 20) -> dict:
+    brain_config(agent_id)
     if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 100:
         raise ValueError("limit must be between 1 and 100")
     with _connect() as db:
-        rows = db.execute("""SELECT task_id,worker_id,task_type,status,brain_context_sha256,created_at,updated_at
-          FROM analytical_agent_tasks WHERE worker_id=? ORDER BY created_at DESC LIMIT ?""",
-          (worker_id, limit)).fetchall()
-        total = db.execute("SELECT COUNT(*) FROM analytical_agent_tasks WHERE worker_id=?", (worker_id,)).fetchone()[0]
-    return {"worker_id": worker_id, "count": len(rows), "total": total, "tasks": [dict(row) for row in rows]}
+        rows = db.execute("""SELECT task_id,agent_id,task_type,status,brain_context_sha256,created_at,updated_at
+          FROM analytical_agent_tasks WHERE agent_id=? ORDER BY created_at DESC LIMIT ?""",
+          (agent_id, limit)).fetchall()
+        total = db.execute("SELECT COUNT(*) FROM analytical_agent_tasks WHERE agent_id=?", (agent_id,)).fetchone()[0]
+    return {"agent_id": agent_id, "count": len(rows), "total": total, "tasks": [dict(row) for row in rows]}
 
 
 def list_recent_task_activity(limit: int = 500) -> dict:
@@ -205,7 +205,7 @@ def list_recent_task_activity(limit: int = 500) -> dict:
         raise ValueError("limit must be between 1 and 1000")
     with _connect() as db:
         rows = db.execute(
-            """SELECT task_id,worker_id,task_type,status,created_at,updated_at
+            """SELECT task_id,agent_id,task_type,status,created_at,updated_at
                FROM analytical_agent_tasks ORDER BY updated_at DESC LIMIT ?""",
             (limit,),
         ).fetchall()
@@ -214,7 +214,7 @@ def list_recent_task_activity(limit: int = 500) -> dict:
               for status in ("queued", "running", "completed", "failed")}
     latest_by_agent = {}
     for task in tasks:
-        latest_by_agent.setdefault(task["worker_id"], task)
+        latest_by_agent.setdefault(task["agent_id"], task)
     return {
         "task_count": len(tasks),
         "status_counts": counts,

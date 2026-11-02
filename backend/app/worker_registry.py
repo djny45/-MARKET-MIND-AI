@@ -3,6 +3,7 @@ import hashlib
 import json
 
 from .workers import DEPARTMENTS, list_workers
+from .skill_catalog import list_skills
 
 REGISTRY_VERSION = "1.0.0"
 EXPECTED_WORKER_COUNT = 550
@@ -24,6 +25,9 @@ def evaluate_registry() -> dict:
         errors.append("agent_core_mismatch")
     if any(worker.get("department") not in DEPARTMENTS for worker in workers):
         errors.append("unknown_department")
+    allowed_skill_ids = {skill["id"] for skill in list_skills()}
+    if any(skill_id not in allowed_skill_ids for worker in workers for skill_id in worker.get("skill_refs", [])):
+        errors.append("unknown_skill_reference")
     required = {"id", "name", "department", "specialty", "kind", "model",
                 "memory_namespace", "skill_refs", "status"}
     if any(not required.issubset(worker) for worker in workers):

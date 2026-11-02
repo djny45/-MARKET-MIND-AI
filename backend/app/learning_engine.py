@@ -5,7 +5,7 @@ modify model weights, agent prompts, strategy parameters, or execute trades.
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 import hashlib
 import json
 from typing import Any
@@ -20,7 +20,10 @@ def _parse_time(value: str | None) -> datetime | None:
     if not value:
         return None
     try:
-        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if parsed.tzinfo is None or parsed.utcoffset() is None:
+            return None
+        return parsed.astimezone(timezone.utc)
     except (TypeError, ValueError):
         return None
 
@@ -42,7 +45,11 @@ def agent_learning_summary(worker_id: str, limit: int = 200) -> dict[str, Any]:
         item for item in proposal_result["memory"]
         if isinstance(item.get("content"), dict) and "update_proposal" in item["content"]
     ]
-    latest = max((_parse_time(item.get("created_at")) for item in feedback), default=None)
+    feedback_times = [
+        parsed for item in feedback
+        if (parsed := _parse_time(item.get("created_at"))) is not None
+    ]
+    latest = max(feedback_times, default=None)
     return {
         "worker_id": worker_id,
         "feedback_count": len(feedback),

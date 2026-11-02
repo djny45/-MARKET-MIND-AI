@@ -10,6 +10,7 @@ class WorkerSkillRoutingTests(unittest.TestCase):
         self.assertTrue(all(worker["kind"] == "ai_analytical_worker" for worker in workers))
         self.assertTrue(all(worker["model"] == "shared_central_intelligence" for worker in workers))
         self.assertTrue(all(isinstance(worker["skill_refs"], list) for worker in workers))
+        self.assertTrue(all("stageshow" in worker["skill_refs"] for worker in workers))
 
     def test_specialist_departments_map_to_relevant_playbooks(self):
         by_department = {}

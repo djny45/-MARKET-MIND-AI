@@ -39,6 +39,62 @@ def _json(value):
     except (TypeError, ValueError) as exc:
         raise ValueError("Task data must be finite JSON-compatible values.") from exc
 
+def enqueue_research_task(worker_id: str, brief: str, data: dict | list | None = None) -> dict:
+    """Persist a queued task; a process-local background runner will pick it up."""
+    brain = brain_config(worker_id)
+    if not isinstance(brief, str) or not brief.strip() or len(brief) > 4000:
+        raise ValueError("brief must be a non-empty string of at most 4000 characters")
+    if data is not None and not isinstance(data, (dict, list)):
+        raise ValueError("data must be a JSON object or array")
+    task_input = {"brief": brief.strip(), "data": data}
+    input_json = _json(task_input)
+    if len(input_json) > MAX_TASK_INPUT_CHARS:
+        raise ValueError(f"Task input must not exceed {MAX_TASK_INPUT_CHARS} characters")
+    task_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    with _connect() as db:
+        db.execute("""INSERT INTO analytical_agent_tasks
+          (task_id,worker_id,task_type,status,input_json,result_json,brain_context_sha256,created_at,updated_at)
+          VALUES (?,?,?,?,?,?,?,?,?)""",
+          (task_id, worker_id, TASK_TYPE, "queued", input_json, "{}", brain["brain_context_sha256"], now, now))
+    return {"task_id": task_id, "worker_id": worker_id, "status": "queued",
+            "created_at": now, "updated_at": now, "brain_context_sha256": brain["brain_context_sha256"],
+            "execution_mode": "process_local_background_task"}
+
+def execute_queued_research_task(task_id: str) -> None:
+    """Execute one persisted queued task; safe to call from FastAPI BackgroundTasks."""
+    with _connect() as db:
+        row = db.execute("SELECT * FROM analytical_agent_tasks WHERE task_id=?", (task_id,)).fetchone()
+        if row is None or row["status"] != "queued":
+            return
+        task_input = json.loads(row["input_json"])
+        worker_id = row["worker_id"]
+        brain = brain_config(worker_id)
+        now = datetime.now(timezone.utc).isoformat()
+        db.execute("UPDATE analytical_agent_tasks SET status='running',updated_at=? WHERE task_id=? AND status='queued'",
+                   (now, task_id))
+    payload = {
+        "worker": {"id": worker_id, "department": brain["department"], "specialty": brain["specialty"]},
+        "task": task_input,
+        "constraints": ["Use supplied data only.", "Distinguish facts, assumptions, and unknowns.",
+                       "Do not invent missing market data.", "No trade execution or investment certainty."],
+    }
+    try:
+        synthesis = synthesize_research(payload)
+        result = {"worker_id": worker_id, "brain_context_sha256": row["brain_context_sha256"],
+                  "brief": task_input["brief"], "input_data_received": task_input["data"] is not None,
+                  "shared_core_result": synthesis,
+                  "result_mode": "shared_core_synthesis" if synthesis.get("status") == "completed" else "provider_unavailable_or_not_configured",
+                  "research_boundary": "supplied_data_only_no_live_market_fetch"}
+        status = "completed"
+    except Exception as exc:
+        result = {"error": "Research task failed safely.", "error_type": type(exc).__name__}
+        status = "failed"
+    updated = datetime.now(timezone.utc).isoformat()
+    with _connect() as db:
+        db.execute("UPDATE analytical_agent_tasks SET status=?,result_json=?,updated_at=? WHERE task_id=?",
+                   (status, _json(result), updated, task_id))
+
 def submit_research_task(worker_id: str, brief: str, data: dict | list | None = None) -> dict:
     brain = brain_config(worker_id)
     if not isinstance(brief, str) or not brief.strip() or len(brief) > 4000:

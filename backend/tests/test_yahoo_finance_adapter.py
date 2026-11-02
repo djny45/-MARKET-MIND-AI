@@ -33,6 +33,22 @@ class YahooFinanceAdapterTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(batch.bars[0].close, 103.0)
         self.assertTrue(batch.warnings)
 
+    async def test_skips_non_finite_negative_volume_and_invalid_ohlc_rows(self):
+        payload = chart_payload()
+        result = payload["chart"]["result"][0]
+        result["timestamp"].extend([1767398400, 1767484800, 1767571200, 1767657600])
+        quote = result["indicators"]["quote"][0]
+        quote["open"].extend([float("nan"), 101, 101, 101])
+        quote["high"].extend([104, float("inf"), 104, 104])
+        quote["low"].extend([100, 100, 100, 105])
+        quote["close"].extend([103, 103, 103, 102])
+        quote["volume"].extend([1000, 1000, -1, 1000])
+        adapter = YahooFinanceAdapter()
+        with patch.object(adapter, "_fetch_chart", return_value=payload):
+            batch = await adapter.get_bars("AAPL", "1d", 100)
+        self.assertEqual(len(batch.bars), 2)
+        self.assertEqual([bar.close for bar in batch.bars], [102.0, 103.0])
+
     async def test_rejects_invalid_symbol_interval_and_limit(self):
         adapter = YahooFinanceAdapter()
         for args in [("", "1d", 5), ("AAPL", "5m", 5), ("AAPL", "1d", 0), ("AAPL", "1d", 5001)]:

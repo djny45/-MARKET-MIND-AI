@@ -5,6 +5,7 @@ not invoke LLMs, create autonomous processes, fetch live data, or place orders.
 """
 from .workflow import execute_workflow
 from .worker_registry import evaluate_registry
+from .intelligence_core import synthesize_research
 
 
 def orchestrate_research(nodes, edges, inputs, max_workers=1, max_retries=0):
@@ -62,6 +63,7 @@ def orchestrate_research(nodes, edges, inputs, max_workers=1, max_retries=0):
             "No live data retrieval, investment recommendation, or brokerage execution is performed.",
         ],
     }
+    synthesis = synthesize_research(report)
     return {
         "orchestration_status": "completed" if not failed else "completed_with_errors",
         "intelligence_core": registry["shared_intelligence_core"],
@@ -70,6 +72,7 @@ def orchestrate_research(nodes, edges, inputs, max_workers=1, max_retries=0):
         "execution": execution,
         "worker_results": worker_results,
         "report": report,
+        "model_synthesis": synthesis,
         "capabilities": {
             "logical_worker_coordination": True,
             "shared_core": True,

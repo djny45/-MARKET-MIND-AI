@@ -20,6 +20,21 @@ class WorkflowSkillIntegrationTests(unittest.TestCase):
         self.assertIn("content", result["skill_context"][0])
         self.assertFalse(result["skill_context"][0]["broker_execution"])
 
+
+    def test_workflow_can_select_one_catalog_skill_without_loading_the_pack(self):
+        request = WorkflowRequest(
+            nodes=[{"id": "input", "type": "market_input", "data": {"values": [100, 101, 99]}}],
+            edges=[],
+            inputs={},
+            skill_ids=["mm-skill-002"],
+        )
+        result = run_workflow(request)
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual([item["id"] for item in result["skill_context"]], ["mm-skill-002"])
+        self.assertIn("API Contract Normalization", result["skill_context"][0]["content"])
+        self.assertNotIn("### 003.", result["skill_context"][0]["content"])
+        self.assertFalse(result["skill_context"][0]["broker_execution"])
+
     def test_workflow_rejects_broker_or_unknown_skill(self):
         request = WorkflowRequest(
             nodes=[{"id": "input", "type": "market_input", "data": {"values": [10, 11]}}],

@@ -89,6 +89,10 @@ Specialist modules exchange deterministic records; per-agent brain-context and l
 | Workflow diagrams and graph usage guide | Added |
 | Unit tests for branching DAG execution and cycle rejection | Added |
 
+## TradingAgents market-data research skill
+
+Use the [TradingAgents market-data research skill](.agents/skills/tradingagents-market-data-research/SKILL.md) and [integration guide](docs/TRADINGAGENTS-MARKET-DATA-INTEGRATION.md) for upstream vendor-router concepts, source provenance, point-in-time data handling and data-quality checks. This is a research-only adaptation; the full TradingAgents framework and its trading decision/execution modules are not copied or enabled.
+
 ## Agent Reach research connector
 
 [Agent Reach integration guide](docs/AGENT-REACH-INTEGRATION.md) documents optional use of [Panniantong/Agent-Reach](https://github.com/Panniantong/Agent-Reach) for read-only web/social research alongside official RSS ingestion. It is installed and operated separately; no browser credentials, scraping jobs, or external CLI execution are enabled by MARKET-MIND-AI automatically. Retrieved content is untrusted and requires source verification. See the guide for setup and boundaries.

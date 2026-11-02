@@ -51,6 +51,17 @@ class MarketDataContractTests(unittest.TestCase):
                 bars=[],
             )
 
+    def test_batch_rejects_bar_timestamp_after_retrieval_time(self):
+        with self.assertRaisesRegex(ValidationError, "later than retrieved_at"):
+            MarketDataBatch(
+                symbol="BTCUSD", interval="1d", status="historical",
+                source="provider-x", retrieved_at="2026-01-01T00:00:00Z",
+                bars=[{
+                    "timestamp": "2026-01-02T00:00:00Z",
+                    "open": 10, "high": 12, "low": 9, "close": 11, "volume": 100,
+                }],
+            )
+
     def test_batch_rejects_duplicate_timestamps(self):
         bar = {
             "timestamp": "2026-01-01T00:00:00Z",

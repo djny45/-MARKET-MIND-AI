@@ -68,8 +68,14 @@ class SkillCatalogTests(unittest.TestCase):
         self.assertEqual(result["mode"], "market_data_research_only")
         self.assertFalse(result["broker_execution"])
 
+    def test_non_string_skill_identifiers_are_rejected(self):
+        for slug in (None, 7, [], {}, ["trader-scanner"]):
+            with self.subTest(slug=slug):
+                with self.assertRaises(KeyError):
+                    load_skill(slug)
+
     def test_unknown_and_broker_skills_are_rejected(self):
-        for slug in ("trader-broker", "../README.md", "missing-skill"):
+        for slug in ("trader-broker", "../README.md", "../../.agents/skills/day-trader-skill/trader-scanner/SKILL.md", "missing-skill", " trader-scanner "):
             with self.subTest(slug=slug):
                 with self.assertRaises(KeyError):
                     load_skill(slug)

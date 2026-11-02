@@ -46,6 +46,10 @@ def list_workers():
     for i in range(550):
         department = DEPARTMENTS[i % len(DEPARTMENTS)]
         specialty = SPECIALTIES[(i // len(DEPARTMENTS)) % len(SPECIALTIES)]
+        pack_skill_refs = [
+            f"mm-skill-{((i * 2) % 300) + 1:03d}",
+            f"mm-skill-{((i * 2 + 1) % 300) + 1:03d}",
+        ]
         workers.append({
             "id": f"worker_{i+1:03d}",
             "name": f"{specialty.replace('_', ' ').title()} Analyst {i+1:03d}",
@@ -54,7 +58,7 @@ def list_workers():
             "kind": "ai_analytical_worker",
             "model": "shared_central_intelligence",
             "memory_namespace": f"workers/worker_{i+1:03d}",
-            "skill_refs": SKILL_BY_DEPARTMENT.get(department, []) + ["stageshow"],
+            "skill_refs": SKILL_BY_DEPARTMENT.get(department, []) + pack_skill_refs + ["stageshow"],
             "status": "template",
             "note": "AI analytical worker template; execution requires an implemented, validated handler in the shared central intelligence runtime."
         })

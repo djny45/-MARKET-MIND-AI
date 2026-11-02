@@ -119,6 +119,19 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             list_task_audit_events(queued["task_id"], limit=0)
 
+    def test_task_audit_events_can_filter_by_event_type(self):
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, execute_queued_research_task, list_task_audit_events,
+        )
+        queued = enqueue_research_task("worker_012", "audit event filter")
+        execute_queued_research_task(queued["task_id"])
+        filtered = list_task_audit_events(queued["task_id"], event_type="task_completed")
+        self.assertEqual(filtered["count"], 1)
+        self.assertEqual(filtered["events"][0]["event_type"], "task_completed")
+        self.assertEqual(list_task_audit_events(queued["task_id"], event_type="unknown_event")["count"], 0)
+        with self.assertRaises(ValueError):
+            list_task_audit_events(queued["task_id"], event_type="")
+
     def test_queue_task_rejects_invalid_worker(self):
         from app.analytical_agent_tasks import enqueue_research_task
         with self.assertRaises(ValueError):

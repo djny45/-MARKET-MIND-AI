@@ -75,6 +75,30 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertEqual(audit["events"][1]["from_status"], "queued")
         self.assertEqual(audit["events"][2]["to_status"], "completed")
 
+    def test_synchronous_submission_records_audit_lifecycle(self):
+        from app.analytical_agent_tasks import list_task_audit_events
+        result = submit_research_task("worker_009", "sync audit")
+        events = list_task_audit_events(result["task_id"])["events"]
+        self.assertEqual(
+            [event["event_type"] for event in events],
+            ["task_submitted", "task_completed"],
+        )
+        self.assertEqual(events[0]["to_status"], "running")
+        self.assertEqual(events[-1]["to_status"], result["status"])
+
+    def test_manual_dispatch_records_selection_and_completion(self):
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, dispatch_queued_research_tasks, list_task_audit_events,
+        )
+        queued = enqueue_research_task("worker_010", "dispatch audit")
+        result = dispatch_queued_research_tasks(limit=1, max_concurrency=1)
+        self.assertEqual(result["selected"], 1)
+        events = list_task_audit_events(queued["task_id"])["events"]
+        event_types = [event["event_type"] for event in events]
+        self.assertIn("task_dispatch_selected", event_types)
+        self.assertIn("task_claimed", event_types)
+        self.assertIn("task_dispatch_finished", event_types)
+
     def test_task_audit_events_are_bounded_and_unknown_task_is_empty(self):
         from app.analytical_agent_tasks import enqueue_research_task, list_task_audit_events
         queued = enqueue_research_task("worker_008", "audit bounds")

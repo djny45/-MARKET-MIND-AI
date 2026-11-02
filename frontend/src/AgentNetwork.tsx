@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ReactFlow, Background, Controls, MiniMap, Handle, Position, type Node, type Edge } from '@xyflow/react'
 import { Network, BrainCircuit } from 'lucide-react'
 
@@ -12,7 +12,8 @@ type AgentProfile = {
   memory_namespace?: string
 }
 
-type AgentNodeData = { label: string; department: string; specialty: string; status: string; core?: boolean }
+type AgentNodeData = { label: string; department: string; specialty: string; status: string; core?: boolean; agentId?: string }
+type ActivitySnapshot = { task_count: number; status_counts: Record<string, number>; latest_by_agent: Record<string, { status: string; task_id: string; updated_at: string }>; note?: string }
 
 function AgentNode({ data }: { data: AgentNodeData }) {
   return <div className={data.core ? 'agent-network-node core' : 'agent-network-node'}>
@@ -30,6 +31,9 @@ export default function AgentNetwork({ agents }: { agents: AgentProfile[] }) {
   const [query, setQuery] = useState('')
   const [departmentFilter, setDepartmentFilter] = useState('ALL DEPARTMENTS')
   const [selectedAgent, setSelectedAgent] = useState<AgentNodeData | null>(null)
+  const [activity, setActivity] = useState<ActivitySnapshot | null>(null)
+  const [activityError, setActivityError] = useState('')
+  useEffect(() => { let alive = true; const load = async () => { try { const response = await fetch((import.meta.env.VITE_API_URL || 'http://localhost:8000') + '/api/agent-network/activity?limit=500'); if (!response.ok) throw new Error('Activity endpoint unavailable'); const snapshot = await response.json(); if (alive) { setActivity(snapshot); setActivityError('') } } catch { if (alive) setActivityError('API activity unavailable — showing registered profiles only') } }; load(); const timer = window.setInterval(load, 20000); return () => { alive = false; window.clearInterval(timer) } }, [])
   const departments = useMemo(() => ['ALL DEPARTMENTS', ...Array.from(new Set(agents.map(a => a.department || 'General Research'))).sort()], [agents])
   const filteredProfiles = useMemo(() => agents.slice(0, 550).filter(profile => {
     const haystack = [profile.id, profile.name, profile.department, profile.specialty, profile.kind].join(' ').toLowerCase()
@@ -60,7 +64,8 @@ export default function AgentNetwork({ agents }: { agents: AgentProfile[] }) {
           label: profile.name || id,
           department,
           specialty: profile.specialty || profile.kind || 'Research specialization',
-          status: profile.status || 'PROFILE'
+          status: activity?.latest_by_agent?.[id]?.status?.toUpperCase() || profile.status || 'PROFILE',
+          agentId: id
         }
       })
       edges.push({ id: `core-${id}`, source: id, target: 'intelligence-core', style: { stroke: '#9c793d', strokeWidth: 0.65, opacity: 0.34 } })
@@ -89,13 +94,15 @@ export default function AgentNetwork({ agents }: { agents: AgentProfile[] }) {
       })
     })
     return { nodes, edges }
-  }, [filteredProfiles])
+  }, [filteredProfiles, activity])
 
   return <section className="agent-network-view">
     <div className="agent-network-heading">
       <div><span className="eyebrow">MARKET-MIND-AI / AGENT TOPOLOGY</span><h1><Network size={21}/> 550+ Analytical Agent Network</h1><p>Node-based visual map inspired by the reference image. Each card represents a registered specialist profile; the graph is a topology visualization, not proof that every agent is currently running.</p></div>
-      <div className="agent-network-stats"><b>{agents.length || 550}</b><span>REGISTERED PROFILES</span><b>{edges.length.toLocaleString()}</b><span>VISUAL CONNECTIONS</span></div>
+      <div className="agent-network-stats"><b>{agents.length || 550}</b><span>REGISTERED PROFILES</span><b>{edges.length.toLocaleString()}</b><span>VISUAL CONNECTIONS</span>{activity && <><b>{activity.status_counts.running || 0}</b><span>RUNNING TASKS</span><b>{activity.status_counts.queued || 0}</b><span>QUEUED TASKS</span></>}</div>
     </div>
+    {activityError && <div className="agent-network-activity-note">{activityError}</div>}
+    {activity && <div className="agent-network-activity-note">TASK ACTIVITY · {activity.task_count} persisted tasks · refreshes every 20 seconds · {activity.note}</div>}
     <div className="agent-network-legend"><span><i className="core-dot"/> Shared intelligence core</span><span><i className="dept-dot"/> Department links</span><span><i className="agent-dot"/> Agent profile → core</span><span><BrainCircuit size={13}/> Shared model architecture · no paper trading</span></div>
     <div className="agent-network-filterbar">
       <label className="agent-network-search"><Network size={14}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search agent name, specialty, department…" aria-label="Search agent network"/></label>

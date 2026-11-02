@@ -15,7 +15,7 @@ class AgentCouncilRequest(BaseModel):
     data: dict[str, Any] | list[Any] | None = None
 
 
-class AgentBatchRequest(BaseModel):\n    agent_ids: list[str] = Field(min_length=1, max_length=550)\n    brief: str = Field(min_length=1, max_length=4000)\n    data: dict[str, Any] | list[Any] | None = None\n\n\nclass AgentCouncilReviewRequest(BaseModel):
+class AgentBatchRequest(BaseModel):\n    agent_ids: list[str] = Field(min_length=1, max_length=550)\n    brief: str = Field(min_length=1, max_length=4000)\n    data: dict[str, Any] | list[Any] | None = None\n    max_concurrency: int = Field(default=4, ge=1, le=16)\n\n\nclass AgentCouncilReviewRequest(BaseModel):
     council_result: dict[str, Any]
 
 
@@ -41,6 +41,6 @@ def review_council(request: AgentCouncilReviewRequest):
 def run_agent_batch_api(request: AgentBatchRequest):
     """Run a bounded research task across selected registered agents (up to 550)."""
     try:
-        return run_agent_batch(request.agent_ids, request.brief, request.data)
+        return run_agent_batch(request.agent_ids, request.brief, request.data, request.max_concurrency)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

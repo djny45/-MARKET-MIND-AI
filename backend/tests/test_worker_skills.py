@@ -10,10 +10,14 @@ class WorkerSkillRoutingTests(unittest.TestCase):
         self.assertTrue(all(worker["kind"] == "ai_analytical_worker" for worker in workers))
         self.assertTrue(all(worker["model"] == "shared_central_intelligence" for worker in workers))
         self.assertTrue(all(isinstance(worker["skill_refs"], list) for worker in workers))
-        self.assertTrue(all("stageshow" in worker["skill_refs"] for worker in workers))
+        self.assertTrue(all("stageshow" not in worker["skill_refs"] for worker in workers))
         self.assertTrue(all(sum(ref.startswith("mm-skill-") for ref in worker["skill_refs"]) == 2 for worker in workers))
         pack_refs = {ref for worker in workers for ref in worker["skill_refs"] if ref.startswith("mm-skill-")}
         self.assertEqual(len(pack_refs), 300)
+
+    def test_ui_only_skill_is_not_assigned_to_analytical_workers(self):
+        for worker in list_workers():
+            self.assertNotIn("stageshow", worker["skill_refs"])
 
     def test_specialist_departments_map_to_relevant_playbooks(self):
         by_department = {}

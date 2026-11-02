@@ -25,7 +25,7 @@ class ChronologicalSplitTests(unittest.TestCase):
             "2024-01-02T07:00:01Z",
         )
         self.assertTrue(result["valid"])
-        self.assertEqual(result["train_validation_gap_seconds"], 1)
+        self.assertEqual(result["train_validation_gap_seconds"], 1801)
 
     def test_rejects_overlapping_or_out_of_order_splits(self):
         with self.assertRaisesRegex(ValueError, "validation_start must be after train_end"):

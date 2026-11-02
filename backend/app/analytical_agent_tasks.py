@@ -57,7 +57,7 @@ def enqueue_research_task(agent_id: str, brief: str, data: dict | list | None = 
           (task_id,worker_id,task_type,status,input_json,result_json,brain_context_sha256,created_at,updated_at)
           VALUES (?,?,?,?,?,?,?,?,?)""",
           (task_id, agent_id, TASK_TYPE, "queued", input_json, "{}", brain["brain_context_sha256"], now, now))
-    return {"task_id": task_id, "agent_id": agent_id, "status": "queued",
+    return {"task_id": task_id, "agent_id": agent_id, "worker_id": agent_id, "status": "queued",
             "created_at": now, "updated_at": now, "brain_context_sha256": brain["brain_context_sha256"],
             "execution_mode": "process_local_background_task"}
 
@@ -170,7 +170,7 @@ def submit_research_task(agent_id: str, brief: str, data: dict | list | None = N
     with _connect() as db:
         db.execute("UPDATE analytical_agent_tasks SET status=?,result_json=?,updated_at=? WHERE task_id=?",
                    (status, result_json, updated, task_id))
-    return {"task_id": task_id, "agent_id": agent_id, "status": status,
+    return {"task_id": task_id, "agent_id": agent_id, "worker_id": agent_id, "status": status,
             "created_at": now, "updated_at": updated, "result": result,
             "execution_mode": "bounded_synchronous_shared_core"}
 
@@ -180,7 +180,7 @@ def get_research_task(task_id: str) -> dict | None:
     if row is None:
         return None
     return {
-        "task_id": row["task_id"], "agent_id": row["worker_id"],
+        "task_id": row["task_id"], "agent_id": row["worker_id"], "worker_id": row["worker_id"],
         "task_type": row["task_type"], "status": row["status"],
         "input": json.loads(row["input_json"]), "result": json.loads(row["result_json"]),
         "brain_context_sha256": row["brain_context_sha256"],
@@ -196,7 +196,7 @@ def list_research_tasks(agent_id: str, limit: int = 20) -> dict:
           FROM analytical_agent_tasks WHERE worker_id=? ORDER BY created_at DESC LIMIT ?""",
           (agent_id, limit)).fetchall()
         total = db.execute("SELECT COUNT(*) FROM analytical_agent_tasks WHERE worker_id=?", (agent_id,)).fetchone()[0]
-    return {"agent_id": agent_id, "count": len(rows), "total": total, "tasks": [{**dict(row), "agent_id": row["worker_id"]} for row in rows]}
+    return {"agent_id": agent_id, "worker_id": agent_id, "count": len(rows), "total": total, "tasks": [{**dict(row), "agent_id": row["worker_id"]} for row in rows]}
 
 
 def list_recent_task_activity(limit: int = 500) -> dict:

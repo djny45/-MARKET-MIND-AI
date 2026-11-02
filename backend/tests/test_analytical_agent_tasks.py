@@ -49,10 +49,6 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
     def test_unknown_task_returns_none(self):
         self.assertIsNone(get_research_task("not-a-task-id"))
 
-if __name__ == "__main__":
-    unittest.main()
-
-
     def test_queue_task_persists_queued_record_and_executes(self):
         from app.analytical_agent_tasks import enqueue_research_task, execute_queued_research_task
         queued = enqueue_research_task("worker_004", "Analyze provided metrics", {"metric": 7})
@@ -68,3 +64,9 @@ if __name__ == "__main__":
         from app.analytical_agent_tasks import enqueue_research_task
         with self.assertRaises(ValueError):
             enqueue_research_task("worker_9999", "Invalid worker")
+
+
+if __name__ == "__main__":
+    unittest.main()
+
+

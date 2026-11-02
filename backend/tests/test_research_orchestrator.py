@@ -33,6 +33,8 @@ class ResearchOrchestratorTests(unittest.TestCase):
         self.assertFalse(result["capabilities"]["llm_inference"])
         self.assertFalse(result["capabilities"]["autonomous_learning"])
         self.assertFalse(result["capabilities"]["broker_execution"])
+        self.assertEqual(result["model_synthesis"]["status"], "not_configured")
+        self.assertIsNone(result["model_synthesis"]["summary"])
 
     def test_invalid_workflow_rejected(self):
         with self.assertRaises(ValueError):

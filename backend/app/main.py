@@ -10,6 +10,7 @@ from .workers import list_workers
 from .worker_runtime import worker_runtime_status
 from .worker_memory import append_memory, read_memory
 from .worker_registry import evaluate_registry, registry_manifest
+from .analytical_agent_runtime import runtime_manifest, brain_config, validate_learning_feedback, validate_update_proposal
 from .research_orchestrator import orchestrate_research
 from .intelligence_core import intelligence_core_status, synthesize_research, IntelligenceCoreError
 from .synthesis_review import build_synthesis_review
@@ -81,6 +82,18 @@ class SynthesisReviewRequest(BaseModel):
  decision: Literal["approve", "reject"]
  reviewer: str = Field(min_length=1, max_length=120)
  review_note: str = Field(default="", max_length=1000)
+
+
+class AgentLearningFeedbackRequest(BaseModel):
+ summary: str = Field(min_length=1, max_length=4000)
+ outcome: Literal["helpful", "partially_helpful", "not_helpful", "unverified"]
+ metrics: dict[str, Any] = Field(default_factory=dict)
+
+class AgentUpdateProposalRequest(BaseModel):
+ title: str = Field(min_length=1, max_length=160)
+ rationale: str = Field(min_length=1, max_length=4000)
+ proposed_change: str = Field(min_length=1, max_length=4000)
+ evidence_refs: list[str] = Field(default_factory=list, max_length=30)
 
 class IndicatorRequest(BaseModel):
  values: list[float] = Field(min_length=2)
@@ -280,6 +293,48 @@ def get_worker_memory(worker_id: str, memory_type: str | None = None, limit: int
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+
+
+@app.get("/api/analytical-agents/runtime")
+def analytical_agent_runtime():
+ """Describe 550 specialist agent contexts and the implemented learning boundary."""
+ return runtime_manifest()
+
+@app.get("/api/analytical-agents/{worker_id}/brain")
+def analytical_agent_brain(worker_id: str):
+ """Return one worker's distinct brain context and governed capability metadata."""
+ try:
+  return brain_config(worker_id)
+ except ValueError as exc:
+  raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+@app.post("/api/analytical-agents/{worker_id}/learning-feedback")
+def analytical_agent_learning_feedback(worker_id: str, request: AgentLearningFeedbackRequest):
+ """Persist evaluated feedback as a worker memory note; this does not train model weights."""
+ try:
+  feedback = validate_learning_feedback(worker_id, request.model_dump())
+  record = append_memory(
+   worker_id, "validation_result", feedback,
+   source_refs=[], quality_status="unverified",
+  )
+  return {"feedback": feedback, "memory_id": record["memory_id"],
+          "status": "recorded_for_future_evaluation", "model_training": False}
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+@app.post("/api/analytical-agents/{worker_id}/update-proposals")
+def analytical_agent_update_proposal(worker_id: str, request: AgentUpdateProposalRequest):
+ """Store a proposed agent configuration improvement; never auto-apply it."""
+ try:
+  proposal = validate_update_proposal(worker_id, request.model_dump())
+  record = append_memory(
+   worker_id, "method_note", {"update_proposal": proposal},
+   source_refs=proposal["evidence_refs"], quality_status="unverified",
+  )
+  return {"proposal": proposal, "memory_id": record["memory_id"],
+          "status": "pending_review", "applied": False}
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 @app.get("/api/worker-registry")
 def worker_registry():

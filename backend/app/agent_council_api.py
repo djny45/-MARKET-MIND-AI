@@ -15,7 +15,14 @@ class AgentCouncilRequest(BaseModel):
     data: dict[str, Any] | list[Any] | None = None
 
 
-class AgentBatchRequest(BaseModel):\n    agent_ids: list[str] = Field(min_length=1, max_length=550)\n    brief: str = Field(min_length=1, max_length=4000)\n    data: dict[str, Any] | list[Any] | None = None\n    max_concurrency: int = Field(default=4, ge=1, le=16)\n\n\nclass AgentCouncilReviewRequest(BaseModel):
+class AgentBatchRequest(BaseModel):
+    agent_ids: list[str] = Field(min_length=1, max_length=550)
+    brief: str = Field(min_length=1, max_length=4000)
+    data: dict[str, Any] | list[Any] | None = None
+    max_concurrency: int = Field(default=4, ge=1, le=16)
+
+
+class AgentCouncilReviewRequest(BaseModel):
     council_result: dict[str, Any]
 
 

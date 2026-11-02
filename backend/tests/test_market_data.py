@@ -40,6 +40,28 @@ class MarketDataContractTests(unittest.TestCase):
                 bars=[],
             )
 
+    def test_bar_rejects_infinite_ohlcv_values(self):
+        for field in ("open", "high", "low", "close", "volume"):
+            values = {
+                "timestamp": "2026-01-01T00:00:00Z",
+                "open": 10, "high": 12, "low": 9, "close": 11, "volume": 100,
+            }
+            values[field] = float("inf")
+            with self.subTest(field=field):
+                with self.assertRaises(ValidationError):
+                    OHLCVBar(**values)
+
+    def test_bar_rejects_nan_ohlcv_values(self):
+        for field in ("open", "high", "low", "close", "volume"):
+            values = {
+                "timestamp": "2026-01-01T00:00:00Z",
+                "open": 10, "high": 12, "low": 9, "close": 11, "volume": 100,
+            }
+            values[field] = float("nan")
+            with self.subTest(field=field):
+                with self.assertRaises(ValidationError):
+                    OHLCVBar(**values)
+
     def test_batch_rejects_duplicate_timestamps(self):
         bar = {
             "timestamp": "2026-01-01T00:00:00Z",

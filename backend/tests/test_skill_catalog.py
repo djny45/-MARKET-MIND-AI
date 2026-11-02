@@ -6,9 +6,9 @@ from app.skill_catalog import list_skills, load_skill
 class SkillCatalogTests(unittest.TestCase):
     def test_catalog_contains_only_allowlisted_research_skills(self):
         skills = list_skills()
-        ids = {skill["id"] for skill in skills}
+        by_id = {skill["id"]: skill for skill in skills}
         self.assertEqual(len(skills), 16)
-        self.assertNotIn("trader-broker", ids)
+        self.assertNotIn("trader-broker", by_id)
         self.assertTrue(all(
             skill["mode"] == "research_and_paper_only"
             for skill in skills if skill["id"].startswith("trader-")
@@ -18,9 +18,10 @@ class SkillCatalogTests(unittest.TestCase):
             for skill in skills if skill["id"].startswith("rea-") or skill["id"] == "reverse-engineer-anything"
         ))
         self.assertTrue(all(skill["available"] for skill in skills))
-        self.assertEqual(skills[-1]["id"], "stageshow")
-        self.assertEqual(skills[-1]["mode"], "ui_design_only")
-        self.assertTrue(skills[-1]["requires_external_tools"])
+        self.assertEqual(by_id["stageshow"]["mode"], "ui_design_only")
+        self.assertTrue(by_id["stageshow"]["requires_external_tools"])
+        self.assertEqual(by_id["market-data-yahoo"]["mode"], "market_data_research_only")
+        self.assertTrue(by_id["market-data-yahoo"]["requires_external_tools"])
 
     def test_allowlisted_skill_can_be_loaded(self):
         result = load_skill("trader-scanner")
@@ -53,7 +54,13 @@ class SkillCatalogTests(unittest.TestCase):
         self.assertTrue(result["requires_external_tools"])
         self.assertFalse(result["broker_execution"])
 
-    def test_yahoo_market_data_skill_is_loadable_and_research_only(self):\n        result = load_skill("market-data-yahoo")\n        self.assertIn("Yahoo Finance", result["content"])\n        self.assertEqual(result["mode"], "market_data_research_only")\n        self.assertFalse(result["broker_execution"])\n\n    def test_unknown_and_broker_skills_are_rejected(self):
+    def test_yahoo_market_data_skill_is_loadable_and_research_only(self):
+        result = load_skill("market-data-yahoo")
+        self.assertIn("Yahoo Finance", result["content"])
+        self.assertEqual(result["mode"], "market_data_research_only")
+        self.assertFalse(result["broker_execution"])
+
+    def test_unknown_and_broker_skills_are_rejected(self):
         for slug in ("trader-broker", "../README.md", "missing-skill"):
             with self.subTest(slug=slug):
                 with self.assertRaises(KeyError):

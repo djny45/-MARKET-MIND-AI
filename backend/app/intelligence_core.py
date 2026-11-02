@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import socket
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -33,7 +34,6 @@ def _ollama_url() -> str | None:
     raw = os.getenv("OLLAMA_BASE_URL", "").strip()
     if not raw:
         return None
-    import socket
     from urllib.parse import urlparse
 
     parsed = urlparse(raw)

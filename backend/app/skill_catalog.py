@@ -6,6 +6,7 @@ SKILL_ROOT = REPO_ROOT / ".agents" / "skills" / "day-trader-skill"
 REA_SKILL_ROOT = REPO_ROOT / ".agents" / "skills" / "rea"
 STAGESHOW_SKILL_ROOT = REPO_ROOT / ".agents" / "skills" / "stageshow"
 MARKET_DATA_SKILL_ROOT = REPO_ROOT / ".agents" / "skills" / "market-data-yahoo"
+STOOQ_SKILL_ROOT = REPO_ROOT / ".agents" / "skills" / "market-data-stooq"
 
 SKILL_DESCRIPTIONS = {
     "trader-alerts": "Alert interpretation and notification research.",
@@ -29,6 +30,10 @@ REA_SKILL_DESCRIPTIONS = {
 
 MARKET_DATA_SKILL_DESCRIPTIONS = {
     "market-data-yahoo": "Yahoo Finance historical OHLCV retrieval and data-quality checks; research only.",
+}
+
+STOOQ_SKILL_DESCRIPTIONS = {
+    "market-data-stooq": "Stooq daily OHLCV retrieval and historical data-quality checks; research only.",
 }
 
 UI_SKILL_DESCRIPTIONS = {
@@ -82,7 +87,18 @@ def list_skills():
         }
         for slug, description in MARKET_DATA_SKILL_DESCRIPTIONS.items()
     ]
-    return trading + engineering + ui_design + market_data
+    stooq_data = [
+        {
+            "id": slug,
+            "description": description,
+            "path": ".agents/skills/market-data-stooq/SKILL.md",
+            "available": (STOOQ_SKILL_ROOT / "SKILL.md").is_file(),
+            "mode": "market_data_research_only",
+            "requires_external_tools": True,
+        }
+        for slug, description in STOOQ_SKILL_DESCRIPTIONS.items()
+    ]
+    return trading + engineering + ui_design + market_data + stooq_data
 
 
 def load_skill(slug: str):
@@ -107,10 +123,15 @@ def load_skill(slug: str):
         description = MARKET_DATA_SKILL_DESCRIPTIONS[slug]
         mode = "market_data_research_only"
         requires_external_tools = True
+    elif slug in STOOQ_SKILL_DESCRIPTIONS:
+        root = STOOQ_SKILL_ROOT
+        description = STOOQ_SKILL_DESCRIPTIONS[slug]
+        mode = "market_data_research_only"
+        requires_external_tools = True
     else:
         raise KeyError(slug)
 
-    path = root / "SKILL.md" if slug in UI_SKILL_DESCRIPTIONS or slug in MARKET_DATA_SKILL_DESCRIPTIONS else root / slug / "SKILL.md"
+    path = root / "SKILL.md" if slug in UI_SKILL_DESCRIPTIONS or slug in MARKET_DATA_SKILL_DESCRIPTIONS or slug in STOOQ_SKILL_DESCRIPTIONS else root / slug / "SKILL.md"
     if not path.is_file():
         raise FileNotFoundError(slug)
     return {

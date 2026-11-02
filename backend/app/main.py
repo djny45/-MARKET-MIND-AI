@@ -80,6 +80,10 @@ class ResearchOrchestrationRequest(BaseModel):
  max_workers: int = Field(default=1, ge=1, le=16)
  max_retries: int = Field(default=0, ge=0, le=3)
 
+class ResearchSynthesisRequest(BaseModel):
+ research: dict[str, Any]
+
+
 class SynthesisReviewRequest(BaseModel):
  draft: str = Field(min_length=1, max_length=8000)
  claims: list[dict[str, Any]] = Field(default_factory=list, max_length=100)
@@ -555,6 +559,15 @@ def intelligence_core():
  except IntelligenceCoreError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+
+
+@app.post("/api/intelligence-core/synthesize")
+def intelligence_core_synthesis(request: ResearchSynthesisRequest):
+ """Run optional bounded synthesis on caller-supplied research JSON only."""
+ try:
+  return synthesize_research(request.research)
+ except IntelligenceCoreError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 @app.get("/api/worker-runtime")
 def worker_runtime():

@@ -1,5 +1,6 @@
 """Robust historical observation diagnostics; no inferred prices or trade signals."""
 from datetime import datetime
+import math
 
 INTERVAL_SECONDS = {"15m": 900, "1h": 3600, "4h": 14400, "1d": 86400}
 
@@ -34,7 +35,11 @@ def _mad_flags(values, minimum=20, threshold=6.0):
 
 
 def build_historical_quality_diagnostics(history):
-    bars = history.get("bars", [])
+    # Treat malformed payloads as quality issues, not unexpected server errors.
+    history = history if isinstance(history, dict) else {}
+    raw_bars = history.get("bars", [])
+    bars = raw_bars if isinstance(raw_bars, list) else []
+    bars = [bar if isinstance(bar, dict) else {} for bar in bars]
     interval = history.get("interval")
     expected = INTERVAL_SECONDS.get(interval)
     parsed = [_timestamp(bar.get("timestamp")) for bar in bars]
@@ -67,13 +72,21 @@ def build_historical_quality_diagnostics(history):
                                 "interval_multiples": round(delta / expected, 3)})
     returns = []
     return_indices = []
+    invalid_close_values = []
+    for i, bar in enumerate(bars):
+        try:
+            close = float(bar["close"])
+            if not math.isfinite(close) or close <= 0:
+                invalid_close_values.append({"bar_index": i, "value": bar.get("close")})
+        except (KeyError, TypeError, ValueError, OverflowError):
+            invalid_close_values.append({"bar_index": i, "value": bar.get("close")})
     for i in range(1, len(bars)):
         try:
             previous, current = float(bars[i - 1]["close"]), float(bars[i]["close"])
-            if previous > 0 and current > 0:
+            if math.isfinite(previous) and math.isfinite(current) and previous > 0 and current > 0:
                 returns.append((current / previous) - 1)
                 return_indices.append(i)
-        except (KeyError, TypeError, ValueError, ZeroDivisionError):
+        except (KeyError, TypeError, ValueError, OverflowError, ZeroDivisionError):
             continue
     price_result = _mad_flags(returns)
     price_result["flagged_bar_indices"] = [return_indices[i] for i in price_result["flagged_indices"]]
@@ -88,14 +101,17 @@ def build_historical_quality_diagnostics(history):
     } for i in price_result["flagged_indices"]] if price_result["status"] == "available" else []
     volumes = []
     volume_indices = []
+    invalid_volume_values = []
     for i, bar in enumerate(bars):
         try:
             value = float(bar["volume"])
-            if value >= 0:
+            if math.isfinite(value) and value >= 0:
                 volumes.append(value)
                 volume_indices.append(i)
-        except (KeyError, TypeError, ValueError):
-            continue
+            else:
+                invalid_volume_values.append({"bar_index": i, "value": bar.get("volume")})
+        except (KeyError, TypeError, ValueError, OverflowError):
+            invalid_volume_values.append({"bar_index": i, "value": bar.get("volume")})
     volume_result = _mad_flags(volumes)
     volume_result["flagged_bar_indices"] = [volume_indices[i] for i in volume_result["flagged_indices"]]
     volume_result["flagged_observations"] = [{
@@ -122,6 +138,13 @@ def build_historical_quality_diagnostics(history):
             "spacing_anomaly_count": len(spacing),
             "spacing_anomalies": spacing,
             "interpretation": "Elapsed-time gaps only; exchange sessions, holidays and provider schedules are not modelled.",
+        },
+        "invalid_numeric_values": {
+            "close_count": len(invalid_close_values),
+            "close_values": invalid_close_values,
+            "volume_count": len(invalid_volume_values),
+            "volume_values": invalid_volume_values,
+            "interpretation": "Non-finite and non-positive close values, and non-finite or negative volume values, are excluded from diagnostics and reported; source bars are not modified.",
         },
         "close_to_close_return_outliers": price_result,
         "volume_outliers": volume_result,

@@ -2,7 +2,8 @@
 
 Fixtures are for UI and pipeline development only; they are not historical or live prices.
 """
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+import math
 from enum import Enum
 from typing import Protocol
 
@@ -24,6 +25,16 @@ class OHLCVBar(BaseModel):
     low: float = Field(gt=0)
     close: float = Field(gt=0)
     volume: float = Field(ge=0)
+
+    @model_validator(mode="after")
+    def validate_finite_values(self):
+        values = {"open": self.open, "high": self.high, "low": self.low,
+                  "close": self.close, "volume": self.volume}
+        non_finite = [name for name, value in values.items() if not math.isfinite(value)]
+        if non_finite:
+            field_names = ", ".join(non_finite)
+            raise ValueError(f"OHLCV values must be finite; invalid fields: {field_names}")
+        return self
 
     @model_validator(mode="after")
     def validate_ohlc_envelope(self):
@@ -100,10 +111,12 @@ class MarketDataBatch(BaseModel):
         return normalized
 
     @model_validator(mode="after")
-    def reject_duplicate_timestamps(self):
+    def validate_timestamp_order(self):
         timestamps = [bar.timestamp for bar in self.bars]
         if len(timestamps) != len(set(timestamps)):
             raise ValueError("batch contains duplicate bar timestamps")
+        if timestamps != sorted(timestamps):
+            raise ValueError("bar timestamps must be strictly chronological (oldest first)")
         return self
 
     @field_validator("retrieved_at")
@@ -156,3 +169,39 @@ class SyntheticFixtureAdapter:
             retrieved_at=datetime.now(timezone.utc), bars=bars,
             warnings=["Synthetic development fixture only; not live, delayed, or historical market data."],
         )
+
+
+
+def find_missing_candle_timestamps(
+    bars: list[OHLCVBar],
+    interval: str,
+) -> list[datetime]:
+    """Return expected UTC candle timestamps absent from a chronological series.
+
+    This reports gaps only; it never synthesizes or fills missing market data.
+    Timestamps are assumed to represent candle-open times for fixed-duration
+    intervals. Daily candles are treated as 24-hour intervals, so this helper
+    is intended for regular 24/7 markets and not exchange-session calendars.
+    """
+    interval_seconds = {"15m": 900, "1h": 3600, "4h": 14400, "1d": 86400}
+    if interval not in interval_seconds:
+        raise ValueError("interval must be one of 15m, 1h, 4h, 1d")
+    timestamps = [bar.timestamp.astimezone(timezone.utc) for bar in bars]
+    if timestamps != sorted(timestamps):
+        raise ValueError("bars must be strictly chronological (oldest first)")
+    if len(timestamps) != len(set(timestamps)):
+        raise ValueError("bars must not contain duplicate timestamps")
+
+    step = interval_seconds[interval]
+    missing: list[datetime] = []
+    for previous, current in zip(timestamps, timestamps[1:]):
+        delta = (current - previous).total_seconds()
+        if delta % step != 0:
+            raise ValueError("bar timestamps are not aligned to the requested interval")
+        if delta > step:
+            missing_count = int(delta // step) - 1
+            missing.extend(
+                previous + timedelta(seconds=step * offset)
+                for offset in range(1, missing_count + 1)
+            )
+    return missing

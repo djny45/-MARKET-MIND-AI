@@ -14,6 +14,14 @@ A visual research environment where specialist analytical workers connect as reu
 
 ---
 
+## News research agents
+
+Use the [Agent Reach News Research skill](.agents/skills/agent-reach-news-research/SKILL.md) to coordinate a specialist research workflow: News Scout, Primary-Source Verifier, Independent Context Scout, Macro/Cross-Market Analyst, Contradiction & Freshness Auditor, and Synthesis Editor. These are **orchestrator-assigned roles**, not claims that six independent LLMs are running.
+
+The skill supports optional, separately installed [Agent Reach](https://github.com/Panniantong/Agent-Reach) for public-source discovery. It does not install or launch Agent Reach, create credentials, or enable background scraping. Existing RSS ingestion remains available. News outputs are source-linked research only—not trading recommendations or broker actions.
+
+---
+
 ## Overview
 
 MARKET-MIND-AI is an open-source financial research terminal inspired by professional market-data workstations and visual node editors. Its core interaction model is a connected graph: data sources, validation steps, analytical workers, quantitative methods, and research outputs are composed into reusable workflows.
@@ -70,6 +78,7 @@ Specialist modules exchange deterministic records; per-agent brain-context and l
 | CI quality workflow | Added; run status visible in GitHub Actions |
 | Market taxonomy and searchable instrument reference directory | Added |
 | Configurable RSS news ingestion and terminal news panel | Added |
+| Optional Agent Reach external research connector | Integration guide added; upstream CLI remains separately installed and opt-in, no automatic subprocess or credential handling |
 | SMA, EMA, RSI, MACD, Bollinger and realized-volatility library | Added |
 | Async in-process event bus and latency architecture | Added |
 | Normalized OHLCV contract, timezone validation, provider adapter protocol and synthetic fixture | Added |
@@ -79,6 +88,14 @@ Specialist modules exchange deterministic records; per-agent brain-context and l
 | Interactive sample-series chart using Lightweight Charts | Added |
 | Workflow diagrams and graph usage guide | Added |
 | Unit tests for branching DAG execution and cycle rejection | Added |
+
+## TradingAgents market-data research skill
+
+Use the [TradingAgents market-data research skill](.agents/skills/tradingagents-market-data-research/SKILL.md) and [integration guide](docs/TRADINGAGENTS-MARKET-DATA-INTEGRATION.md) for upstream vendor-router concepts, source provenance, point-in-time data handling and data-quality checks. This is a research-only adaptation; the full TradingAgents framework and its trading decision/execution modules are not copied or enabled.
+
+## Agent Reach research connector
+
+[Agent Reach integration guide](docs/AGENT-REACH-INTEGRATION.md) documents optional use of [Panniantong/Agent-Reach](https://github.com/Panniantong/Agent-Reach) for read-only web/social research alongside official RSS ingestion. It is installed and operated separately; no browser credentials, scraping jobs, or external CLI execution are enabled by MARKET-MIND-AI automatically. Retrieved content is untrusted and requires source verification. See the guide for setup and boundaries.
 
 ## Shared agent skill playbooks
 

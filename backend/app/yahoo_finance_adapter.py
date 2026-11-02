@@ -16,8 +16,8 @@ from typing import Any
 
 from .market_data import DataStatus, MarketDataBatch, OHLCVBar
 
-_INTERVALS = {"15m": "15m", "1h": "1h", "4h": "1h", "1d": "1d"}
-_PERIODS = {"15m": "5d", "1h": "1mo", "4h": "3mo", "1d": "1y"}
+_INTERVALS = {"15m": "15m", "1h": "1h", "1d": "1d"}
+_PERIODS = {"15m": "5d", "1h": "1mo", "1d": "1y"}
 
 
 class YahooFinanceAdapter:
@@ -35,7 +35,7 @@ class YahooFinanceAdapter:
         if not symbol or len(symbol) > 32:
             raise ValueError("symbol must contain 1 to 32 characters")
         if interval not in _INTERVALS:
-            raise ValueError("interval must be one of 15m, 1h, 4h, 1d")
+            raise ValueError("interval must be one of 15m, 1h, 1d; 4h aggregation is not supported")
         if not 1 <= limit <= 5000:
             raise ValueError("limit must be between 1 and 5000")
         payload = await asyncio.to_thread(self._fetch_chart, symbol, interval)
@@ -47,14 +47,14 @@ class YahooFinanceAdapter:
             for i, stamp in enumerate(timestamps):
                 values = [quote.get(key, [])[i] if i < len(quote.get(key, [])) else None
                           for key in ("open", "high", "low", "close", "volume")]
-                if any(value is None for value in values[:4]) or values[4] is None:
+                if any(value is None for value in values):
                     continue
                 bars.append(OHLCVBar(
                     timestamp=datetime.fromtimestamp(stamp, tz=timezone.utc),
                     open=float(values[0]), high=float(values[1]), low=float(values[2]),
-                    close=float(values[3]), volume=max(0.0, float(values[4])),
+                    close=float(values[3]), volume=float(values[4]),
                 ))
-        except (KeyError, IndexError, TypeError, ValueError) as exc:
+        except (KeyError, IndexError, TypeError, ValueError, OverflowError) as exc:
             raise ValueError("Yahoo response did not contain valid OHLCV chart data") from exc
         bars = bars[-limit:]
         if not bars:
@@ -67,10 +67,6 @@ class YahooFinanceAdapter:
             retrieved_at=datetime.now(timezone.utc),
             bars=bars,
             warnings=[
-                "Best-effort Yahoo Finance chart data; provider availability and licensing may change.",
-                "Historical research data only; not guaranteed real-time or suitable for execution.",
-                "Requested 4h bars are sourced from 1h data and are not aggregated.",
-            ] if interval == "4h" else [
                 "Best-effort Yahoo Finance chart data; provider availability and licensing may change.",
                 "Historical research data only; not guaranteed real-time or suitable for execution.",
             ],

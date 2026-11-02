@@ -103,6 +103,11 @@ def list_skills():
 
 def load_skill(slug: str):
     """Load one allowlisted playbook; never resolve caller-supplied filesystem paths."""
+    # API callers may supply arbitrary JSON values. Reject non-string identifiers
+    # predictably instead of leaking TypeError from dictionary membership checks.
+    if not isinstance(slug, str):
+        raise KeyError(slug)
+
     if slug in SKILL_DESCRIPTIONS:
         root = SKILL_ROOT
         description = SKILL_DESCRIPTIONS[slug]

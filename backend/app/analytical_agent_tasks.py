@@ -54,7 +54,7 @@ def enqueue_research_task(agent_id: str, brief: str, data: dict | list | None = 
     now = datetime.now(timezone.utc).isoformat()
     with _connect() as db:
         db.execute("""INSERT INTO analytical_agent_tasks
-          (task_id,agent_id,task_type,status,input_json,result_json,brain_context_sha256,created_at,updated_at)
+          (task_id,worker_id,task_type,status,input_json,result_json,brain_context_sha256,created_at,updated_at)
           VALUES (?,?,?,?,?,?,?,?,?)""",
           (task_id, agent_id, TASK_TYPE, "queued", input_json, "{}", brain["brain_context_sha256"], now, now))
     return {"task_id": task_id, "agent_id": agent_id, "status": "queued",
@@ -192,10 +192,10 @@ def list_research_tasks(agent_id: str, limit: int = 20) -> dict:
     if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 100:
         raise ValueError("limit must be between 1 and 100")
     with _connect() as db:
-        rows = db.execute("""SELECT task_id,agent_id,task_type,status,brain_context_sha256,created_at,updated_at
-          FROM analytical_agent_tasks WHERE agent_id=? ORDER BY created_at DESC LIMIT ?""",
+        rows = db.execute("""SELECT task_id,worker_id,task_type,status,brain_context_sha256,created_at,updated_at
+          FROM analytical_agent_tasks WHERE worker_id=? ORDER BY created_at DESC LIMIT ?""",
           (agent_id, limit)).fetchall()
-        total = db.execute("SELECT COUNT(*) FROM analytical_agent_tasks WHERE agent_id=?", (agent_id,)).fetchone()[0]
+        total = db.execute("SELECT COUNT(*) FROM analytical_agent_tasks WHERE worker_id=?", (agent_id,)).fetchone()[0]
     return {"agent_id": agent_id, "count": len(rows), "total": total, "tasks": [dict(row) for row in rows]}
 
 
@@ -205,7 +205,7 @@ def list_recent_task_activity(limit: int = 500) -> dict:
         raise ValueError("limit must be between 1 and 1000")
     with _connect() as db:
         rows = db.execute(
-            """SELECT task_id,agent_id,task_type,status,created_at,updated_at
+            """SELECT task_id,worker_id,task_type,status,created_at,updated_at
                FROM analytical_agent_tasks ORDER BY updated_at DESC LIMIT ?""",
             (limit,),
         ).fetchall()
@@ -214,7 +214,7 @@ def list_recent_task_activity(limit: int = 500) -> dict:
               for status in ("queued", "running", "completed", "failed")}
     latest_by_agent = {}
     for task in tasks:
-        latest_by_agent.setdefault(task["agent_id"], task)
+        latest_by_agent.setdefault(task["worker_id"], task)
     return {
         "task_count": len(tasks),
         "status_counts": counts,

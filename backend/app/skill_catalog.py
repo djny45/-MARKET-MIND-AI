@@ -26,12 +26,12 @@ REA_SKILL_DESCRIPTIONS = {
     "rea-tool-design": "Design investigation tools, interfaces, provider contracts, and evidence semantics.",
 }
 
-MARKET_DATA_SKILL_DESCRIPTIONS = {\n    "market-data-yahoo": "Yahoo Finance historical OHLCV retrieval and data-quality checks; research only.",\n}\nMARKET_DATA_SKILL_ROOT = REPO_ROOT / ".agents" / "skills" / "market-data-yahoo"\n\nUI_SKILL_DESCRIPTIONS = {
-    "stageshow": "Create polished React product UI mockups, dashboard stills, and cursor/motion demos; use only for frontend/design tasks.",
+MARKET_DATA_SKILL_DESCRIPTIONS = {
+    "market-data-yahoo": "Yahoo Finance historical OHLCV retrieval and data-quality checks; research only.",
 }
+MARKET_DATA_SKILL_ROOT = REPO_ROOT / ".agents" / "skills" / "market-data-yahoo"
 
-
-def list_skills():
+UI_SKILL_DESCRIPTIONS = {
     """Return only allowlisted research playbooks present in the repository."""
     trading = [
         {
@@ -63,6 +63,18 @@ def list_skills():
         "mode": "ui_design_only",
         "requires_external_tools": True,
     } for slug, description in UI_SKILL_DESCRIPTIONS.items()]
+    market_data = [
+        {
+            "id": slug,
+            "description": description,
+            "path": ".agents/skills/market-data-yahoo/SKILL.md",
+            "available": (MARKET_DATA_SKILL_ROOT / "SKILL.md").is_file(),
+            "mode": "market_data_research_only",
+            "requires_external_tools": True,
+        }
+        for slug, description in MARKET_DATA_SKILL_DESCRIPTIONS.items()
+    ]
+
     market_data = [{\n        "id": slug,\n        "description": description,\n        "path": ".agents/skills/market-data-yahoo/SKILL.md",\n        "available": (MARKET_DATA_SKILL_ROOT / "SKILL.md").is_file(),\n        "mode": "market_data_research_only",\n        "requires_external_tools": True,\n    } for slug, description in MARKET_DATA_SKILL_DESCRIPTIONS.items()]\n    return trading + engineering + ui_design + market_data
 
 
@@ -82,6 +94,11 @@ def load_skill(slug: str):
         root = STAGESHOW_SKILL_ROOT
         description = UI_SKILL_DESCRIPTIONS[slug]
         mode = "ui_design_only"
+        requires_external_tools = True
+    elif slug in MARKET_DATA_SKILL_DESCRIPTIONS:
+        root = MARKET_DATA_SKILL_ROOT
+        description = MARKET_DATA_SKILL_DESCRIPTIONS[slug]
+        mode = "market_data_research_only"
         requires_external_tools = True
     else:
         raise KeyError(slug)

@@ -99,6 +99,18 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertIn("task_claimed", event_types)
         self.assertIn("task_dispatch_finished", event_types)
 
+    def test_network_activity_snapshot_includes_recent_audit_events(self):
+        from app.analytical_agent_tasks import list_recent_task_activity
+        result = submit_research_task("worker_011", "activity audit snapshot")
+        snapshot = list_recent_task_activity(limit=10)
+        matching = [event for event in snapshot["recent_audit_events"]
+                    if event["task_id"] == result["task_id"]]
+        self.assertEqual(
+            [event["event_type"] for event in matching],
+            ["task_submitted", "task_completed"],
+        )
+        self.assertEqual(snapshot["audit_event_count"], len(snapshot["recent_audit_events"]))
+
     def test_task_audit_events_are_bounded_and_unknown_task_is_empty(self):
         from app.analytical_agent_tasks import enqueue_research_task, list_task_audit_events
         queued = enqueue_research_task("worker_008", "audit bounds")

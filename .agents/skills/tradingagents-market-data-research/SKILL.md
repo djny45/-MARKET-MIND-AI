@@ -63,6 +63,21 @@ These are upstream ecosystem examples and possible future adapters—not active 
 
 Provider availability and policies change. Confirm official docs and terms before implementation. Market-data licensing is separate from the software licence.
 
+### Verified upstream router map (current `main`)
+
+The upstream `tradingagents/dataflows/router.py` currently maps these research categories:
+
+| Upstream category | Provider implementations |
+|---|---|
+| Stock OHLCV | Yahoo Finance; Alpha Vantage |
+| Technical indicators | Yahoo Finance; Alpha Vantage |
+| Company fundamentals | Yahoo Finance; Alpha Vantage |
+| Balance sheet / cash flow / income statement | SEC EDGAR; Yahoo Finance; Alpha Vantage |
+| News and insider transactions | Yahoo Finance; Alpha Vantage |
+| Macro indicators | FRED |
+
+This is a source-code map, not a guarantee of live access, provider quality, or licensing rights. Upstream also contains prediction-market functionality; **do not port or enable that category** in MARKET-MIND-AI.
+
 ## Canonical observation contract
 
 Every stored observation should preserve, where applicable:

@@ -31,7 +31,7 @@ def review_council_outputs(council_result: dict[str, Any]) -> dict[str, Any]:
             raise ValueError("each member must have a non-empty agent_id")
         if analysis is not None and not isinstance(analysis, str):
             raise ValueError("analysis must be a string or null")
-        normalized = re.sub(r"\\s+", " ", analysis.strip()).casefold() if analysis else ""
+        normalized = re.sub(r"\s+", " ", analysis.strip()).casefold() if analysis else ""
         fingerprint = hashlib.sha256(normalized.encode("utf-8")).hexdigest() if normalized else None
         if fingerprint:
             fingerprints[fingerprint] += 1

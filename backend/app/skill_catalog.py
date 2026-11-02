@@ -26,7 +26,7 @@ REA_SKILL_DESCRIPTIONS = {
     "rea-tool-design": "Design investigation tools, interfaces, provider contracts, and evidence semantics.",
 }
 
-UI_SKILL_DESCRIPTIONS = {
+MARKET_DATA_SKILL_DESCRIPTIONS = {\n    "market-data-yahoo": "Yahoo Finance historical OHLCV retrieval and data-quality checks; research only.",\n}\nMARKET_DATA_SKILL_ROOT = REPO_ROOT / ".agents" / "skills" / "market-data-yahoo"\n\nUI_SKILL_DESCRIPTIONS = {
     "stageshow": "Create polished React product UI mockups, dashboard stills, and cursor/motion demos; use only for frontend/design tasks.",
 }
 
@@ -63,7 +63,7 @@ def list_skills():
         "mode": "ui_design_only",
         "requires_external_tools": True,
     } for slug, description in UI_SKILL_DESCRIPTIONS.items()]
-    return trading + engineering + ui_design
+    market_data = [{\n        "id": slug,\n        "description": description,\n        "path": ".agents/skills/market-data-yahoo/SKILL.md",\n        "available": (MARKET_DATA_SKILL_ROOT / "SKILL.md").is_file(),\n        "mode": "market_data_research_only",\n        "requires_external_tools": True,\n    } for slug, description in MARKET_DATA_SKILL_DESCRIPTIONS.items()]\n    return trading + engineering + ui_design + market_data
 
 
 def load_skill(slug: str):
@@ -85,7 +85,7 @@ def load_skill(slug: str):
         requires_external_tools = True
     else:
         raise KeyError(slug)
-    path = root / "SKILL.md" if slug in UI_SKILL_DESCRIPTIONS else root / slug / "SKILL.md"
+    path = root / "SKILL.md" if slug in UI_SKILL_DESCRIPTIONS or slug in MARKET_DATA_SKILL_DESCRIPTIONS else root / slug / "SKILL.md"
     if not path.is_file():
         raise FileNotFoundError(slug)
     return {

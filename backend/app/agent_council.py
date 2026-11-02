@@ -6,13 +6,15 @@ agent identities, not separate foundation models. Outputs are evidence-limited.
 """
 from __future__ import annotations
 
-import json\nfrom concurrent.futures import ThreadPoolExecutor, as_completed
+import json
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from .analytical_agent_runtime import brain_config
 from .intelligence_core import synthesize_research
 
 MAX_COUNCIL_SIZE = 8
 MAX_BRIEF_CHARS = 4000
-MAX_DATA_CHARS = 10000\nMAX_BATCH_TASKS = 550
+MAX_DATA_CHARS = 10000
+MAX_BATCH_TASKS = 550
 
 
 def run_agent_council(agent_ids: list[str], brief: str, data: dict | list | None = None) -> dict:

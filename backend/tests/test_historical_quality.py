@@ -65,6 +65,21 @@ class HistoricalQualityTests(unittest.TestCase):
         self.assertEqual(result["timestamp_spacing"]["status"], "unsupported_interval")
         self.assertIsNone(result["timestamp_spacing"]["expected_interval_seconds"])
 
+    def test_non_finite_close_and_volume_are_reported_and_excluded(self):
+        bars = self.bars(25)
+        bars[5]["close"] = float("nan")
+        bars[8]["close"] = float("inf")
+        bars[10]["volume"] = float("inf")
+        bars[12]["volume"] = float("nan")
+        result = build_historical_quality_diagnostics({"interval": "1h", "bars": bars})
+        invalid = result["invalid_numeric_values"]
+        self.assertEqual(invalid["close_count"], 2)
+        self.assertEqual(invalid["volume_count"], 2)
+        self.assertEqual([item["bar_index"] for item in invalid["close_values"]], [5, 8])
+        self.assertEqual([item["bar_index"] for item in invalid["volume_values"]], [10, 12])
+        self.assertTrue(all(__import__("math").isfinite(value) for value in result["close_to_close_return_outliers"].get("flagged_returns", [])))
+        self.assertNotIn(10, result["volume_outliers"]["flagged_bar_indices"])
+
 
 if __name__ == "__main__":
     unittest.main()

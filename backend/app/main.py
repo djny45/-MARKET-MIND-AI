@@ -399,6 +399,34 @@ def analytical_agent_learning_summary(worker_id: str, limit: int = 200):
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+
+@app.get("/api/analytical-agents/{worker_id}/update-proposals")
+def analytical_agent_update_proposals(worker_id: str, limit: int = 100):
+ """List saved improvement proposals with stable IDs and content hashes."""
+ try:
+  if limit < 1 or limit > 200:
+   raise ValueError("limit must be between 1 and 200")
+  notes = read_memory(worker_id, "method_note", limit)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+ proposals = []
+ for item in notes["memory"]:
+  proposal = item.get("content", {}).get("update_proposal")
+  if not isinstance(proposal, dict):
+   continue
+  encoded = json.dumps(proposal, sort_keys=True, ensure_ascii=False)
+  proposals.append({
+   "proposal_id": item["memory_id"],
+   "version": 1,
+   "created_at": item["created_at"],
+   "content_sha256": hashlib.sha256(encoded.encode("utf-8")).hexdigest(),
+   "proposal": proposal,
+   "status": proposal.get("status", "pending_review"),
+   "auto_apply": False,
+  })
+ return {"worker_id": worker_id, "count": len(proposals), "proposals": proposals,
+         "note": "Version 1 is immutable evidence; approval does not automatically apply changes."}
+
 @app.get("/api/analytical-agents/runtime")
 def analytical_agent_runtime():
  """Describe 550 specialist agent contexts and the implemented learning boundary."""

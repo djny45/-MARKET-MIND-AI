@@ -1,6 +1,8 @@
 """Allowlisted research playbook catalog; execution/broker skills are excluded."""
 from pathlib import Path
 
+from app.research_skill_pack import list_pack_skills, load_pack_skill
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SKILL_ROOT = REPO_ROOT / ".agents" / "skills" / "day-trader-skill"
 REA_SKILL_ROOT = REPO_ROOT / ".agents" / "skills" / "rea"
@@ -114,11 +116,13 @@ def list_skills():
         }
         for slug, description in QUANT_RESEARCH_SKILL_DESCRIPTIONS.items()
     ]
-    return trading + engineering + ui_design + market_data + stooq_data + quant_research
+    return trading + engineering + ui_design + market_data + stooq_data + quant_research + list_pack_skills()
 
 
 def load_skill(slug: str):
     """Load one allowlisted playbook; never resolve caller-supplied filesystem paths."""
+    if slug.startswith("mm-skill-"):
+        return load_pack_skill(slug)
     if slug in SKILL_DESCRIPTIONS:
         root = SKILL_ROOT
         description = SKILL_DESCRIPTIONS[slug]

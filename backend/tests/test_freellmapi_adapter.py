@@ -37,6 +37,12 @@ class FreeLLMAPIAdapterTests(unittest.TestCase):
             with self.assertRaises(FreeLLMAPIConfigurationError):
                 configured_freellmapi()
 
+    def test_base_url_with_v1_path_does_not_duplicate_api_prefix(self):
+        url, _, _ = build_chat_completion_request(
+            "http://127.0.0.1:3001/v1", "test-key", "model-x", "hello"
+        )
+        self.assertEqual(url, "http://127.0.0.1:3001/v1/chat/completions")
+
     def test_request_uses_openai_compatible_endpoint_and_bearer(self):
         url, body, headers = build_chat_completion_request(
             "http://127.0.0.1:3001", "test-key", "model-x", "hello"

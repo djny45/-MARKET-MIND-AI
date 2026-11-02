@@ -52,6 +52,18 @@ class StooqAdapterTests(unittest.IsolatedAsyncioTestCase):
         bars = StooqAdapter._parse_csv(body)
         self.assertEqual(len(bars), 3)
 
+    def test_non_finite_and_invalid_ohlc_rows_are_skipped(self):
+        body = CSV + (
+            "2026-01-04,nan,106,102,105,1200\\n"
+            "2026-01-05,103,inf,102,105,1200\\n"
+            "2026-01-06,103,104,106,105,1200\\n"
+            "2026-01-07,103,106,102,105,nan\\n"
+            "2026-01-08,103,106,102,105,inf\\n"
+        )
+        bars = StooqAdapter._parse_csv(body)
+        self.assertEqual(len(bars), 3)
+        self.assertEqual([bar.timestamp.day for bar in bars], [1, 2, 3])
+
     def test_timeout_bounds(self):
         with self.assertRaises(ValueError):
             StooqAdapter(timeout_seconds=0.2)

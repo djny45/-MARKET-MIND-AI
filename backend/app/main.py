@@ -12,6 +12,7 @@ from .worker_memory import append_memory, read_memory
 from .worker_registry import evaluate_registry, registry_manifest
 from .research_orchestrator import orchestrate_research
 from .intelligence_core import intelligence_core_status, synthesize_research, IntelligenceCoreError
+from .synthesis_review import build_synthesis_review
 from .skill_catalog import list_skills, load_skill
 from .markets import market_catalog
 from .instruments import search_instruments
@@ -72,6 +73,14 @@ class ResearchOrchestrationRequest(BaseModel):
  inputs: dict[str, Any] = Field(default_factory=dict)
  max_workers: int = Field(default=1, ge=1, le=16)
  max_retries: int = Field(default=0, ge=0, le=3)
+
+class SynthesisReviewRequest(BaseModel):
+ draft: str = Field(min_length=1, max_length=8000)
+ claims: list[dict[str, Any]] = Field(default_factory=list, max_length=100)
+ source_registry: list[dict[str, Any]] = Field(default_factory=list, max_length=500)
+ decision: Literal["approve", "reject"]
+ reviewer: str = Field(min_length=1, max_length=120)
+ review_note: str = Field(default="", max_length=1000)
 
 class IndicatorRequest(BaseModel):
  values: list[float] = Field(min_length=2)
@@ -864,6 +873,23 @@ def _execute_and_persist(request: WorkflowRequest, parent_run_id: str | None = N
  except Exception as exc:
   raise HTTPException(status_code=500,detail=f"Workflow failed: {exc}") from exc
 
+
+
+@app.post("/api/research/synthesis/review")
+def review_research_synthesis(request: SynthesisReviewRequest):
+ """Record a human review decision for an untrusted synthesis draft.
+
+ This prototype endpoint is stateless and must remain behind trusted local access;
+ authentication/authorization is required before public deployment.
+ """
+ try:
+  return build_synthesis_review(
+   draft=request.draft, claims=request.claims,
+   source_registry=request.source_registry, decision=request.decision,
+   reviewer=request.reviewer, review_note=request.review_note,
+  )
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 @app.post("/api/research/orchestrate")
 def orchestrate_research_request(request: ResearchOrchestrationRequest):

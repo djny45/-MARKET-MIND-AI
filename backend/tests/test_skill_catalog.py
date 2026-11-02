@@ -7,7 +7,7 @@ class SkillCatalogTests(unittest.TestCase):
     def test_catalog_contains_only_allowlisted_research_skills(self):
         skills = list_skills()
         ids = {skill["id"] for skill in skills}
-        self.assertEqual(len(skills), 14)
+        self.assertEqual(len(skills), 15)
         self.assertNotIn("trader-broker", ids)
         self.assertTrue(all(
             skill["mode"] == "research_and_paper_only"
@@ -18,6 +18,9 @@ class SkillCatalogTests(unittest.TestCase):
             for skill in skills if skill["id"].startswith("rea-") or skill["id"] == "reverse-engineer-anything"
         ))
         self.assertTrue(all(skill["available"] for skill in skills))
+        self.assertEqual(skills[-1]["id"], "stageshow")
+        self.assertEqual(skills[-1]["mode"], "ui_design_only")
+        self.assertTrue(skills[-1]["requires_external_tools"])
 
     def test_allowlisted_skill_can_be_loaded(self):
         result = load_skill("trader-scanner")
@@ -42,6 +45,13 @@ class SkillCatalogTests(unittest.TestCase):
                 self.assertTrue(loaded["content"].strip())
                 self.assertTrue(loaded["requires_external_tools"])
                 self.assertFalse(loaded["broker_execution"])
+
+    def test_stageshow_is_loadable_but_scoped_to_ui_design(self):
+        result = load_skill("stageshow")
+        self.assertIn("Stageshow", result["content"])
+        self.assertEqual(result["mode"], "ui_design_only")
+        self.assertTrue(result["requires_external_tools"])
+        self.assertFalse(result["broker_execution"])
 
     def test_unknown_and_broker_skills_are_rejected(self):
         for slug in ("trader-broker", "../README.md", "missing-skill"):

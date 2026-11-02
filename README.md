@@ -308,3 +308,14 @@ Example payload:
   "review_note": "Reviewed against the provided material"
 }
 ```
+
+
+## Per-agent research task lifecycle
+
+Each of the 550 registered analytical workers can now submit a bounded research brief and retrieve its persisted task record:
+
+- `POST /api/analytical-agents/{worker_id}/tasks` — accepts a short brief and optional supplied JSON data; runs synchronously through the shared core when configured.
+- `GET /api/analytical-agents/{worker_id}/tasks?limit=20` — lists that worker's task history.
+- `GET /api/analytical-agent-tasks/{task_id}` — retrieves the stored input, status, result, and brain-context digest.
+
+Tasks are isolated by worker ID and retain the worker context hash. The first implementation is **bounded and synchronous**: it does not yet provide cloud workspaces, background scheduling, or 550 always-on autonomous processes. If the shared Ollama core is not configured, the result explicitly reports that synthesis is unavailable rather than fabricating analysis. Tasks use supplied data only; live market retrieval, broker execution, and paper trading are excluded.

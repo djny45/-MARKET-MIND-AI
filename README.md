@@ -314,7 +314,7 @@ Example payload:
 
 Each of the 550 registered analytical workers can now submit a bounded research brief and retrieve its persisted task record. A queue endpoint is also available at `POST /api/analytical-agents/{worker_id}/tasks/queue`; it writes a task record with `queued` status, then hands execution to FastAPI `BackgroundTasks`. Retrieve task state using `GET /api/analytical-agent-tasks/{task_id}` or list by worker with `GET /api/analytical-agents/{worker_id}/tasks`.
 
-**Queue limitation:** task metadata/results are stored in SQLite, but the execution dispatch is process-local FastAPI background work—not a durable external queue. A process restart can leave a task in `queued` or `running` state; automatic restart recovery, retry policy, and multi-instance coordination are not implemented. Do not describe this as a cloud scheduler or 550 always-on agents.
+**Queue limitation:** task metadata/results are stored in SQLite, but the execution dispatch is process-local FastAPI background work—not a durable external queue. A process restart can leave a task in `queued` or `running` state. The manual recovery endpoint `POST /api/analytical-agent-tasks/recover` requeues interrupted `running` tasks, and the executor now atomically claims queued rows to reduce duplicate dispatch. Recovery does **not** dispatch tasks automatically; retry/backoff policy, startup recovery, and multi-instance coordination remain unimplemented. Do not describe this as a cloud scheduler or 550 always-on agents.
 
 - `POST /api/analytical-agents/{worker_id}/tasks` — accepts a short brief and optional supplied JSON data; runs synchronously through the shared core when configured.
 - `GET /api/analytical-agents/{worker_id}/tasks?limit=20` — lists that worker's task history.

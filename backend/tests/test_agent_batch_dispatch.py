@@ -24,7 +24,7 @@ class AgentBatchDispatchTests(unittest.TestCase):
         self.assertEqual(result["agent_count_requested"], 2)
         self.assertEqual(result["agent_count_accepted"], 2)
         self.assertEqual(result["status_counts"]["completed"], 2)
-        self.assertEqual(result["execution_mode"], "bounded_sequential_shared_provider")
+        self.assertEqual(result["execution_mode"], "bounded_concurrent_shared_provider")
         self.assertFalse(result["paper_trading"])
         self.assertFalse(result["broker_execution"])
 

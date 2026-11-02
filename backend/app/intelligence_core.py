@@ -101,7 +101,12 @@ def synthesize_research(research: dict, *, opener=urlopen) -> dict:
             "reason": "Shared AI provider is disabled or not configured; deterministic report remains authoritative.",
         }
 
-    payload = json.dumps(research, ensure_ascii=False, separators=(",", ":"))
+    try:
+        payload = json.dumps(
+            research, ensure_ascii=False, separators=(",", ":"), allow_nan=False
+        )
+    except (TypeError, ValueError) as exc:
+        raise IntelligenceCoreError("Research input must contain JSON-safe values only.") from exc
     if len(payload) > MAX_INPUT_CHARS:
         raise IntelligenceCoreError("Research input exceeds the configured synthesis size limit.")
     prompt = (

@@ -35,7 +35,11 @@ def _mad_flags(values, minimum=20, threshold=6.0):
 
 
 def build_historical_quality_diagnostics(history):
-    bars = history.get("bars", [])
+    # Treat malformed payloads as quality issues, not unexpected server errors.
+    history = history if isinstance(history, dict) else {}
+    raw_bars = history.get("bars", [])
+    bars = raw_bars if isinstance(raw_bars, list) else []
+    bars = [bar if isinstance(bar, dict) else {} for bar in bars]
     interval = history.get("interval")
     expected = INTERVAL_SECONDS.get(interval)
     parsed = [_timestamp(bar.get("timestamp")) for bar in bars]

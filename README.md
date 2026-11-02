@@ -8,7 +8,7 @@
 
 A visual research environment where specialist analytical workers connect as reusable nodes, execute directed workflows, and produce traceable research outputs.
 
-[Four-Market Architecture](docs/FOUR-MARKET-PLATFORM.md) · [Architecture](docs/ARCHITECTURE.md) · [Workflow Guide](docs/WORKFLOW-GUIDE.md) · [Market Coverage](docs/MARKET-COVERAGE.md) · [Roadmap](docs/ROADMAP.md) · [Development Guide](docs/DEVELOPMENT.md) · [Private Deployment](docs/PRODUCTION-DEPLOYMENT.md)
+[Four-Market Architecture](docs/FOUR-MARKET-PLATFORM.md) · [Architecture](docs/ARCHITECTURE.md) · [Workflow Guide](docs/WORKFLOW-GUIDE.md) · [Market Coverage](docs/MARKET-COVERAGE.md) · [Roadmap](docs/ROADMAP.md) · [Development Guide](docs/DEVELOPMENT.md) · [Private Deployment](docs/PRODUCTION-DEPLOYMENT.md) · [FreeLLMAPI Setup](docs/FREELLMAPI-INTEGRATION.md)
 
 </div>
 
@@ -32,6 +32,10 @@ The platform is designed for research across four primary market groups: India, 
 - **Provider-neutral data layer:** connectors are modular and must respect provider terms, licences, rate limits, and redistribution rules.
 - **Synthetic data is labelled:** the sample endpoint is a deterministic development fixture, never a live or historical price feed.
 - **Research only:** no paper trading, brokerage credentials, order routing, or automated execution.
+
+## FreeLLMAPI shared-core provider
+
+The shared intelligence core includes an optional FreeLLMAPI adapter for bounded research-text synthesis. FreeLLMAPI runs separately; MARKET-MIND-AI does not host the gateway or bundle provider credentials. Setup and environment variables are documented in [FreeLLMAPI integration](docs/FREELLMAPI-INTEGRATION.md). The adapter is disabled by default and loopback-restricted. It does not provide market data or trading execution.
 
 ## Cross-market collaboration API
 

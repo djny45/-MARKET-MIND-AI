@@ -16,7 +16,7 @@ SPECIALTIES = [
 ]
 
 # Skill references are guidance links only. They do not activate executable agents.
-# stageshow is shared and optional; only load it for UI/product-demo work.
+# stageshow is a UI-only playbook; do not attach it to analytical workers.
 SKILL_BY_DEPARTMENT = {
     "technical_analysis": ["trader-scanner"],
     "market_structure": ["trader-scanner"],
@@ -58,7 +58,7 @@ def list_workers():
             "kind": "ai_analytical_worker",
             "model": "shared_central_intelligence",
             "memory_namespace": f"workers/worker_{i+1:03d}",
-            "skill_refs": SKILL_BY_DEPARTMENT.get(department, []) + pack_skill_refs + ["stageshow"],
+            "skill_refs": SKILL_BY_DEPARTMENT.get(department, []) + pack_skill_refs,
             "status": "template",
             "note": "AI analytical worker template; execution requires an implemented, validated handler in the shared central intelligence runtime."
         })

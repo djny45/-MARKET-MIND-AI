@@ -162,3 +162,20 @@ def create_execution(run_id, request_payload, parent_run_id=None):
           VALUES (?,?,?,?,?,?,?,?)""",
           (run_id,parent_run_id,"running",request_json,"{}","{}",now,now))
     return {"id":run_id,"parent_run_id":parent_run_id,"status":"running","created_at":now,"updated_at":now}
+
+
+def save_synthesis_review(review):
+    """Append a human review record; existing review decisions are immutable."""
+    import uuid
+    review_json=json.dumps(review,separators=(",",":"),allow_nan=False)
+    review_id=str(uuid.uuid4())
+    now=datetime.now(timezone.utc).isoformat()
+    with _connect() as con:
+        con.execute("""CREATE TABLE IF NOT EXISTS synthesis_reviews (
+          id TEXT PRIMARY KEY, status TEXT NOT NULL, reviewer_claim TEXT NOT NULL,
+          review_json TEXT NOT NULL, created_at TEXT NOT NULL
+        )""")
+        con.execute("""INSERT INTO synthesis_reviews
+          (id,status,reviewer_claim,review_json,created_at) VALUES (?,?,?,?,?)""",
+          (review_id,review.get("status","unknown"),review.get("reviewer",""),review_json,now))
+    return {"review_id":review_id,**review,"review_persistence":"append_only_record"}

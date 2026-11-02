@@ -7,7 +7,7 @@ class SkillCatalogTests(unittest.TestCase):
     def test_catalog_contains_only_allowlisted_research_skills(self):
         skills = list_skills()
         by_id = {skill["id"]: skill for skill in skills}
-        self.assertEqual(len(skills), 18)
+        self.assertEqual(len(skills), 318)
         self.assertNotIn("trader-broker", by_id)
         self.assertTrue(all(
             skill["mode"] == "research_and_paper_only"
@@ -78,6 +78,25 @@ class SkillCatalogTests(unittest.TestCase):
         self.assertIn("Chronological separation", loaded["content"])
         self.assertIn("Qlib", loaded["content"])
         self.assertFalse(loaded["broker_execution"])
+
+
+    def test_300_skill_pack_is_discoverable_and_loads_one_skill_at_a_time(self):
+        skills = {skill["id"]: skill for skill in list_skills()}
+        self.assertEqual(sum(skill_id.startswith("mm-skill-") for skill_id in skills), 300)
+        self.assertIn("mm-skill-001", skills)
+        self.assertIn("mm-skill-300", skills)
+        loaded = load_skill("mm-skill-001")
+        self.assertEqual(loaded["id"], "mm-skill-001")
+        self.assertIn("Provider Adapter Design", loaded["content"])
+        self.assertEqual(loaded["mode"], "research_evaluation_only")
+        self.assertFalse(loaded["broker_execution"])
+        self.assertNotIn("### 002.", loaded["content"])
+
+    def test_skill_pack_rejects_out_of_range_ids(self):
+        for skill_id in ("mm-skill-000", "mm-skill-301", "mm-skill-999", "mm-skill-01"):
+            with self.subTest(skill_id=skill_id):
+                with self.assertRaises(KeyError):
+                    load_skill(skill_id)
 
     def test_unknown_and_broker_skills_are_rejected(self):
         for slug in ("trader-broker", "../README.md", "missing-skill"):

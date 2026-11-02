@@ -11,7 +11,7 @@ from .worker_runtime import worker_runtime_status
 from .worker_memory import append_memory, read_memory
 from .worker_registry import evaluate_registry, registry_manifest
 from .analytical_agent_runtime import runtime_manifest, brain_config, validate_learning_feedback, validate_update_proposal
-from .analytical_agent_tasks import submit_research_task, get_research_task, list_research_tasks, enqueue_research_task, execute_queued_research_task, recover_interrupted_research_tasks
+from .analytical_agent_tasks import submit_research_task, get_research_task, list_research_tasks, enqueue_research_task, execute_queued_research_task, recover_interrupted_research_tasks, list_recent_task_activity
 from .research_orchestrator import orchestrate_research
 from .intelligence_core import intelligence_core_status, synthesize_research, IntelligenceCoreError
 from .synthesis_review import build_synthesis_review
@@ -325,6 +325,14 @@ def analytical_agent_list_tasks(worker_id: str, limit: int = 20):
  """List persisted tasks for one specialist worker."""
  try:
   return list_research_tasks(worker_id, limit)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+@app.get("/api/agent-network/activity")
+def agent_network_activity(limit: int = 500):
+ """Bounded persisted task activity snapshot for agent network visualization."""
+ try:
+  return list_recent_task_activity(limit)
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 

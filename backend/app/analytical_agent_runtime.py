@@ -1,6 +1,6 @@
-"""Per-worker analytical brain configuration and governed learning lifecycle.
+"""Per-agent analytical brain configuration and governed learning lifecycle.
 
-Each worker has a distinct specialization/context and memory namespace while
+Each specialist AI agent has a distinct specialization/context and memory namespace while
 sharing the configured intelligence provider. Learning records are evaluated
 feedback and proposed configuration changes, not autonomous model-weight
 training. Proposed updates require explicit review before application.
@@ -26,7 +26,7 @@ def brain_config(worker_id: str) -> dict:
     """Return a unique, deterministic brain/context specification for a worker."""
     worker = WORKERS.get(worker_id)
     if worker is None:
-        raise ValueError("worker_id must identify a registered analytical worker")
+        raise ValueError("worker_id must identify a registered analytical agent")
     role = (
         f"You are {worker['name']}, a specialist analytical research agent in "
         f"{worker['department']}. Your specialty is {worker['specialty']}. "
@@ -72,7 +72,7 @@ def runtime_manifest() -> dict:
 
 def validate_learning_feedback(worker_id: str, feedback: dict) -> dict:
     if worker_id not in WORKERS:
-        raise ValueError("worker_id must identify a registered analytical worker")
+        raise ValueError("worker_id must identify a registered analytical agent")
     if not isinstance(feedback, dict):
         raise ValueError("feedback must be an object")
     summary = _bounded_text(feedback.get("summary"), "summary", MAX_FEEDBACK_CHARS)
@@ -93,7 +93,7 @@ def validate_learning_feedback(worker_id: str, feedback: dict) -> dict:
 
 def validate_update_proposal(worker_id: str, proposal: dict) -> dict:
     if worker_id not in WORKERS:
-        raise ValueError("worker_id must identify a registered analytical worker")
+        raise ValueError("worker_id must identify a registered analytical agent")
     if not isinstance(proposal, dict):
         raise ValueError("proposal must be an object")
     title = _bounded_text(proposal.get("title"), "title", 160)

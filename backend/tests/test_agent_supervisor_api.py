@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from fastapi import HTTPException
+from pydantic import ValidationError
 
 
 class AgentSupervisorRouteTests(unittest.TestCase):
@@ -33,11 +33,9 @@ class AgentSupervisorRouteTests(unittest.TestCase):
             analytical_agent_supervisor_dispatch,
         )
 
-        with self.assertRaises(HTTPException) as caught:
-            analytical_agent_supervisor_dispatch(
-                AgentSupervisorDispatchRequest(limit=551, max_concurrency=4)
-            )
-        self.assertEqual(caught.exception.status_code, 422)
+        with self.assertRaises(ValidationError):
+            request = AgentSupervisorDispatchRequest(limit=551, max_concurrency=4)
+            analytical_agent_supervisor_dispatch(request)
 
     def test_recovery_route_requeues_but_does_not_dispatch(self):
         from app.analytical_agent_tasks import enqueue_research_task

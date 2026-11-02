@@ -234,3 +234,18 @@
 .agent-network-node .react-flow__handle{width:5px;height:5px;background:#8c9aa5;border:1px solid #171b20}
 .agent-network-foot{display:flex;justify-content:space-between;gap:10px;padding:10px 2px 0;color:#6d7884;font:9px 'DM Mono';letter-spacing:.4px}
 @media(max-width:900px){.agent-network-view{padding:14px}.agent-network-heading{flex-direction:column}.agent-network-canvas{min-height:420px}.agent-network-foot{flex-direction:column}}
+
+
+.agent-network-filterbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 10px;padding:9px 11px;border:1px solid #252b33;background:#10151a}
+.agent-network-search{display:flex;align-items:center;gap:8px;flex:1;min-width:230px;color:#7d8995}
+.agent-network-search input{width:100%;background:transparent;border:0;outline:0;color:#e2e7ed;font:10px 'DM Mono'}
+.agent-network-filterbar select,.agent-network-filterbar button{background:#171c22;border:1px solid #303741;color:#aeb7c1;border-radius:4px;padding:8px 10px;font:9px 'DM Mono'}
+.agent-network-filterbar>span{color:#d3a34e;font:9px 'DM Mono';white-space:nowrap}
+.agent-network-filterbar button{cursor:pointer}
+.agent-network-inspector{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:10px;padding:12px 14px;border:1px solid #8b6b37;background:#1d1912;color:#c9d0d8;font:10px 'DM Mono'}
+.agent-network-inspector>div{display:flex;flex-direction:column;gap:4px}
+.agent-network-inspector b{color:#e4b65f}
+.agent-network-inspector small{color:#8d98a3;font-size:9px}
+.agent-network-inspector>span{color:#aab4bf}
+.agent-network-inspector .agent-inspector-status{color:#d6a44e}
+.agent-network-inspector button{margin-left:auto;background:#171c22;border:1px solid #4a4130;color:#c6b18b;padding:6px 9px;font:9px 'DM Mono';cursor:pointer}

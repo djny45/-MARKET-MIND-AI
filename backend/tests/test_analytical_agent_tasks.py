@@ -132,6 +132,25 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             list_task_audit_events(queued["task_id"], event_type="")
 
+    def test_task_audit_cursor_paginates_without_repeating_events(self):
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, execute_queued_research_task, list_task_audit_events,
+        )
+        queued = enqueue_research_task("worker_013", "audit cursor paging")
+        execute_queued_research_task(queued["task_id"])
+        first = list_task_audit_events(queued["task_id"], limit=2)
+        self.assertEqual(first["count"], 2)
+        cursor = first["next_before_event_id"]
+        self.assertIsNotNone(cursor)
+        second = list_task_audit_events(queued["task_id"], limit=2, before_event_id=cursor)
+        self.assertTrue(second["count"] >= 1)
+        first_ids = {event["event_id"] for event in first["events"]}
+        second_ids = {event["event_id"] for event in second["events"]}
+        self.assertTrue(first_ids.isdisjoint(second_ids))
+        self.assertEqual(first["events"][-1]["event_id"] > second["events"][-1]["event_id"], True)
+        with self.assertRaises(ValueError):
+            list_task_audit_events(queued["task_id"], before_event_id=0)
+
     def test_queue_task_rejects_invalid_worker(self):
         from app.analytical_agent_tasks import enqueue_research_task
         with self.assertRaises(ValueError):

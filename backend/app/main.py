@@ -883,11 +883,12 @@ def review_research_synthesis(request: SynthesisReviewRequest):
  authentication/authorization is required before public deployment.
  """
  try:
-  return build_synthesis_review(
+  review = build_synthesis_review(
    draft=request.draft, claims=request.claims,
    source_registry=request.source_registry, decision=request.decision,
    reviewer=request.reviewer, review_note=request.review_note,
   )
+  return workspace.save_synthesis_review(review)
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 

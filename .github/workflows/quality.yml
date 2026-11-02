@@ -94,6 +94,20 @@ jobs:
           assert result["status"] == "completed"
           assert result["results"]["quality"]["quality"]["status"] == "pass"
           PY
+      - name: Capture backend failure diagnostics
+        if: failure()
+        run: |
+          python -m pip freeze > backend-pip-freeze.txt 2>&1 || true
+          PYTHONPATH=backend python -m unittest discover -s backend/tests -v > backend-test-retry.log 2>&1 || true
+      - name: Upload backend diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-diagnostics
+          path: |
+            backend-pip-freeze.txt
+            backend-test-retry.log
+          if-no-files-found: warn
   frontend:
     runs-on: ubuntu-latest
     steps:
@@ -102,6 +116,21 @@ jobs:
         with:
           node-version: "22"
       - run: cd frontend && npm install && npm run build
+      - name: Capture frontend failure diagnostics
+        if: failure()
+        run: |
+          cd frontend
+          npm ls --all > frontend-dependency-tree.txt 2>&1 || true
+          npm audit --json > frontend-npm-audit.json 2>&1 || true
+      - name: Upload frontend diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-diagnostics
+          path: |
+            frontend/frontend-dependency-tree.txt
+            frontend/frontend-npm-audit.json
+          if-no-files-found: warn
 
   container-build:
     runs-on: ubuntu-latest
@@ -222,3 +251,18 @@ jobs:
           node-version: "22"
       - run: cd frontend && npm install --package-lock-only --ignore-scripts
       - run: cd frontend && npm audit --audit-level=high
+      - name: Capture dependency audit diagnostics
+        if: failure()
+        run: |
+          pip-audit -r backend/requirements.txt --format json > backend-pip-audit.json 2>&1 || true
+          cd frontend
+          npm audit --json > frontend-npm-audit.json 2>&1 || true
+      - name: Upload dependency audit diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-audit-diagnostics
+          path: |
+            backend-pip-audit.json
+            frontend/frontend-npm-audit.json
+          if-no-files-found: warn

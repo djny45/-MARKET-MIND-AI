@@ -8,6 +8,12 @@
 
 TradingAgents is a broader multi-agent financial trading research framework. This repository adopts **selected market-data design ideas only**: provider routing, typed data-unavailable outcomes, source-aware adapters, point-in-time controls, and graceful degradation. It does not vendor the upstream full application or its trading decision/execution modules.
 
+## Verified upstream dataflow mapping
+
+The current upstream `tradingagents/dataflows/router.py` maps Yahoo Finance and Alpha Vantage to OHLCV, indicators, fundamentals, news and insider-transaction methods; SEC EDGAR is used for selected financial statements; FRED supplies macro indicators. See the [upstream router](https://github.com/TauricResearch/TradingAgents/blob/main/tradingagents/dataflows/router.py) and [provider defaults](https://github.com/TauricResearch/TradingAgents/blob/main/tradingagents/default_config.py).
+
+Prediction-market functionality present upstream is intentionally excluded from MARKET-MIND-AI. Do not port it.
+
 ## What was added
 
 - `.agents/skills/tradingagents-market-data-research/SKILL.md`: reusable agent playbook for data provider integration, provenance, point-in-time integrity, quality checks and source-linked reporting.

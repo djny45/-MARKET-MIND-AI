@@ -70,6 +70,7 @@ Specialist modules exchange deterministic records; per-agent brain-context and l
 | CI quality workflow | Added; run status visible in GitHub Actions |
 | Market taxonomy and searchable instrument reference directory | Added |
 | Configurable RSS news ingestion and terminal news panel | Added |
+| Optional Agent Reach external research connector | Integration guide added; upstream CLI remains separately installed and opt-in, no automatic subprocess or credential handling |
 | SMA, EMA, RSI, MACD, Bollinger and realized-volatility library | Added |
 | Async in-process event bus and latency architecture | Added |
 | Normalized OHLCV contract, timezone validation, provider adapter protocol and synthetic fixture | Added |
@@ -79,6 +80,10 @@ Specialist modules exchange deterministic records; per-agent brain-context and l
 | Interactive sample-series chart using Lightweight Charts | Added |
 | Workflow diagrams and graph usage guide | Added |
 | Unit tests for branching DAG execution and cycle rejection | Added |
+
+## Agent Reach research connector
+
+[Agent Reach integration guide](docs/AGENT-REACH-INTEGRATION.md) documents optional use of [Panniantong/Agent-Reach](https://github.com/Panniantong/Agent-Reach) for read-only web/social research alongside official RSS ingestion. It is installed and operated separately; no browser credentials, scraping jobs, or external CLI execution are enabled by MARKET-MIND-AI automatically. Retrieved content is untrusted and requires source verification. See the guide for setup and boundaries.
 
 ## Shared agent skill playbooks
 

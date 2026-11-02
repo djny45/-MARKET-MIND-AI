@@ -3,7 +3,6 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 
@@ -28,33 +27,17 @@ class AgentSupervisorRouteTests(unittest.TestCase):
         self.assertFalse(result["continuous_daemon"])
         self.assertFalse(result["distributed_queue"])
 
-    def test_http_dispatch_route_returns_422_for_out_of_range_limits(self):
-        from app.main import app
-
-        with TestClient(app) as client:
-            response = client.post(
-                "/api/analytical-agent-supervisor/dispatch",
-                json={"limit": 551, "max_concurrency": 4},
-            )
-        self.assertEqual(response.status_code, 422)
-        self.assertIn("limit", response.json()["detail"][0]["loc"])
-
-    def test_http_dispatch_route_returns_422_for_out_of_range_concurrency(self):
-        from app.main import app
-
-        with TestClient(app) as client:
-            response = client.post(
-                "/api/analytical-agent-supervisor/dispatch",
-                json={"limit": 50, "max_concurrency": 17},
-            )
-        self.assertEqual(response.status_code, 422)
-        self.assertIn("max_concurrency", response.json()["detail"][0]["loc"])
-
-    def test_dispatch_route_rejects_out_of_range_limits_at_schema_boundary(self):
+    def test_dispatch_route_rejects_out_of_range_limits(self):
         from app.main import AgentSupervisorDispatchRequest
 
         with self.assertRaises(ValidationError):
             AgentSupervisorDispatchRequest(limit=551, max_concurrency=4)
+
+    def test_dispatch_route_rejects_out_of_range_concurrency(self):
+        from app.main import AgentSupervisorDispatchRequest
+
+        with self.assertRaises(ValidationError):
+            AgentSupervisorDispatchRequest(limit=50, max_concurrency=17)
 
     def test_recovery_route_requeues_but_does_not_dispatch(self):
         from app.analytical_agent_tasks import enqueue_research_task

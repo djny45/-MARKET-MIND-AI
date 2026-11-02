@@ -68,7 +68,7 @@ class ProposalReviewApiTests(unittest.TestCase):
         unchanged = next(x for x in after if x["memory_id"] == proposal_id)
         self.assertEqual(unchanged["content"], proposal["content"])
         reviews = read_memory("worker_001", "validation_result", 200)["memory"]
-        self.assertEqual(reviews[-1]["content"]["proposal_review"]["proposal_id"], proposal_id)
+        self.assertEqual(reviews[0]["content"]["proposal_review"]["proposal_id"], proposal_id)
 
     def test_reject_decision_is_append_only_and_supported(self):
         proposal_id = self._create_proposal()

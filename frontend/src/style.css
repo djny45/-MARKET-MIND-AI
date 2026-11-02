@@ -252,3 +252,61 @@
 
 
 .agent-network-activity-note{margin:0 0 9px;padding:8px 11px;border-left:2px solid #b98b43;background:#17140f;color:#a99b82;font:9px 'DM Mono';line-height:1.5}
+
+
+/* Agent research stance monitor — manual labels, not trading positions */
+.agent-position-view{display:flex;flex-direction:column;gap:14px;min-width:0;min-height:0;flex:1;padding:22px 24px 16px;background:radial-gradient(ellipse at 50% 0%,#171b20 0%,#0b0e12 62%);overflow:auto}
+.agent-position-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:20px}
+.agent-position-heading h1{display:flex;align-items:center;gap:10px;font-size:22px;margin:8px 0;color:#e6e9ed}
+.agent-position-heading h1 svg{color:#d4a34c}
+.agent-position-heading p{max-width:780px;color:#8994a0;font-size:11px;line-height:1.65;margin:0}
+.agent-position-controls{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.agent-position-controls label,.agent-position-inspector label{display:flex;flex-direction:column;gap:5px;color:#7d8995;font:9px 'DM Mono',monospace}
+.agent-position-controls select,.agent-position-inspector select{background:#151a20;border:1px solid #39414b;color:#e1e6eb;padding:8px 10px;border-radius:4px;font:11px 'DM Mono',monospace}
+.session-tag{padding:8px 10px;border:1px solid #66502e;color:#d4a34c;background:#211a11;font:9px 'DM Mono',monospace;white-space:nowrap}
+.agent-position-warning{display:flex;align-items:center;gap:9px;padding:10px 12px;border:1px solid #5d4829;background:#1d1710;color:#c7a66e;font:10px 'DM Mono',monospace;line-height:1.5}
+.agent-position-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+.agent-position-summary button{display:flex;align-items:center;gap:12px;text-align:left;padding:13px 15px;background:#11161b;border:1px solid #303741;color:#9aa5b0;border-radius:5px;cursor:pointer;transition:border-color .15s,background .15s}
+.agent-position-summary button:hover,.agent-position-summary button.selected{background:#1a2027;border-color:#d2a34c}
+.agent-position-summary button.long svg,.stance-actions button.long{color:#57c58c}
+.agent-position-summary button.short svg,.stance-actions button.short{color:#e47777}
+.agent-position-summary button.neutral svg,.stance-actions button.neutral{color:#a8b2bd}
+.agent-position-summary button.unassigned svg{color:#d2a34c}
+.agent-position-summary b{display:block;font:22px 'DM Mono',monospace;color:#e5e9ee}
+.agent-position-summary small{display:block;margin-top:3px;font:9px 'DM Mono',monospace;color:#87929d}
+.agent-position-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px;border:1px solid #262d35;background:#10151a}
+.agent-position-search{display:flex;align-items:center;gap:8px;flex:1;min-width:220px;color:#778491}
+.agent-position-search input{width:100%;border:0;outline:0;background:transparent;color:#e1e6eb;font:10px 'DM Mono',monospace}
+.agent-position-toolbar select,.agent-position-toolbar button{background:#171c22;border:1px solid #343c46;color:#aeb8c2;border-radius:4px;padding:8px 10px;font:9px 'DM Mono',monospace}
+.agent-position-toolbar button{display:flex;align-items:center;gap:5px;cursor:pointer}
+.agent-position-toolbar button:hover{border-color:#bd9147;color:#e1b568}
+.agent-position-toolbar>span{margin-left:auto;color:#d2a34c;font:9px 'DM Mono',monospace;white-space:nowrap}
+.agent-position-table-wrap{border:1px solid #2b323b;background:#0e1217;overflow:auto}
+.agent-position-table{width:100%;border-collapse:collapse;min-width:850px;font:10px 'DM Mono',monospace}
+.agent-position-table th{position:sticky;top:0;background:#1a2026;color:#7f8b97;text-align:left;padding:11px 12px;border-bottom:1px solid #39414b;font-size:9px;letter-spacing:.5px}
+.agent-position-table td{padding:10px 12px;border-bottom:1px solid #202831;color:#b8c1ca;vertical-align:middle}
+.agent-position-table tbody tr{cursor:pointer}
+.agent-position-table tbody tr:hover,.agent-position-table tbody tr.active{background:#171d23}
+.agent-position-table td b{display:block;color:#e2e7ec;font-size:10px}
+.agent-position-table td small{display:block;color:#707d89;margin-top:4px;font-size:8px}
+.agent-profile-status{display:inline-flex;align-items:center;gap:6px;color:#9ba6b1;font-size:9px}
+.agent-profile-status i{width:5px;height:5px;border-radius:50%;background:#6e9d80}
+.stance-badge{display:inline-block;padding:5px 8px;border:1px solid #353e47;border-radius:3px;font-size:9px}
+.stance-badge.long{color:#60d69b;border-color:#285e48;background:#10251b}
+.stance-badge.short{color:#ed8585;border-color:#653535;background:#281414}
+.stance-badge.neutral{color:#c1cad3;border-color:#46515b;background:#1b2229}
+.stance-badge.unassigned{color:#87929d}
+.stance-actions{display:flex;gap:4px;flex-wrap:wrap}
+.stance-actions button{padding:5px 6px;border:1px solid #343c46;background:#151a20;color:#788491;border-radius:3px;font:8px 'DM Mono',monospace;cursor:pointer}
+.stance-actions button.active{border-color:#d0a04b;background:#261d11;color:#e5b867}
+.stance-actions button.active.long{border-color:#327d59;background:#10251b;color:#69d7a0}
+.stance-actions button.active.short{border-color:#8a4141;background:#2b1515;color:#ef8d8d}
+.agent-position-empty{padding:30px;text-align:center;color:#7f8b96;font:10px 'DM Mono',monospace}
+.agent-position-load{display:block;margin:12px auto;padding:9px 15px;border:1px solid #66502e;background:#201a12;color:#d5aa61;font:9px 'DM Mono',monospace;cursor:pointer}
+.agent-position-inspector{display:flex;align-items:center;gap:20px;flex-wrap:wrap;padding:13px 15px;border:1px solid #72572e;background:#1b1711;color:#c4cbd2;font:10px 'DM Mono',monospace}
+.agent-position-inspector h2{margin:5px 0;color:#e5b45d;font-size:15px}
+.agent-position-inspector small{display:block;color:#87929d;margin-top:4px;font-size:9px}
+.agent-position-inspector>div{display:flex;flex-direction:column;gap:3px}
+.agent-position-inspector>button{margin-left:auto;padding:7px 10px;background:#171c22;border:1px solid #4a4130;color:#c8b28b;cursor:pointer;font:9px 'DM Mono',monospace}
+.agent-position-foot{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;color:#6f7b87;font:9px 'DM Mono',monospace}
+@media(max-width:900px){.agent-position-view{padding:14px}.agent-position-heading{flex-direction:column}.agent-position-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.agent-position-toolbar>span{margin-left:0}.agent-position-inspector{align-items:flex-start;flex-direction:column}}

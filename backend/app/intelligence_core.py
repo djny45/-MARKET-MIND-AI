@@ -107,10 +107,7 @@ def synthesize_research(research: dict, *, opener=urlopen) -> dict:
     prompt = (
         "Summarize only the supplied research JSON. Do not invent data, predictions, "
         "or recommendations. Explicitly mention missing provenance and uncertainty. "
-        "Return concise plain text.
-
-RESEARCH JSON:
-" + payload
+        "Return concise plain text.\\n\\nRESEARCH JSON:\\n" + payload
     )
 
     selected = os.getenv("INTELLIGENCE_CORE_PROVIDER", "ollama").strip().lower()

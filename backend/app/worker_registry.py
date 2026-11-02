@@ -35,6 +35,7 @@ def evaluate_registry() -> dict:
     return {
         "registry_version": REGISTRY_VERSION,
         "agent_count": len(workers),
+        "worker_count": len(workers),  # legacy API compatibility
         "department_count": len(DEPARTMENTS),
         "department_counts": counts,
         "shared_intelligence_core": EXPECTED_CORE,
@@ -55,6 +56,7 @@ def registry_manifest() -> dict:
     return {
         "registry_version": REGISTRY_VERSION,
         "agent_count": evaluation["agent_count"],
+        "worker_count": evaluation["agent_count"],  # legacy API compatibility
         "department_count": evaluation["department_count"],
         "profile_digest_sha256": evaluation["profile_digest_sha256"],
         "valid": evaluation["valid"],

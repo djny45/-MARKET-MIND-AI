@@ -6,6 +6,8 @@ modify model weights, agent prompts, strategy parameters, or execute trades.
 from __future__ import annotations
 
 from datetime import datetime
+import hashlib
+import json
 from typing import Any
 
 from .worker_memory import read_memory

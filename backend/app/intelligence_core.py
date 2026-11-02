@@ -48,7 +48,7 @@ def _ollama_url() -> str | None:
     return raw.rstrip("/")
 
 
-def intelligence_core_status() -> dict:
+# Compatibility alias for existing Ollama tests and integrations.\ndef _configured_url() -> str | None:\n    return _ollama_url()\n\n\ndef intelligence_core_status() -> dict:
     """Report configured provider state without making a network request."""
     enabled = os.getenv("INTELLIGENCE_CORE_ENABLED", "false").strip().lower() == "true"
     selected = os.getenv("INTELLIGENCE_CORE_PROVIDER", "ollama").strip().lower()

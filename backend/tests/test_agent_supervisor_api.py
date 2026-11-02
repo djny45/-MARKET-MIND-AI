@@ -47,13 +47,13 @@ class AgentSupervisorRouteTests(unittest.TestCase):
         import sqlite3
         with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
             db.execute(
-                "UPDATE analytical_agent_tasks SET status='running' WHERE task_id=?",
-                (task["task_id"],),
+                "UPDATE analytical_agent_tasks SET status='running',updated_at=? WHERE task_id=?",
+                ("2000-01-01T00:00:00+00:00", task["task_id"]),
             )
 
         result = analytical_agent_recover_tasks()
         self.assertEqual(result["requeued_interrupted_count"], 1)
-        self.assertEqual(result["recovery_mode"], "manual_requeue_no_dispatch")
+        self.assertEqual(result["recovery_mode"], "manual_stale_requeue_no_dispatch")
         self.assertIn(task["task_id"], result["queued_task_ids"])
 
 

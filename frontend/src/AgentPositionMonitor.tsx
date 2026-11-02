@@ -24,7 +24,7 @@ export default function AgentPositionMonitor({ agents }: Props) {
   const [selectedId, setSelectedId] = useState('')
   const [visibleCount, setVisibleCount] = useState(50)
 
-  const departments = useMemo(() => ['ALL DEPARTMENTS', ...Array.from(new Set(agents.map(a => a.department || 'General Research'))).sort(), [agents])
+  const departments = useMemo(() => ['ALL DEPARTMENTS', ...Array.from(new Set(agents.map(a => a.department || 'General Research'))).sort()], [agents])
   const filtered = useMemo(() => agents.slice(0, 550).filter((agent, index) => {
     const id = normalizeId(agent, index)
     const text = [id, agent.name, agent.department, agent.specialty, agent.kind].join(' ').toLowerCase()

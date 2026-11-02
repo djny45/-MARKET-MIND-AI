@@ -39,6 +39,22 @@ class LearningEngineTests(unittest.TestCase):
         self.assertFalse(result["model_training"])
         self.assertFalse(result["auto_apply"])
 
+    def test_latest_feedback_timestamp_ignores_invalid_and_normalizes_utc(self):
+        def fake_read_memory(worker_id, memory_type, limit):
+            if memory_type == "validation_result":
+                return {"memory": [
+                    {"content": {"outcome": "helpful"}, "created_at": "2024-01-01T12:00:00+05:30"},
+                    {"content": {"outcome": "not_helpful"}, "created_at": "2024-02-01T00:00:00Z"},
+                    {"content": {"outcome": "unverified"}, "created_at": "2025-01-01T00:00:00"},
+                    {"content": {"outcome": "helpful"}, "created_at": "not-a-date"},
+                ]}
+            return {"memory": []}
+
+        with patch("app.learning_engine.read_memory", side_effect=fake_read_memory):
+            result = agent_learning_summary("worker_001")
+
+        self.assertEqual(result["latest_feedback_at"], "2024-02-01T00:00:00+00:00")
+
     def test_overview_covers_registered_agents_and_discloses_no_training(self):
         result = learning_overview()
         self.assertEqual(result["agent_count"], 550)

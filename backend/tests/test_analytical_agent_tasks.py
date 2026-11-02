@@ -60,6 +60,29 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertIn(saved["status"], ("completed", "failed"))
         self.assertNotEqual(saved["status"], "queued")
 
+    def test_task_audit_events_record_queue_claim_and_completion(self):
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, execute_queued_research_task, list_task_audit_events,
+        )
+        queued = enqueue_research_task("worker_007", "audit lifecycle")
+        execute_queued_research_task(queued["task_id"])
+        audit = list_task_audit_events(queued["task_id"])
+        self.assertEqual(
+            [event["event_type"] for event in audit["events"]],
+            ["task_queued", "task_claimed", "task_completed"],
+        )
+        self.assertEqual(audit["events"][0]["to_status"], "queued")
+        self.assertEqual(audit["events"][1]["from_status"], "queued")
+        self.assertEqual(audit["events"][2]["to_status"], "completed")
+
+    def test_task_audit_events_are_bounded_and_unknown_task_is_empty(self):
+        from app.analytical_agent_tasks import enqueue_research_task, list_task_audit_events
+        queued = enqueue_research_task("worker_008", "audit bounds")
+        self.assertEqual(list_task_audit_events(queued["task_id"], limit=1)["count"], 1)
+        self.assertEqual(list_task_audit_events("unknown-task")["events"], [])
+        with self.assertRaises(ValueError):
+            list_task_audit_events(queued["task_id"], limit=0)
+
     def test_queue_task_rejects_invalid_worker(self):
         from app.analytical_agent_tasks import enqueue_research_task
         with self.assertRaises(ValueError):

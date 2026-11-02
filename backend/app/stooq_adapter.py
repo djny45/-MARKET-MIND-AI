@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import csv
 import io
+import math
 import os
 import urllib.error
 import urllib.parse
@@ -108,11 +109,16 @@ class StooqAdapter:
                 values = [float((row.get(key) or "").strip()) for key in ("Open", "High", "Low", "Close")]
                 volume_text = (row.get("Volume") or "").strip()
                 volume = float(volume_text) if volume_text else 0.0
-                if any(value <= 0 for value in values) or volume < 0:
+                if (not all(math.isfinite(value) for value in values)
+                        or not math.isfinite(volume)
+                        or any(value <= 0 for value in values) or volume < 0):
+                    continue
+                open_price, high, low, close = values
+                if high < max(open_price, close) or low > min(open_price, close) or high < low:
                     continue
                 bars.append(OHLCVBar(
                     timestamp=datetime(day.year, day.month, day.day, tzinfo=timezone.utc),
-                    open=values[0], high=values[1], low=values[2], close=values[3],
+                    open=open_price, high=high, low=low, close=close,
                     volume=volume,
                 ))
             except (TypeError, ValueError, OverflowError):

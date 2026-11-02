@@ -19,6 +19,9 @@ class MarketDataValidationReportTests(unittest.TestCase):
         original = repr(payload)
         report = validate_market_data_payload(payload)
         self.assertTrue(report["valid"])
+        self.assertEqual(report["schema_version"], 1)
+        self.assertTrue(report["generated_at"].endswith("+00:00"))
+        self.assertEqual(report["retrieved_at"], "2026-01-02T00:00:00+00:00")
         self.assertEqual(report["symbol"], "BTCUSD")
         self.assertEqual(report["bar_count"], 1)
         self.assertEqual(payload["symbol"], " btcusd ")
@@ -38,6 +41,8 @@ class MarketDataValidationReportTests(unittest.TestCase):
             }],
         })
         self.assertFalse(report["valid"])
+        self.assertEqual(report["schema_version"], 1)
+        self.assertTrue(report["generated_at"].endswith("+00:00"))
         self.assertTrue(report["errors"])
         self.assertIsNone(report["bar_count"])
 

@@ -25,12 +25,12 @@ def _connect():
     db = sqlite3.connect(path, timeout=10)
     db.row_factory = sqlite3.Row
     db.execute("""CREATE TABLE IF NOT EXISTS analytical_agent_tasks (
-        task_id TEXT PRIMARY KEY, agent_id TEXT NOT NULL, task_type TEXT NOT NULL,
+        task_id TEXT PRIMARY KEY, worker_id TEXT NOT NULL, task_type TEXT NOT NULL,
         status TEXT NOT NULL, input_json TEXT NOT NULL, result_json TEXT NOT NULL,
         brain_context_sha256 TEXT NOT NULL, created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
     )""")
-    db.execute("CREATE INDEX IF NOT EXISTS idx_agent_tasks_agent_time ON analytical_agent_tasks(agent_id,created_at)")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_agent_tasks_agent_time ON analytical_agent_tasks(worker_id,created_at)")
     return db
 
 def _json(value):
@@ -76,7 +76,7 @@ def execute_queued_research_task(task_id: str) -> None:
         if claimed.rowcount != 1:
             return
         task_input = json.loads(row["input_json"])
-        agent_id = row["agent_id"]
+        agent_id = row["worker_id"]
         brain = brain_config(agent_id)
     payload = {
         "agent": {"id": agent_id, "department": brain["department"], "specialty": brain["specialty"]},
@@ -180,7 +180,7 @@ def get_research_task(task_id: str) -> dict | None:
     if row is None:
         return None
     return {
-        "task_id": row["task_id"], "agent_id": row["agent_id"],
+        "task_id": row["task_id"], "agent_id": row["worker_id"],
         "task_type": row["task_type"], "status": row["status"],
         "input": json.loads(row["input_json"]), "result": json.loads(row["result_json"]),
         "brain_context_sha256": row["brain_context_sha256"],

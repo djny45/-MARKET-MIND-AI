@@ -19,6 +19,8 @@ class MarketDataValidationReportTests(unittest.TestCase):
         original = repr(payload)
         report = validate_market_data_payload(payload)
         self.assertTrue(report["valid"])
+        self.assertEqual(report["result"], "valid")
+        self.assertEqual(report["error_count"], 0)
         self.assertEqual(report["schema_version"], 1)
         self.assertTrue(report["generated_at"].endswith("+00:00"))
         self.assertEqual(report["retrieved_at"], "2026-01-02T00:00:00+00:00")
@@ -41,6 +43,8 @@ class MarketDataValidationReportTests(unittest.TestCase):
             }],
         })
         self.assertFalse(report["valid"])
+        self.assertEqual(report["result"], "invalid")
+        self.assertEqual(report["error_count"], len(report["errors"]))
         self.assertEqual(report["schema_version"], 1)
         self.assertTrue(report["generated_at"].endswith("+00:00"))
         self.assertTrue(report["errors"])

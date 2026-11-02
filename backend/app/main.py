@@ -11,6 +11,7 @@ from .worker_runtime import worker_runtime_status
 from .worker_memory import append_memory, read_memory
 from .worker_registry import evaluate_registry, registry_manifest
 from .research_orchestrator import orchestrate_research
+from .intelligence_core import intelligence_core_status, synthesize_research, IntelligenceCoreError
 from .skill_catalog import list_skills, load_skill
 from .markets import market_catalog
 from .instruments import search_instruments
@@ -275,6 +276,15 @@ def get_worker_memory(worker_id: str, memory_type: str | None = None, limit: int
 def worker_registry():
  """Return the versioned 550-profile registry manifest and integrity evaluation."""
  return {"manifest": registry_manifest(), "evaluation": evaluate_registry()}
+
+
+@app.get("/api/intelligence-core")
+def intelligence_core():
+ """Report shared-core provider configuration without probing or loading a model."""
+ try:
+  return intelligence_core_status()
+ except IntelligenceCoreError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.get("/api/worker-runtime")

@@ -39,6 +39,27 @@ class AgentSupervisorRouteTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             AgentSupervisorDispatchRequest(limit=50, max_concurrency=17)
 
+    def test_task_audit_route_returns_events_and_validates_limit(self):
+        from app.analytical_agent_tasks import submit_research_task
+        from app.main import analytical_agent_task_audit
+        task = submit_research_task("worker_004", "audit route test")
+        response = analytical_agent_task_audit(task["task_id"], limit=10)
+        self.assertEqual(response["task_id"], task["task_id"])
+        self.assertEqual(
+            [event["event_type"] for event in response["events"]],
+            ["task_submitted", "task_completed"],
+        )
+        with self.assertRaises(Exception) as caught:
+            analytical_agent_task_audit(task["task_id"], limit=0)
+        self.assertEqual(getattr(caught.exception, "status_code", None), 400)
+
+    def test_task_audit_route_returns_404_for_unknown_task(self):
+        from app.main import analytical_agent_task_audit
+        from fastapi import HTTPException
+        with self.assertRaises(HTTPException) as caught:
+            analytical_agent_task_audit("missing-task")
+        self.assertEqual(caught.exception.status_code, 404)
+
     def test_recovery_route_requeues_but_does_not_dispatch(self):
         from app.analytical_agent_tasks import enqueue_research_task
         from app.main import analytical_agent_recover_tasks

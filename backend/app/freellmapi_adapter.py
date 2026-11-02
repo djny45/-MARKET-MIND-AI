@@ -59,8 +59,14 @@ def build_chat_completion_request(base_url: str, api_key: str, model: str, promp
         "max_tokens": 700,
         "stream": False,
     }).encode("utf-8")
+    normalized_base = base_url.rstrip("/")
+    endpoint = (
+        normalized_base + "/chat/completions"
+        if normalized_base.endswith("/v1")
+        else normalized_base + "/v1/chat/completions"
+    )
     return (
-        base_url + "/v1/chat/completions",
+        endpoint,
         body,
         {
             "Content-Type": "application/json",

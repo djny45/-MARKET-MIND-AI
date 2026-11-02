@@ -77,7 +77,7 @@ class HistoricalQualityTests(unittest.TestCase):
         self.assertEqual(invalid["volume_count"], 2)
         self.assertEqual([item["bar_index"] for item in invalid["close_values"]], [5, 8])
         self.assertEqual([item["bar_index"] for item in invalid["volume_values"]], [10, 12])
-        self.assertTrue(all(__import__("math").isfinite(value) for value in result["close_to_close_return_outliers"].get("flagged_returns", [])))
+        self.assertEqual(result["close_to_close_return_outliers"]["sample_count"], 20)
         self.assertNotIn(10, result["volume_outliers"]["flagged_bar_indices"])
 
 

@@ -40,7 +40,7 @@ The platform is designed for research across four primary market groups: India, 
 - `GET /api/agent-network/messages` — read shared notes across markets or filter by market/topic.
 - `GET /api/agent-network/brief` — build a deterministic cross-market roundtable with per-market coverage, quality labels and comparable structured findings.
 
-Specialist modules exchange deterministic records; this does not activate LLM agents, live feeds or trading execution. See [four-market architecture](docs/FOUR-MARKET-PLATFORM.md).
+Specialist modules exchange deterministic records; per-agent brain-context and learning-governance scaffolding is implemented, but independent autonomous cloud agents and self-training are not yet active. No live feeds or trading execution. See [four-market architecture](docs/FOUR-MARKET-PLATFORM.md).
 
 ## Current implementation
 
@@ -55,6 +55,9 @@ Specialist modules exchange deterministic records; this does not activate LLM ag
 | 550 AI analytical worker profiles / 20 departments | Shared central intelligence; supported workflow nodes are routed to deterministic handlers; profiles are not 550 separate models or active runtime processes |
 | Cross-market research agent message bus | Added; deterministic shared mesh across India, US, crypto and forex; no model inference or live feeds |
 | Shared-core specialist worker routing | Added; workflow nodes map to validated worker profiles and deterministic handlers, with assignment metadata and runtime capability endpoint; no LLM inference or autonomous learning |
+| 550+ analytical agent brain contexts | Added distinct worker-specific role prompts, specialization, memory namespaces and brain-context hashes; agents share the configured inference provider rather than running 550 separate models |
+| Agent learning lifecycle | Added worker-scoped evaluated-feedback records and update proposals; proposals require review, tests and rollback planning; no automatic model-weight training or auto-application |
+| Agent cloud workspace | Not yet implemented; persistent local SQLite memory exists, but cloud-hosted autonomous agents, scheduler and remote workspaces remain future work |
 | Worker-scoped evidence memory | Added; append-only SQLite notes per registered worker with source references, quality labels, bounded JSON validation and read filters; not autonomous learning or executable instructions |
 | Versioned specialist-worker contracts | Added v1.0.0 input/output shape contracts and evidence requirements for all 10 workflow node types; execution validates contract shapes before and after deterministic handlers |
 | Versioned 550-worker registry | Added registry v1.0.0, SHA-256 profile manifest, department counts, and deterministic integrity evaluation endpoint; profiles remain templates coordinated by one core |

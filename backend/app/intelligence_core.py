@@ -48,7 +48,12 @@ def _ollama_url() -> str | None:
     return raw.rstrip("/")
 
 
-# Compatibility alias for existing Ollama tests and integrations.\ndef _configured_url() -> str | None:\n    return _ollama_url()\n\n\ndef intelligence_core_status() -> dict:
+# Compatibility alias for existing Ollama tests and integrations.
+def _configured_url() -> str | None:
+    return _ollama_url()
+
+
+def intelligence_core_status() -> dict:
     """Report configured provider state without making a network request."""
     enabled = os.getenv("INTELLIGENCE_CORE_ENABLED", "false").strip().lower() == "true"
     selected = os.getenv("INTELLIGENCE_CORE_PROVIDER", "ollama").strip().lower()
@@ -102,7 +107,10 @@ def synthesize_research(research: dict, *, opener=urlopen) -> dict:
     prompt = (
         "Summarize only the supplied research JSON. Do not invent data, predictions, "
         "or recommendations. Explicitly mention missing provenance and uncertainty. "
-        "Return concise plain text.\n\nRESEARCH JSON:\n" + payload
+        "Return concise plain text.
+
+RESEARCH JSON:
+" + payload
     )
 
     selected = os.getenv("INTELLIGENCE_CORE_PROVIDER", "ollama").strip().lower()

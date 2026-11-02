@@ -31,7 +31,23 @@ def _connect():
         updated_at TEXT NOT NULL
     )""")
     db.execute("CREATE INDEX IF NOT EXISTS idx_agent_tasks_agent_time ON analytical_agent_tasks(worker_id,created_at)")
+    db.execute("""CREATE TABLE IF NOT EXISTS analytical_agent_task_events (
+        event_id INTEGER PRIMARY KEY AUTOINCREMENT, task_id TEXT NOT NULL,
+        worker_id TEXT NOT NULL, event_type TEXT NOT NULL,
+        from_status TEXT, to_status TEXT, occurred_at TEXT NOT NULL,
+        detail_json TEXT NOT NULL DEFAULT '{}'
+    )""")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_agent_task_events_task_time ON analytical_agent_task_events(task_id,event_id)")
     return db
+
+def _record_event(db, task_id, worker_id, event_type, from_status=None, to_status=None, detail=None, occurred_at=None):
+    db.execute(
+        """INSERT INTO analytical_agent_task_events
+           (task_id,worker_id,event_type,from_status,to_status,occurred_at,detail_json)
+           VALUES (?,?,?,?,?,?,?)""",
+        (task_id, worker_id, event_type, from_status, to_status,
+         occurred_at or datetime.now(timezone.utc).isoformat(), _json(detail or {})),
+    )
 
 def _json(value):
     try:
@@ -57,6 +73,7 @@ def enqueue_research_task(agent_id: str, brief: str, data: dict | list | None = 
           (task_id,worker_id,task_type,status,input_json,result_json,brain_context_sha256,created_at,updated_at)
           VALUES (?,?,?,?,?,?,?,?,?)""",
           (task_id, agent_id, TASK_TYPE, "queued", input_json, "{}", brain["brain_context_sha256"], now, now))
+        _record_event(db, task_id, agent_id, "task_queued", to_status="queued", occurred_at=now)
     return {"task_id": task_id, "agent_id": agent_id, "worker_id": agent_id, "status": "queued",
             "created_at": now, "updated_at": now, "brain_context_sha256": brain["brain_context_sha256"],
             "execution_mode": "process_local_background_task"}
@@ -75,6 +92,8 @@ def execute_queued_research_task(task_id: str) -> None:
         )
         if claimed.rowcount != 1:
             return
+        _record_event(db, task_id, row["worker_id"], "task_claimed",
+                      from_status="queued", to_status="running", occurred_at=now)
         task_input = json.loads(row["input_json"])
         agent_id = row["worker_id"]
         brain = brain_config(agent_id)
@@ -99,6 +118,9 @@ def execute_queued_research_task(task_id: str) -> None:
     with _connect() as db:
         db.execute("UPDATE analytical_agent_tasks SET status=?,result_json=?,updated_at=? WHERE task_id=?",
                    (status, _json(result), updated, task_id))
+        _record_event(db, task_id, agent_id, "task_" + status,
+                      from_status="running", to_status=status, occurred_at=updated,
+                      detail={"error_type": result.get("error_type")} if status == "failed" else {})
 
 def recover_interrupted_research_tasks(stale_after_seconds: int = 900) -> dict:
     """Requeue only stale running tasks; this explicit operation never dispatches.
@@ -123,6 +145,13 @@ def recover_interrupted_research_tasks(stale_after_seconds: int = 900) -> dict:
             "WHERE status='running' AND updated_at < ?",
             (now, cutoff),
         )
+        for task in stale:
+            task_row = db.execute(
+                "SELECT worker_id FROM analytical_agent_tasks WHERE task_id=?", (task["task_id"],)
+            ).fetchone()
+            _record_event(db, task["task_id"], task_row["worker_id"], "task_requeued",
+                          from_status="running", to_status="queued", occurred_at=now,
+                          detail={"reason": "stale_recovery", "stale_after_seconds": stale_after_seconds})
         still_running = db.execute(
             "SELECT COUNT(*) FROM analytical_agent_tasks WHERE status='running'"
         ).fetchone()[0]
@@ -185,6 +214,26 @@ def submit_research_task(agent_id: str, brief: str, data: dict | list | None = N
     return {"task_id": task_id, "agent_id": agent_id, "worker_id": agent_id, "status": status,
             "created_at": now, "updated_at": updated, "result": result,
             "execution_mode": "bounded_synchronous_shared_core"}
+
+def list_task_audit_events(task_id: str, limit: int = 100) -> dict:
+    """Return chronological, bounded audit events for one task."""
+    if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 500:
+        raise ValueError("limit must be between 1 and 500")
+    with _connect() as db:
+        exists = db.execute("SELECT task_id FROM analytical_agent_tasks WHERE task_id=?", (task_id,)).fetchone()
+        if exists is None:
+            return {"task_id": task_id, "count": 0, "events": []}
+        rows = db.execute(
+            """SELECT event_id,task_id,worker_id,event_type,from_status,to_status,occurred_at,detail_json
+               FROM analytical_agent_task_events WHERE task_id=? ORDER BY event_id DESC LIMIT ?""",
+            (task_id, limit),
+        ).fetchall()
+    events = []
+    for row in reversed(rows):
+        event = dict(row)
+        event["detail"] = json.loads(event.pop("detail_json"))
+        events.append(event)
+    return {"task_id": task_id, "count": len(events), "events": events}
 
 def get_research_task(task_id: str) -> dict | None:
     with _connect() as db:

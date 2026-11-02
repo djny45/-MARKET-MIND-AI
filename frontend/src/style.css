@@ -201,3 +201,36 @@
 .liquidity-profile-track i{display:block;height:100%;background:#b68a4d;border-radius:2px;min-width:1px}
 .liquidity-profile-panel{border-color:#4b4030}
 @media(max-width:650px){.liquidity-profile-row{grid-template-columns:70px minmax(0,1fr) 38px;gap:6px}}
+
+
+/* Dense, zoomable analytical-agent graph inspired by node-based AI workspaces */
+.agent-network-view{display:flex;flex-direction:column;flex:1;min-width:0;min-height:0;padding:22px 24px 14px;background:radial-gradient(ellipse at 48% 45%,#171c22 0%,#0b0e12 68%)}
+.agent-network-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;margin-bottom:16px}
+.agent-network-heading h1{display:flex;align-items:center;gap:10px;font-size:22px;margin:9px 0;color:#e7e9ed}
+.agent-network-heading h1 svg{color:#d4a34c}
+.agent-network-heading p{max-width:720px;color:#8b949e;font-size:12px;line-height:1.6;margin:0}
+.agent-network-stats{display:grid;grid-template-columns:auto auto;align-items:center;gap:5px 12px;text-align:right;font:10px 'DM Mono';color:#8c96a1}
+.agent-network-stats b{font-size:20px;color:#d5a34e}
+.agent-network-legend{display:flex;align-items:center;flex-wrap:wrap;gap:16px;padding:10px 13px;border:1px solid #252b33;background:#10151a;color:#8d97a2;font:9px 'DM Mono';margin-bottom:10px}
+.agent-network-legend span{display:flex;align-items:center;gap:7px}
+.agent-network-legend i{display:inline-block;width:7px;height:7px;border-radius:50%}
+.agent-network-legend .core-dot{background:#d4a34c;box-shadow:0 0 8px #d4a34c}
+.agent-network-legend .dept-dot{background:#66869a}
+.agent-network-legend .agent-dot{background:#9c793d}
+.agent-network-canvas{flex:1;min-height:350px;border:1px solid #252b33;border-radius:8px;overflow:hidden;background:#090c10}
+.agent-network-canvas .react-flow__controls{background:#151a20;border:1px solid #303741}
+.agent-network-canvas .react-flow__controls button{background:#151a20;color:#c5ccd4;border-bottom:1px solid #303741}
+.agent-network-canvas .react-flow__minimap{background:#11161b;border:1px solid #303741}
+.agent-network-node{width:205px;background:#171b20;border:1px solid #454d56;border-radius:5px;box-shadow:0 5px 20px #0008;color:#dce1e7;font-family:'DM Mono',monospace}
+.agent-network-node.core{width:260px;border-color:#b88b42;background:#201a12;box-shadow:0 0 24px #b88b4226}
+.agent-node-head{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid #333a43;background:#20262d}
+.agent-network-node.core .agent-node-head{background:#322718;border-bottom-color:#624a29}
+.agent-node-head strong{font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
+.agent-node-dot{width:6px;height:6px;border-radius:50%;background:#7da2b5;flex-shrink:0}
+.agent-network-node.core .agent-node-dot{background:#e2b45e;box-shadow:0 0 8px #e2b45e}
+.agent-node-department{padding:7px 10px 2px;color:#d2a44f;font-size:9px}
+.agent-node-specialty{padding:4px 10px 8px;color:#8b96a2;font-size:9px;line-height:1.4;min-height:31px}
+.agent-node-foot{display:flex;justify-content:space-between;gap:6px;padding:6px 10px;border-top:1px solid #303741;color:#6e7b87;font-size:7px;letter-spacing:.3px}
+.agent-network-node .react-flow__handle{width:5px;height:5px;background:#8c9aa5;border:1px solid #171b20}
+.agent-network-foot{display:flex;justify-content:space-between;gap:10px;padding:10px 2px 0;color:#6d7884;font:9px 'DM Mono';letter-spacing:.4px}
+@media(max-width:900px){.agent-network-view{padding:14px}.agent-network-heading{flex-direction:column}.agent-network-canvas{min-height:420px}.agent-network-foot{flex-direction:column}}

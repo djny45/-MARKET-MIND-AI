@@ -1,6 +1,7 @@
 import os
 import tempfile
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import patch
 
 from app.analytical_agent_tasks import (
@@ -41,6 +42,19 @@ class AgentSupervisorTests(unittest.TestCase):
         self.assertEqual(result["max_concurrency"], 1)
         task = get_research_task(queued["task_id"])
         self.assertEqual(task["status"], "completed")
+
+    def test_duplicate_dispatch_claims_task_only_once(self):
+        queued = enqueue_research_task("worker_004", "duplicate dispatch sample")
+        with patch("app.analytical_agent_tasks.synthesize_research", return_value={"status": "completed"}) as synthesize:
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                futures = [pool.submit(
+                    __import__("app.analytical_agent_tasks", fromlist=["execute_queued_research_task"]).execute_queued_research_task,
+                    queued["task_id"],
+                ) for _ in range(2)]
+                for future in futures:
+                    future.result()
+            self.assertEqual(synthesize.call_count, 1)
+        self.assertEqual(get_research_task(queued["task_id"])["status"], "completed")
 
     def test_recovery_requeues_interrupted_tasks_without_dispatch(self):
         queued = enqueue_research_task("worker_002", "recover sample")

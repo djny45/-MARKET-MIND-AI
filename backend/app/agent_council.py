@@ -6,7 +6,7 @@ agent identities, not separate foundation models. Outputs are evidence-limited.
 """
 from __future__ import annotations
 
-import json
+import json\nfrom concurrent.futures import ThreadPoolExecutor, as_completed
 from .analytical_agent_runtime import brain_config
 from .intelligence_core import synthesize_research
 
@@ -84,41 +84,63 @@ def run_agent_council(agent_ids: list[str], brief: str, data: dict | list | None
     }
 
 
-def run_agent_batch(agent_ids: list[str], brief: str, data: dict | list | None = None) -> dict:
-    """Run a bounded batch across the registry (up to 550 agents) with clear per-agent outcomes.
+def run_agent_batch(
+    agent_ids: list[str],
+    brief: str,
+    data: dict | list | None = None,
+    max_concurrency: int = 4,
+) -> dict:
+    """Dispatch bounded concurrent agent tasks with isolated per-agent outcomes.
 
-    This is synchronous fan-out through the existing shared inference provider.
-    It is not 550 independent model processes or a durable parallel queue.
+    Each task uses the shared inference provider and persistent task lifecycle.
+    This is concurrency across task requests, not 550 independent models.
     """
     from .analytical_agent_tasks import submit_research_task
     if not isinstance(agent_ids, list) or not 1 <= len(agent_ids) <= MAX_BATCH_TASKS:
         raise ValueError(f"agent_ids must contain between 1 and {MAX_BATCH_TASKS} registered agents")
     if len(set(agent_ids)) != len(agent_ids):
         raise ValueError("agent_ids must be unique")
-    results = []
-    for agent_id in agent_ids:
+    if isinstance(max_concurrency, bool) or not isinstance(max_concurrency, int) or not 1 <= max_concurrency <= 16:
+        raise ValueError("max_concurrency must be an integer between 1 and 16")
+
+    def dispatch(agent_id):
         try:
             task = submit_research_task(agent_id, brief, data)
-            results.append({
-                "agent_id": agent_id,
-                "task_id": task.get("task_id"),
+            return {
+                "agent_id": agent_id, "task_id": task.get("task_id"),
                 "status": task.get("status", "unknown"),
                 "execution_mode": task.get("execution_mode"),
-                "result": task.get("result"),
-                "error": task.get("error"),
-            })
-        except ValueError as exc:
-            results.append({"agent_id": agent_id, "status": "rejected", "error": str(exc)})
+                "result": task.get("result"), "error": task.get("error"),
+            }
+        except Exception as exc:
+            # A failed member is recorded without cancelling sibling requests.
+            return {"agent_id": agent_id, "status": "failed",
+                    "error": f"{type(exc).__name__}: {str(exc)[:500]}"}
+
+    results_by_id = {}
+    with ThreadPoolExecutor(max_workers=min(max_concurrency, len(agent_ids)),
+                            thread_name_prefix="market-mind-agent") as pool:
+        futures = {pool.submit(dispatch, agent_id): agent_id for agent_id in agent_ids}
+        for future in as_completed(futures):
+            agent_id = futures[future]
+            try:
+                results_by_id[agent_id] = future.result()
+            except Exception as exc:
+                results_by_id[agent_id] = {"agent_id": agent_id, "status": "failed",
+                                           "error": f"{type(exc).__name__}: {str(exc)[:500]}"}
+
+    results = [results_by_id[agent_id] for agent_id in agent_ids]
     counts = {}
     for item in results:
-        counts[item["status"]] = counts.get(item["status"], 0) + 1
+        status = item["status"]
+        counts[status] = counts.get(status, 0) + 1
     return {
         "agent_count_requested": len(agent_ids),
         "agent_count_accepted": sum(item["status"] != "rejected" for item in results),
         "status_counts": counts,
-        "execution_mode": "bounded_sequential_shared_provider",
-        "note": "Batch fan-out uses the existing shared inference provider sequentially. It does not imply 550 independent model instances or parallel autonomous workers.",
-        "paper_trading": False,
-        "broker_execution": False,
+        "execution_mode": "bounded_concurrent_shared_provider",
+        "max_concurrency": min(max_concurrency, len(agent_ids)),
+        "note": "Bounded concurrent task dispatch through shared inference provider; not independent foundation models or a durable distributed queue.",
+        "paper_trading": False, "broker_execution": False,
         "results": results,
     }

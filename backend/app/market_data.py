@@ -32,7 +32,8 @@ class OHLCVBar(BaseModel):
                   "close": self.close, "volume": self.volume}
         non_finite = [name for name, value in values.items() if not math.isfinite(value)]
         if non_finite:
-            raise ValueError(f"OHLCV values must be finite; invalid fields: {\", \".join(non_finite)}")
+            field_names = ", ".join(non_finite)
+            raise ValueError(f"OHLCV values must be finite; invalid fields: {field_names}")
         return self
 
     @model_validator(mode="after")

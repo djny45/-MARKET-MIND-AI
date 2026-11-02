@@ -29,6 +29,7 @@ from .liquidity_indicators import calculate_volume_profile
 from .performance import performance_metrics
 from . import workspace
 from .market_data import SyntheticFixtureAdapter, MarketDataBatch
+from .market_data_validation import validate_market_data_payload
 from . import market_store
 from .market_events import store_market_events, query_market_events
 from .market_event_quality import diagnose_market_events
@@ -248,6 +249,16 @@ def audit_events(symbol: str | None = None, interval: str | None = None, limit: 
  if limit < 1 or limit > 500:
   raise HTTPException(status_code=400, detail="limit must be between 1 and 500")
  return market_store.get_audit_events(symbol, interval, limit)
+
+
+class MarketDataValidationRequest(BaseModel):
+ payload: Any
+
+
+@app.post("/api/market-data/validate")
+def validate_market_data(request: MarketDataValidationRequest):
+ """Return a structural validation report for a supplied market-data payload."""
+ return validate_market_data_payload(request.payload)
 
 
 @app.get("/api/market-data/overview")

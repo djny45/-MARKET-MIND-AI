@@ -100,10 +100,12 @@ class MarketDataBatch(BaseModel):
         return normalized
 
     @model_validator(mode="after")
-    def reject_duplicate_timestamps(self):
+    def validate_bar_timestamp_order(self):
         timestamps = [bar.timestamp for bar in self.bars]
         if len(timestamps) != len(set(timestamps)):
             raise ValueError("batch contains duplicate bar timestamps")
+        if timestamps != sorted(timestamps):
+            raise ValueError("batch bars must be ordered by ascending timestamp")
         return self
 
     @field_validator("retrieved_at")

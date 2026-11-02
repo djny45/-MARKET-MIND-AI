@@ -223,19 +223,31 @@ def submit_research_task(agent_id: str, brief: str, data: dict | list | None = N
             "created_at": now, "updated_at": updated, "result": result,
             "execution_mode": "bounded_synchronous_shared_core"}
 
-def list_task_audit_events(task_id: str, limit: int = 100) -> dict:
-    """Return chronological, bounded audit events for one task."""
+def list_task_audit_events(task_id: str, limit: int = 100, event_type: str | None = None) -> dict:
+    """Return chronological, bounded audit events for one task, optionally filtered by type."""
     if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 500:
         raise ValueError("limit must be between 1 and 500")
+    if event_type is not None and (
+        not isinstance(event_type, str) or not event_type.strip() or len(event_type) > 80
+    ):
+        raise ValueError("event_type must contain 1 to 80 characters")
     with _connect() as db:
         exists = db.execute("SELECT task_id FROM analytical_agent_tasks WHERE task_id=?", (task_id,)).fetchone()
         if exists is None:
             return {"task_id": task_id, "count": 0, "events": []}
-        rows = db.execute(
-            """SELECT event_id,task_id,worker_id,event_type,from_status,to_status,occurred_at,detail_json
-               FROM analytical_agent_task_events WHERE task_id=? ORDER BY event_id DESC LIMIT ?""",
-            (task_id, limit),
-        ).fetchall()
+        if event_type is None:
+            rows = db.execute(
+                """SELECT event_id,task_id,worker_id,event_type,from_status,to_status,occurred_at,detail_json
+                   FROM analytical_agent_task_events WHERE task_id=? ORDER BY event_id DESC LIMIT ?""",
+                (task_id, limit),
+            ).fetchall()
+        else:
+            rows = db.execute(
+                """SELECT event_id,task_id,worker_id,event_type,from_status,to_status,occurred_at,detail_json
+                   FROM analytical_agent_task_events WHERE task_id=? AND event_type=?
+                   ORDER BY event_id DESC LIMIT ?""",
+                (task_id, event_type.strip(), limit),
+            ).fetchall()
     events = []
     for row in reversed(rows):
         event = dict(row)

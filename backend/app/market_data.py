@@ -108,6 +108,13 @@ class MarketDataBatch(BaseModel):
         return normalized
 
     @model_validator(mode="after")
+    def bars_cannot_postdate_retrieval(self):
+        future_bars = [bar.timestamp for bar in self.bars if bar.timestamp > self.retrieved_at]
+        if future_bars:
+            raise ValueError("bar timestamps cannot be later than retrieved_at")
+        return self
+
+    @model_validator(mode="after")
     def validate_bar_timestamp_order(self):
         timestamps = [bar.timestamp for bar in self.bars]
         if len(timestamps) != len(set(timestamps)):

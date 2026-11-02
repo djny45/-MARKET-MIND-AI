@@ -32,6 +32,7 @@ from .market_events import store_market_events, query_market_events
 from .market_event_quality import diagnose_market_events
 from .agent_network import publish_message, read_messages, network_topology
 from .agent_collaboration import build_collaboration_brief
+from .agent_council_api import router as agent_council_router
 from .trade_flow import build_trade_flow_buckets
 from .cross_market_correlation import build_cross_market_correlation
 from . import watchlist
@@ -54,6 +55,7 @@ app = FastAPI(title="MARKET-MIND-AI API", version="0.2.0",
  description="Multi-market, evidence-first research pipeline. No brokerage execution.")
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173"],
  allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.include_router(agent_council_router)
 
 class SaveWorkflowRequest(BaseModel):
  title: str = Field(min_length=1,max_length=120)

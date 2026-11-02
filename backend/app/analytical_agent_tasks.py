@@ -223,37 +223,51 @@ def submit_research_task(agent_id: str, brief: str, data: dict | list | None = N
             "created_at": now, "updated_at": updated, "result": result,
             "execution_mode": "bounded_synchronous_shared_core"}
 
-def list_task_audit_events(task_id: str, limit: int = 100, event_type: str | None = None) -> dict:
-    """Return chronological, bounded audit events for one task, optionally filtered by type."""
+def list_task_audit_events(
+    task_id: str, limit: int = 100, event_type: str | None = None,
+    before_event_id: int | None = None,
+) -> dict:
+    """Return chronological audit events before an event ID, optionally filtered by type."""
     if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 500:
         raise ValueError("limit must be between 1 and 500")
     if event_type is not None and (
         not isinstance(event_type, str) or not event_type.strip() or len(event_type) > 80
     ):
         raise ValueError("event_type must contain 1 to 80 characters")
+    if before_event_id is not None and (
+        not isinstance(before_event_id, int) or isinstance(before_event_id, bool)
+        or before_event_id < 1
+    ):
+        raise ValueError("before_event_id must be a positive integer")
     with _connect() as db:
         exists = db.execute("SELECT task_id FROM analytical_agent_tasks WHERE task_id=?", (task_id,)).fetchone()
         if exists is None:
-            return {"task_id": task_id, "count": 0, "events": []}
-        if event_type is None:
-            rows = db.execute(
-                """SELECT event_id,task_id,worker_id,event_type,from_status,to_status,occurred_at,detail_json
-                   FROM analytical_agent_task_events WHERE task_id=? ORDER BY event_id DESC LIMIT ?""",
-                (task_id, limit),
-            ).fetchall()
-        else:
-            rows = db.execute(
-                """SELECT event_id,task_id,worker_id,event_type,from_status,to_status,occurred_at,detail_json
-                   FROM analytical_agent_task_events WHERE task_id=? AND event_type=?
-                   ORDER BY event_id DESC LIMIT ?""",
-                (task_id, event_type.strip(), limit),
-            ).fetchall()
+            return {"task_id": task_id, "count": 0, "events": [], "next_before_event_id": None}
+        clauses = ["task_id=?"]
+        params: list[Any] = [task_id]
+        if event_type is not None:
+            clauses.append("event_type=?")
+            params.append(event_type.strip())
+        if before_event_id is not None:
+            clauses.append("event_id<?")
+            params.append(before_event_id)
+        where = " AND ".join(clauses)
+        rows = db.execute(
+            f"""SELECT event_id,task_id,worker_id,event_type,from_status,to_status,occurred_at,detail_json
+                FROM analytical_agent_task_events WHERE {where}
+                ORDER BY event_id DESC LIMIT ?""",
+            (*params, limit),
+        ).fetchall()
     events = []
     for row in reversed(rows):
         event = dict(row)
         event["detail"] = json.loads(event.pop("detail_json"))
         events.append(event)
-    return {"task_id": task_id, "count": len(events), "events": events}
+    next_cursor = rows[0]["event_id"] if len(rows) == limit else None
+    return {
+        "task_id": task_id, "count": len(events), "events": events,
+        "next_before_event_id": next_cursor,
+    }
 
 def get_research_task(task_id: str) -> dict | None:
     with _connect() as db:

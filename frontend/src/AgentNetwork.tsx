@@ -97,13 +97,20 @@ export default function AgentNetwork({ agents }: { agents: AgentProfile[] }) {
       <div className="agent-network-stats"><b>{agents.length || 550}</b><span>REGISTERED PROFILES</span><b>{edges.length.toLocaleString()}</b><span>VISUAL CONNECTIONS</span></div>
     </div>
     <div className="agent-network-legend"><span><i className="core-dot"/> Shared intelligence core</span><span><i className="dept-dot"/> Department links</span><span><i className="agent-dot"/> Agent profile → core</span><span><BrainCircuit size={13}/> Shared model architecture · no paper trading</span></div>
-    <div className="agent-network-filterbar">\n      <label className="agent-network-search"><Network size={14}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search agent name, specialty, department…" aria-label="Search agent network"/></label>\n      <select value={departmentFilter} onChange={e=>setDepartmentFilter(e.target.value)} aria-label="Filter by department">{departments.map(department=><option key={department}>{department}</option>)}</select>\n      <span>{filteredProfiles.length} / {agents.length || 550} profiles visible</span>\n      <button type="button" onClick={()=>{setQuery("");setDepartmentFilter("ALL DEPARTMENTS");setSelectedAgent(null)}}>RESET FILTERS</button>\n    </div>\n    <div className="agent-network-canvas">
+    <div className="agent-network-filterbar">
+      <label className="agent-network-search"><Network size={14}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search agent name, specialty, department…" aria-label="Search agent network"/></label>
+      <select value={departmentFilter} onChange={e=>setDepartmentFilter(e.target.value)} aria-label="Filter by department">{departments.map(department=><option key={department}>{department}</option>)}</select>
+      <span>{filteredProfiles.length} / {agents.length || 550} profiles visible</span>
+      <button type="button" onClick={()=>{setQuery("");setDepartmentFilter("ALL DEPARTMENTS");setSelectedAgent(null)}}>RESET FILTERS</button>
+    </div>
+    <div className="agent-network-canvas">
       <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} onNodeClick={(_, node)=>setSelectedAgent(node.data as AgentNodeData)} fitView fitViewOptions={{ padding: 0.12, minZoom: 0.04, maxZoom: 1.1 }} minZoom={0.025} maxZoom={2} defaultEdgeOptions={{ animated: false }} nodesDraggable={false}>
         <Background color="#262b32" gap={22} size={1}/>
         <MiniMap nodeColor={n => n.id === 'intelligence-core' ? '#d4a34c' : '#607c98'} maskColor="rgba(5,8,12,.76)"/>
         <Controls/>
       </ReactFlow>
     </div>
-    {selectedAgent && <div className="agent-network-inspector"><div><b>{selectedAgent.label}</b><small>{selectedAgent.core ? "Central intelligence core" : selectedAgent.department}</small></div><span>{selectedAgent.specialty}</span><span className="agent-inspector-status">{selectedAgent.status}</span><button type="button" onClick={()=>setSelectedAgent(null)}>CLOSE</button></div>}\n    <div className="agent-network-foot"><span>Registered profiles · department-level connectivity · shared core</span><span>Research-only architecture · no broker / order execution</span></div>
+    {selectedAgent && <div className="agent-network-inspector"><div><b>{selectedAgent.label}</b><small>{selectedAgent.core ? "Central intelligence core" : selectedAgent.department}</small></div><span>{selectedAgent.specialty}</span><span className="agent-inspector-status">{selectedAgent.status}</span><button type="button" onClick={()=>setSelectedAgent(null)}>CLOSE</button></div>}
+    <div className="agent-network-foot"><span>Registered profiles · department-level connectivity · shared core</span><span>Research-only architecture · no broker / order execution</span></div>
   </section>
 }

@@ -58,3 +58,10 @@ The batch API supports up to 550 unique registered agent IDs. Each selected agen
 ## Terminology
 
 Use **AI agents**, **specialist agents**, or **analytical bots** for the 550 registered identities. Avoid calling them models or workers in user-facing product copy. Internal legacy identifiers such as `worker_001` are retained for backward-compatible APIs and database records; they are IDs, not the product's conceptual architecture. A shared inference engine is infrastructure used by agents, not the agent itself.
+
+
+## Agent supervisor (bounded manual dispatch)
+
+The API exposes a point-in-time supervisor status at `GET /api/analytical-agent-supervisor/status` and explicit queued-task dispatch at `POST /api/analytical-agent-supervisor/dispatch`. Dispatch accepts `limit` (1–550, default 50) and `max_concurrency` (1–16, default 4). It processes a snapshot of queued SQLite tasks on the current application process and isolates individual task failures.
+
+This is a **manual, process-local supervisor**, not a continuous daemon or distributed durable queue. SQLite records task lifecycle state; after a process interruption, the existing recovery endpoint requeues interrupted tasks, and dispatch must be invoked again. The 550 count refers to registered specialist AI agent/bot profiles, not simultaneously active autonomous processes.

@@ -44,7 +44,7 @@ This roadmap is a plan, not a claim that features already exist. Mark an item co
 - [ ] Add worker registry versioning and a broader evaluation suite.
 - [x] Add registry v1.0.0 manifest, deterministic SHA-256 digest, 550-profile/20-department integrity checks and registry status API; deeper per-worker behavioural evaluations remain pending.
 - [x] Add append-only worker-scoped evidence memory with provenance and quality labels.
-- [ ] Add reviewed shared knowledge, memory lifecycle controls, and human approval workflows.
+- [x] Add a prototype evidence-aware review gate for synthesis drafts. Source IDs must match a supplied registry before approval; this endpoint is stateless and does not authenticate reviewers or verify source authenticity. Persistent audit records and reviewer authorization remain pending.
 
 Current boundary: worker routing invokes existing deterministic Python handlers. The 550 profiles are not independent models. Optional Ollama is a single shared, loopback-only summarization provider and is disabled by default; autonomous self-learning and brokerage execution remain disabled.
 - [ ] Build visual node-based research workflows.

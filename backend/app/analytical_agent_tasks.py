@@ -223,3 +223,64 @@ def list_recent_task_activity(limit: int = 500) -> dict:
         "source": "persisted_sqlite_task_records",
         "note": "This snapshot reflects recorded task lifecycle states, not continuous agent activity.",
     }
+
+
+def agent_supervisor_status() -> dict:
+    """Return a point-in-time health snapshot of persisted agent task states."""
+    with _connect() as db:
+        rows = db.execute(
+            "SELECT status, COUNT(*) AS count FROM analytical_agent_tasks GROUP BY status"
+        ).fetchall()
+        total = db.execute("SELECT COUNT(*) FROM analytical_agent_tasks").fetchone()[0]
+    counts = {state: 0 for state in ("queued", "running", "completed", "failed")}
+    counts.update({row["status"]: row["count"] for row in rows})
+    return {
+        "supervisor": "manual_dispatch_supervisor",
+        "status": "healthy",
+        "task_count": total,
+        "status_counts": counts,
+        "registered_agent_count": 550,
+        "dispatch_mode": "explicit_bounded_dispatch",
+        "continuous_daemon": False,
+        "distributed_queue": False,
+    }
+
+
+def dispatch_queued_research_tasks(limit: int = 50, max_concurrency: int = 4) -> dict:
+    """Dispatch a bounded snapshot of queued tasks concurrently on this process."""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 550:
+        raise ValueError("limit must be an integer between 1 and 550")
+    if isinstance(max_concurrency, bool) or not isinstance(max_concurrency, int) or not 1 <= max_concurrency <= 16:
+        raise ValueError("max_concurrency must be an integer between 1 and 16")
+    with _connect() as db:
+        rows = db.execute(
+            "SELECT task_id FROM analytical_agent_tasks WHERE status='queued' ORDER BY created_at LIMIT ?",
+            (limit,),
+        ).fetchall()
+    task_ids = [row["task_id"] for row in rows]
+    if not task_ids:
+        return {"selected": 0, "dispatched": 0, "max_concurrency": max_concurrency,
+                "status": "idle", "task_ids": []}
+    completed = []
+    with ThreadPoolExecutor(max_workers=min(max_concurrency, len(task_ids)),
+                            thread_name_prefix="market-mind-supervisor") as pool:
+        futures = {pool.submit(execute_queued_research_task, task_id): task_id for task_id in task_ids}
+        for future in as_completed(futures):
+            task_id = futures[future]
+            try:
+                future.result()
+                completed.append(task_id)
+            except Exception:
+                # One task failure must not interrupt dispatch of sibling tasks.
+                continue
+    return {
+        "selected": len(task_ids),
+        "dispatched": len(completed),
+        "max_concurrency": min(max_concurrency, len(task_ids)),
+        "status": "completed",
+        "task_ids": task_ids,
+        "dispatch_mode": "bounded_process_local_queue_snapshot",
+        "note": "Tasks are persisted in SQLite; dispatch is explicit and process-local, not a continuously running distributed supervisor.",
+    }

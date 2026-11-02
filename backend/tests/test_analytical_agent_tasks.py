@@ -51,3 +51,20 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+    def test_queue_task_persists_queued_record_and_executes(self):
+        from app.analytical_agent_tasks import enqueue_research_task, execute_queued_research_task
+        queued = enqueue_research_task("worker_004", "Analyze provided metrics", {"metric": 7})
+        self.assertEqual(queued["status"], "queued")
+        saved = get_research_task(queued["task_id"])
+        self.assertEqual(saved["status"], "queued")
+        execute_queued_research_task(queued["task_id"])
+        saved = get_research_task(queued["task_id"])
+        self.assertIn(saved["status"], ("completed", "failed"))
+        self.assertNotEqual(saved["status"], "queued")
+
+    def test_queue_task_rejects_invalid_worker(self):
+        from app.analytical_agent_tasks import enqueue_research_task
+        with self.assertRaises(ValueError):
+            enqueue_research_task("worker_9999", "Invalid worker")

@@ -2,7 +2,7 @@
 
 Fixtures are for UI and pipeline development only; they are not historical or live prices.
 """
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import math
 from enum import Enum
 from typing import Protocol
@@ -169,3 +169,39 @@ class SyntheticFixtureAdapter:
             retrieved_at=datetime.now(timezone.utc), bars=bars,
             warnings=["Synthetic development fixture only; not live, delayed, or historical market data."],
         )
+
+
+
+def find_missing_candle_timestamps(
+    bars: list[OHLCVBar],
+    interval: str,
+) -> list[datetime]:
+    """Return expected UTC candle timestamps absent from a chronological series.
+
+    This reports gaps only; it never synthesizes or fills missing market data.
+    Timestamps are assumed to represent candle-open times for fixed-duration
+    intervals. Daily candles are treated as 24-hour intervals, so this helper
+    is intended for regular 24/7 markets and not exchange-session calendars.
+    """
+    interval_seconds = {"15m": 900, "1h": 3600, "4h": 14400, "1d": 86400}
+    if interval not in interval_seconds:
+        raise ValueError("interval must be one of 15m, 1h, 4h, 1d")
+    timestamps = [bar.timestamp.astimezone(timezone.utc) for bar in bars]
+    if timestamps != sorted(timestamps):
+        raise ValueError("bars must be strictly chronological (oldest first)")
+    if len(timestamps) != len(set(timestamps)):
+        raise ValueError("bars must not contain duplicate timestamps")
+
+    step = interval_seconds[interval]
+    missing: list[datetime] = []
+    for previous, current in zip(timestamps, timestamps[1:]):
+        delta = (current - previous).total_seconds()
+        if delta % step != 0:
+            raise ValueError("bar timestamps are not aligned to the requested interval")
+        if delta > step:
+            missing_count = int(delta // step) - 1
+            missing.extend(
+                previous + timedelta(seconds=step * offset)
+                for offset in range(1, missing_count + 1)
+            )
+    return missing

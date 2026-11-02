@@ -67,12 +67,17 @@ def execute_queued_research_task(task_id: str) -> None:
         row = db.execute("SELECT * FROM analytical_agent_tasks WHERE task_id=?", (task_id,)).fetchone()
         if row is None or row["status"] != "queued":
             return
+        # Claim atomically so duplicate dispatches cannot execute the same queued row.
+        now = datetime.now(timezone.utc).isoformat()
+        claimed = db.execute(
+            "UPDATE analytical_agent_tasks SET status='running',updated_at=? WHERE task_id=? AND status='queued'",
+            (now, task_id),
+        )
+        if claimed.rowcount != 1:
+            return
         task_input = json.loads(row["input_json"])
         worker_id = row["worker_id"]
         brain = brain_config(worker_id)
-        now = datetime.now(timezone.utc).isoformat()
-        db.execute("UPDATE analytical_agent_tasks SET status='running',updated_at=? WHERE task_id=? AND status='queued'",
-                   (now, task_id))
     payload = {
         "worker": {"id": worker_id, "department": brain["department"], "specialty": brain["specialty"]},
         "task": task_input,
@@ -94,6 +99,31 @@ def execute_queued_research_task(task_id: str) -> None:
     with _connect() as db:
         db.execute("UPDATE analytical_agent_tasks SET status=?,result_json=?,updated_at=? WHERE task_id=?",
                    (status, _json(result), updated, task_id))
+
+def recover_interrupted_research_tasks() -> dict:
+    """Requeue tasks left running by a process interruption.
+
+    This is an explicit recovery operation; it does not itself dispatch work.
+    """
+    now = datetime.now(timezone.utc).isoformat()
+    with _connect() as db:
+        running = db.execute(
+            "SELECT task_id FROM analytical_agent_tasks WHERE status='running'"
+        ).fetchall()
+        db.execute(
+            "UPDATE analytical_agent_tasks SET status='queued',updated_at=? WHERE status='running'",
+            (now,),
+        )
+        queued = db.execute(
+            "SELECT task_id FROM analytical_agent_tasks WHERE status='queued' ORDER BY created_at"
+        ).fetchall()
+    return {
+        "requeued_interrupted_count": len(running),
+        "queued_task_ids": [row["task_id"] for row in queued],
+        "recovery_mode": "manual_requeue_no_dispatch",
+        "note": "Requeued tasks require explicit dispatch; recovery does not automatically execute them.",
+    }
+
 
 def submit_research_task(worker_id: str, brief: str, data: dict | list | None = None) -> dict:
     brain = brain_config(worker_id)

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import math
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -49,10 +50,19 @@ class YahooFinanceAdapter:
                           for key in ("open", "high", "low", "close", "volume")]
                 if any(value is None for value in values[:4]) or values[4] is None:
                     continue
+                numeric = [float(value) for value in values]
+                if not all(math.isfinite(value) for value in numeric):
+                    continue
+                open_value, high_value, low_value, close_value, volume = numeric
+                if (min(open_value, high_value, low_value, close_value) <= 0
+                        or volume < 0
+                        or high_value < max(open_value, low_value, close_value)
+                        or low_value > min(open_value, high_value, close_value)):
+                    continue
                 bars.append(OHLCVBar(
                     timestamp=datetime.fromtimestamp(stamp, tz=timezone.utc),
-                    open=float(values[0]), high=float(values[1]), low=float(values[2]),
-                    close=float(values[3]), volume=max(0.0, float(values[4])),
+                    open=open_value, high=high_value, low=low_value,
+                    close=close_value, volume=volume,
                 ))
         except (KeyError, IndexError, TypeError, ValueError) as exc:
             raise ValueError("Yahoo response did not contain valid OHLCV chart data") from exc

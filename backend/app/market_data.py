@@ -3,6 +3,7 @@
 Fixtures are for UI and pipeline development only; they are not historical or live prices.
 """
 from datetime import datetime, timezone
+import math
 from enum import Enum
 from typing import Protocol
 
@@ -24,6 +25,13 @@ class OHLCVBar(BaseModel):
     low: float = Field(gt=0)
     close: float = Field(gt=0)
     volume: float = Field(ge=0)
+
+    @model_validator(mode="after")
+    def validate_numeric_values_are_finite(self):
+        for field_name in ("open", "high", "low", "close", "volume"):
+            if not math.isfinite(getattr(self, field_name)):
+                raise ValueError(f"{field_name} must be finite")
+        return self
 
     @model_validator(mode="after")
     def validate_ohlc_envelope(self):

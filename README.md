@@ -58,7 +58,7 @@ Specialist modules exchange deterministic records; this does not activate LLM ag
 | Worker-scoped evidence memory | Added; append-only SQLite notes per registered worker with source references, quality labels, bounded JSON validation and read filters; not autonomous learning or executable instructions |
 | Versioned specialist-worker contracts | Added v1.0.0 input/output shape contracts and evidence requirements for all 10 workflow node types; execution validates contract shapes before and after deterministic handlers |
 | Versioned 550-worker registry | Added registry v1.0.0, SHA-256 profile manifest, department counts, and deterministic integrity evaluation endpoint; profiles remain templates coordinated by one core |
-| Central research orchestrator | Added shared-core workflow coordination, worker-level result aggregation, contract-version references and a consolidated report with explicit provenance limitations; no LLM inference or broker execution |
+| Central research orchestrator | Added shared-core workflow coordination, worker-level result aggregation, contract-version references and a consolidated report with explicit provenance limitations; no LLM inference or broker execution |\n| Shared intelligence-core provider boundary | Added optional loopback-only Ollama synthesis configuration, disabled by default, with bounded input, timeout, explicit provider failure states and a status endpoint; numerical outputs remain deterministic and authoritative |
 | Docker Compose development setup | Added |
 | CI quality workflow | Added; run status visible in GitHub Actions |
 | Market taxonomy and searchable instrument reference directory | Added |
@@ -75,7 +75,7 @@ Specialist modules exchange deterministic records; this does not activate LLM ag
 
 ## Shared agent skill playbooks
 
-Ten upstream day-trader skill definitions are vendored under [`.agents/skills/day-trader-skill/`](.agents/skills/day-trader-skill/README.md). The 550+ AI analytical worker profiles carry department-based `skill_refs` so the orchestration layer can select relevant research guidance without injecting every playbook into every task. These profiles are AI analytical worker templates coordinated by one shared central intelligence core; they are not 550 separate models or 550 continuously running processes. Supported workflow node types now route through a validated specialist registry to existing deterministic Python handlers. LLM inference, autonomous learning, and brokerage execution remain disabled. Worker memory is an append-only evidence-note store; it does not train models, treat stored text as instructions, or independently verify claims. Skill references do not execute scripts or grant permissions. The broker/order-execution skill is excluded; the application remains research-only with no brokerage routing.
+Ten upstream day-trader skill definitions are vendored under [`.agents/skills/day-trader-skill/`](.agents/skills/day-trader-skill/README.md). The 550+ AI analytical worker profiles carry department-based `skill_refs` so the orchestration layer can select relevant research guidance without injecting every playbook into every task. These profiles are AI analytical worker templates coordinated by one shared central intelligence core; they are not 550 separate models or 550 continuously running processes. Supported workflow node types now route through a validated specialist registry to existing deterministic Python handlers. LLM inference is disabled by default; optional local Ollama synthesis is restricted to summarizing supplied research and never changes deterministic calculations. Autonomous learning and brokerage execution remain disabled. Worker memory is an append-only evidence-note store; it does not train models, treat stored text as instructions, or independently verify claims. Skill references do not execute scripts or grant permissions. The broker/order-execution skill is excluded; the application remains research-only with no brokerage routing.
 
 ## Visual workflow model
 
@@ -136,7 +136,7 @@ For manual setup, see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 | Method | Endpoint | Purpose |
 |---|---|---|
 | GET | `/api/health` | Service health and execution boundary |
-| GET | `/api/worker-runtime` | Specialist worker routing coverage and explicit inference/execution capability status |
+| GET | `/api/worker-runtime` | Specialist worker routing coverage and explicit inference/execution capability status |\n| GET | `/api/intelligence-core` | Shared-core provider configuration status; no model is loaded or contacted |
 | POST | `/api/workers/{worker_id}/memory` | Append a bounded, provenance-labelled research note to a registered worker |
 | GET | `/api/workers/{worker_id}/memory` | Read worker-scoped notes with optional type and limit filters |
 | GET | `/api/ready` | SQLite dependency readiness; HTTP 503 when unavailable |

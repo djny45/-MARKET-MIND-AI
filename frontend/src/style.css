@@ -249,3 +249,6 @@
 .agent-network-inspector>span{color:#aab4bf}
 .agent-network-inspector .agent-inspector-status{color:#d6a44e}
 .agent-network-inspector button{margin-left:auto;background:#171c22;border:1px solid #4a4130;color:#c6b18b;padding:6px 9px;font:9px 'DM Mono';cursor:pointer}
+
+
+.agent-network-activity-note{margin:0 0 9px;padding:8px 11px;border-left:2px solid #b98b43;background:#17140f;color:#a99b82;font:9px 'DM Mono';line-height:1.5}

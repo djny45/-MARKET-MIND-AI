@@ -201,6 +201,24 @@ This repository does not include Bloomberg proprietary software, terminal code, 
 
 Third-party libraries must be reviewed for licence compatibility, attribution, security, and maintenance before adoption.
 
+## Historical Stooq adapter
+
+The optional Stooq connector is a **daily historical research adapter** (`backend/app/stooq_adapter.py`), not a live quote service. It normalizes CSV rows into validated OHLCV bars and drops malformed rows, including non-finite prices/volume and invalid OHLC envelopes. Provider responses can vary by symbol, access policy, and availability; an empty or rejected response is surfaced as an error rather than silently treated as a zero-price observation.
+
+Before enabling it in a workflow:
+
+- Confirm that the requested symbol is supported by the provider and that its data terms permit your intended use.
+- Keep the batch status as `HISTORICAL` and preserve the source/retrieval timestamp.
+- Do not describe Stooq data as real-time, execution-grade, or automatically licensed for redistribution.
+- Run the adapter’s offline tests (they mock network access):
+
+  ```bash
+  cd backend
+  PYTHONPATH=. python -m unittest tests.test_stooq_adapter -v
+  ```
+
+The adapter is best-effort. A successful parse verifies CSV normalization only; it does not validate provider coverage, market-session completeness, or licensing rights.
+
 ## Security
 
 Do not commit API keys, tokens, broker credentials, or private datasets. Use environment variables or a managed secret store. Report security issues privately using [SECURITY.md](SECURITY.md).

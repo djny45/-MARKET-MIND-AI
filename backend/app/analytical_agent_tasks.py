@@ -183,6 +183,9 @@ def submit_research_task(agent_id: str, brief: str, data: dict | list | None = N
           (task_id,worker_id,task_type,status,input_json,result_json,brain_context_sha256,created_at,updated_at)
           VALUES (?,?,?,?,?,?,?,?,?)""",
           (task_id, agent_id, TASK_TYPE, "running", input_json, "{}", brain["brain_context_sha256"], now, now))
+        _record_event(db, task_id, agent_id, "task_submitted",
+                      from_status=None, to_status="running", occurred_at=now,
+                      detail={"execution_mode": "bounded_synchronous_shared_core"})
 
     # The configured core sees only supplied user data and the agent's role.
     research_payload = {
@@ -211,6 +214,11 @@ def submit_research_task(agent_id: str, brief: str, data: dict | list | None = N
     with _connect() as db:
         db.execute("UPDATE analytical_agent_tasks SET status=?,result_json=?,updated_at=? WHERE task_id=?",
                    (status, result_json, updated, task_id))
+        _record_event(db, task_id, agent_id, "task_" + status,
+                      from_status="running", to_status=status, occurred_at=updated,
+                      detail={"execution_mode": "bounded_synchronous_shared_core",
+                              "error_type": result.get("error_type")} if status == "failed"
+                      else {"execution_mode": "bounded_synchronous_shared_core"})
     return {"task_id": task_id, "agent_id": agent_id, "worker_id": agent_id, "status": status,
             "created_at": now, "updated_at": updated, "result": result,
             "execution_mode": "bounded_synchronous_shared_core"}
@@ -324,6 +332,17 @@ def dispatch_queued_research_tasks(limit: int = 50, max_concurrency: int = 4) ->
     if not task_ids:
         return {"selected": 0, "dispatched": 0, "max_concurrency": max_concurrency,
                 "status": "idle", "task_ids": []}
+    dispatch_id = str(uuid.uuid4())
+    selected_at = datetime.now(timezone.utc).isoformat()
+    with _connect() as db:
+        for task_id in task_ids:
+            task = db.execute(
+                "SELECT worker_id FROM analytical_agent_tasks WHERE task_id=?", (task_id,)
+            ).fetchone()
+            if task is not None:
+                _record_event(db, task_id, task["worker_id"], "task_dispatch_selected",
+                              from_status="queued", to_status="queued", occurred_at=selected_at,
+                              detail={"dispatch_id": dispatch_id, "max_concurrency": max_concurrency})
     completed = []
     with ThreadPoolExecutor(max_workers=min(max_concurrency, len(task_ids)),
                             thread_name_prefix="market-mind-supervisor") as pool:
@@ -336,6 +355,17 @@ def dispatch_queued_research_tasks(limit: int = 50, max_concurrency: int = 4) ->
             except Exception:
                 # One task failure must not interrupt dispatch of sibling tasks.
                 continue
+    finished_at = datetime.now(timezone.utc).isoformat()
+    with _connect() as db:
+        for task_id in completed:
+            task = db.execute(
+                "SELECT worker_id,status FROM analytical_agent_tasks WHERE task_id=?", (task_id,)
+            ).fetchone()
+            if task is not None:
+                _record_event(db, task_id, task["worker_id"], "task_dispatch_finished",
+                              from_status=task["status"], to_status=task["status"],
+                              occurred_at=finished_at,
+                              detail={"dispatch_id": dispatch_id})
     return {
         "selected": len(task_ids),
         "dispatched": len(completed),

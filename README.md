@@ -14,6 +14,14 @@ A visual research environment where specialist analytical workers connect as reu
 
 ---
 
+## News research agents
+
+Use the [Agent Reach News Research skill](.agents/skills/agent-reach-news-research/SKILL.md) to coordinate a specialist research workflow: News Scout, Primary-Source Verifier, Independent Context Scout, Macro/Cross-Market Analyst, Contradiction & Freshness Auditor, and Synthesis Editor. These are **orchestrator-assigned roles**, not claims that six independent LLMs are running.
+
+The skill supports optional, separately installed [Agent Reach](https://github.com/Panniantong/Agent-Reach) for public-source discovery. It does not install or launch Agent Reach, create credentials, or enable background scraping. Existing RSS ingestion remains available. News outputs are source-linked research only—not trading recommendations or broker actions.
+
+---
+
 ## Overview
 
 MARKET-MIND-AI is an open-source financial research terminal inspired by professional market-data workstations and visual node editors. Its core interaction model is a connected graph: data sources, validation steps, analytical workers, quantitative methods, and research outputs are composed into reusable workflows.

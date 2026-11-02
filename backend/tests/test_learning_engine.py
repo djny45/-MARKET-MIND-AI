@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from app.learning_engine import agent_learning_summary, learning_overview
+from app.learning_engine import agent_learning_summary, learning_overview, run_feedback_improvement_cycle
 from app.worker_memory import append_memory
 
 
@@ -46,6 +46,26 @@ class LearningEngineTests(unittest.TestCase):
         self.assertFalse(result["autonomous_model_training"])
         self.assertFalse(result["automatic_agent_updates"])
         self.assertIsNone(result["system_feedback_score"])
+
+    def test_feedback_cycle_waits_for_minimum_sample(self):
+        result = run_feedback_improvement_cycle("worker_001")
+        self.assertEqual(result["cycle_status"], "insufficient_feedback")
+        self.assertFalse(result["proposal_created"])
+        self.assertFalse(result["model_training"])
+
+    def test_feedback_cycle_creates_review_only_proposal_and_is_idempotent(self):
+        for i in range(5):
+            append_memory("worker_001", "validation_result",
+                          {"outcome": "not_helpful", "summary": f"Missing source context {i}"},
+                          quality_status="unverified")
+        first = run_feedback_improvement_cycle("worker_001")
+        self.assertEqual(first["cycle_status"], "proposal_created_pending_review")
+        self.assertTrue(first["proposal_created"])
+        self.assertFalse(first["model_training"])
+        self.assertFalse(first["auto_apply"])
+        second = run_feedback_improvement_cycle("worker_001")
+        self.assertEqual(second["cycle_status"], "proposal_already_exists")
+        self.assertFalse(second["proposal_created"])
 
     def test_invalid_limit_is_rejected(self):
         for limit in (0, 201, True):

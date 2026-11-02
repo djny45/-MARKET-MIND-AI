@@ -7,7 +7,7 @@ class SkillCatalogTests(unittest.TestCase):
     def test_catalog_contains_only_allowlisted_research_skills(self):
         skills = list_skills()
         by_id = {skill["id"]: skill for skill in skills}
-        self.assertEqual(len(skills), 16)
+        self.assertEqual(len(skills), 17)
         self.assertNotIn("trader-broker", by_id)
         self.assertTrue(all(
             skill["mode"] == "research_and_paper_only"
@@ -22,6 +22,8 @@ class SkillCatalogTests(unittest.TestCase):
         self.assertTrue(by_id["stageshow"]["requires_external_tools"])
         self.assertEqual(by_id["market-data-yahoo"]["mode"], "market_data_research_only")
         self.assertTrue(by_id["market-data-yahoo"]["requires_external_tools"])
+        self.assertEqual(by_id["market-data-stooq"]["mode"], "market_data_research_only")
+        self.assertTrue(by_id["market-data-stooq"]["requires_external_tools"])
 
     def test_allowlisted_skill_can_be_loaded(self):
         result = load_skill("trader-scanner")
@@ -57,6 +59,12 @@ class SkillCatalogTests(unittest.TestCase):
     def test_yahoo_market_data_skill_is_loadable_and_research_only(self):
         result = load_skill("market-data-yahoo")
         self.assertIn("Yahoo Finance", result["content"])
+        self.assertEqual(result["mode"], "market_data_research_only")
+        self.assertFalse(result["broker_execution"])
+
+    def test_stooq_market_data_skill_is_loadable_and_research_only(self):
+        result = load_skill("market-data-stooq")
+        self.assertIn("Stooq", result["content"])
         self.assertEqual(result["mode"], "market_data_research_only")
         self.assertFalse(result["broker_execution"])
 

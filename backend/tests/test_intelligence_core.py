@@ -43,6 +43,12 @@ class SharedIntelligenceCoreTests(unittest.TestCase):
             with self.assertRaises(IntelligenceCoreError):
                 synthesize_research({"large": "x" * 30000})
 
+    def test_research_payload_rejects_non_json_numeric_values(self):
+        enabled_status = {"enabled": True, "model": "phi3"}
+        with patch("app.intelligence_core.intelligence_core_status", return_value=enabled_status):
+            with self.assertRaisesRegex(IntelligenceCoreError, "JSON-safe"):
+                synthesize_research({"invalid_number": float("nan")})
+
     def test_freellmapi_synthesis_sends_request_and_returns_summary(self):
         import json
         from unittest.mock import Mock

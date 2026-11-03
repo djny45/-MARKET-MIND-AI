@@ -54,7 +54,12 @@ validation / holdout test. It compares a small ridge regression on lagged
 log-returns with both a zero-return baseline and a constant-mean-return baseline
 fit only on pre-test history. The output includes absolute and
 relative holdout MAE/RMSE reductions (negative values mean the model performed
-worse than the baseline). It does not shuffle time-series rows or use test data
+worse than the baseline). A separate expanding-window walk-forward evaluator
+runs repeated chronological test windows, tunes ridge alpha only on each
+window's pre-test validation history, and reports per-window plus mean/median
+metrics against zero-return and pre-test constant-mean baselines. The windows
+are deliberately non-overlapping in their test segments by default; history
+expands over time. This still is not proof of predictive skill or profitability. It does not shuffle time-series rows or use test data
 for model selection. These comparisons describe this test window only; they do
 not establish predictive skill or a tradable edge.
 

@@ -33,6 +33,16 @@ def configured_freellmapi() -> tuple[str, str, str] | None:
         raise FreeLLMAPIConfigurationError(
             "FREELLMAPI_BASE_URL must be an http URL without embedded credentials."
         )
+    if parsed.query or parsed.fragment or parsed.path not in {"", "/", "/v1"}:
+        raise FreeLLMAPIConfigurationError(
+            "FREELLMAPI_BASE_URL may only include an optional /v1 path."
+        )
+    try:
+        port = parsed.port or 80
+    except ValueError as exc:
+        raise FreeLLMAPIConfigurationError(
+            "FREELLMAPI_BASE_URL contains an invalid port."
+        ) from exc
     # Avoid DNS-rebinding risks: accept only explicit loopback hostnames/IPs,
     # not arbitrary names that happen to resolve to loopback at configuration time.
     hostname = parsed.hostname.lower()
@@ -42,7 +52,7 @@ def configured_freellmapi() -> tuple[str, str, str] | None:
         )
     try:
         addresses = {item[4][0] for item in socket.getaddrinfo(
-            parsed.hostname, parsed.port or 80
+            parsed.hostname, port
         )}
     except OSError as exc:
         raise FreeLLMAPIConfigurationError(

@@ -33,7 +33,8 @@ This roadmap is a plan, not a claim that features already exist. Mark an item co
 - [x] Add descriptive weekday/calendar-month seasonality analytics with sample-size limitations.
 - [ ] Add fundamentals, filings, news, and macro research panels.
 - [ ] Add source-cited research reports and exportable methodology notes.
-- [ ] Add historical evaluation framework with bias and data-quality checks.\n  - [x] Add a research-only binary classification metric summary (confusion matrix, accuracy, precision, recall, specificity, balanced accuracy, F1, class prevalence) and majority-class baseline comparison; metrics operate only on caller-supplied labels/predictions.\n  - [x] Add a research-only dataset metadata gate (source/symbol/timeframe, timezone-aware date range, sample count, missing fraction, synthetic-data flag); this does not inspect underlying bars or establish evaluation validity.
+- [ ] Add historical evaluation framework with bias and data-quality checks.\n  - [x] Add a research-only binary classification metric summary (confusion matrix, accuracy, precision, recall, specificity, balanced accuracy, F1, class prevalence) and majority-class baseline comparison;
+- [x] Add split-level binary research evaluation aggregation with per-split metrics, pooled metrics, and fold variability; this is metric aggregation only, not evidence of model performance; metrics operate only on caller-supplied labels/predictions.\n  - [x] Add a research-only dataset metadata gate (source/symbol/timeframe, timezone-aware date range, sample count, missing fraction, synthetic-data flag); this does not inspect underlying bars or establish evaluation validity.
 
 ## Phase 4 — Intelligence and workflow canvas
 - [ ] Define complete typed specialist-worker input/output contracts.

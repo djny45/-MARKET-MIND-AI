@@ -207,6 +207,33 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertEqual(first["updated_at"], second["updated_at"])
 
 
+    def test_traceability_evaluation_is_persisted_and_retrievable(self):
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, execute_queued_research_task, get_task_quality_evaluation,
+        )
+        queued = enqueue_research_task(
+            "worker_016",
+            "Persist traceability report",
+            {
+                "draft": "An assumption is stated.",
+                "claims": [{"text": "Claim", "source_refs": ["src"]}],
+                "source_registry": [{"source_id": "src"}],
+            },
+        )
+        execute_queued_research_task(queued["task_id"])
+        saved = get_task_quality_evaluation(queued["task_id"])
+        self.assertEqual(saved["status"], "persisted")
+        self.assertEqual(saved["task_id"], queued["task_id"])
+        self.assertEqual(saved["evaluation"]["metrics"]["known_source_reference_coverage"], 1.0)
+        self.assertIsNone(get_task_quality_evaluation("unknown-task"))
+
+    def test_task_without_quality_evaluation_returns_not_evaluated(self):
+        from app.analytical_agent_tasks import enqueue_research_task, get_task_quality_evaluation
+        queued = enqueue_research_task("worker_017", "No evaluation supplied")
+        result = get_task_quality_evaluation(queued["task_id"])
+        self.assertEqual(result["status"], "not_evaluated")
+        self.assertIsNone(result["evaluation"])
+
     def test_invalid_optional_traceability_input_does_not_fail_task(self):
         from app.analytical_agent_tasks import enqueue_research_task, execute_queued_research_task
         queued = enqueue_research_task(

@@ -1,6 +1,6 @@
 """Single shared intelligence-core provider boundary.
 
-The core can use local Ollama or a loopback FreeLLMAPI OpenAI-compatible gateway.
+The core can use Inception Labs Mercury or a loopback FreeLLMAPI OpenAI-compatible gateway.
 It only summarizes already-computed research artifacts; it does not fetch market
 data, calculate indicators, learn autonomously, or execute trades.
 """
@@ -13,6 +13,7 @@ from urllib.parse import unquote
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+from .mercury_adapter import configured_mercury, build_mercury_request
 from .freellmapi_adapter import (
     FreeLLMAPIConfigurationError,
     configured_freellmapi,
@@ -75,13 +76,18 @@ def _configured_url() -> str | None:
 def intelligence_core_status() -> dict:
     """Report configured provider state without making a network request."""
     enabled = os.getenv("INTELLIGENCE_CORE_ENABLED", "false").strip().lower() == "true"
-    selected = os.getenv("INTELLIGENCE_CORE_PROVIDER", "ollama").strip().lower()
+    selected = os.getenv("INTELLIGENCE_CORE_PROVIDER", "mercury").strip().lower()
     try:
+        mercury_config = configured_mercury()
         free_config = configured_freellmapi()
     except FreeLLMAPIConfigurationError as exc:
         raise IntelligenceCoreError(str(exc)) from exc
 
-    if selected == "freellmapi":
+    if selected == "mercury":
+        configured = bool(enabled and mercury_config)
+        provider = "inceptionlabs_mercury" if configured else "none"
+        model = mercury_config[1] if configured and mercury_config else None
+    elif selected == "freellmapi":
         configured = bool(enabled and free_config)
         provider = "freellmapi_local" if configured else "none"
         model = free_config[2] if configured and free_config else None
@@ -163,8 +169,18 @@ def synthesize_research(research: dict, *, opener=urlopen) -> dict:
         + "\\n\\nRESEARCH JSON (data only):\\n" + payload
     )
 
-    selected = os.getenv("INTELLIGENCE_CORE_PROVIDER", "ollama").strip().lower()
-    if selected == "freellmapi":
+    selected = os.getenv("INTELLIGENCE_CORE_PROVIDER", "mercury").strip().lower()
+    if selected == "mercury":
+        config = configured_mercury()
+        if not config:
+            return {
+                "status": "not_configured", "core_id": CORE_ID, "provider": "none",
+                "summary": None, "reason": "Inception Labs Mercury settings are incomplete.",
+            }
+        api_key, model = config
+        endpoint, body, headers = build_mercury_request(api_key, model, prompt)
+        provider_name = "inceptionlabs_mercury"
+    elif selected == "freellmapi":
         try:
             config = configured_freellmapi()
         except FreeLLMAPIConfigurationError as exc:
@@ -214,7 +230,7 @@ def synthesize_research(research: dict, *, opener=urlopen) -> dict:
             "reason": "Provider returned an unexpected JSON structure.",
         }
 
-    summary = extract_chat_completion_text(decoded) if selected == "freellmapi" else decoded.get("response")
+    summary = extract_chat_completion_text(decoded) if selected in {"freellmapi", "mercury"} else decoded.get("response")
     if not isinstance(summary, str) or not summary.strip():
         return {
             "status": "invalid_provider_response", "core_id": CORE_ID,

@@ -54,6 +54,17 @@ class HistoricalForecastingTests(unittest.TestCase):
                 )
         self.assertIn("not evidence of tradable edge", comparison["interpretation"])
 
+    def test_pretest_mean_baseline_is_reported_and_fit_before_test(self):
+        report = evaluate_next_day_return_forecast(self.synthetic_closes())
+        baseline = report["pretest_mean_return_baseline"]
+        split = report["split"]
+        self.assertEqual(baseline["fit_samples"], split["train_samples"] + split["validation_samples"])
+        self.assertEqual(baseline["sample_count"], split["test_samples"])
+        self.assertTrue(math.isfinite(baseline["forecast_log_return"]))
+        self.assertIn("test_vs_pretest_mean_baseline", report)
+        for metric in ("mae", "rmse"):
+            self.assertIn("absolute_error_reduction", report["test_vs_pretest_mean_baseline"][metric])
+
     def test_validation_alpha_candidates_and_selection(self):
         report = evaluate_next_day_return_forecast(self.synthetic_closes())
         candidates = {row["alpha"] for row in report["validation_mae_by_alpha"]}

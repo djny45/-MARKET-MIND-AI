@@ -12,6 +12,7 @@ from .worker_memory import append_memory, read_memory, recall_memory
 from .worker_registry import evaluate_registry, registry_manifest
 from .analytical_agent_runtime import runtime_manifest, brain_config, validate_learning_feedback, validate_update_proposal
 from .learning_engine import learning_overview, agent_learning_summary, run_feedback_improvement_cycle
+from .specialist_router import route_research_brief
 from .analytical_agent_tasks import submit_research_task, get_research_task, list_research_tasks, enqueue_research_task, execute_queued_research_task, recover_interrupted_research_tasks, list_recent_task_activity, agent_supervisor_status, dispatch_queued_research_tasks, list_task_audit_events
 from .research_orchestrator import orchestrate_research
 from .intelligence_core import intelligence_core_status, synthesize_research, IntelligenceCoreError
@@ -330,6 +331,16 @@ def add_worker_memory(worker_id: str, request: WorkerMemoryRequest):
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+
+
+
+@app.post("/api/research/specialist-routing")
+def research_specialist_routing(request: AgentResearchTaskRequest):
+ """Recommend specialist worker profiles using deterministic keyword matching."""
+ try:
+  return route_research_brief(request.brief, request.data, limit=10)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 @app.get("/api/workers/{worker_id}/memory")
 def get_worker_memory(worker_id: str, memory_type: str | None = None, limit: int = 50):

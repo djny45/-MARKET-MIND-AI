@@ -252,3 +252,60 @@ def aggregate_binary_evaluation_runs(actual_runs: Any, predicted_runs: Any) -> d
         ],
     }
 
+def build_binary_research_report(
+    manifest: Any,
+    split_boundaries: Any,
+    actual_runs: Any,
+    predicted_runs: Any,
+    *,
+    embargo_seconds: int = 0,
+) -> dict[str, Any]:
+    """Build a guarded report from manifest, chronology, and supplied labels.
+
+    This is a reporting/validation helper. It does not load market data,
+    generate labels, train a model, or establish predictive or trading value.
+    """
+    normalized_manifest = validate_dataset_manifest(manifest)
+    if not normalized_manifest["evaluation_ready"]:
+        raise ValueError(
+            "dataset manifest is not evaluation-ready: synthetic data or missing records"
+        )
+    if not isinstance(split_boundaries, dict):
+        raise ValueError("split_boundaries must be a dictionary")
+
+    required_boundaries = (
+        "train_end", "validation_start", "validation_end", "test_start"
+    )
+    missing = [field for field in required_boundaries if field not in split_boundaries]
+    if missing:
+        raise ValueError(f"split_boundaries missing required fields: {', '.join(missing)}")
+
+    chronology = validate_chronological_splits(
+        split_boundaries["train_end"],
+        split_boundaries["validation_start"],
+        split_boundaries["validation_end"],
+        split_boundaries["test_start"],
+        embargo_seconds=embargo_seconds,
+    )
+    aggregate = aggregate_binary_evaluation_runs(actual_runs, predicted_runs)
+    evaluated_samples = aggregate["pooled"]["sample_count"]
+    if evaluated_samples > normalized_manifest["sample_count"]:
+        raise ValueError(
+            "evaluated sample count cannot exceed manifest sample_count"
+        )
+
+    return {
+        "report_type": "binary_classification_research",
+        "dataset": normalized_manifest,
+        "chronology": chronology,
+        "metrics": aggregate,
+        "evaluated_sample_count": evaluated_samples,
+        "research_only": True,
+        "limitations": [
+            "The caller supplies labels and predictions; this helper does not inspect raw market records.",
+            "Manifest sample_count is a metadata assertion, not independently verified.",
+            "A single set of split boundaries validates chronology only; it does not prove every fold is non-overlapping.",
+            "No profitability, risk-adjusted return, or live trading claim is made.",
+        ],
+    }
+

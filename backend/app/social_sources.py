@@ -18,7 +18,7 @@ class _NoRedirectHandler(HTTPRedirectHandler):
 
 
 def _source_record(item: dict, channel: str) -> dict:
-    """Normalize news/social items into a shared, provenance-preserving schema."""
+    """Normalize metadata and attach explainable provenance-quality flags."""
     url = (item.get("url") or item.get("link") or "").strip()
     title = (item.get("title") or "").strip()
     source = (item.get("source") or item.get("publisher") or "unknown").strip()
@@ -27,6 +27,15 @@ def _source_record(item: dict, channel: str) -> dict:
     record_id = item.get("id") or hashlib.sha256(
         f"{channel}|{source}|{url}|{title}".encode()
     ).hexdigest()
+    missing = []
+    if not source or source.casefold() == "unknown":
+        missing.append("source_name_missing")
+    if not url:
+        missing.append("source_url_missing")
+    if not title:
+        missing.append("title_missing")
+    if not published:
+        missing.append("publication_time_missing")
     return {
         "id": record_id,
         "channel": channel,
@@ -36,18 +45,19 @@ def _source_record(item: dict, channel: str) -> dict:
         "published_at": published,
         "retrieved_at": retrieved,
         "claim_status": "unverified",
+        "provenance_quality": "incomplete" if missing else "metadata_complete",
+        "provenance_gaps": missing,
         "content_policy": item.get("content_policy", "metadata_only"),
     }
 
 
 def merge_research_evidence(news_items: list[dict], social_items: list[dict]) -> dict:
-    """Merge feed metadata into one stable, provenance-preserving evidence list."""
+    """Merge feed metadata and produce cautious, explainable review signals."""
     records = [
         _source_record(item, "news") for item in news_items
     ] + [
         _source_record(item, "social") for item in social_items
     ]
-    # Deduplicate only identical source URLs; retain channel and original source.
     seen = set()
     merged = []
     for record in records:
@@ -57,17 +67,50 @@ def merge_research_evidence(news_items: list[dict], social_items: list[dict]) ->
         if record["url"]:
             seen.add(key)
         merged.append(record)
+
+    # Identical normalized titles across channels are review candidates only.
+    # This does not establish that the underlying claims agree or are true.
+    title_groups = {}
+    for record in merged:
+        normalized_title = " ".join(record["title"].casefold().split())
+        if normalized_title:
+            title_groups.setdefault(normalized_title, []).append(record)
+    corroboration_candidates = []
+    for title, group in title_groups.items():
+        channels = sorted({record["channel"] for record in group})
+        if len(channels) > 1:
+            corroboration_candidates.append({
+                "normalized_title": title,
+                "channels": channels,
+                "source_urls": sorted({record["url"] for record in group if record["url"]}),
+                "review_status": "manual_cross_check_required",
+                "note": "Matching titles are not proof of independent corroboration or agreement.",
+            })
+
     merged.sort(
         key=lambda record: str(record.get("published_at") or ""),
         reverse=True,
     )
+    counts = {
+        "news": sum(record["channel"] == "news" for record in merged),
+        "social": sum(record["channel"] == "social" for record in merged),
+    }
     return {
         "schema": "market_mind_evidence_v1",
         "items": merged,
         "count": len(merged),
         "channels": sorted({record["channel"] for record in merged}),
+        "channel_counts": counts,
+        "provenance_complete_count": sum(
+            record["provenance_quality"] == "metadata_complete" for record in merged
+        ),
+        "provenance_incomplete_count": sum(
+            record["provenance_quality"] == "incomplete" for record in merged
+        ),
+        "corroboration_candidates": corroboration_candidates,
         "claim_status": "unverified_until_cross_checked",
         "coverage": "only_configured_sources",
+        "review_note": "Quality flags measure metadata completeness, not publisher credibility or truth.",
     }
 
 

@@ -110,6 +110,9 @@ def intelligence_core_status() -> dict:
 
 def synthesize_research(research: dict, *, opener=urlopen) -> dict:
     """Optional bounded synthesis over supplied research JSON, with explicit fallback."""
+    if not isinstance(research, dict):
+        raise IntelligenceCoreError("Research input must be a JSON object.")
+
     status = intelligence_core_status()
     if not status["enabled"]:
         return {

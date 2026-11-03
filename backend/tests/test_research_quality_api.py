@@ -25,5 +25,25 @@ class ResearchQualityApiTests(unittest.TestCase):
         self.assertEqual(getattr(raised.exception, "status_code", None), 400)
 
 
+    def test_task_quality_endpoint_returns_not_evaluated_for_valid_task(self):
+        import os
+        import tempfile
+        from unittest.mock import patch
+        from app.analytical_agent_tasks import enqueue_research_task
+        from app.main import analytical_agent_task_quality_evaluation
+        with tempfile.TemporaryDirectory() as temp:
+            with patch.dict(os.environ, {"MARKET_MIND_DB": os.path.join(temp, "quality.sqlite")}):
+                queued = enqueue_research_task("worker_018", "No quality eval")
+                result = analytical_agent_task_quality_evaluation(queued["task_id"])
+                self.assertEqual(result["status"], "not_evaluated")
+                self.assertEqual(result["task_id"], queued["task_id"])
+
+    def test_task_quality_endpoint_returns_404_for_unknown_task(self):
+        from fastapi import HTTPException
+        from app.main import analytical_agent_task_quality_evaluation
+        with self.assertRaises(HTTPException) as raised:
+            analytical_agent_task_quality_evaluation("missing-task")
+        self.assertEqual(raised.exception.status_code, 404)
+
 if __name__ == "__main__":
     unittest.main()

@@ -99,6 +99,7 @@ def execute_queued_research_task(task_id: str) -> None:
         brain = brain_config(agent_id)
     payload = {
         "agent": {"id": agent_id, "department": brain["department"], "specialty": brain["specialty"]},
+        "agent_context": brain["brain_context"],
         "task": task_input,
         "constraints": ["Use supplied data only.", "Distinguish facts, assumptions, and unknowns.",
                        "Do not invent missing market data.", "No trade execution or investment certainty."],
@@ -190,6 +191,7 @@ def submit_research_task(agent_id: str, brief: str, data: dict | list | None = N
     # The configured core sees only supplied user data and the agent's role.
     research_payload = {
         "agent": {"id": agent_id, "department": brain["department"], "specialty": brain["specialty"]},
+        "agent_context": brain["brain_context"],
         "task": task_input,
         "constraints": ["Use supplied data only.", "Distinguish facts, assumptions, and unknowns.",
                        "Do not invent missing market data.", "No trade execution or investment certainty."],

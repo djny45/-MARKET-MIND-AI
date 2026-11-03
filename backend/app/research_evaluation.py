@@ -195,3 +195,60 @@ def evaluate_binary_predictions(actual: Any, predicted: Any) -> dict[str, Any]:
             "This output is not a trading signal or a recommendation.",
         ],
     }
+
+def aggregate_binary_evaluation_runs(actual_runs: Any, predicted_runs: Any) -> dict[str, Any]:
+    """Aggregate independent binary evaluation splits without hiding fold variance.
+
+    Returns per-split metrics, pooled metrics (computed from concatenated
+    predictions), and unweighted mean/standard deviation across splits.
+    Callers remain responsible for ensuring splits are chronological,
+    non-overlapping, and generated without leakage.
+    """
+    if not isinstance(actual_runs, (list, tuple)) or not isinstance(predicted_runs, (list, tuple)):
+        raise ValueError("actual_runs and predicted_runs must be lists or tuples")
+    if not actual_runs or len(actual_runs) != len(predicted_runs):
+        raise ValueError("actual_runs and predicted_runs must be non-empty and have equal length")
+
+    fold_results = []
+    pooled_actual: list[int] = []
+    pooled_predicted: list[int] = []
+    for index, (actual, predicted) in enumerate(zip(actual_runs, predicted_runs)):
+        try:
+            result = evaluate_binary_predictions(actual, predicted)
+        except ValueError as exc:
+            raise ValueError(f"split {index}: {exc}") from exc
+        fold_results.append(result)
+        pooled_actual.extend(actual)
+        pooled_predicted.extend(predicted)
+
+    metric_names = (
+        "accuracy", "precision", "recall", "specificity",
+        "balanced_accuracy", "f1",
+    )
+    means = {
+        name: sum(result[name] for result in fold_results) / len(fold_results)
+        for name in metric_names
+    }
+    standard_deviations = {
+        name: (
+            sum((result[name] - means[name]) ** 2 for result in fold_results)
+            / len(fold_results)
+        ) ** 0.5
+        for name in metric_names
+    }
+
+    return {
+        "split_count": len(fold_results),
+        "per_split": fold_results,
+        "unweighted_split_mean": means,
+        "unweighted_split_population_std": standard_deviations,
+        "pooled": evaluate_binary_predictions(pooled_actual, pooled_predicted),
+        "research_only": True,
+        "limitations": [
+            "Split metrics are unweighted; each split contributes equally regardless of sample count.",
+            "Pooled metrics combine all supplied labels and predictions and may obscure split-to-split variation.",
+            "The caller must ensure chronological ordering, non-overlap, embargo, and leakage controls.",
+            "This summary does not establish out-of-sample profitability or trading performance.",
+        ],
+    }
+

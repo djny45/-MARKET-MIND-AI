@@ -71,8 +71,8 @@ def validate_chronological_splits(
         "validation_start": val_start.isoformat(),
         "validation_end": val_end.isoformat(),
         "test_start": test.isoformat(),
-        "train_validation_gap_seconds": int(embargo),
-        "validation_test_gap_seconds": int(test_embargo),
+        "train_validation_gap_seconds": embargo,
+        "validation_test_gap_seconds": test_embargo,
         "random_shuffling_allowed": False,
         "research_only": True,
     }

@@ -66,6 +66,9 @@ def parse_historical_csv(
     if not normalized_rows:
         raise ValueError("CSV contains no data rows")
 
+    # CSV uploads may arrive newest-first; normalize for downstream batch/store contracts.
+    normalized_rows.sort(key=lambda bar: bar.timestamp)
+
     try:
         return MarketDataBatch(
             symbol=symbol,

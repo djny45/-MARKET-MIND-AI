@@ -15,6 +15,7 @@ from pathlib import Path
 
 from .analytical_agent_runtime import brain_config
 from .intelligence_core import synthesize_research
+from .worker_memory import recall_memory
 
 MAX_TASK_INPUT_CHARS = 10000
 TASK_TYPE = "research_brief"
@@ -100,6 +101,10 @@ def execute_queued_research_task(task_id: str) -> None:
     payload = {
         "agent": {"id": agent_id, "department": brain["department"], "specialty": brain["specialty"]},
         "agent_context": brain["brain_context"],
+        "retrieved_memory": recall_memory(
+            agent_id, task_input["brief"] + " " + json.dumps(task_input.get("data"), ensure_ascii=False)[:6000],
+            limit=5,
+        ),
         "task": task_input,
         "constraints": ["Use supplied data only.", "Distinguish facts, assumptions, and unknowns.",
                        "Do not invent missing market data.", "No trade execution or investment certainty."],
@@ -192,6 +197,10 @@ def submit_research_task(agent_id: str, brief: str, data: dict | list | None = N
     research_payload = {
         "agent": {"id": agent_id, "department": brain["department"], "specialty": brain["specialty"]},
         "agent_context": brain["brain_context"],
+        "retrieved_memory": recall_memory(
+            agent_id, brief.strip() + " " + json.dumps(data, ensure_ascii=False)[:6000],
+            limit=5,
+        ),
         "task": task_input,
         "constraints": ["Use supplied data only.", "Distinguish facts, assumptions, and unknowns.",
                        "Do not invent missing market data.", "No trade execution or investment certainty."],

@@ -135,3 +135,55 @@ def validate_dataset_manifest(manifest: Any) -> dict[str, Any]:
         ],
     })
     return normalized
+
+
+def evaluate_binary_predictions(actual: Any, predicted: Any) -> dict[str, Any]:
+    """Summarize binary research labels against predictions and a majority baseline.
+
+    This computes classification metrics only. It does not convert predictions
+    into market signals, returns, portfolio positions, or execution actions.
+    """
+    if not isinstance(actual, (list, tuple)) or not isinstance(predicted, (list, tuple)):
+        raise ValueError("actual and predicted must be lists or tuples")
+    if not actual or len(actual) != len(predicted):
+        raise ValueError("actual and predicted must be non-empty and have equal length")
+
+    def validate_labels(values: list | tuple, field: str) -> list[int]:
+        checked = []
+        for index, value in enumerate(values):
+            if isinstance(value, bool) or value not in (0, 1):
+                raise ValueError(f"{field}[{index}] must be binary label 0 or 1")
+            checked.append(int(value))
+        return checked
+
+    y_true = validate_labels(actual, "actual")
+    y_pred = validate_labels(predicted, "predicted")
+    tp = sum(t == 1 and p == 1 for t, p in zip(y_true, y_pred))
+    tn = sum(t == 0 and p == 0 for t, p in zip(y_true, y_pred))
+    fp = sum(t == 0 and p == 1 for t, p in zip(y_true, y_pred))
+    fn = sum(t == 1 and p == 0 for t, p in zip(y_true, y_pred))
+    total = len(y_true)
+    positives = sum(y_true)
+    negatives = total - positives
+    accuracy = (tp + tn) / total
+    precision = tp / (tp + fp) if tp + fp else 0.0
+    recall = tp / (tp + fn) if tp + fn else 0.0
+    f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
+    majority_baseline = max(positives, negatives) / total
+
+    return {
+        "sample_count": total,
+        "confusion_matrix": {"true_positive": tp, "true_negative": tn, "false_positive": fp, "false_negative": fn},
+        "accuracy": accuracy,
+        "precision": precision,
+        "recall": recall,
+        "f1": f1,
+        "majority_class_baseline_accuracy": majority_baseline,
+        "accuracy_delta_vs_majority_baseline": accuracy - majority_baseline,
+        "research_only": True,
+        "limitations": [
+            "Metrics depend on labels and predictions supplied by the caller.",
+            "No temporal leakage, class imbalance impact, data provenance, or deployment performance is assessed here.",
+            "This output is not a trading signal or a recommendation.",
+        ],
+    }

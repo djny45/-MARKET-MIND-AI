@@ -204,6 +204,13 @@ def synthesize_research(research: dict, *, opener=urlopen) -> dict:
             "reason": "Shared synthesis provider failed; deterministic report remains authoritative.",
         }
 
+    if not isinstance(decoded, dict):
+        return {
+            "status": "invalid_provider_response", "core_id": CORE_ID,
+            "provider": provider_name, "summary": None,
+            "reason": "Provider returned an unexpected JSON structure.",
+        }
+
     summary = extract_chat_completion_text(decoded) if selected == "freellmapi" else decoded.get("response")
     if not isinstance(summary, str) or not summary.strip():
         return {

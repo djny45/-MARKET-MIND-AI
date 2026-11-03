@@ -34,7 +34,7 @@ After changing environment variables, redeploy the backend.
 
 ## 4. Frontend-to-backend URL
 
-The frontend must call the backend deployment URL rather than `localhost:8000`. Find the API base URL setting in the frontend source and configure it to the backend's Vercel URL using the project's supported frontend environment variable. Do not guess a variable name: verify the frontend code first. Redeploy the frontend after changing it.
+The frontend reads `VITE_API_URL` (in `frontend/src/App.tsx` and other API-calling components). In the frontend Vercel project, set `VITE_API_URL` to the backend's HTTPS deployment origin, for example `https://your-backend.vercel.app` (no trailing slash). This is a public API base URL, not a secret. Redeploy the frontend after changing it.
 
 ## 5. Verify
 

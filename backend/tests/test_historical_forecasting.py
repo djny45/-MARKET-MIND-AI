@@ -6,10 +6,7 @@ implementation mechanics, not predictive skill or market performance.
 import math
 import unittest
 
-from app.historical_forecasting import (
-    evaluate_next_day_return_forecast,
-    evaluate_walk_forward_forecast,
-)
+from app.historical_forecasting import evaluate_next_day_return_forecast, evaluate_walk_forward_forecast
 
 
 class HistoricalForecastingTests(unittest.TestCase):

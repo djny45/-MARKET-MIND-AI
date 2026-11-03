@@ -51,8 +51,11 @@ python run_historical_research.py --symbol AAPL --bars 750
 The script fetches daily OHLCV, prefers Yahoo's adjusted close for return
 research, and reports data source/timestamps plus a chronological train /
 validation / holdout test. It compares a small ridge regression on lagged
-log-returns with a zero-return baseline. It does not shuffle time-series rows
-or use test data for model selection.
+log-returns with a zero-return baseline. The output includes absolute and
+relative holdout MAE/RMSE reductions (negative values mean the model performed
+worse than the baseline). It does not shuffle time-series rows or use test data
+for model selection. These comparisons describe this test window only; they do
+not establish predictive skill or a tradable edge.
 
 **Important:** Yahoo's chart endpoint is unofficial and provider-dependent.
 Check data licensing and availability. Results can vary by symbol, period, data

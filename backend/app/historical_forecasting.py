@@ -129,6 +129,21 @@ def evaluate_next_day_return_forecast(
     model_predictions = _predict(final_coefficients, test_x)
     baseline_predictions = [0.0] * len(test_y)
 
+    model_metrics = _metrics(test_y, model_predictions)
+    baseline_metrics = _metrics(test_y, baseline_predictions)
+
+    def _baseline_comparison(model_value: float, baseline_value: float) -> dict:
+        # Positive improvement means the model's error is lower than baseline.
+        absolute_improvement = baseline_value - model_value
+        relative_improvement = (
+            absolute_improvement / baseline_value
+            if baseline_value > 0 else None
+        )
+        return {
+            "absolute_error_reduction": absolute_improvement,
+            "relative_error_reduction": relative_improvement,
+        }
+
     return {
         "task": "next_day_log_return_forecast",
         "method": "ridge_regression_on_lagged_log_returns",
@@ -144,8 +159,23 @@ def evaluate_next_day_return_forecast(
             {"alpha": alpha, "mae_log_return": score}
             for score, alpha in sorted(validation_scores)
         ],
-        "test_model": _metrics(test_y, model_predictions),
-        "test_zero_return_baseline": _metrics(test_y, baseline_predictions),
+        "test_model": model_metrics,
+        "test_zero_return_baseline": baseline_metrics,
+        "test_vs_zero_return_baseline": {
+            "mae": _baseline_comparison(
+                model_metrics["mae_log_return"],
+                baseline_metrics["mae_log_return"],
+            ),
+            "rmse": _baseline_comparison(
+                model_metrics["rmse_log_return"],
+                baseline_metrics["rmse_log_return"],
+            ),
+            "interpretation": (
+                "Positive error reduction means lower holdout error than the "
+                "zero-return baseline; negative means worse. This is descriptive "
+                "for this test window only, not evidence of tradable edge."
+            ),
+        },
         "research_only": True,
         "limitations": [
             "Uses only historical adjusted closing prices and lagged returns.",

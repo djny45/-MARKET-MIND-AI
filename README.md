@@ -35,49 +35,39 @@ The platform is designed for research across four primary market groups: India, 
 
 ## Historical data and forecasting research (educational)
 
-The repository includes a best-effort Yahoo Finance historical-data adapter and a
-chronological one-step forecasting benchmark. This is a research experiment—not
-a trading system, recommendation, or evidence of profitability.
+The repository includes a best-effort Yahoo Finance historical-data adapter and
+chronological forecasting benchmarks. This is research—not a trading system,
+recommendation, or evidence of profitability.
 
 Run locally from the repository root:
 
 ```bash
 cd backend
 python -m pip install -r requirements.txt
+# Single chronological train/validation/test holdout
 python run_historical_research.py --symbol AAPL --bars 750
-# Indian-listed example: RELIANCE.NS
+# Expanding-window walk-forward benchmark
+python run_historical_research.py --symbol RELIANCE.NS --bars 1500 --walk-forward \
+  --min-train-samples 100 --test-window-size 20 --step-size 20
 ```
 
-The script fetches daily OHLCV, prefers Yahoo's adjusted close for return
-research, and reports data source/timestamps plus a chronological train /
-validation / holdout test. It compares a small ridge regression on lagged
-log-returns with both a zero-return baseline and a constant-mean-return baseline
-fit only on pre-test history. The output includes absolute and
-relative holdout MAE/RMSE reductions (negative values mean the model performed
-worse than the baseline). A separate expanding-window walk-forward evaluator
-runs repeated chronological test windows, tunes ridge alpha only on each
-window's pre-test validation history, and reports per-window plus mean/median
-metrics against zero-return and pre-test constant-mean baselines. The windows
-are deliberately non-overlapping in their test segments by default; history
-expands over time. This still is not proof of predictive skill or profitability. It does not shuffle time-series rows or use test data
-for model selection. These comparisons describe this test window only; they do
-not establish predictive skill or a tradable edge.
+The CLI fetches daily OHLCV, prefers adjusted close when available, and records
+the source, retrieval time, date range, and SHA-256 fingerprint of the fetched
+bars. It compares lagged-return ridge regression with zero-return and
+pre-test constant-mean baselines. In walk-forward mode, each window tunes ridge
+alpha using only a validation slice from that window's pre-test history, refits
+on all pre-test samples, and evaluates the next unseen test segment. The
+expanding history and test-window timestamps are included in the JSON report.
 
-A separate expanding-window walk-forward evaluator is available as
-`evaluate_walk_forward_forecast` in
-`backend/app/historical_forecasting.py`. It repeatedly selects ridge alpha
-using only a validation slice from the pre-test history, refits on all
-pre-test samples, and evaluates the next fixed-size test window. Each subsequent
-window expands the available history. It reports per-window results and
-arithmetic mean window-level metrics against zero-return and pre-test
-constant-mean baselines. These are not pooled metrics; windows may overlap if
-the step size is smaller than the test-window size. Returned indices identify
-sample positions, not calendar dates. The walk-forward routine is a benchmark
-utility; the current Yahoo runner still reports its original single holdout
-evaluation unless separately extended to invoke walk-forward mode.
+Walk-forward output includes individual window metrics and arithmetic mean
+window-level metrics; these are not pooled-observation metrics. Test windows
+are non-overlapping by default, but can overlap when `--step-size` is smaller
+than `--test-window-size`. The routine does not shuffle time-series rows or
+use test data for model selection. These comparisons are descriptive only and
+do not establish predictive skill or a tradable edge.
 
 **Important:** Yahoo's chart endpoint is unofficial and provider-dependent.
-Check data licensing and availability. Results can vary by symbol, period, data
+Check data licensing and availability. Results can vary by symbol, period,
 adjustments, and provider corrections. The experiment models one symbol and
 one-day log returns only; it omits costs, slippage, taxes, portfolio risk, and
 execution. A good historical score is not a guarantee of future performance.

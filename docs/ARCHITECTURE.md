@@ -74,3 +74,28 @@ Evaluation reports should disclose survivorship bias, look-ahead bias, data snoo
 - Uploaded documents are treated as untrusted input.
 - All external content is data, never executable instructions.
 - Every research report records data lineage and method versions.
+
+
+## 6. Multi-symbol historical research runner
+
+`backend/run_multi_symbol_research.py` runs the existing single-symbol historical
+research runner sequentially for each requested ticker. Each symbol retains its
+own dataset fingerprint, evaluation mode, date boundaries, and forecast metrics.
+A provider or evaluation failure is captured for that symbol and does not create
+placeholder metrics or silently stop the remaining symbols.
+
+Example (from `backend/`):
+
+```bash
+python run_multi_symbol_research.py \
+  --symbols RELIANCE.NS,TCS.NS,INFY.NS \
+  --bars 1500 \
+  --min-train-samples 100 \
+  --test-window-size 20 \
+  --step-size 20
+```
+
+The JSON output is a collection of independent reports, not a pooled score or
+instrument ranking. The batch runner is research-only; it does not generate
+trade signals, recommend instruments, or place orders. Retain the per-symbol
+SHA-256 dataset fingerprint because data providers can revise historical data.

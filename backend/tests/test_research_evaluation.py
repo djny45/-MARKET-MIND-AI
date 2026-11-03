@@ -89,15 +89,17 @@ class ChronologicalSplitTests(unittest.TestCase):
                 embargo_seconds=True,
             )
 
-    def test_embargo_boundary_must_be_strictly_greater_than_embargo(self):
-        with self.assertRaisesRegex(ValueError, "does not satisfy embargo_seconds"):
-            validate_chronological_splits(
-                "2024-01-01T00:00:00Z",
-                "2024-01-01T00:00:10Z",
-                "2024-01-02T00:00:00Z",
-                "2024-01-02T00:00:10Z",
-                embargo_seconds=10,
-            )
+    def test_exact_embargo_boundary_is_valid(self):
+        result = validate_chronological_splits(
+            "2024-01-01T00:00:00Z",
+            "2024-01-01T00:00:10Z",
+            "2024-01-02T00:00:00Z",
+            "2024-01-02T00:00:10Z",
+            embargo_seconds=10,
+        )
+        self.assertTrue(result["valid"])
+        self.assertEqual(result["train_validation_gap_seconds"], 10)
+        self.assertEqual(result["validation_test_gap_seconds"], 10)
 
     def test_rejects_insufficient_embargo(self):
         with self.assertRaisesRegex(ValueError, "does not satisfy embargo_seconds"):

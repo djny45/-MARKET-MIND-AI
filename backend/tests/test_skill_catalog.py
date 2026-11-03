@@ -7,7 +7,7 @@ class SkillCatalogTests(unittest.TestCase):
     def test_catalog_contains_only_allowlisted_research_skills(self):
         skills = list_skills()
         by_id = {skill["id"]: skill for skill in skills}
-        self.assertEqual(len(skills), 318)
+        self.assertEqual(len(skills), 319)
         self.assertNotIn("trader-broker", by_id)
         self.assertTrue(all(
             skill["mode"] == "research_and_paper_only"
@@ -24,6 +24,18 @@ class SkillCatalogTests(unittest.TestCase):
         self.assertTrue(by_id["market-data-yahoo"]["requires_external_tools"])
         self.assertEqual(by_id["market-data-stooq"]["mode"], "market_data_research_only")
         self.assertTrue(by_id["market-data-stooq"]["requires_external_tools"])
+
+
+    def test_social_research_skill_is_allowlisted_and_loadable(self):
+        skills = {skill["id"]: skill for skill in list_skills()}
+        social = skills["social-research"]
+        self.assertTrue(social["available"])
+        self.assertEqual(social["mode"], "social_research_only")
+        self.assertTrue(social["requires_external_tools"])
+        loaded = load_skill("social-research")
+        self.assertIn("public RSS", loaded["content"])
+        self.assertEqual(loaded["mode"], "social_research_only")
+        self.assertFalse(loaded["broker_execution"])
 
     def test_allowlisted_skill_can_be_loaded(self):
         result = load_skill("trader-scanner")

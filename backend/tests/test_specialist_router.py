@@ -28,6 +28,15 @@ class SpecialistRouterTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             route_research_brief("brief", data=object())
 
+    def test_shortlist_avoids_duplicate_departments(self):
+        result = route_research_brief(
+            "Validate historical market data quality, RSI technical indicator, "
+            "crypto correlation, volatility risk, and macro inflation",
+            limit=10,
+        )
+        departments = [item["department"] for item in result["candidates"]]
+        self.assertEqual(len(departments), len(set(departments)))
+
     def test_routing_is_deterministic(self):
         first = route_research_brief("RSI and MACD trend analysis", limit=4)
         second = route_research_brief("RSI and MACD trend analysis", limit=4)

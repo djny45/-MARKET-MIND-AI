@@ -73,9 +73,11 @@ one-day log returns only; it omits costs, slippage, taxes, portfolio risk, and
 execution. A good historical score is not a guarantee of future performance.
 No real-money trading, order routing, or brokerage integration is included.
 
-## FreeLLMAPI shared-core provider
+## Inception Labs Mercury shared intelligence provider
 
-The shared intelligence core includes an optional FreeLLMAPI adapter for bounded research-text synthesis. FreeLLMAPI runs separately; MARKET-MIND-AI does not host the gateway or bundle provider credentials. Setup and environment variables are documented in [FreeLLMAPI integration](docs/FREELLMAPI-INTEGRATION.md). The adapter is disabled by default and loopback-restricted. It does not provide market data or trading execution.
+The shared intelligence core defaults to **Inception Labs Mercury-3** through the official chat-completions API. Configure `INCEPTION_API_KEY` as a backend-only secret and set `INTELLIGENCE_CORE_ENABLED=true`; see [Mercury provider setup](docs/FREELLMAPI-INTEGRATION.md) and [`backend/.env.example`](backend/.env.example). Never commit provider keys or expose them in frontend code. The provider synthesizes supplied research only; it does not fetch market data or execute trades.
+
+A legacy FreeLLMAPI adapter remains available when explicitly selected.
 
 ## Research draft quality checks
 

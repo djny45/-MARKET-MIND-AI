@@ -70,7 +70,7 @@ class AutonomousStoredResearchApiTests(unittest.TestCase):
     def test_mixed_statuses_rejected(self):
         import asyncio
         self.add_batch(status="historical")
-        self.add_batch(status="delayed")
+        self.add_batch(source="unit-test-2", status="delayed")
         with self.assertRaises(HTTPException) as error:
             asyncio.run(self.call_endpoint())
         self.assertEqual(error.exception.status_code, 409)

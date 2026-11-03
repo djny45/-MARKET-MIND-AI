@@ -77,3 +77,61 @@ def validate_chronological_splits(
         "random_shuffling_allowed": False,
         "research_only": True,
     }
+
+
+
+def validate_dataset_manifest(manifest: Any) -> dict[str, Any]:
+    """Validate metadata required before a historical dataset can be evaluated.
+
+    This is a metadata gate, not a data inspection or performance evaluation.
+    It cannot verify the underlying bars, corporate actions, feature leakage,
+    or provider claims.
+    """
+    if not isinstance(manifest, dict):
+        raise ValueError("manifest must be a dictionary")
+
+    required_text = ("dataset_id", "source", "symbol", "timeframe")
+    normalized: dict[str, Any] = {}
+    for field in required_text:
+        value = manifest.get(field)
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(f"{field} must be a non-empty string")
+        normalized[field] = value.strip()
+
+    start = _parse_timestamp(manifest.get("start"), "start")
+    end = _parse_timestamp(manifest.get("end"), "end")
+    start, end = start.astimezone(timezone.utc), end.astimezone(timezone.utc)
+    if end <= start:
+        raise ValueError("end must be after start")
+
+    sample_count = manifest.get("sample_count")
+    if not isinstance(sample_count, int) or isinstance(sample_count, bool) or sample_count <= 0:
+        raise ValueError("sample_count must be a positive integer")
+
+    missing_fraction = manifest.get("missing_fraction")
+    if (
+        not isinstance(missing_fraction, (int, float))
+        or isinstance(missing_fraction, bool)
+        or not 0 <= missing_fraction <= 1
+    ):
+        raise ValueError("missing_fraction must be a number between 0 and 1")
+
+    synthetic = manifest.get("synthetic")
+    if not isinstance(synthetic, bool):
+        raise ValueError("synthetic must be a boolean")
+
+    normalized.update({
+        "start": start.isoformat(),
+        "end": end.isoformat(),
+        "sample_count": sample_count,
+        "missing_fraction": float(missing_fraction),
+        "synthetic": synthetic,
+        "metadata_valid": True,
+        "evaluation_ready": not synthetic and missing_fraction == 0,
+        "research_only": True,
+        "limitations": [
+            "Metadata validation does not inspect underlying records.",
+            "Evaluation readiness is a conservative metadata flag, not proof of data quality or absence of leakage.",
+        ],
+    })
+    return normalized

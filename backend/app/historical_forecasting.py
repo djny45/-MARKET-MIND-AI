@@ -327,3 +327,128 @@ def evaluate_walk_forward_return_forecast(
             "Synthetic test fixtures validate code mechanics, not predictive skill.",
         ],
     }
+
+def evaluate_walk_forward_forecast(
+    adjusted_closes: Sequence[float], *, lookback: int = 5,
+    min_train_samples: int = 100, test_window_size: int = 20,
+    step_size: int | None = None,
+) -> dict:
+    """Evaluate repeated expanding-window forecasts without future leakage.
+
+    Each window's validation segment is the final 20% of its pre-test history.
+    Alpha is selected on that segment, then the model and mean baseline are
+    refit using all pre-test observations. Test windows are never used for
+    fitting or hyperparameter selection. Indices refer to generated return
+    samples (not calendar dates).
+    """
+    if not isinstance(lookback, int) or isinstance(lookback, bool) or not 2 <= lookback <= 20:
+        raise ValueError("lookback must be an integer between 2 and 20")
+    for name, value, minimum in (
+        ("min_train_samples", min_train_samples, 80),
+        ("test_window_size", test_window_size, 5),
+    ):
+        if not isinstance(value, int) or isinstance(value, bool) or value < minimum:
+            raise ValueError(f"{name} must be an integer >= {minimum}")
+    if step_size is None:
+        step_size = test_window_size
+    if not isinstance(step_size, int) or isinstance(step_size, bool) or step_size < 1:
+        raise ValueError("step_size must be a positive integer")
+
+    returns = _log_returns(adjusted_closes)
+    features, targets = [], []
+    for target_index in range(lookback, len(returns)):
+        features.append(returns[target_index - lookback:target_index])
+        targets.append(returns[target_index])
+
+    if len(targets) < min_train_samples + test_window_size:
+        raise ValueError("insufficient history for requested walk-forward windows")
+
+    candidates = (1e-6, 1e-4, 1e-2, 1.0)
+    windows = []
+    cursor = min_train_samples
+    while cursor + test_window_size <= len(targets):
+        pretest_x, pretest_y = features[:cursor], targets[:cursor]
+        validation_start = int(cursor * 0.80)
+        if validation_start < 50 or cursor - validation_start < 10:
+            raise ValueError("insufficient pre-test history for validation split")
+        train_x, train_y = pretest_x[:validation_start], pretest_y[:validation_start]
+        val_x, val_y = pretest_x[validation_start:], pretest_y[validation_start:]
+        validation_scores = []
+        for alpha in candidates:
+            coefficients = _fit_ridge(train_x, train_y, alpha)
+            predictions = _predict(coefficients, val_x)
+            score = sum(abs(a - p) for a, p in zip(val_y, predictions)) / len(val_y)
+            validation_scores.append((score, alpha))
+        selected_alpha = min(validation_scores)[1]
+
+        coefficients = _fit_ridge(pretest_x, pretest_y, selected_alpha)
+        test_x = features[cursor:cursor + test_window_size]
+        test_y = targets[cursor:cursor + test_window_size]
+        model_metrics = _metrics(test_y, _predict(coefficients, test_x))
+        zero_metrics = _metrics(test_y, [0.0] * len(test_y))
+        mean_return = sum(pretest_y) / len(pretest_y)
+        mean_metrics = _metrics(test_y, [mean_return] * len(test_y))
+        windows.append({
+            "window_number": len(windows) + 1,
+            "pretest_samples": cursor,
+            "validation_samples": len(val_y),
+            "test_sample_start_index": cursor,
+            "test_sample_end_index_exclusive": cursor + test_window_size,
+            "selected_ridge_alpha": selected_alpha,
+            "model": model_metrics,
+            "zero_return_baseline": zero_metrics,
+            "pretest_mean_return_baseline": {
+                "forecast_log_return": mean_return,
+                "fit_samples": len(pretest_y),
+                **mean_metrics,
+            },
+        })
+        cursor += step_size
+
+    def average_metric(rows: list[dict], key: str) -> float:
+        return sum(row[key] for row in rows) / len(rows)
+
+    aggregate_model = {
+        key: average_metric([row["model"] for row in windows], key)
+        for key in ("mae_log_return", "rmse_log_return", "directional_accuracy")
+    }
+    aggregate_zero = {
+        key: average_metric([row["zero_return_baseline"] for row in windows], key)
+        for key in ("mae_log_return", "rmse_log_return", "directional_accuracy")
+    }
+    aggregate_mean = {
+        key: average_metric([row["pretest_mean_return_baseline"] for row in windows], key)
+        for key in ("mae_log_return", "rmse_log_return", "directional_accuracy")
+    }
+    return {
+        "task": "expanding_walk_forward_next_day_log_return_forecast",
+        "method": "ridge_regression_on_lagged_log_returns",
+        "lookback": lookback,
+        "window_count": len(windows),
+        "test_window_size": test_window_size,
+        "step_size": step_size,
+        "initial_pretest_samples": min_train_samples,
+        "aggregate_mean_window_metrics": {
+            "model": aggregate_model,
+            "zero_return_baseline": aggregate_zero,
+            "pretest_mean_return_baseline": aggregate_mean,
+        },
+        "mean_window_error_reduction_vs_zero_baseline": {
+            metric: aggregate_zero[metric] - aggregate_model[metric]
+            for metric in ("mae_log_return", "rmse_log_return")
+        },
+        "mean_window_error_reduction_vs_pretest_mean_baseline": {
+            metric: aggregate_mean[metric] - aggregate_model[metric]
+            for metric in ("mae_log_return", "rmse_log_return")
+        },
+        "windows": windows,
+        "research_only": True,
+        "limitations": [
+            "Window metrics are arithmetic means of per-window metrics, not pooled observation metrics.",
+            "Overlapping windows can occur when step_size is smaller than test_window_size.",
+            "Indices identify return samples, not dates; calendar timestamps are not included.",
+            "A small single-symbol synthetic or historical run does not establish generalization or tradable edge.",
+            "No transaction costs, slippage, taxes, portfolio outcomes, or investment advice.",
+        ],
+    }
+

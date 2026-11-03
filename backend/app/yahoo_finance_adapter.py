@@ -18,7 +18,7 @@ from typing import Any
 from .market_data import DataStatus, MarketDataBatch, OHLCVBar
 
 _INTERVALS = {"15m": "15m", "1h": "1h", "4h": "1h", "1d": "1d"}
-_PERIODS = {"15m": "5d", "1h": "1mo", "4h": "3mo", "1d": "1y"}
+_PERIODS = {"15m": "5d", "1h": "1mo", "4h": "3mo", "1d": "5y"}
 
 
 class YahooFinanceAdapter:

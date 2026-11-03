@@ -16,6 +16,9 @@ class SocialResearchApiTests(unittest.TestCase):
             "https://example.com/feed.rss",
             "https://www.reddit.com/private",
             "https://user:pass@www.reddit.com/r/test/.rss",
+            "https://www.reddit.com:badport/r/test/.rss",
+            "https://www.reddit.com/r/test/.rss?redirect=1",
+            "https://www.reddit.com/r/test/.rss#fragment",
         ):
             with self.subTest(url=url):
                 response = self.client.post("/api/research/social-feeds", json={

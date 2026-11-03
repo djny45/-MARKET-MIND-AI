@@ -36,6 +36,24 @@ class HistoricalForecastingTests(unittest.TestCase):
             self.assertTrue(math.isfinite(metrics["rmse_log_return"]))
             self.assertTrue(0 <= metrics["directional_accuracy"] <= 1)
 
+    def test_holdout_comparison_reports_error_reduction_without_claiming_edge(self):
+        report = evaluate_next_day_return_forecast(self.synthetic_closes())
+        comparison = report["test_vs_zero_return_baseline"]
+        model = report["test_model"]
+        baseline = report["test_zero_return_baseline"]
+
+        for metric in ("mae", "rmse"):
+            values = comparison[metric]
+            model_key = "mae_log_return" if metric == "mae" else "rmse_log_return"
+            expected = baseline[model_key] - model[model_key]
+            self.assertAlmostEqual(values["absolute_error_reduction"], expected)
+            if baseline[model_key] > 0:
+                self.assertAlmostEqual(
+                    values["relative_error_reduction"],
+                    expected / baseline[model_key],
+                )
+        self.assertIn("not evidence of tradable edge", comparison["interpretation"])
+
     def test_validation_alpha_candidates_and_selection(self):
         report = evaluate_next_day_return_forecast(self.synthetic_closes())
         candidates = {row["alpha"] for row in report["validation_mae_by_alpha"]}

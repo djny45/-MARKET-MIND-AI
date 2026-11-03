@@ -26,6 +26,18 @@ class OHLCVBar(BaseModel):
     close: float = Field(gt=0)
     volume: float = Field(ge=0)
 
+    @field_validator("open", "high", "low", "close", "volume", mode="before")
+    @classmethod
+    def numeric_values_must_be_finite(cls, value, info):
+        # Run before Field(gt/ge) so NaN and infinity get the intended error.
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            return value
+        if not math.isfinite(number):
+            raise ValueError(f"{info.field_name} must be finite")
+        return value
+
     @model_validator(mode="after")
     def validate_numeric_values_are_finite(self):
         for field_name in ("open", "high", "low", "close", "volume"):

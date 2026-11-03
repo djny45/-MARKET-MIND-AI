@@ -40,7 +40,7 @@ If the backend and gateway are separate containers, `127.0.0.1` inside the backe
 
 - `GET /api/intelligence-core` reports provider configuration without contacting the gateway. A configured status means **configured, not health-checked**.
 - `POST /api/intelligence-core/synthesize` accepts a bounded, caller-supplied research JSON payload and attempts a real completion when the provider is configured.
-- A successful request should return `provider: freellmapi_local` and `status: completed`. When FreeLLMAPI supplies its documented `X-Routed-Via` response header, MARKET-MIND-AI exposes it as `routed_via` (for example, the provider/model that served the request). This is routing telemetry, not a reliability or quality score. Provider failures return a safe failure status; deterministic research outputs remain authoritative.
+- A successful request should return `provider: freellmapi_local` and `status: completed`. When FreeLLMAPI supplies its documented `X-Routed-Via` response header, MARKET-MIND-AI exposes it as `routed_via` (for example, the provider/model that served the request). This is routing telemetry, not a reliability or quality score. The documented `X-Fallback-Attempts` header is also exposed as `fallback_attempts` when it contains a numeric value. This reports fallback count, not model quality. Provider failures return a safe failure status; deterministic research outputs remain authoritative.
 
 The status endpoint does not prove the gateway is running, the key is valid, or that a provider has remaining quota. Verify those separately with a small non-sensitive test request.
 

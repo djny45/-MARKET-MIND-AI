@@ -26,7 +26,7 @@ In the backend Vercel project, open **Settings → Environment Variables** and s
 | `INTELLIGENCE_CORE_ENABLED` | `true` |
 | `INTELLIGENCE_CORE_PROVIDER` | `mercury` |
 | `INCEPTION_MODEL` | `mercury-3` |
-| `FRONTEND_ORIGINS` | Exact frontend origin, e.g. `https://your-frontend.vercel.app` |
+| `FRONTEND_ORIGINS` | `https://market-mind-ai-ashen.vercel.app` (or your actual frontend URL; include localhost only if needed) |
 
 For multiple allowed frontend origins, separate them with commas. Do not include URL paths or a trailing slash. Keep the API key only in the backend environment; never use a `VITE_*` variable for the secret because Vite exposes those values to browser code.
 
@@ -36,7 +36,11 @@ After changing environment variables, redeploy the backend.
 
 The frontend reads `VITE_API_URL` (in `frontend/src/App.tsx` and other API-calling components). In the frontend Vercel project, set `VITE_API_URL` to the backend's HTTPS deployment origin, for example `https://your-backend.vercel.app` (no trailing slash). This is a public API base URL, not a secret. Redeploy the frontend after changing it.
 
-## 5. Verify
+## 5. Bloomberg-style terminal page
+
+The uploaded terminal design is included at `frontend/public/terminal.html` and is served by the Vite frontend at `/terminal.html`. It calls the backend health endpoint at `https://market-mind-ai-c5a6.vercel.app/api/health` and displays API connectivity. The page's sample market values are illustrative, not live market data. If the backend URL changes, update the `API_BASE` constant in that HTML file and redeploy the frontend.
+
+## 6. Verify
 
 - Open the backend's `/docs` URL and confirm FastAPI responds.
 - Check the backend's provider-status endpoint; it reports configuration only and does **not** prove Mercury credentials are valid or make a provider request.

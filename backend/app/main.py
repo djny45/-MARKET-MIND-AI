@@ -25,6 +25,8 @@ from .instruments import search_instruments
 from .instrument_master import search_instrument_master, sync_reference_catalogue, register_provider_identifier
 from .pipeline import system_capabilities
 from .news import ingest_news
+from . import social_sources
+from urllib.parse import urlparse
 from . import indicators
 from .volume_indicators import calculate_volume_indicators
 from .liquidity_indicators import calculate_volume_profile
@@ -265,6 +267,16 @@ def audit_events(symbol: str | None = None, interval: str | None = None, limit: 
  if limit < 1 or limit > 500:
   raise HTTPException(status_code=400, detail="limit must be between 1 and 500")
  return market_store.get_audit_events(symbol, interval, limit)
+
+
+class SocialFeedRequest(BaseModel):
+ source: str = Field(min_length=1, max_length=80)
+ feed_url: str = Field(min_length=1, max_length=500)
+
+
+class SocialResearchRequest(BaseModel):
+ feeds: list[SocialFeedRequest] = Field(min_length=1, max_length=20)
+ concurrency: int = Field(default=3, ge=1, le=8)
 
 
 class AutonomousResearchCandidateRequest(BaseModel):
@@ -764,6 +776,39 @@ def add_provider_identifier(request: ProviderIdentifierRequest):
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+
+
+
+@app.post("/api/research/social-feeds")
+async def research_social_feeds(request: SocialResearchRequest):
+ """Fetch configured public Reddit RSS feeds for source-linked research only.
+
+ This endpoint intentionally limits hosts and paths to public Reddit RSS
+ feeds to reduce SSRF risk. It does not access private posts or provide
+ trading recommendations.
+ """
+ configured = {}
+ for feed in request.feeds:
+  parsed = urlparse(feed.feed_url)
+  host = (parsed.hostname or "").lower()
+  if parsed.scheme != "https" or host not in {"reddit.com", "www.reddit.com"}:
+   raise HTTPException(status_code=400, detail="Only HTTPS public Reddit RSS URLs are allowed")
+  if parsed.username or parsed.password or parsed.port not in (None, 443):
+   raise HTTPException(status_code=400, detail="Feed URL must not include credentials or a nonstandard port")
+  if not parsed.path.endswith(".rss") or not (
+   parsed.path.startswith("/r/") or parsed.path.startswith("/user/")
+  ):
+   raise HTTPException(status_code=400, detail="Feed path must be a public Reddit subreddit or user RSS path")
+  if feed.source in configured:
+   raise HTTPException(status_code=400, detail="Feed source labels must be unique")
+  configured[feed.source] = feed.feed_url
+ result = await social_sources.ingest_public_social_feeds(
+  configured, concurrency=request.concurrency
+ )
+ result["mode"] = "public_social_research"
+ result["financial_advice"] = False
+ result["execution"] = "disabled"
+ return result
 
 @app.get("/api/news")
 async def news_feed():

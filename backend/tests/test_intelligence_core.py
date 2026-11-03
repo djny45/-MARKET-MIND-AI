@@ -61,7 +61,7 @@ class SharedIntelligenceCoreTests(unittest.TestCase):
         response.read.return_value = json.dumps({
             "choices": [{"message": {"content": "Concise summary"}}]
         }).encode("utf-8")
-        response.headers = {"X-Routed-Via": "groq/llama-test"}
+        response.headers = {"X-Routed-Via": "groq/llama-test", "X-Fallback-Attempts": "2"}
         response.__enter__ = Mock(return_value=response)
         response.__exit__ = Mock(return_value=False)
         opener = Mock(return_value=response)
@@ -89,6 +89,7 @@ class SharedIntelligenceCoreTests(unittest.TestCase):
         self.assertEqual(result["provider"], "freellmapi_local")
         self.assertEqual(result["summary"], "Concise summary")
         self.assertEqual(result["routed_via"], "groq/llama-test")
+        self.assertEqual(result["fallback_attempts"], "2")
 
     def test_freellmapi_unavailable_returns_safe_fallback(self):
         from urllib.error import URLError

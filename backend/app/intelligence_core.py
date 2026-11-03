@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import os
 import socket
+from urllib.parse import unquote
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -174,6 +175,8 @@ def synthesize_research(research: dict, *, opener=urlopen) -> dict:
             response_headers = getattr(response, "headers", None)
             if response_headers is not None and hasattr(response_headers, "get"):
                 routed_via = response_headers.get("X-Routed-Via") or response_headers.get("x-routed-via")
+                if isinstance(routed_via, str):
+                    routed_via = unquote(routed_via)
                 fallback_attempts = response_headers.get("X-Fallback-Attempts") or response_headers.get("x-fallback-attempts")
             decoded = json.loads(response.read(MAX_OUTPUT_CHARS * 2).decode("utf-8"))
     except (HTTPError, URLError, TimeoutError, OSError, ValueError):

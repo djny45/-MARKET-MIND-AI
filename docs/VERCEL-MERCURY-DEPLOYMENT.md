@@ -36,9 +36,9 @@ After changing environment variables, redeploy the backend.
 
 The frontend reads `VITE_API_URL` (in `frontend/src/App.tsx` and other API-calling components). In the frontend Vercel project, set `VITE_API_URL` to the backend's HTTPS deployment origin, for example `https://your-backend.vercel.app` (no trailing slash). This is a public API base URL, not a secret. Redeploy the frontend after changing it.
 
-## 5. Bloomberg-style terminal page
+## 5. MARKET-MIND-AI terminal HTML
 
-The uploaded terminal design is included at `frontend/public/terminal.html` and is served by the Vite frontend at `/terminal.html`. It calls the backend health endpoint at `https://market-mind-ai-c5a6.vercel.app/api/health` and displays API connectivity. The page's sample market values are illustrative, not live market data. If the backend URL changes, update the `API_BASE` constant in that HTML file and redeploy the frontend.
+The uploaded terminal design is included at `frontend/public/market-terminal.html` and is served by the Vite frontend at `/market-terminal.html`. Open the page and use its **Backend Connection** panel to enter the deployed FastAPI backend origin (for example, `https://your-backend.vercel.app`), then press **CONNECT**. It checks `/api/health` and attempts to read `/api/market-data/overview`. The page remembers the backend origin in that browser's local storage. Its static market tiles and agent cards are mock/demo values, not live quotes, real performance, or active trading agents.
 
 ## 6. Verify
 

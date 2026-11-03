@@ -47,6 +47,28 @@ class SocialResearchApiTests(unittest.TestCase):
         self.assertEqual({item["source"] for item in body["items"]}, {"SEC", "reddit-demo"})
         self.assertEqual(body["coverage"], "only_configured_sources")
 
+    def test_merge_reports_metadata_gaps_and_cross_channel_title_candidates(self):
+        response = self.client.post("/api/research/evidence/merge", json={
+            "news_items": [{
+                "source": "Official News", "title": "Policy update",
+                "url": "https://news.example/policy", "published_at": "2026-11-02T09:00:00Z",
+            }],
+            "social_items": [{
+                "source": "Community RSS", "title": "Policy update",
+                "url": "https://reddit.com/r/demo/policy",
+            }],
+        })
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["channel_counts"], {"news": 1, "social": 1})
+        self.assertEqual(body["provenance_complete_count"], 1)
+        self.assertEqual(body["provenance_incomplete_count"], 1)
+        self.assertEqual(len(body["corroboration_candidates"]), 1)
+        candidate = body["corroboration_candidates"][0]
+        self.assertEqual(candidate["review_status"], "manual_cross_check_required")
+        self.assertIn("not proof", candidate["note"])
+        self.assertIn("metadata completeness", body["review_note"])
+
     def test_news_social_merge_deduplicates_same_source_url(self):
         response = self.client.post("/api/research/evidence/merge", json={
             "news_items": [{"source": "publisher", "title": "Same", "url": "https://example.com/a"}],

@@ -122,6 +122,37 @@ class SharedIntelligenceCoreTests(unittest.TestCase):
         self.assertEqual(result["routed_via"], "groq/llama-test")
         self.assertEqual(result["fallback_attempts"], "2")
 
+    def test_provider_telemetry_is_bounded_and_validated(self):
+        import json
+        from unittest.mock import Mock
+
+        env = {"INTELLIGENCE_CORE_ENABLED": "true",
+               "INTELLIGENCE_CORE_PROVIDER": "freellmapi"}
+        response = Mock()
+        response.read.return_value = json.dumps({
+            "choices": [{"message": {"content": "ok"}}]
+        }).encode("utf-8")
+        response.headers = {
+            "X-Routed-Via": "x" * 500,
+            "X-Fallback-Attempts": "9" * 500,
+        }
+        response.__enter__ = Mock(return_value=response)
+        response.__exit__ = Mock(return_value=False)
+
+        with patch.dict(os.environ, env, clear=True), patch(
+            "app.intelligence_core.intelligence_core_status",
+            return_value={"enabled": True, "model": "test-model"},
+        ), patch(
+            "app.intelligence_core.configured_freellmapi",
+            return_value=("http://127.0.0.1:3001", "test-key", "test-model"),
+        ):
+            result = synthesize_research(
+                {"facts": []}, opener=Mock(return_value=response)
+            )
+
+        self.assertEqual(len(result["routed_via"]), 120)
+        self.assertIsNone(result["fallback_attempts"])
+
     def test_freellmapi_unavailable_returns_safe_fallback(self):
         from urllib.error import URLError
         from unittest.mock import Mock

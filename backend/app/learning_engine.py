@@ -74,8 +74,16 @@ def learning_overview(limit_per_agent: int = 200) -> dict[str, Any]:
     total_feedback = sum(agent["feedback_count"] for agent in agents)
     scored = sum(agent["scored_feedback_count"] for agent in agents)
     proposals = sum(agent["improvement_proposals"] for agent in agents)
-    score_values = [agent["observed_feedback_score"] for agent in agents
-                    if agent["observed_feedback_score"] is not None]
+    score_values = [
+        (agent["observed_feedback_score"], agent["scored_feedback_count"])
+        for agent in agents
+        if agent["observed_feedback_score"] is not None and agent["scored_feedback_count"] > 0
+    ]
+    weighted_score = (
+        sum(score * count for score, count in score_values)
+        / sum(count for _, count in score_values)
+        if score_values else None
+    )
     return {
         "agent_count": len(agents),
         "agents_with_feedback": sum(agent["feedback_count"] > 0 for agent in agents),
@@ -84,7 +92,7 @@ def learning_overview(limit_per_agent: int = 200) -> dict[str, Any]:
         "unverified_feedback_records": total_feedback - scored,
         "improvement_proposals": proposals,
         "agents": agents,
-        "system_feedback_score": round(sum(score_values) / len(score_values), 4) if score_values else None,
+        "system_feedback_score": round(weighted_score, 4) if weighted_score is not None else None,
         "score_note": "Descriptive reviewer feedback only; not a measured trading edge or financial performance metric.",
         "learning_mode": "feedback_evaluation_and_human_review",
         "autonomous_model_training": False,

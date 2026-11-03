@@ -357,7 +357,7 @@ def route_and_queue_research(request: SpecialistResearchQueueRequest, background
    queued = enqueue_research_task(worker_id, request.brief, request.data)
    background_tasks.add_task(execute_queued_research_task, queued["task_id"])
    queued_tasks.append({**queued, "department": candidate["department"], "specialty": candidate["specialty"],
-                        "routing_score": candidate["score"]})
+                        "routing_score": candidate["routing_score"]})
   return {
    "routing": routing,
    "queued_count": len(queued_tasks),

@@ -274,6 +274,11 @@ class SocialFeedRequest(BaseModel):
  feed_url: str = Field(min_length=1, max_length=500)
 
 
+class EvidenceMergeRequest(BaseModel):
+ news_items: list[dict[str, Any]] = Field(default_factory=list, max_length=500)
+ social_items: list[dict[str, Any]] = Field(default_factory=list, max_length=500)
+
+
 class SocialResearchRequest(BaseModel):
  feeds: list[SocialFeedRequest] = Field(min_length=1, max_length=20)
  concurrency: int = Field(default=3, ge=1, le=8)
@@ -815,6 +820,17 @@ async def research_social_feeds(request: SocialResearchRequest):
  result["financial_advice"] = False
  result["execution"] = "disabled"
  return result
+
+@app.post("/api/research/evidence/merge")
+def merge_news_social_evidence(request: EvidenceMergeRequest):
+ """Merge supplied news and social metadata into a common evidence schema."""
+ try:
+  return social_sources.merge_research_evidence(
+   request.news_items, request.social_items
+  )
+ except (TypeError, ValueError) as exc:
+  raise HTTPException(status_code=400, detail="Evidence must be JSON-compatible records") from exc
+
 
 @app.post("/api/research/social-feeds/synthesize")
 async def research_social_feeds_synthesize(request: SocialResearchRequest):

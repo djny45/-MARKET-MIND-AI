@@ -885,6 +885,78 @@ async def sample_market_data(symbol: str = "BTCUSD", interval: str = "1d", limit
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+@app.post("/api/research/autonomous-stored")
+async def autonomous_research_stored(
+ symbol: str,
+ interval: str = "1d",
+ limit: int = 500,
+):
+ """Run descriptive chart research on one locally stored source/status dataset.
+
+ Stored data is not assumed live. This endpoint refuses mixed-source/status
+ records instead of silently blending different data provenance.
+ """
+ if not symbol.strip() or len(symbol) > 32:
+  raise HTTPException(status_code=400, detail="symbol must contain 1 to 32 characters")
+ if interval not in SUPPORTED_INTERVALS:
+  raise HTTPException(status_code=400, detail="interval must be one of 15m,1h,4h,1d")
+ if limit < 2 or limit > 5000:
+  raise HTTPException(status_code=400, detail="limit must be between 2 and 5000")
+
+ stored = market_store.get_bars(symbol, interval, limit)
+ observations = stored.get("bars", [])
+ if len(observations) < 2:
+  raise HTTPException(status_code=404, detail="At least two stored bars are required")
+ sources = {str(row.get("source", "")).strip() for row in observations}
+ statuses = {str(row.get("status", "")).strip() for row in observations}
+ if len(sources) != 1 or len(statuses) != 1 or not next(iter(sources), ""):
+  raise HTTPException(status_code=409, detail={
+   "error": "mixed_or_missing_provenance",
+   "message": "Stored observations include multiple sources or statuses. Filter by provenance before research.",
+   "sources": sorted(sources), "statuses": sorted(statuses),
+  })
+ source = next(iter(sources))
+ status_value = next(iter(statuses))
+ timestamps = [row["timestamp"] for row in observations]
+ if len(timestamps) != len(set(timestamps)):
+  raise HTTPException(status_code=409, detail={
+   "error": "duplicate_timestamps",
+   "message": "Stored source contains duplicate timestamps; resolve them before chart research.",
+  })
+ try:
+  batch = MarketDataBatch(
+   symbol=symbol.strip().upper(), interval=interval,
+   status=status_value, source=source,
+   retrieved_at=datetime.fromisoformat(stored["retrieved_at"]),
+   bars=[{
+    "timestamp": row["timestamp"], "open": row["open"],
+    "high": row["high"], "low": row["low"],
+    "close": row["close"], "volume": row["volume"],
+   } for row in observations],
+   warnings=[
+    "Research uses locally stored observations, not a live feed.",
+    "Source/status metadata are preserved; stored-data freshness and provider authenticity are not guaranteed.",
+   ],
+  )
+  report = build_chart_report(batch)
+ except (ValueError, TypeError, KeyError) as exc:
+  raise HTTPException(status_code=422, detail=f"Stored bars failed validation: {type(exc).__name__}") from exc
+ return {
+  "mode": "stored_descriptive_chart_research",
+  "symbol": batch.symbol, "interval": batch.interval,
+  "source": batch.source, "status": batch.status.value,
+  "retrieved_at": batch.retrieved_at.isoformat(),
+  "observation_count": len(batch.bars),
+  "chart_report": report,
+  "execution": "disabled",
+  "limitations": [
+   "This endpoint performs descriptive research only.",
+   "Stored observations may be stale; retrieval metadata is not a freshness guarantee.",
+   "No live trading, orders, financial advice, or buy/sell recommendations.",
+  ],
+ }
+
+
 @app.post("/api/research/autonomous-fixture")
 async def autonomous_research_fixture(request: AutonomousResearchFixtureRequest):
  """Run discovery-to-chart analysis with synthetic fixtures for integration tests only."""

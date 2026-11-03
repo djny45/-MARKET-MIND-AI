@@ -38,10 +38,28 @@ def _ollama_url() -> str | None:
     from urllib.parse import urlparse
 
     parsed = urlparse(raw)
-    if parsed.scheme != "http" or not parsed.hostname:
-        raise IntelligenceCoreError("OLLAMA_BASE_URL must be an http URL on loopback.")
+    if (
+        parsed.scheme != "http"
+        or not parsed.hostname
+        or parsed.username
+        or parsed.password
+        or parsed.query
+        or parsed.fragment
+        or parsed.path not in {"", "/"}
+    ):
+        raise IntelligenceCoreError(
+            "OLLAMA_BASE_URL must be a plain http loopback URL without credentials, "
+            "query, fragment, or path."
+        )
     try:
-        addresses = {item[4][0] for item in socket.getaddrinfo(parsed.hostname, parsed.port or 80)}
+        port = parsed.port or 80
+    except ValueError as exc:
+        raise IntelligenceCoreError("OLLAMA_BASE_URL contains an invalid port.") from exc
+    hostname = parsed.hostname.lower()
+    if hostname not in {"localhost", "127.0.0.1", "::1"}:
+        raise IntelligenceCoreError("Ollama host must be localhost, 127.0.0.1, or ::1.")
+    try:
+        addresses = {item[4][0] for item in socket.getaddrinfo(hostname, port)}
     except OSError as exc:
         raise IntelligenceCoreError("Ollama host could not be resolved.") from exc
     if not addresses or any(address not in {"127.0.0.1", "::1"} for address in addresses):

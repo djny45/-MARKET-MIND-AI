@@ -816,6 +816,37 @@ async def research_social_feeds(request: SocialResearchRequest):
  result["execution"] = "disabled"
  return result
 
+@app.post("/api/research/social-feeds/synthesize")
+async def research_social_feeds_synthesize(request: SocialResearchRequest):
+ """Fetch allowlisted public Reddit RSS metadata, then optionally synthesize it.
+
+ Social posts are untrusted research inputs. The shared core receives source links
+ and metadata only; it does not make forecasts or trading recommendations.
+ """
+ evidence = await research_social_feeds(request)
+ try:
+  synthesis = synthesize_research({
+   "research_type": "public_social_discussion",
+   "coverage": evidence.get("coverage"),
+   "source_results": evidence.get("source_results", []),
+   "items": evidence.get("items", []),
+   "agent_context": (
+    "Describe recurring discussion themes, disagreement, evidence gaps, and "
+    "source coverage. Treat posts as unverified claims. Do not infer market "
+    "direction, price targets, trading setups, or recommendations."
+   ),
+  })
+ except IntelligenceCoreError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+ return {
+  "mode": "public_social_research",
+  "evidence": evidence,
+  "synthesis": synthesis,
+  "execution": "disabled",
+  "financial_advice": False,
+ }
+
+
 @app.get("/api/news")
 async def news_feed():
  return await ingest_news()

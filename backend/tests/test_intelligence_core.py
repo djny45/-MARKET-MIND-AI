@@ -153,6 +153,35 @@ class SharedIntelligenceCoreTests(unittest.TestCase):
         self.assertEqual(len(result["routed_via"]), 120)
         self.assertIsNone(result["fallback_attempts"])
 
+    def test_ollama_rejects_non_object_json_response(self):
+        import json
+        from unittest.mock import Mock
+
+        env = {
+            "INTELLIGENCE_CORE_ENABLED": "true",
+            "INTELLIGENCE_CORE_PROVIDER": "ollama",
+        }
+        response = Mock()
+        response.read.return_value = json.dumps([]).encode("utf-8")
+        response.headers = {}
+        response.__enter__ = Mock(return_value=response)
+        response.__exit__ = Mock(return_value=False)
+
+        with patch.dict(os.environ, env, clear=True), patch(
+            "app.intelligence_core.intelligence_core_status",
+            return_value={"enabled": True, "model": "phi3"},
+        ), patch(
+            "app.intelligence_core._ollama_url",
+            return_value="http://127.0.0.1:11434",
+        ):
+            result = synthesize_research(
+                {"facts": []}, opener=Mock(return_value=response)
+            )
+
+        self.assertEqual(result["status"], "invalid_provider_response")
+        self.assertIsNone(result["summary"])
+        self.assertIn("unexpected JSON structure", result["reason"])
+
     def test_freellmapi_unavailable_returns_safe_fallback(self):
         from urllib.error import URLError
         from unittest.mock import Mock

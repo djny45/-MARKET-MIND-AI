@@ -37,6 +37,19 @@ class FreeLLMAPIAdapterTests(unittest.TestCase):
             with self.assertRaises(FreeLLMAPIConfigurationError):
                 configured_freellmapi()
 
+    def test_arbitrary_hostname_is_rejected_even_if_it_resolves_to_loopback(self):
+        env = {"INTELLIGENCE_CORE_PROVIDER": "freellmapi",
+               "INTELLIGENCE_CORE_ENABLED": "true",
+               "FREELLMAPI_BASE_URL": "http://rebind.example:3001",
+               "FREELLMAPI_API_KEY": "dummy-test-key",
+               "FREELLMAPI_MODEL": "model-id"}
+        with patch.dict(os.environ, env, clear=True), patch(
+            "app.freellmapi_adapter.socket.getaddrinfo",
+            return_value=[(2, 1, 6, "", ("127.0.0.1", 3001))],
+        ):
+            with self.assertRaises(FreeLLMAPIConfigurationError):
+                configured_freellmapi()
+
     def test_base_url_with_v1_path_does_not_duplicate_api_prefix(self):
         url, _, _ = build_chat_completion_request(
             "http://127.0.0.1:3001/v1", "test-key", "model-x", "hello"

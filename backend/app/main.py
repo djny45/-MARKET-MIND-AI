@@ -58,13 +58,26 @@ from .source_comparison import compare_source_observations
 from .research_export import build_research_evidence_bundle
 from .research_export_compare import compare_research_exports
 import json
+import os
 import uuid
 from fastapi.responses import Response
 
 app = FastAPI(title="MARKET-MIND-AI API", version="0.2.0",
  description="Multi-market, evidence-first research pipeline. No brokerage execution.")
-app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173"],
- allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+# Keep browser origins explicit; Vercel deployments configure FRONTEND_ORIGINS
+# as a comma-separated allowlist (for example, https://market-mind.vercel.app).
+_frontend_origins = [
+    origin.strip().rstrip("/")
+    for origin in os.getenv("FRONTEND_ORIGINS", "http://localhost:5173").split(",")
+    if origin.strip()
+]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_frontend_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.include_router(agent_council_router)
 
 class SaveWorkflowRequest(BaseModel):

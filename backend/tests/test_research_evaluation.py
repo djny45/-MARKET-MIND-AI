@@ -60,6 +60,23 @@ class ChronologicalSplitTests(unittest.TestCase):
                 embargo_seconds=-1,
             )
 
+    def test_rejects_malformed_timestamp_and_boolean_embargo(self):
+        with self.assertRaisesRegex(ValueError, "valid ISO-8601"):
+            validate_chronological_splits(
+                "not-a-date",
+                "2024-01-02T00:00:00Z",
+                "2024-01-03T00:00:00Z",
+                "2024-01-04T00:00:00Z",
+            )
+        with self.assertRaisesRegex(ValueError, "non-negative integer"):
+            validate_chronological_splits(
+                "2024-01-01T00:00:00Z",
+                "2024-01-02T00:00:00Z",
+                "2024-01-03T00:00:00Z",
+                "2024-01-04T00:00:00Z",
+                embargo_seconds=True,
+            )
+
     def test_rejects_insufficient_embargo(self):
         with self.assertRaisesRegex(ValueError, "does not satisfy embargo_seconds"):
             validate_chronological_splits(

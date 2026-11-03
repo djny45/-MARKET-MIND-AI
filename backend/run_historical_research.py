@@ -52,8 +52,9 @@ async def run(symbol: str, bars: int, *, walk_forward: bool = False,
 
     # Forecast target return index j corresponds to the close timestamp j + 1.
     lookback = report["lookback"]
-    train_end = report["split"]["train_samples"]
-    validation_end = train_end + report["split"]["validation_samples"]
+    split = report.get("split")
+    train_end = split["train_samples"] if split else None
+    validation_end = (train_end + split["validation_samples"]) if split else None
     target_dates = [bar.timestamp.astimezone(timezone.utc).isoformat()
                     for bar in batch.bars[lookback + 1:]]
     report["data"] = {

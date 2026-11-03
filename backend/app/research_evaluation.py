@@ -32,9 +32,10 @@ def validate_chronological_splits(
 ) -> dict[str, Any]:
     """Validate ordered split boundaries and a configurable embargo.
 
-    Split windows are represented by inclusive boundaries. The validation
-    window must start strictly after train_end plus embargo; test must start
-    strictly after validation_end plus embargo.
+    Boundary timestamps are treated as the last timestamp in each preceding
+    split and the first timestamp in the next split. The gaps must be at least
+    embargo_seconds. The function validates boundaries only; it cannot inspect
+    feature windows or prove that upstream data has no leakage.
     """
     if not isinstance(embargo_seconds, int) or isinstance(embargo_seconds, bool) or embargo_seconds < 0:
         raise ValueError("embargo_seconds must be a non-negative integer")

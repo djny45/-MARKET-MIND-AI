@@ -24,6 +24,30 @@ class FreeLLMAPIAdapterTests(unittest.TestCase):
         with patch.dict(os.environ, env, clear=True):
             self.assertIsNone(configured_freellmapi())
 
+    def test_base_url_rejects_query_fragment_and_unexpected_path(self):
+        base_env = {"INTELLIGENCE_CORE_PROVIDER": "freellmapi",
+                    "INTELLIGENCE_CORE_ENABLED": "true",
+                    "FREELLMAPI_API_KEY": "dummy-test-key",
+                    "FREELLMAPI_MODEL": "model-id"}
+        for base_url in ("http://127.0.0.1:3001/v1?token=oops",
+                         "http://127.0.0.1:3001/v1#fragment",
+                         "http://127.0.0.1:3001/custom"):
+            with self.subTest(base_url=base_url), patch.dict(
+                os.environ, {**base_env, "FREELLMAPI_BASE_URL": base_url}, clear=True
+            ):
+                with self.assertRaises(FreeLLMAPIConfigurationError):
+                    configured_freellmapi()
+
+    def test_invalid_port_returns_configuration_error(self):
+        env = {"INTELLIGENCE_CORE_PROVIDER": "freellmapi",
+               "INTELLIGENCE_CORE_ENABLED": "true",
+               "FREELLMAPI_BASE_URL": "http://127.0.0.1:99999",
+               "FREELLMAPI_API_KEY": "dummy-test-key",
+               "FREELLMAPI_MODEL": "model-id"}
+        with patch.dict(os.environ, env, clear=True):
+            with self.assertRaises(FreeLLMAPIConfigurationError):
+                configured_freellmapi()
+
     def test_non_loopback_is_rejected(self):
         env = {"INTELLIGENCE_CORE_PROVIDER": "freellmapi",
                "INTELLIGENCE_CORE_ENABLED": "true",

@@ -123,10 +123,6 @@ class ChronologicalSplitTests(unittest.TestCase):
             )
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class DatasetManifestTests(unittest.TestCase):
     def valid_manifest(self):
         return {
@@ -191,3 +187,7 @@ class DatasetManifestTests(unittest.TestCase):
         manifest["start"] = "2024-01-01T00:00:00"
         with self.assertRaisesRegex(ValueError, "must include a timezone"):
             validate_dataset_manifest(manifest)
+
+
+if __name__ == "__main__":
+    unittest.main()

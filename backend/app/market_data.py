@@ -27,7 +27,7 @@ class OHLCVBar(BaseModel):
     volume: float = Field(ge=0)
     adjusted_close: float | None = Field(default=None, gt=0)
 
-    @field_validator("open", "high", "low", "close", "volume", mode="before")
+    @field_validator("open", "high", "low", "close", "volume", "adjusted_close", mode="before")
     @classmethod
     def numeric_values_must_be_finite(cls, value, info):
         # Run before Field(gt/ge) so NaN and infinity get the intended error.

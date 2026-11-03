@@ -789,12 +789,18 @@ async def research_social_feeds(request: SocialResearchRequest):
  """
  configured = {}
  for feed in request.feeds:
-  parsed = urlparse(feed.feed_url)
+  try:
+   parsed = urlparse(feed.feed_url)
+   port = parsed.port
+  except ValueError as exc:
+   raise HTTPException(status_code=400, detail="Feed URL is malformed") from exc
   host = (parsed.hostname or "").lower()
   if parsed.scheme != "https" or host not in {"reddit.com", "www.reddit.com"}:
    raise HTTPException(status_code=400, detail="Only HTTPS public Reddit RSS URLs are allowed")
-  if parsed.username or parsed.password or parsed.port not in (None, 443):
+  if parsed.username or parsed.password or port not in (None, 443):
    raise HTTPException(status_code=400, detail="Feed URL must not include credentials or a nonstandard port")
+  if parsed.query or parsed.fragment:
+   raise HTTPException(status_code=400, detail="Feed URL must not include query parameters or fragments")
   if not parsed.path.endswith(".rss") or not (
    parsed.path.startswith("/r/") or parsed.path.startswith("/user/")
   ):

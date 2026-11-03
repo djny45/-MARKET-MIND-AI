@@ -42,7 +42,9 @@ class OHLCVBar(BaseModel):
     @model_validator(mode="after")
     def validate_numeric_values_are_finite(self):
         for field_name in ("open", "high", "low", "close", "volume", "adjusted_close"):
-            if not math.isfinite(getattr(self, field_name)):
+            value = getattr(self, field_name)
+            # adjusted_close is optional; validate only when the provider supplies it.
+            if value is not None and not math.isfinite(value):
                 raise ValueError(f"{field_name} must be finite")
         return self
 

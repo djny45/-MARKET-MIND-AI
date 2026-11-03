@@ -65,7 +65,17 @@ def route_research_brief(brief, data=None, limit=5):
                 "routing_score": round(score, 2),
             })
     scored.sort(key=lambda item: (-item["routing_score"], item["worker_id"]))
-    selected = scored[:limit]
+    # Profiles repeat department/specialty combinations. Keep the shortlist
+    # diverse by selecting at most one representative worker per department.
+    selected = []
+    seen_departments = set()
+    for candidate in scored:
+        if candidate["department"] in seen_departments:
+            continue
+        seen_departments.add(candidate["department"])
+        selected.append(candidate)
+        if len(selected) >= limit:
+            break
     return {
         "routing_mode": "deterministic_keyword_capability_match",
         "brief": brief.strip(),

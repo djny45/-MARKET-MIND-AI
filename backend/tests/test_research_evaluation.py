@@ -47,10 +47,10 @@ class ChronologicalSplitTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "must include a timezone"):
             validate_chronological_splits(
                 "2024-01-01T00:00:00",
-                "2024-01-02T00:00:00Z",
-                "2024-01-03T00:00:00Z",
-                "2024-01-04T00:00:00Z",
-            )
+                        "2024-01-02T00:00:00Z",
+                        "2024-01-03T00:00:00Z",
+                        "2024-01-04T00:00:00Z",
+                    )
         with self.assertRaisesRegex(ValueError, "non-negative integer"):
             validate_chronological_splits(
                 "2024-01-01T00:00:00Z",
@@ -61,9 +61,11 @@ class ChronologicalSplitTests(unittest.TestCase):
             )
 
     def test_rejects_malformed_timestamp_and_boolean_embargo(self):
-        with self.assertRaisesRegex(ValueError, "valid ISO-8601"):
-            validate_chronological_splits(
-                "not-a-date",
+        for malformed in ("not-a-date", "2024-01-01TZ00:00:00"):
+            with self.subTest(timestamp=malformed):
+                with self.assertRaisesRegex(ValueError, "valid ISO-8601"):
+                    validate_chronological_splits(
+                        malformed,
                 "2024-01-02T00:00:00Z",
                 "2024-01-03T00:00:00Z",
                 "2024-01-04T00:00:00Z",

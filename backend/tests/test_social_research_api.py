@@ -26,6 +26,38 @@ class SocialResearchApiTests(unittest.TestCase):
                 })
                 self.assertEqual(response.status_code, 400)
 
+    def test_social_synthesis_uses_shared_core_and_keeps_execution_disabled(self):
+        evidence = {
+            "items": [{"title": "unverified discussion", "url": "https://reddit.com/r/demo/1"}],
+            "sources_checked": 1,
+            "sources_ok": 1,
+            "source_results": [],
+            "coverage": "configured_public_feeds_only",
+            "execution": "disabled",
+            "mode": "public_social_research",
+            "financial_advice": False,
+        }
+        synthesis = {"status": "not_configured", "summary": None}
+        with patch("app.main.social_sources.ingest_public_social_feeds",
+                   new_callable=AsyncMock, return_value=evidence), \\
+             patch("app.main.synthesize_research", return_value=synthesis) as synth:
+            response = self.client.post("/api/research/social-feeds/synthesize", json={
+                "feeds": [{
+                    "source": "reddit-demo",
+                    "feed_url": "https://www.reddit.com/r/demo/.rss",
+                }]
+            })
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["evidence"]["coverage"], "configured_public_feeds_only")
+        self.assertEqual(body["synthesis"], synthesis)
+        self.assertEqual(body["execution"], "disabled")
+        self.assertFalse(body["financial_advice"])
+        synth.assert_called_once()
+        core_input = synth.call_args.args[0]
+        self.assertEqual(core_input["research_type"], "public_social_discussion")
+        self.assertIn("unverified claims", core_input["agent_context"])
+
     def test_endpoint_calls_adapter_and_returns_research_only_metadata(self):
         mocked = {
             "items": [{"title": "mock discussion", "url": "https://reddit.com/r/test/1"}],

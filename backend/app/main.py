@@ -17,6 +17,7 @@ from .analytical_agent_tasks import submit_research_task, get_research_task, lis
 from .research_orchestrator import orchestrate_research
 from .intelligence_core import intelligence_core_status, synthesize_research, IntelligenceCoreError
 from .synthesis_review import build_synthesis_review
+from .research_quality_eval import evaluate_research_draft
 from .skill_catalog import list_skills, load_skill
 from .landing_page_builder import build_landing_page
 from .markets import market_catalog
@@ -84,6 +85,13 @@ class ResearchOrchestrationRequest(BaseModel):
 
 class ResearchSynthesisRequest(BaseModel):
  research: dict[str, Any]
+
+
+class ResearchQualityEvaluationRequest(BaseModel):
+ draft: str = Field(min_length=1, max_length=20000)
+ claims: list[dict[str, Any]] = Field(default_factory=list, max_length=200)
+ source_registry: list[dict[str, Any]] = Field(default_factory=list, max_length=500)
+ baseline: dict[str, Any] | None = None
 
 
 class SynthesisReviewRequest(BaseModel):
@@ -1226,6 +1234,22 @@ def _execute_and_persist(request: WorkflowRequest, parent_run_id: str | None = N
  except Exception as exc:
   raise HTTPException(status_code=500,detail=f"Workflow failed: {exc}") from exc
 
+
+
+@app.post("/api/research/quality-evaluate")
+def evaluate_research_quality(request: ResearchQualityEvaluationRequest):
+ """Evaluate source-reference coverage for a supplied research draft.
+
+ This is a structural traceability check only; it does not validate truth,
+ source authenticity, claim entailment, or forecast accuracy.
+ """
+ try:
+  return evaluate_research_draft(
+   draft=request.draft, claims=request.claims,
+   source_registry=request.source_registry, baseline=request.baseline,
+  )
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.post("/api/research/synthesis/review")

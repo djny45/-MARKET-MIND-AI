@@ -25,6 +25,7 @@ class OHLCVBar(BaseModel):
     low: float = Field(gt=0)
     close: float = Field(gt=0)
     volume: float = Field(ge=0)
+    adjusted_close: float | None = Field(default=None, gt=0)
 
     @field_validator("open", "high", "low", "close", "volume", mode="before")
     @classmethod
@@ -40,7 +41,7 @@ class OHLCVBar(BaseModel):
 
     @model_validator(mode="after")
     def validate_numeric_values_are_finite(self):
-        for field_name in ("open", "high", "low", "close", "volume"):
+        for field_name in ("open", "high", "low", "close", "volume", "adjusted_close"):
             if not math.isfinite(getattr(self, field_name)):
                 raise ValueError(f"{field_name} must be finite")
         return self
@@ -238,6 +239,7 @@ class YahooFinanceHistoricalAdapter:
         opens, highs, lows, closes, volumes = (
             quote.get(key) or [] for key in ("open", "high", "low", "close", "volume")
         )
+        adjusted_closes = ((result.get("indicators") or {}).get("adjclose") or [{}])[0].get("adjclose") or []
         bars = []
         for i, timestamp in enumerate(timestamps):
             values = (opens, highs, lows, closes, volumes)
@@ -248,6 +250,7 @@ class YahooFinanceHistoricalAdapter:
                     timestamp=datetime.fromtimestamp(timestamp, timezone.utc),
                     open=opens[i], high=highs[i], low=lows[i],
                     close=closes[i], volume=volumes[i],
+                    adjusted_close=(adjusted_closes[i] if i < len(adjusted_closes) else None),
                 ))
             except Exception as exc:
                 raise ValueError(f"Invalid OHLCV row at index {i}: {exc}") from exc

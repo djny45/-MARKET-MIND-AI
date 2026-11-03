@@ -189,5 +189,49 @@ class DatasetManifestTests(unittest.TestCase):
             validate_dataset_manifest(manifest)
 
 
+
+class BinaryResearchMetricsTests(unittest.TestCase):
+    def test_metrics_and_majority_baseline(self):
+        from app.research_evaluation import evaluate_binary_predictions
+
+        result = evaluate_binary_predictions([1, 1, 0, 0], [1, 0, 0, 0])
+        self.assertEqual(result["sample_count"], 4)
+        self.assertEqual(result["confusion_matrix"], {
+            "true_positive": 1, "true_negative": 2,
+            "false_positive": 0, "false_negative": 1,
+        })
+        self.assertEqual(result["accuracy"], 0.75)
+        self.assertEqual(result["precision"], 1.0)
+        self.assertEqual(result["recall"], 0.5)
+        self.assertAlmostEqual(result["f1"], 2 / 3)
+        self.assertEqual(result["majority_class_baseline_accuracy"], 0.5)
+        self.assertEqual(result["accuracy_delta_vs_majority_baseline"], 0.25)
+        self.assertTrue(result["research_only"])
+
+    def test_handles_zero_division_without_crashing(self):
+        from app.research_evaluation import evaluate_binary_predictions
+
+        result = evaluate_binary_predictions([0, 0, 0], [0, 0, 0])
+        self.assertEqual(result["precision"], 0.0)
+        self.assertEqual(result["recall"], 0.0)
+        self.assertEqual(result["f1"], 0.0)
+        self.assertEqual(result["accuracy"], 1.0)
+
+    def test_rejects_empty_mismatched_and_non_binary_inputs(self):
+        from app.research_evaluation import evaluate_binary_predictions
+
+        cases = (([], []), ([1], [1, 0]), ([0, 2], [0, 1]), ([True], [1]), ([0], ["0"]))
+        for actual, predicted in cases:
+            with self.subTest(actual=actual, predicted=predicted):
+                with self.assertRaises(ValueError):
+                    evaluate_binary_predictions(actual, predicted)
+
+    def test_rejects_non_sequence_inputs(self):
+        from app.research_evaluation import evaluate_binary_predictions
+
+        with self.assertRaisesRegex(ValueError, "lists or tuples"):
+            evaluate_binary_predictions(None, [0])
+
+
 if __name__ == "__main__":
     unittest.main()

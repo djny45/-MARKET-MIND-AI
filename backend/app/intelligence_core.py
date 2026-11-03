@@ -167,8 +167,12 @@ def synthesize_research(research: dict, *, opener=urlopen) -> dict:
         provider_name = "ollama_local"
 
     request = Request(endpoint, data=body, headers=headers, method="POST")
+    routed_via = None
     try:
         with opener(request, timeout=DEFAULT_TIMEOUT_SECONDS) as response:
+            response_headers = getattr(response, "headers", None)
+            if response_headers is not None and hasattr(response_headers, "get"):
+                routed_via = response_headers.get("X-Routed-Via") or response_headers.get("x-routed-via")
             decoded = json.loads(response.read(MAX_OUTPUT_CHARS * 2).decode("utf-8"))
     except (HTTPError, URLError, TimeoutError, OSError, ValueError):
         return {
@@ -187,6 +191,7 @@ def synthesize_research(research: dict, *, opener=urlopen) -> dict:
     return {
         "status": "completed", "core_id": CORE_ID, "provider": provider_name,
         "model": model, "summary": summary.strip()[:MAX_OUTPUT_CHARS],
+        "routed_via": routed_via if isinstance(routed_via, str) and routed_via.strip() else None,
         "source": "bounded_supplied_research_only",
         "deterministic_report_authoritative": True,
     }

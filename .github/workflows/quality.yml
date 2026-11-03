@@ -3,25 +3,52 @@ name: Quality checks
 on:
   push:
     branches: [main, 'feat/**', 'feature/**']
-  workflow_dispatch:
   pull_request:
     branches: [main]
+  workflow_dispatch:
   schedule:
     - cron: '17 6 * * 1'
 
+permissions:
+  contents: read
+
 jobs:
   backend:
+    name: Backend
     runs-on: ubuntu-latest
+    timeout-minutes: 35
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-      - run: pip install -r backend/requirements.txt
-      - run: python -m compileall -q backend/app
-      - run: PYTHONPATH=backend python -m unittest discover -s backend/tests -v
-      - name: API runtime smoke test
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install backend dependencies
         run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r backend/requirements.txt
+
+      - name: Compile backend app
+        run: python -m compileall -q backend/app
+
+      - name: Run backend unit tests
+        env:
+          PYTHONPATH: backend
+        run: python -m unittest discover -s backend/tests -v
+
+      - name: API runtime smoke test
+        env:
+          PYTHONPATH: backend
+          MARKET_MIND_DB: ${{ runner.temp }}/smoke.sqlite
+        run: |
+          set -euo pipefail
           python - <<'PY'
           import json
           import os
@@ -36,16 +63,24 @@ jobs:
               with socket.socket() as probe:
                   probe.bind(("127.0.0.1", 0))
                   port = probe.getsockname()[1]
+
               env = os.environ.copy()
               env["PYTHONPATH"] = "backend"
               env["MARKET_MIND_DB"] = os.path.join(directory, "smoke.sqlite")
+
               process = subprocess.Popen(
                   [sys.executable, "-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", str(port)],
-                  cwd="backend", env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                  cwd="backend",
+                  env=env,
+                  stdout=subprocess.DEVNULL,
+                  stderr=subprocess.DEVNULL,
               )
+
               base = f"http://127.0.0.1:{port}"
+              ready = None
+
               try:
-                  for attempt in range(40):
+                  for _ in range(40):
                       if process.poll() is not None:
                           raise RuntimeError("API server exited before becoming ready")
                       try:
@@ -56,19 +91,24 @@ jobs:
                           time.sleep(0.25)
                   else:
                       raise RuntimeError("API server did not become ready")
+
                   assert ready["status"] == "ready"
+
                   with urllib.request.urlopen(base + "/api/health", timeout=3) as response:
                       health = json.load(response)
                   assert health["mode"] == "research-only"
                   assert health["paper_trading"] is False
                   assert health["broker_execution"] is False
+
                   with urllib.request.urlopen(base + "/api/providers/status", timeout=3) as response:
                       providers = json.load(response)
                   assert providers["status"] == "no_live_provider_configured"
+
                   with urllib.request.urlopen(base + "/api/market-data/sample?symbol=BTCUSD&interval=1d&limit=3", timeout=3) as response:
                       sample = json.load(response)
                   assert sample["status"] == "synthetic"
                   assert len(sample["bars"]) == 3
+
                   print("API runtime smoke test passed: readiness, health, provider status, synthetic fixture")
               finally:
                   process.terminate()
@@ -78,27 +118,38 @@ jobs:
                       process.kill()
                       process.wait(timeout=5)
           PY
-      - run: |
-          cd backend
+
+      - name: Workflow node smoke test
+        working-directory: backend
+        env:
+          PYTHONPATH: .
+        run: |
           python - <<'PY'
           from app.workflow import execute_workflow
+
           nodes = [
               {"id": "input", "type": "market_input", "data": {"values": [100, 101, 103, 102]}},
               {"id": "quality", "type": "data_quality", "data": {}},
               {"id": "returns", "type": "returns", "data": {}},
           ]
-          result = execute_workflow(nodes, [
+          edges = [
               {"source": "input", "target": "quality"},
               {"source": "quality", "target": "returns"},
-          ], {})
+          ]
+          result = execute_workflow(nodes, edges, {})
           assert result["status"] == "completed"
           assert result["results"]["quality"]["quality"]["status"] == "pass"
+          print("Workflow node smoke test passed")
           PY
+
       - name: Capture backend failure diagnostics
         if: failure()
+        env:
+          PYTHONPATH: backend
         run: |
           python -m pip freeze > backend-pip-freeze.txt 2>&1 || true
-          PYTHONPATH=backend python -m unittest discover -s backend/tests -v > backend-test-retry.log 2>&1 || true
+          python -m unittest discover -s backend/tests -v > backend-test-retry.log 2>&1 || true
+
       - name: Upload backend diagnostics
         if: failure()
         uses: actions/upload-artifact@v4
@@ -108,20 +159,37 @@ jobs:
             backend-pip-freeze.txt
             backend-test-retry.log
           if-no-files-found: warn
+
   frontend:
+    name: Frontend
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
         with:
-          node-version: "22"
-      - run: cd frontend && npm install && npm run build
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install and build frontend
+        working-directory: frontend
+        run: |
+          npm install
+          npm run build
+
       - name: Capture frontend failure diagnostics
         if: failure()
+        working-directory: frontend
         run: |
-          cd frontend
           npm ls --all > frontend-dependency-tree.txt 2>&1 || true
           npm audit --json > frontend-npm-audit.json 2>&1 || true
+
       - name: Upload frontend diagnostics
         if: failure()
         uses: actions/upload-artifact@v4
@@ -133,13 +201,21 @@ jobs:
           if-no-files-found: warn
 
   container-build:
+    name: Container build and smoke test
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
+
       - name: Validate production Compose configuration
         run: docker compose -f docker-compose.production.yml config --quiet
-      - name: Build and start private production stack
+
+      - name: Build and start production stack
         run: docker compose -f docker-compose.production.yml up --build -d
+
       - name: Smoke-test frontend proxy and API health
         run: |
           python - <<'PY'
@@ -150,20 +226,25 @@ jobs:
           base = "http://127.0.0.1:8080"
           deadline = time.monotonic() + 90
           last_error = None
+
           while time.monotonic() < deadline:
               try:
                   with urllib.request.urlopen(base + "/healthz", timeout=3) as response:
                       assert response.status == 200
+
                   with urllib.request.urlopen(base + "/", timeout=3) as response:
                       page = response.read().decode("utf-8")
                   assert "root" in page
+
                   with urllib.request.urlopen(base + "/api/health", timeout=3) as response:
                       health = json.load(response)
                   assert health["mode"] == "research-only"
                   assert health["broker_execution"] is False
+
                   with urllib.request.urlopen(base + "/api/providers/status", timeout=3) as response:
                       providers = json.load(response)
                   assert providers["status"] == "no_live_provider_configured"
+
                   print("Private deployment smoke test passed: Nginx, API reverse proxy, health, provider guardrails")
                   break
               except Exception as exc:
@@ -172,24 +253,30 @@ jobs:
           else:
               raise RuntimeError(f"Production stack did not pass smoke checks: {last_error}")
           PY
+
       - name: Verify container isolation and browser security headers
         run: |
           python - <<'PY'
           import json
           import subprocess
+          import urllib.request
 
           config = json.loads(subprocess.check_output([
               "docker", "compose", "-f", "docker-compose.production.yml", "config", "--format", "json"
           ], text=True))
           services = config["services"]
+
           assert not services["api"].get("ports"), "API must not publish a host port"
+
           web_ports = services["web"].get("ports", [])
           assert len(web_ports) == 1, f"Expected exactly one web port binding, got {web_ports}"
           binding = web_ports[0]
           assert binding.get("host_ip") == "127.0.0.1", f"Web must bind loopback only: {binding}"
           assert str(binding.get("published")) == "8080"
+
           assert "ALL" in services["api"].get("cap_drop", [])
           assert "ALL" in services["web"].get("cap_drop", [])
+
           assert "no-new-privileges:true" in services["api"].get("security_opt", [])
           assert "no-new-privileges:true" in services["web"].get("security_opt", [])
 
@@ -198,19 +285,23 @@ jobs:
           ], text=True).strip()
           assert uid.isdigit() and int(uid) != 0, f"Nginx must run as non-root, got UID {uid}"
 
-          with __import__("urllib.request").request.urlopen("http://127.0.0.1:8080/") as response:
+          with urllib.request.urlopen("http://127.0.0.1:8080/") as response:
               headers = {key.lower(): value for key, value in response.headers.items()}
+
           for header in ("x-content-type-options", "x-frame-options", "referrer-policy", "permissions-policy"):
               assert header in headers, f"Missing browser security header: {header}"
+
           assert headers["x-frame-options"].upper() == "DENY"
           print("Isolation checks passed: API unpublished, web loopback-only, capabilities dropped, Nginx non-root, security headers present")
           PY
+
       - name: Verify backup and restore inside production API image
         run: |
           docker compose -f docker-compose.production.yml exec -T api python - <<'PY'
           import sqlite3
           import tempfile
           from pathlib import Path
+
           from backup_database import create_backup
           from restore_database import restore_backup
 
@@ -219,44 +310,72 @@ jobs:
               source = root / "source.db"
               backup = root / "backup.db"
               restored = root / "restored.db"
+
               with sqlite3.connect(source) as connection:
                   connection.execute("CREATE TABLE market_bars (symbol TEXT)")
                   connection.execute("INSERT INTO market_bars VALUES ('FIXTURE')")
+
               backed_up = create_backup(source, backup)
               assert backed_up["status"] == "verified"
+
               recovered = restore_backup(backup, restored)
               assert recovered["status"] == "restored_and_verified"
+
               with sqlite3.connect(restored) as connection:
                   assert connection.execute("SELECT symbol FROM market_bars").fetchone()[0] == "FIXTURE"
+
           print("Container backup/restore round-trip passed")
           PY
+
       - name: Show container logs on failure
         if: failure()
         run: docker compose -f docker-compose.production.yml logs --no-color
+
       - name: Stop production stack
         if: always()
         run: docker compose -f docker-compose.production.yml down -v
 
   dependency-audit:
+    name: Dependency audit
     runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-      - run: python -m pip install --upgrade pip pip-audit
-      - run: pip-audit -r backend/requirements.txt
-      - uses: actions/setup-node@v4
+          python-version: '3.12'
+
+      - name: Install Python audit tools
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pip-audit
+
+      - name: Audit backend Python dependencies
+        run: pip-audit -r backend/requirements.txt --progress-spinner off
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
         with:
-          node-version: "22"
-      - run: cd frontend && npm install --package-lock-only --ignore-scripts
-      - run: cd frontend && npm audit --audit-level=high
+          node-version: '22'
+
+      - name: Audit frontend dependencies
+        working-directory: frontend
+        run: |
+          npm install --ignore-scripts
+          npm audit --audit-level=high
+
       - name: Capture dependency audit diagnostics
         if: failure()
         run: |
-          pip-audit -r backend/requirements.txt --format json > backend-pip-audit.json 2>&1 || true
+          pip-audit -r backend/requirements.txt --progress-spinner off --format json > backend-pip-audit.json 2>&1 || true
           cd frontend
           npm audit --json > frontend-npm-audit.json 2>&1 || true
+
       - name: Upload dependency audit diagnostics
         if: failure()
         uses: actions/upload-artifact@v4

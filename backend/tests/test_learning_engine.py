@@ -63,6 +63,24 @@ class LearningEngineTests(unittest.TestCase):
         self.assertFalse(result["automatic_agent_updates"])
         self.assertIsNone(result["system_feedback_score"])
 
+    def test_system_feedback_score_is_weighted_by_scored_feedback_count(self):
+        fake_agents = [
+            {"id": "worker_001"},
+            {"id": "worker_002"},
+        ]
+        summaries = [
+            {"feedback_count": 10, "scored_feedback_count": 10,
+             "improvement_proposals": 0, "observed_feedback_score": 1.0},
+            {"feedback_count": 1, "scored_feedback_count": 1,
+             "improvement_proposals": 0, "observed_feedback_score": 0.0},
+        ]
+        with patch("app.learning_engine.list_workers", return_value=fake_agents), \
+             patch("app.learning_engine.agent_learning_summary", side_effect=summaries):
+            result = learning_overview()
+
+        self.assertEqual(result["system_feedback_score"], 0.9091)
+        self.assertEqual(result["scored_feedback_records"], 11)
+
     def test_feedback_cycle_waits_for_minimum_sample(self):
         result = run_feedback_improvement_cycle("worker_001")
         self.assertEqual(result["cycle_status"], "insufficient_feedback")

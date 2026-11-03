@@ -31,6 +31,7 @@ from .liquidity_indicators import calculate_volume_profile
 from .performance import performance_metrics
 from . import workspace
 from .market_data import SyntheticFixtureAdapter, MarketDataBatch
+from .yahoo_finance_adapter import YahooFinanceAdapter
 from .market_data_validation import validate_market_data_payload
 from . import market_store
 from .market_events import store_market_events, query_market_events
@@ -883,6 +884,38 @@ async def sample_market_data(symbol: str = "BTCUSD", interval: str = "1d", limit
   return batch.model_dump(mode="json")
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/market-data/yahoo")
+async def fetch_yahoo_historical_data(
+ symbol: str,
+ interval: str = "1d",
+ limit: int = 100,
+):
+ """Fetch best-effort Yahoo historical bars, persist with provenance, and return normalized data.
+
+ This community-facing endpoint is historical research only. Yahoo's chart endpoint
+ is unofficial/best-effort and subject to upstream availability and terms.
+ """
+ try:
+  batch = await YahooFinanceAdapter().get_bars(symbol, interval, limit)
+  storage = market_store.store_batch(batch)
+ except (ValueError, RuntimeError) as exc:
+  raise HTTPException(status_code=502, detail=f"Historical provider unavailable or returned invalid data: {exc}") from exc
+ return {
+  "mode": "historical_research_ingestion",
+  "symbol": batch.symbol, "interval": batch.interval,
+  "source": batch.source, "status": batch.status.value,
+  "retrieved_at": batch.retrieved_at.isoformat(),
+  "observation_count": len(batch.bars),
+  "storage": storage,
+  "bars": [bar.model_dump(mode="json") for bar in batch.bars],
+  "execution": "disabled",
+  "warnings": batch.warnings + [
+   "Provider endpoint is unofficial and may change or restrict access.",
+   "Historical data only; no live trading, order routing, or buy/sell recommendation.",
+  ],
+ }
 
 
 @app.post("/api/research/autonomous-stored")

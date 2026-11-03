@@ -11,7 +11,7 @@ import hashlib
 import json
 from datetime import timezone
 
-from app.historical_forecasting import evaluate_next_day_return_forecast
+from app.historical_forecasting import evaluate_next_day_return_forecast, evaluate_walk_forward_forecast
 from app.yahoo_finance_adapter import YahooFinanceAdapter
 
 
@@ -32,13 +32,21 @@ def _dataset_fingerprint(batch) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
-async def run(symbol: str, bars: int) -> dict:
+async def run(symbol: str, bars: int, *, walk_forward: bool = False,\n              min_train_samples: int = 100, test_window_size: int = 20,\n              step_size: int | None = None) -> dict:
     batch = await YahooFinanceAdapter().get_bars(symbol, "1d", bars)
     closes = [
         bar.adjusted_close if bar.adjusted_close is not None else bar.close
         for bar in batch.bars
     ]
-    report = evaluate_next_day_return_forecast(closes)
+    if walk_forward:
+        report = evaluate_walk_forward_forecast(
+            closes,
+            min_train_samples=min_train_samples,
+            test_window_size=test_window_size,
+            step_size=step_size,
+        )
+    else:
+        report = evaluate_next_day_return_forecast(closes)
 
     # Forecast target return index j corresponds to the close timestamp j + 1.
     lookback = report["lookback"]
@@ -59,14 +67,26 @@ async def run(symbol: str, bars: int) -> dict:
         "dataset_sha256": _dataset_fingerprint(batch),
         "warnings": batch.warnings,
     }
-    report["evaluation_periods"] = {
-        "train_target_start": target_dates[0],
-        "train_target_end": target_dates[train_end - 1],
-        "validation_target_start": target_dates[train_end],
-        "validation_target_end": target_dates[validation_end - 1],
-        "test_target_start": target_dates[validation_end],
-        "test_target_end": target_dates[-1],
-    }
+    if walk_forward:
+        report["evaluation_periods_by_window"] = [
+            {
+                "window_number": window["window_number"],
+                "test_target_start": target_dates[window["test_sample_start_index"]],
+                "test_target_end": target_dates[window["test_sample_end_index_exclusive"] - 1],
+            }
+            for window in report["windows"]
+        ]
+        report["evaluation_mode"] = "expanding_walk_forward"
+    else:
+        report["evaluation_periods"] = {
+            "train_target_start": target_dates[0],
+            "train_target_end": target_dates[train_end - 1],
+            "validation_target_start": target_dates[train_end],
+            "validation_target_end": target_dates[validation_end - 1],
+            "test_target_start": target_dates[validation_end],
+            "test_target_end": target_dates[-1],
+        }
+        report["evaluation_mode"] = "single_chronological_holdout"
     report["reproducibility"] = {
         "dataset_hash_algorithm": "SHA-256",
         "hash_scope": "all normalized returned OHLCV bars including adjusted_close",
@@ -79,8 +99,16 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--symbol", required=True, help="Yahoo Finance ticker, e.g. AAPL or RELIANCE.NS")
     parser.add_argument("--bars", type=int, default=750, help="Daily bars to request (30–5000)")
+    parser.add_argument("--walk-forward", action="store_true",
+                        help="Run expanding-window walk-forward research instead of single holdout")
+    parser.add_argument("--min-train-samples", type=int, default=100,
+                        help="Initial pre-test target samples for walk-forward mode")
+    parser.add_argument("--test-window-size", type=int, default=20,
+                        help="Test samples per walk-forward window")
+    parser.add_argument("--step-size", type=int, default=None,
+                        help="Walk-forward step size; defaults to test-window size")
     args = parser.parse_args()
-    result = asyncio.run(run(args.symbol, args.bars))
+    result = asyncio.run(run(args.symbol, args.bars, walk_forward=args.walk_forward,\n                             min_train_samples=args.min_train_samples,\n                             test_window_size=args.test_window_size,\n                             step_size=args.step_size))
     print(json.dumps(result, indent=2, sort_keys=True))
 
 

@@ -897,6 +897,12 @@ async def fetch_yahoo_historical_data(
  This community-facing endpoint is historical research only. Yahoo's chart endpoint
  is unofficial/best-effort and subject to upstream availability and terms.
  """
+ if not symbol.strip() or len(symbol.strip()) > 32:
+  raise HTTPException(status_code=400, detail="symbol must contain 1 to 32 characters")
+ if interval not in {"15m", "1h", "4h", "1d"}:
+  raise HTTPException(status_code=400, detail="interval must be one of 15m,1h,4h,1d")
+ if limit < 1 or limit > 5000:
+  raise HTTPException(status_code=400, detail="limit must be between 1 and 5000")
  try:
   batch = await YahooFinanceAdapter().get_bars(symbol, interval, limit)
   storage = market_store.store_batch(batch)

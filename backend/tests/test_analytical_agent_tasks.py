@@ -207,6 +207,26 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertEqual(first["updated_at"], second["updated_at"])
 
 
+    def test_invalid_optional_traceability_input_does_not_fail_task(self):
+        from app.analytical_agent_tasks import enqueue_research_task, execute_queued_research_task
+        queued = enqueue_research_task(
+            "worker_015",
+            "Keep research task resilient to invalid optional quality metadata",
+            {
+                "draft": "A draft with an assumption.",
+                "claims": [{"text": "Claim", "source_refs": ["ref-1"]}],
+                "source_registry": ["malformed-source-entry"],
+            },
+        )
+        execute_queued_research_task(queued["task_id"])
+        saved = get_research_task(queued["task_id"])
+        self.assertEqual(saved["status"], "completed")
+        result = saved["result"]
+        self.assertEqual(result["research_quality_evaluation_status"], "invalid_evaluation_input")
+        self.assertEqual(result["research_quality_evaluation"]["status"], "invalid_input")
+        self.assertIn("entries must be objects", result["research_quality_evaluation"]["error"])
+        self.assertEqual(result["shared_core_result"]["status"], "not_configured")
+
 if __name__ == "__main__":
     unittest.main()
 

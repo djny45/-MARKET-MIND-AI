@@ -211,11 +211,24 @@ def synthesize_research(research: dict, *, opener=urlopen) -> dict:
             "provider": provider_name, "summary": None,
             "reason": "Provider returned no usable text.",
         }
+    # Provider headers are untrusted telemetry. Keep them bounded and avoid
+    # returning arbitrary long values through the API response.
+    if isinstance(routed_via, str):
+        routed_via = unquote(routed_via).strip()[:120] or None
+    else:
+        routed_via = None
+    if (
+        not isinstance(fallback_attempts, str)
+        or not fallback_attempts.isdigit()
+        or len(fallback_attempts) > 3
+    ):
+        fallback_attempts = None
+
     return {
         "status": "completed", "core_id": CORE_ID, "provider": provider_name,
         "model": model, "summary": summary.strip()[:MAX_OUTPUT_CHARS],
-        "routed_via": routed_via if isinstance(routed_via, str) and routed_via.strip() else None,
-        "fallback_attempts": fallback_attempts if isinstance(fallback_attempts, str) and fallback_attempts.isdigit() else None,
+        "routed_via": routed_via,
+        "fallback_attempts": fallback_attempts,
         "source": "bounded_supplied_research_only",
         "deterministic_report_authoritative": True,
     }

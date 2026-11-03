@@ -3,14 +3,16 @@
 This module only validates time-series evaluation boundaries. It does not train
 models, generate signals, or connect to trading/execution services.
 """
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 
 def _parse_timestamp(value: Any, field: str) -> datetime:
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{field} must be a non-empty ISO-8601 timestamp string")
-    normalized = value.strip().replace("Z", "+00:00")
+    normalized = value.strip()
+    if normalized.endswith("Z"):
+        normalized = normalized[:-1] + "+00:00"
     try:
         parsed = datetime.fromisoformat(normalized)
     except ValueError as exc:
@@ -43,7 +45,6 @@ def validate_chronological_splits(
     test = _parse_timestamp(test_start, "test_start")
 
     # Normalize to UTC for comparisons without relying on local timezone.
-    from datetime import timezone
     train, val_start, val_end, test = (
         item.astimezone(timezone.utc) for item in (train, val_start, val_end, test)
     )

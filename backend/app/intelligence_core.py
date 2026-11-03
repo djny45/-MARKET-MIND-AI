@@ -214,7 +214,7 @@ def synthesize_research(research: dict, *, opener=urlopen) -> dict:
     # Provider headers are untrusted telemetry. Keep them bounded and avoid
     # returning arbitrary long values through the API response.
     if isinstance(routed_via, str):
-        routed_via = unquote(routed_via).strip()[:120] or None
+        routed_via = routed_via.strip()[:120] or None
     else:
         routed_via = None
     if (

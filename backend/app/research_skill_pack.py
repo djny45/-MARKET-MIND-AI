@@ -41,6 +41,14 @@ def _parse_catalog():
     return entries
 
 
+def _display_skill_path():
+    """Return a repository-relative path when possible, otherwise a test-safe path."""
+    try:
+        return str(SKILL_PACK_PATH.relative_to(REPO_ROOT))
+    except ValueError:
+        return str(SKILL_PACK_PATH)
+
+
 def list_pack_skills():
     """List pack skills only when the complete, ordered catalog is valid."""
     entries = _parse_catalog()
@@ -56,7 +64,7 @@ def list_pack_skills():
             "id": entry["id"],
             "name": entry["name"],
             "description": f"Research skill: {entry['name']}.",
-            "path": str(SKILL_PACK_PATH.relative_to(REPO_ROOT)),
+            "path": _display_skill_path(),
             "available": True,
             "mode": "research_evaluation_only",
             "requires_external_tools": False,

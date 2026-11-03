@@ -170,6 +170,10 @@ def evaluate_binary_predictions(actual: Any, predicted: Any) -> dict[str, Any]:
     recall = tp / (tp + fn) if tp + fn else 0.0
     f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
     majority_baseline = max(positives, negatives) / total
+    specificity = tn / (tn + fp) if tn + fp else 0.0
+    balanced_accuracy = (recall + specificity) / 2
+    prevalence = positives / total
+    predicted_positive_fraction = sum(y_pred) / total
 
     return {
         "sample_count": total,
@@ -177,6 +181,10 @@ def evaluate_binary_predictions(actual: Any, predicted: Any) -> dict[str, Any]:
         "accuracy": accuracy,
         "precision": precision,
         "recall": recall,
+        "specificity": specificity,
+        "balanced_accuracy": balanced_accuracy,
+        "positive_label_prevalence": prevalence,
+        "predicted_positive_fraction": predicted_positive_fraction,
         "f1": f1,
         "majority_class_baseline_accuracy": majority_baseline,
         "accuracy_delta_vs_majority_baseline": accuracy - majority_baseline,

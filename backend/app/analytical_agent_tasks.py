@@ -40,7 +40,49 @@ def _connect():
         detail_json TEXT NOT NULL DEFAULT '{}'
     )""")
     db.execute("CREATE INDEX IF NOT EXISTS idx_agent_task_events_task_time ON analytical_agent_task_events(task_id,event_id)")
+    db.execute("""CREATE TABLE IF NOT EXISTS research_quality_evaluations (
+        evaluation_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        task_id TEXT NOT NULL UNIQUE,
+        worker_id TEXT NOT NULL,
+        evaluation_json TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY(task_id) REFERENCES analytical_agent_tasks(task_id)
+    )""")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_quality_eval_worker_time ON research_quality_evaluations(worker_id,created_at)")
     return db
+
+def _persist_quality_evaluation(task_id: str, worker_id: str, evaluation: dict) -> None:
+    """Store one task-linked traceability evaluation; idempotent per task."""
+    created_at = datetime.now(timezone.utc).isoformat()
+    with _connect() as db:
+        db.execute(
+            """INSERT INTO research_quality_evaluations
+               (task_id,worker_id,evaluation_json,created_at)
+               VALUES (?,?,?,?)
+               ON CONFLICT(task_id) DO UPDATE SET
+                 worker_id=excluded.worker_id,
+                 evaluation_json=excluded.evaluation_json,
+                 created_at=excluded.created_at""",
+            (task_id, worker_id, _json(evaluation), created_at),
+        )
+
+def get_task_quality_evaluation(task_id: str) -> dict | None:
+    """Retrieve a persisted traceability evaluation linked to a known task."""
+    with _connect() as db:
+        task = db.execute("SELECT task_id FROM analytical_agent_tasks WHERE task_id=?", (task_id,)).fetchone()
+        if task is None:
+            return None
+        row = db.execute(
+            "SELECT evaluation_id,task_id,worker_id,evaluation_json,created_at "
+            "FROM research_quality_evaluations WHERE task_id=?", (task_id,)
+        ).fetchone()
+    if row is None:
+        return {"task_id": task_id, "evaluation": None, "status": "not_evaluated"}
+    return {
+        "evaluation_id": row["evaluation_id"], "task_id": row["task_id"],
+        "worker_id": row["worker_id"], "evaluation": json.loads(row["evaluation_json"]),
+        "created_at": row["created_at"], "status": "persisted",
+    }
 
 def _record_event(db, task_id, worker_id, event_type, from_status=None, to_status=None, detail=None, occurred_at=None):
     db.execute(
@@ -137,6 +179,8 @@ def execute_queued_research_task(task_id: str) -> None:
                     }
             else:
                 evaluation_status = "structured_claims_present_but_no_draft"
+        if evaluation is not None:
+            _persist_quality_evaluation(task_id, agent_id, evaluation)
         result = {"agent_id": agent_id, "brain_context_sha256": row["brain_context_sha256"],
                   "brief": task_input["brief"], "input_data_received": task_input["data"] is not None,
                   "shared_core_result": synthesis,

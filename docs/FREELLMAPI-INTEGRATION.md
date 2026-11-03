@@ -1,59 +1,49 @@
 # FreeLLMAPI integration
 
-MARKET-MIND-AI contains a FreeLLMAPI adapter in `backend/app/freellmapi_adapter.py`. It connects the **single shared intelligence core** to the separately running FreeLLMAPI OpenAI-compatible gateway. It does not install or host FreeLLMAPI inside this repository, and it does not create one model per analytical worker.
-
-## Upstream project and docs
-
-- Repository: https://github.com/tashfeenahmed/freellmapi
-- Install guide: https://github.com/tashfeenahmed/freellmapi/blob/main/docs/en/install/01-install.md
-- API reference: https://github.com/tashfeenahmed/freellmapi/blob/main/docs/en/api/01-rest-api.md
-- Client guide: https://github.com/tashfeenahmed/freellmapi/blob/main/docs/en/clients/01-agent-clients.md
+MARKET-MIND-AI contains an adapter in `backend/app/freellmapi_adapter.py` for the **single shared intelligence core**. It connects to a separately running FreeLLMAPI OpenAI-compatible gateway. It does not install or host FreeLLMAPI inside MARKET-MIND-AI or create one model per analytical worker.
 
 ## 1. Run FreeLLMAPI separately
 
-FreeLLMAPI requires its own runtime (Docker, Node.js, or supported desktop app) and provider configuration. Start the gateway, configure provider keys in its dashboard, and copy the unified API key from its Keys page. The default local gateway is `http://127.0.0.1:3001`; its OpenAI-compatible API is `/v1`.
+FreeLLMAPI requires its own runtime (Docker or Node.js) and provider configuration. Follow its upstream documentation:
 
-**Important:** FreeLLMAPI is a gateway, not a source of unlimited guaranteed inference. Upstream provider quotas, availability, and terms still apply. Do not commit gateway/provider credentials, expose them in screenshots, or put them in public issues.
+- Project: https://github.com/tashfeenahmed/freellmapi
+- Install guide: https://github.com/tashfeenahmed/freellmapi/blob/main/docs/en/install/01-install.md
+- OpenAI-compatible API reference: https://github.com/tashfeenahmed/freellmapi/blob/main/docs/en/api/01-rest-api.md
+
+Start the gateway, configure provider credentials/models in its dashboard, and copy its unified API key. The documented local API base is `http://localhost:3001/v1`; use `127.0.0.1` when configuring this backend on the same host.
+
+**The unified key is a secret.** Do not put it in GitHub source, commits, screenshots, public issues, or frontend code. Keep it in a local environment file or your deployment platform's secret store. FreeLLMAPI forwards requests to upstream providers configured by the user; their quotas, availability, privacy policies, and terms still apply.
 
 ## 2. Configure MARKET-MIND-AI
 
-Set these environment variables for the backend process:
+Set these variables for the backend process:
 
 ```dotenv
 INTELLIGENCE_CORE_ENABLED=true
 INTELLIGENCE_CORE_PROVIDER=freellmapi
-FREELLMAPI_BASE_URL=http://127.0.0.1:3001
+FREELLMAPI_BASE_URL=http://127.0.0.1:3001/v1
 FREELLMAPI_API_KEY=replace-with-your-local-unified-key
 FREELLMAPI_MODEL=auto
 ```
 
-Use `auto` to let FreeLLMAPI choose a routed model, or use a model ID returned by its `GET /v1/models` endpoint. The adapter accepts either a gateway root URL (for example `http://127.0.0.1:3001`) or a base URL ending in `/v1`. It sends a Bearer token to `/v1/chat/completions` and requests a non-streaming OpenAI-compatible response.
+The model value must be supported by the FreeLLMAPI gateway (for example, `auto` or a model identifier available in its dashboard). The adapter accepts a base URL with or without the `/v1` suffix, appends `/chat/completions` without duplicating `/v1`, sends a Bearer token, and requests a non-streaming OpenAI-compatible completion.
 
-Restart MARKET-MIND-AI's backend after setting the environment variables.
+Restart the MARKET-MIND-AI backend after changing environment variables.
 
-## 3. Verify the gateway before connecting MARKET-MIND-AI
+## 3. Network boundary
 
-Run this on the same host where FreeLLMAPI is listening. Replace the placeholder locally; do not paste the key into GitHub or chat:
+The current adapter intentionally allows **loopback hosts only**. Run both services on the same host for this integration.
 
-```bash
-curl -sS http://127.0.0.1:3001/v1/models \
-  -H "Authorization: Bearer YOUR_FREELLMAPI_UNIFIED_KEY"
-```
+If the backend and gateway are separate containers, `127.0.0.1` inside the backend container points to that container—not the gateway. A Docker service name such as `http://freellmapi:3001` is not accepted by the current loopback-only policy. Do not expose the gateway publicly or weaken this restriction just to make container networking work. A future trusted-network design would need explicit network controls and authentication review.
 
-A successful response should be an OpenAI-style model-list JSON response. This verifies the gateway endpoint and key, not that every upstream model is available.
+## 4. Verify configuration and a real completion
 
-Then check MARKET-MIND-AI configuration:
+- `GET /api/intelligence-core` reports provider configuration without contacting the gateway. A configured status means **configured, not health-checked**.
+- `POST /api/intelligence-core/synthesize` accepts a bounded, caller-supplied research JSON payload and attempts a real completion when the provider is configured.
+- A successful request should return `provider: freellmapi_local` and `status: completed`. Provider failures return a safe failure status; deterministic research outputs remain authoritative.
 
-```bash
-curl -sS http://127.0.0.1:8000/api/intelligence-core
-```
-
-This status endpoint reports configuration only; it does **not** call FreeLLMAPI or verify the key. To verify an actual inference connection, submit a small supplied-research synthesis through `POST /api/intelligence-core/synthesize`. The returned provider status distinguishes a successful completion from an unavailable or invalid response.
-
-## Docker networking
-
-If MARKET-MIND-AI and FreeLLMAPI run in separate containers, `127.0.0.1` inside MARKET-MIND-AI refers to that container itself. The current adapter deliberately restricts FreeLLMAPI to loopback addresses, so a Docker service hostname such as `http://freellmapi:3001` is rejected. Keep both services on the same host using loopback for now; do not expose the gateway publicly to bypass this restriction. A future container-network option should require an explicit trusted-network allowlist and dedicated tests.
+The status endpoint does not prove the gateway is running, the key is valid, or that a provider has remaining quota. Verify those separately with a small non-sensitive test request.
 
 ## Scope and safety boundary
 
-FreeLLMAPI is an optional language-model synthesis provider for **already supplied research artifacts**. It does not fetch market data, calculate indicators, train model weights, apply agent proposals, or execute trades. MARKET-MIND-AI remains research/educational-only; deterministic reports remain authoritative when synthesis is unavailable.
+This adapter is a bounded language-model synthesis layer over **supplied research artifacts**. It does not fetch market data, calculate indicators, train model weights, autonomously apply agent proposals, or execute trades. Keep MARKET-MIND-AI in educational research mode. Never send secrets or private data in prompts, and follow the gateway/upstream provider terms and rate limits.

@@ -237,5 +237,42 @@ class BinaryResearchMetricsTests(unittest.TestCase):
             evaluate_binary_predictions(None, [0])
 
 
+class BinaryEvaluationAggregationTests(unittest.TestCase):
+    def test_returns_fold_metrics_variance_and_pooled_metrics(self):
+        from app.research_evaluation import aggregate_binary_evaluation_runs
+
+        result = aggregate_binary_evaluation_runs(
+            [[1, 1, 0, 0], [1, 0]],
+            [[1, 0, 0, 0], [0, 0]],
+        )
+        self.assertEqual(result["split_count"], 2)
+        self.assertEqual(len(result["per_split"]), 2)
+        self.assertAlmostEqual(result["unweighted_split_mean"]["accuracy"], 0.625)
+        self.assertAlmostEqual(result["unweighted_split_population_std"]["accuracy"], 0.125)
+        self.assertEqual(result["pooled"]["sample_count"], 6)
+        self.assertEqual(result["pooled"]["accuracy"], 4 / 6)
+        self.assertTrue(result["research_only"])
+        self.assertTrue(result["limitations"])
+
+    def test_rejects_empty_mismatched_or_invalid_split(self):
+        from app.research_evaluation import aggregate_binary_evaluation_runs
+
+        invalid_cases = (
+            ([], []),
+            ([[0]], [[0], [1]]),
+            ([[0, 2]], [[0, 1]]),
+        )
+        for actual, predicted in invalid_cases:
+            with self.subTest(actual=actual, predicted=predicted):
+                with self.assertRaises(ValueError):
+                    aggregate_binary_evaluation_runs(actual, predicted)
+
+    def test_rejects_non_sequence_split_collections(self):
+        from app.research_evaluation import aggregate_binary_evaluation_runs
+
+        with self.assertRaisesRegex(ValueError, "lists or tuples"):
+            aggregate_binary_evaluation_runs(None, [[0]])
+
+
 if __name__ == "__main__":
     unittest.main()

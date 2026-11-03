@@ -58,9 +58,9 @@ def validate_chronological_splits(
         raise ValueError("validation_end must be on or after validation_start")
     if test <= val_end:
         raise ValueError("test_start must be after validation_end")
-    if embargo_seconds and embargo <= embargo_seconds:
+    if embargo < embargo_seconds:
         raise ValueError("train/validation boundary does not satisfy embargo_seconds")
-    if embargo_seconds and test_embargo <= embargo_seconds:
+    if test_embargo < embargo_seconds:
         raise ValueError("validation/test boundary does not satisfy embargo_seconds")
 
     return {

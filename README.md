@@ -65,6 +65,16 @@ No real-money trading, order routing, or brokerage integration is included.
 
 The shared intelligence core includes an optional FreeLLMAPI adapter for bounded research-text synthesis. FreeLLMAPI runs separately; MARKET-MIND-AI does not host the gateway or bundle provider credentials. Setup and environment variables are documented in [FreeLLMAPI integration](docs/FREELLMAPI-INTEGRATION.md). The adapter is disabled by default and loopback-restricted. It does not provide market data or trading execution.
 
+## Research draft quality checks
+
+A deterministic structural evaluator is available in
+`backend/app/research_quality_eval.py`. It measures whether draft claims carry
+source identifiers that match a supplied source registry, flags unknown IDs,
+and can compare those coverage metrics with an explicitly supplied baseline.
+It does **not** check whether sources are authentic or entail the claims, and
+it does not measure forecast accuracy or market performance. Treat its metrics
+as traceability diagnostics—not a truth score or an intelligence benchmark.
+
 ## Routed specialist research tasks
 
 The research API now supports a single brief being routed to matched specialist

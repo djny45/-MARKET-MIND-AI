@@ -168,6 +168,7 @@ def synthesize_research(research: dict, *, opener=urlopen) -> dict:
 
     request = Request(endpoint, data=body, headers=headers, method="POST")
     routed_via = None
+    fallback_attempts = None
     try:
         with opener(request, timeout=DEFAULT_TIMEOUT_SECONDS) as response:
             response_headers = getattr(response, "headers", None)

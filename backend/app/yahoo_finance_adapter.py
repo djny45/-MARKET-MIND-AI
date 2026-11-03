@@ -44,6 +44,7 @@ class YahooFinanceAdapter:
             result = payload["chart"]["result"][0]
             timestamps = result.get("timestamp") or []
             quote = result["indicators"]["quote"][0]
+            adjusted_close_values = (result.get("indicators", {}).get("adjclose") or [{}])[0].get("adjclose") or []
             bars = []
             for i, stamp in enumerate(timestamps):
                 values = [quote.get(key, [])[i] if i < len(quote.get(key, [])) else None
@@ -63,6 +64,11 @@ class YahooFinanceAdapter:
                     timestamp=datetime.fromtimestamp(stamp, tz=timezone.utc),
                     open=open_value, high=high_value, low=low_value,
                     close=close_value, volume=volume,
+                    adjusted_close=(float(adjusted_close_values[i])
+                                    if i < len(adjusted_close_values)
+                                    and adjusted_close_values[i] is not None
+                                    and math.isfinite(float(adjusted_close_values[i]))
+                                    and float(adjusted_close_values[i]) > 0 else None),
                 ))
         except (KeyError, IndexError, TypeError, ValueError) as exc:
             raise ValueError("Yahoo response did not contain valid OHLCV chart data") from exc

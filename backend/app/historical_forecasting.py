@@ -208,3 +208,122 @@ def evaluate_next_day_return_forecast(
             "Forecast metrics are not investment advice or a trading recommendation.",
         ],
     }
+
+
+
+def evaluate_walk_forward_return_forecast(
+    adjusted_closes: Sequence[float],
+    *,
+    lookback: int = 5,
+    min_history_samples: int = 80,
+    test_window: int = 20,
+    step_size: int | None = None,
+) -> dict:
+    """Evaluate expanding-window forecasts over multiple chronological windows.
+
+    Every window's model and constant-mean baseline use only observations
+    strictly before that window. Ridge alpha is selected on a validation slice
+    within the pre-window history. No test-window values are used for fitting
+    or model selection. This is a descriptive research benchmark, not a
+    trading strategy or evidence of future profitability.
+    """
+    if not isinstance(lookback, int) or isinstance(lookback, bool) or not 2 <= lookback <= 20:
+        raise ValueError("lookback must be an integer between 2 and 20")
+    if not isinstance(min_history_samples, int) or isinstance(min_history_samples, bool) or min_history_samples < 40:
+        raise ValueError("min_history_samples must be an integer >= 40")
+    if not isinstance(test_window, int) or isinstance(test_window, bool) or test_window < 5:
+        raise ValueError("test_window must be an integer >= 5")
+    if step_size is None:
+        step_size = test_window
+    if not isinstance(step_size, int) or isinstance(step_size, bool) or step_size < 1:
+        raise ValueError("step_size must be a positive integer")
+
+    returns = _log_returns(adjusted_closes)
+    features, targets = [], []
+    for target_index in range(lookback, len(returns)):
+        features.append(returns[target_index - lookback:target_index])
+        targets.append(returns[target_index])
+
+    if len(targets) < min_history_samples + test_window:
+        raise ValueError("insufficient history for walk-forward evaluation")
+
+    candidates = (1e-6, 1e-4, 1e-2, 1.0)
+    windows = []
+    start = min_history_samples
+    while start + test_window <= len(targets):
+        # start is the first test target. All history ends before start.
+        history_x, history_y = features[:start], targets[:start]
+        validation_start = int(len(history_y) * 0.85)
+        if validation_start < 30 or start - validation_start < 5:
+            raise ValueError("insufficient pre-test history for validation")
+        train_x, train_y = history_x[:validation_start], history_y[:validation_start]
+        val_x, val_y = history_x[validation_start:], history_y[validation_start:]
+        validation_scores = []
+        for alpha in candidates:
+            coefficients = _fit_ridge(train_x, train_y, alpha)
+            predictions = _predict(coefficients, val_x)
+            mae = sum(abs(actual - predicted) for actual, predicted in zip(val_y, predictions)) / len(val_y)
+            validation_scores.append((mae, alpha))
+        selected_alpha = min(validation_scores)[1]
+
+        # Refit only on the complete history available before the test window.
+        coefficients = _fit_ridge(history_x, history_y, selected_alpha)
+        test_x = features[start:start + test_window]
+        test_y = targets[start:start + test_window]
+        model_predictions = _predict(coefficients, test_x)
+        zero_predictions = [0.0] * len(test_y)
+        mean_return = sum(history_y) / len(history_y)
+        mean_predictions = [mean_return] * len(test_y)
+
+        model_metrics = _metrics(test_y, model_predictions)
+        zero_metrics = _metrics(test_y, zero_predictions)
+        mean_metrics = _metrics(test_y, mean_predictions)
+        windows.append({
+            "window_index": len(windows) + 1,
+            "history_samples": start,
+            "validation_samples": len(val_y),
+            "test_start_target_index": start,
+            "test_end_target_index_exclusive": start + test_window,
+            "selected_ridge_alpha": selected_alpha,
+            "model": model_metrics,
+            "zero_return_baseline": zero_metrics,
+            "pretest_mean_return_baseline": {
+                "forecast_log_return": mean_return,
+                "fit_samples": len(history_y),
+                **mean_metrics,
+            },
+        })
+        start += step_size
+
+    def aggregate(metric_key: str, group: str) -> dict:
+        values = [window[group][metric_key] for window in windows]
+        ordered = sorted(values)
+        middle = len(ordered) // 2
+        median = ordered[middle] if len(ordered) % 2 else (ordered[middle - 1] + ordered[middle]) / 2
+        return {"mean": sum(values) / len(values), "median": median, "window_count": len(values)}
+
+    return {
+        "task": "walk_forward_next_day_log_return_forecast",
+        "method": "expanding_window_ridge_with_chronological_validation",
+        "lookback": lookback,
+        "min_history_samples": min_history_samples,
+        "test_window_samples": test_window,
+        "step_size_samples": step_size,
+        "window_count": len(windows),
+        "windows": windows,
+        "aggregate_test_metrics": {
+            group: {
+                metric: aggregate(metric, group)
+                for metric in ("mae_log_return", "rmse_log_return", "directional_accuracy")
+            }
+            for group in ("model", "zero_return_baseline", "pretest_mean_return_baseline")
+        },
+        "research_only": True,
+        "limitations": [
+            "Expanding windows reuse overlapping history; window scores are not independent.",
+            "Results depend on symbol, provider, date range, and market regime.",
+            "This evaluates forecast error only, not profitability or execution outcomes.",
+            "No transaction costs, slippage, taxes, or portfolio outcomes are modeled.",
+            "Synthetic test fixtures validate code mechanics, not predictive skill.",
+        ],
+    }

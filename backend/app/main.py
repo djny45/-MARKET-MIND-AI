@@ -68,7 +68,7 @@ app = FastAPI(title="MARKET-MIND-AI API", version="0.2.0",
 # as a comma-separated allowlist (for example, https://market-mind.vercel.app).
 _frontend_origins = [
     origin.strip().rstrip("/")
-    for origin in os.getenv("FRONTEND_ORIGINS", "http://localhost:5173").split(",")
+    for origin in os.getenv("FRONTEND_ORIGINS", "http://localhost:5173,https://market-mind-ai-ashen.vercel.app").split(",")
     if origin.strip()
 ]
 app.add_middleware(

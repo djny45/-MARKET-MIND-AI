@@ -118,13 +118,23 @@ def execute_queued_research_task(task_id: str) -> None:
         if isinstance(task_data, dict) and isinstance(task_data.get("claims"), list) and isinstance(task_data.get("source_registry"), list):
             candidate_draft = synthesis.get("summary") if synthesis.get("status") == "completed" else task_data.get("draft")
             if isinstance(candidate_draft, str) and candidate_draft.strip():
-                evaluation = evaluate_research_draft(
-                    draft=candidate_draft,
-                    claims=task_data["claims"],
-                    source_registry=task_data["source_registry"],
-                    baseline=task_data.get("baseline"),
-                )
-                evaluation_status = "evaluated"
+                try:
+                    evaluation = evaluate_research_draft(
+                        draft=candidate_draft,
+                        claims=task_data["claims"],
+                        source_registry=task_data["source_registry"],
+                        baseline=task_data.get("baseline"),
+                    )
+                    evaluation_status = "evaluated"
+                except ValueError as exc:
+                    # Optional quality metadata must not turn a successful research
+                    # synthesis into a failed task. Preserve the bounded error detail.
+                    evaluation_status = "invalid_evaluation_input"
+                    evaluation = {
+                        "status": "invalid_input",
+                        "error": str(exc)[:500],
+                        "evaluation_type": "deterministic_research_traceability_check",
+                    }
             else:
                 evaluation_status = "structured_claims_present_but_no_draft"
         result = {"agent_id": agent_id, "brain_context_sha256": row["brain_context_sha256"],

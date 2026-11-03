@@ -10,6 +10,7 @@ STAGESHOW_SKILL_ROOT = REPO_ROOT / ".agents" / "skills" / "stageshow"
 MARKET_DATA_SKILL_ROOT = REPO_ROOT / ".agents" / "skills" / "market-data-yahoo"
 STOOQ_SKILL_ROOT = REPO_ROOT / ".agents" / "skills" / "market-data-stooq"
 QUANT_RESEARCH_SKILL_ROOT = REPO_ROOT / ".agents" / "skills" / "quant-research-evaluation"
+SOCIAL_RESEARCH_SKILL_ROOT = REPO_ROOT / ".agents" / "skills" / "social-research"
 
 SKILL_DESCRIPTIONS = {
     "trader-alerts": "Alert interpretation and notification research.",
@@ -37,6 +38,10 @@ MARKET_DATA_SKILL_DESCRIPTIONS = {
 
 STOOQ_SKILL_DESCRIPTIONS = {
     "market-data-stooq": "Stooq daily OHLCV retrieval and historical data-quality checks; research only.",
+}
+
+SOCIAL_RESEARCH_SKILL_DESCRIPTIONS = {
+    "social-research": "Source-linked public social/community research via approved RSS feeds; coverage-limited and non-predictive.",
 }
 
 QUANT_RESEARCH_SKILL_DESCRIPTIONS = {
@@ -116,7 +121,18 @@ def list_skills():
         }
         for slug, description in QUANT_RESEARCH_SKILL_DESCRIPTIONS.items()
     ]
-    return trading + engineering + ui_design + market_data + stooq_data + quant_research + list_pack_skills()
+    social_research = [
+        {
+            "id": slug,
+            "description": description,
+            "path": ".agents/skills/social-research/SKILL.md",
+            "available": (SOCIAL_RESEARCH_SKILL_ROOT / "SKILL.md").is_file(),
+            "mode": "social_research_only",
+            "requires_external_tools": True,
+        }
+        for slug, description in SOCIAL_RESEARCH_SKILL_DESCRIPTIONS.items()
+    ]
+    return trading + engineering + ui_design + market_data + stooq_data + quant_research + social_research + list_pack_skills()
 
 
 def load_skill(slug: str):
@@ -148,6 +164,11 @@ def load_skill(slug: str):
         description = STOOQ_SKILL_DESCRIPTIONS[slug]
         mode = "market_data_research_only"
         requires_external_tools = True
+    elif slug in SOCIAL_RESEARCH_SKILL_DESCRIPTIONS:
+        root = SOCIAL_RESEARCH_SKILL_ROOT
+        description = SOCIAL_RESEARCH_SKILL_DESCRIPTIONS[slug]
+        mode = "social_research_only"
+        requires_external_tools = True
     elif slug in QUANT_RESEARCH_SKILL_DESCRIPTIONS:
         root = QUANT_RESEARCH_SKILL_ROOT
         description = QUANT_RESEARCH_SKILL_DESCRIPTIONS[slug]
@@ -156,7 +177,7 @@ def load_skill(slug: str):
     else:
         raise KeyError(slug)
 
-    path = root / "SKILL.md" if slug in UI_SKILL_DESCRIPTIONS or slug in MARKET_DATA_SKILL_DESCRIPTIONS or slug in STOOQ_SKILL_DESCRIPTIONS or slug in QUANT_RESEARCH_SKILL_DESCRIPTIONS else root / slug / "SKILL.md"
+    path = root / "SKILL.md" if slug in UI_SKILL_DESCRIPTIONS or slug in MARKET_DATA_SKILL_DESCRIPTIONS or slug in STOOQ_SKILL_DESCRIPTIONS or slug in QUANT_RESEARCH_SKILL_DESCRIPTIONS or slug in SOCIAL_RESEARCH_SKILL_DESCRIPTIONS else root / slug / "SKILL.md"
     if not path.is_file():
         raise FileNotFoundError(slug)
     return {

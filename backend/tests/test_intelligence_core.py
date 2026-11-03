@@ -63,6 +63,16 @@ class SharedIntelligenceCoreTests(unittest.TestCase):
             with self.assertRaises(IntelligenceCoreError):
                 intelligence_core_status()
 
+    def test_research_input_must_be_json_object(self):
+        with patch("app.intelligence_core.intelligence_core_status") as status:
+            for invalid in ([], "research", 123, None):
+                with self.subTest(invalid=invalid):
+                    with self.assertRaisesRegex(
+                        IntelligenceCoreError, "JSON object"
+                    ):
+                        synthesize_research(invalid)
+            status.assert_not_called()
+
     def test_research_payload_is_bounded(self):
         enabled_status = {
             "enabled": True,

@@ -27,7 +27,7 @@ class AutonomousStoredResearchApiTests(unittest.TestCase):
         for index in range(count):
             price = 100 + index
             bars.append({
-                "timestamp": now + timedelta(days=index),
+                "timestamp": now - timedelta(days=count - index),
                 "open": price, "high": price + 2, "low": price - 2,
                 "close": price + 1, "volume": 1000 + index,
             })

@@ -33,6 +33,34 @@ The platform is designed for research across four primary market groups: India, 
 - **Synthetic data is labelled:** the sample endpoint is a deterministic development fixture, never a live or historical price feed.
 - **Research only:** no paper trading, brokerage credentials, order routing, or automated execution.
 
+## Historical data and forecasting research (educational)
+
+The repository includes a best-effort Yahoo Finance historical-data adapter and a
+chronological one-step forecasting benchmark. This is a research experiment—not
+a trading system, recommendation, or evidence of profitability.
+
+Run locally from the repository root:
+
+```bash
+cd backend
+python -m pip install -r requirements.txt
+python run_historical_research.py --symbol AAPL --bars 750
+# Indian-listed example: RELIANCE.NS
+```
+
+The script fetches daily OHLCV, prefers Yahoo's adjusted close for return
+research, and reports data source/timestamps plus a chronological train /
+validation / holdout test. It compares a small ridge regression on lagged
+log-returns with a zero-return baseline. It does not shuffle time-series rows
+or use test data for model selection.
+
+**Important:** Yahoo's chart endpoint is unofficial and provider-dependent.
+Check data licensing and availability. Results can vary by symbol, period, data
+adjustments, and provider corrections. The experiment models one symbol and
+one-day log returns only; it omits costs, slippage, taxes, portfolio risk, and
+execution. A good historical score is not a guarantee of future performance.
+No real-money trading, order routing, or brokerage integration is included.
+
 ## FreeLLMAPI shared-core provider
 
 The shared intelligence core includes an optional FreeLLMAPI adapter for bounded research-text synthesis. FreeLLMAPI runs separately; MARKET-MIND-AI does not host the gateway or bundle provider credentials. Setup and environment variables are documented in [FreeLLMAPI integration](docs/FREELLMAPI-INTEGRATION.md). The adapter is disabled by default and loopback-restricted. It does not provide market data or trading execution.

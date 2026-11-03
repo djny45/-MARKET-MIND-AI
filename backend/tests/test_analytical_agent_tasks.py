@@ -60,6 +60,28 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertIn(saved["status"], ("completed", "failed"))
         self.assertNotEqual(saved["status"], "queued")
 
+    def test_queued_task_includes_optional_traceability_evaluation(self):
+        from app.analytical_agent_tasks import enqueue_research_task, execute_queued_research_task
+        queued = enqueue_research_task(
+            "worker_014",
+            "Evaluate supplied claims",
+            {
+                "draft": "Draft includes limitations and unknowns.",
+                "claims": [
+                    {"text": "Claim with a source", "source_refs": ["source-1"]},
+                    {"text": "Claim without source", "source_refs": []},
+                ],
+                "source_registry": [{"source_id": "source-1"}],
+            },
+        )
+        execute_queued_research_task(queued["task_id"])
+        result = get_research_task(queued["task_id"])["result"]
+        evaluation = result["research_quality_evaluation"]
+        self.assertEqual(result["research_quality_evaluation_status"], "evaluated")
+        self.assertEqual(evaluation["evaluation_type"], "deterministic_research_traceability_check")
+        self.assertEqual(evaluation["metrics"]["claim_reference_coverage"], 0.5)
+        self.assertEqual(evaluation["metrics"]["known_source_reference_coverage"], 0.5)
+
     def test_task_audit_events_record_queue_claim_and_completion(self):
         from app.analytical_agent_tasks import (
             enqueue_research_task, execute_queued_research_task, list_task_audit_events,

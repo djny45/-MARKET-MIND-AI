@@ -75,6 +75,13 @@ It does **not** check whether sources are authentic or entail the claims, and
 it does not measure forecast accuracy or market performance. Treat its metrics
 as traceability diagnostics—not a truth score or an intelligence benchmark.
 
+API usage:
+- `POST /api/research/quality-evaluate` — run the evaluator on a supplied draft, claims, and source registry.
+- When a queued task includes structured `draft`, `claims`, and `source_registry` metadata, its evaluation is stored separately in SQLite and linked to the task ID.
+- `GET /api/analytical-agent-tasks/{task_id}/quality-evaluation` — retrieve the persisted evaluation. Returns `not_evaluated` for a known task without an evaluation and 404 for an unknown task.
+
+Evaluation persistence is idempotent per task (one current evaluation record per task); it is not an immutable evaluation history or model-training feedback.
+
 ## Routed specialist research tasks
 
 The research API now supports a single brief being routed to matched specialist

@@ -26,6 +26,36 @@ class SocialResearchApiTests(unittest.TestCase):
                 })
                 self.assertEqual(response.status_code, 400)
 
+    def test_news_social_merge_preserves_sources_and_marks_claims_unverified(self):
+        response = self.client.post("/api/research/evidence/merge", json={
+            "news_items": [{
+                "source": "SEC", "title": "Official filing", "url": "https://sec.gov/filing",
+                "published_at": "2026-11-01T10:00:00Z",
+            }],
+            "social_items": [{
+                "source": "reddit-demo", "title": "Community claim",
+                "url": "https://reddit.com/r/demo/post",
+                "published_at": "2026-11-01T11:00:00Z",
+            }],
+        })
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["schema"], "market_mind_evidence_v1")
+        self.assertEqual(body["count"], 2)
+        self.assertEqual(set(body["channels"]), {"news", "social"})
+        self.assertTrue(all(item["claim_status"] == "unverified" for item in body["items"]))
+        self.assertEqual({item["source"] for item in body["items"]}, {"SEC", "reddit-demo"})
+        self.assertEqual(body["coverage"], "only_configured_sources")
+
+    def test_news_social_merge_deduplicates_same_source_url(self):
+        response = self.client.post("/api/research/evidence/merge", json={
+            "news_items": [{"source": "publisher", "title": "Same", "url": "https://example.com/a"}],
+            "social_items": [{"source": "Publisher", "title": "Duplicate", "url": "https://example.com/a"}],
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["count"], 1)
+
+
     def test_social_synthesis_uses_shared_core_and_keeps_execution_disabled(self):
         evidence = {
             "items": [{"title": "unverified discussion", "url": "https://reddit.com/r/demo/1"}],

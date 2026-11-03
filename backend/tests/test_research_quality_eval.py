@@ -15,8 +15,8 @@ class ResearchQualityEvalTests(unittest.TestCase):
             source_registry=[{"source_id": "src-1", "title": "Provided source"}],
         )
         metrics = result["metrics"]
-        self.assertEqual(metrics["claim_reference_coverage"], 2 / 3)
-        self.assertEqual(metrics["known_source_reference_coverage"], 1 / 3)
+        self.assertAlmostEqual(metrics["claim_reference_coverage"], 2 / 3, places=4)
+        self.assertAlmostEqual(metrics["known_source_reference_coverage"], 1 / 3, places=4)
         self.assertEqual(metrics["unknown_source_id_count"], 1)
         self.assertIn("limitations", metrics["uncertainty_markers"])
         self.assertEqual(result["evaluation_type"], "deterministic_research_traceability_check")

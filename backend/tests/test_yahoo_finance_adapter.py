@@ -12,15 +12,16 @@ def chart_payload():
             "error": None,
             "result": [{
                 "timestamp": [1767225600, 1767312000],
-                "indicators": {"quote": [{
-                    "open": [100, 101], "high": [103, 104], "low": [99, 100],
-                    "close": [102, 103], "volume": [1000, 1100],
-                }], "adjclose": [{"adjclose": [101.5, 102.7]}]},
-                }]}
-            }]
-        }
+                "indicators": {
+                    "quote": [{
+                        "open": [100, 101], "high": [103, 104], "low": [99, 100],
+                        "close": [102, 103], "volume": [1000, 1100],
+                    }],
+                    "adjclose": [{"adjclose": [101.5, 102.7]}],
+                },
+            }],
+        },
     }
-
 
 class YahooFinanceAdapterTests(unittest.IsolatedAsyncioTestCase):
     async def test_maps_chart_response_to_normalized_historical_batch(self):

@@ -274,5 +274,55 @@ class BinaryEvaluationAggregationTests(unittest.TestCase):
             aggregate_binary_evaluation_runs(None, [[0]])
 
 
+class BinaryResearchReportTests(unittest.TestCase):
+    def setUp(self):
+        self.manifest = {
+            "dataset_id": "test-market-series", "source": "local_fixture",
+            "symbol": "TEST-USD", "timeframe": "1h",
+            "start": "2024-01-01T00:00:00Z", "end": "2024-02-01T00:00:00Z",
+            "sample_count": 100, "missing_fraction": 0.0, "synthetic": False,
+        }
+        self.boundaries = {
+            "train_end": "2024-01-10T00:00:00Z",
+            "validation_start": "2024-01-11T00:00:00Z",
+            "validation_end": "2024-01-20T00:00:00Z",
+            "test_start": "2024-01-21T00:00:00Z",
+        }
+
+    def test_builds_report_from_manifest_chronology_and_metrics(self):
+        from app.research_evaluation import build_binary_research_report
+        report = build_binary_research_report(
+            self.manifest, self.boundaries,
+            [[0, 1, 1], [0, 0]], [[0, 1, 0], [0, 1]],
+        )
+        self.assertEqual(report["report_type"], "binary_classification_research")
+        self.assertEqual(report["dataset"]["dataset_id"], "test-market-series")
+        self.assertTrue(report["chronology"]["valid"])
+        self.assertEqual(report["evaluated_sample_count"], 5)
+        self.assertEqual(report["metrics"]["split_count"], 2)
+        self.assertTrue(report["research_only"])
+        self.assertTrue(report["limitations"])
+
+    def test_rejects_manifest_not_ready(self):
+        from app.research_evaluation import build_binary_research_report
+        manifest = dict(self.manifest)
+        manifest["synthetic"] = True
+        with self.assertRaisesRegex(ValueError, "not evaluation-ready"):
+            build_binary_research_report(manifest, self.boundaries, [[0]], [[0]])
+
+    def test_rejects_missing_boundaries_and_sample_overflow(self):
+        from app.research_evaluation import build_binary_research_report
+        with self.assertRaisesRegex(ValueError, "missing required fields"):
+            build_binary_research_report(
+                self.manifest, {"train_end": "2024-01-10T00:00:00Z"}, [[0]], [[0]]
+            )
+        manifest = dict(self.manifest)
+        manifest["sample_count"] = 1
+        with self.assertRaisesRegex(ValueError, "cannot exceed"):
+            build_binary_research_report(
+                manifest, self.boundaries, [[0, 1]], [[0, 1]]
+            )
+
+
 if __name__ == "__main__":
     unittest.main()

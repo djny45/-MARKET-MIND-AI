@@ -1,49 +1,40 @@
-# FreeLLMAPI integration
+# Inception Labs Mercury integration
 
-MARKET-MIND-AI contains an adapter in `backend/app/freellmapi_adapter.py` for the **single shared intelligence core**. It connects to a separately running FreeLLMAPI OpenAI-compatible gateway. It does not install or host FreeLLMAPI inside MARKET-MIND-AI or create one model per analytical worker.
+MARKET-MIND-AI uses **Inception Labs Mercury-3** as the default shared intelligence provider. It calls the official OpenAI-compatible chat-completions endpoint directly; no Ollama server or local gateway is required.
 
-## 1. Run FreeLLMAPI separately
+## 1. Configure the backend
 
-FreeLLMAPI requires its own runtime (Docker or Node.js) and provider configuration. Follow its upstream documentation:
-
-- Project: https://github.com/tashfeenahmed/freellmapi
-- Install guide: https://github.com/tashfeenahmed/freellmapi/blob/main/docs/en/install/01-install.md
-- OpenAI-compatible API reference: https://github.com/tashfeenahmed/freellmapi/blob/main/docs/en/api/01-rest-api.md
-
-Start the gateway, configure provider credentials/models in its dashboard, and copy its unified API key. The documented local API base is `http://localhost:3001/v1`; use `127.0.0.1` when configuring this backend on the same host.
-
-**The unified key is a secret.** Do not put it in GitHub source, commits, screenshots, public issues, or frontend code. Keep it in a local environment file or your deployment platform's secret store. FreeLLMAPI forwards requests to upstream providers configured by the user; their quotas, availability, privacy policies, and terms still apply.
-
-## 2. Configure MARKET-MIND-AI
-
-Set these variables for the backend process:
+Set these environment variables for the backend process:
 
 ```dotenv
 INTELLIGENCE_CORE_ENABLED=true
-INTELLIGENCE_CORE_PROVIDER=freellmapi
-FREELLMAPI_BASE_URL=http://127.0.0.1:3001/v1
-FREELLMAPI_API_KEY=replace-with-your-local-unified-key
-FREELLMAPI_MODEL=auto
+INTELLIGENCE_CORE_PROVIDER=mercury
+INCEPTION_API_KEY=your_inception_labs_api_key
+INCEPTION_MODEL=mercury-3
 ```
 
-The model value must be supported by the FreeLLMAPI gateway (for example, `auto` or a model identifier available in its dashboard). The adapter accepts a base URL with or without the `/v1` suffix, appends `/chat/completions` without duplicating `/v1`, sends a Bearer token, and requests a non-streaming OpenAI-compatible completion.
+The adapter sends a non-streaming chat-completions request to the fixed endpoint:
 
-Restart the MARKET-MIND-AI backend after changing environment variables.
+`https://api.inceptionlabs.ai/v1/chat/completions`
 
-## 3. Network boundary
+It uses the Bearer API key in the backend request header and sends the prompt in the `messages` field. The model defaults to `mercury-3`.
 
-The current adapter intentionally allows **loopback hosts only**. Run both services on the same host for this integration.
+**Keep the API key private.** Store it in your deployment's secret/environment-variable settings or an untracked local `.env` file. Never paste it into GitHub source, commits, frontend code, screenshots, or public issues. Do not share it in ChatGPT. If it has already been exposed, revoke it in the provider dashboard and create a replacement.
 
-If the backend and gateway are separate containers, `127.0.0.1` inside the backend container points to that container—not the gateway. A Docker service name such as `http://freellmapi:3001` is not accepted by the current loopback-only policy. Do not expose the gateway publicly or weaken this restriction just to make container networking work. A future trusted-network design would need explicit network controls and authentication review.
+Restart the backend after setting the variables. The status endpoint reports configuration only; it does not validate the API key, provider quota, or network access.
 
-## 4. Verify configuration and a real completion
+## 2. Request and response behavior
 
-- `GET /api/intelligence-core` reports provider configuration without contacting the gateway. A configured status means **configured, not health-checked**.
-- `POST /api/intelligence-core/synthesize` accepts a bounded, caller-supplied research JSON payload and attempts a real completion when the provider is configured.
-- A successful request should return `provider: freellmapi_local` and `status: completed`. When FreeLLMAPI supplies its documented `X-Routed-Via` response header, MARKET-MIND-AI exposes it as `routed_via` (for example, the provider/model that served the request). This is routing telemetry, not a reliability or quality score. The documented `X-Fallback-Attempts` header is also exposed as `fallback_attempts` when it contains a numeric value. FreeLLMAPI percent-encodes non-ASCII characters in `X-Routed-Via` because HTTP headers are ASCII-only; the adapter now applies URL percent-decoding so non-ASCII model names can be displayed in readable form. See the [FreeLLMAPI API reference](https://github.com/tashfeenahmed/freellmapi/blob/main/docs/en/api/01-rest-api.md#response-headers). This reports fallback count, not model quality. Provider failures return a safe failure status; deterministic research outputs remain authoritative.
+- `GET /api/intelligence-core` reports configured provider state without contacting Mercury.
+- `POST /api/intelligence-core/synthesize` submits bounded caller-supplied research JSON for synthesis.
+- A successful completion reports `provider: inceptionlabs_mercury` and `status: completed`.
+- Provider errors return a safe failure status; the deterministic report remains authoritative.
+- API keys are not returned in status or synthesis results.
 
-The status endpoint does not prove the gateway is running, the key is valid, or that a provider has remaining quota. Verify those separately with a small non-sensitive test request. Provider response handling also validates the returned JSON shape and treats missing or malformed completion text as an invalid response. Diagnostic headers are untrusted: `routed_via` is limited to 120 characters, and `fallback_attempts` is returned only when it is a short numeric string. These fields are operational metadata only.
+## 3. Existing alternate provider
 
-## Scope and safety boundary
+The legacy `freellmapi` provider remains available for users who explicitly configure a local FreeLLMAPI gateway using `INTELLIGENCE_CORE_PROVIDER=freellmapi`. Its loopback-only restrictions and environment variables remain documented in the adapter and prior project history. Mercury is the default and does not require that gateway.
 
-This adapter is a bounded language-model synthesis layer over **supplied research artifacts**. It does not fetch market data, calculate indicators, train model weights, autonomously apply agent proposals, or execute trades. This adapter itself is limited to synthesis of supplied research and does not implement trading execution. Do not treat its output as verified financial guidance. Never send secrets or private data in prompts, and follow the gateway/upstream provider terms and rate limits.
+## Scope
+
+The Mercury integration is a bounded language-model synthesis layer over **supplied research artifacts**. It does not fetch market data, calculate indicators, train model weights, autonomously apply agent proposals, or execute trades. Provider output is not independently verified; treat it as an analysis draft and verify claims against source evidence.

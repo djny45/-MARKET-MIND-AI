@@ -32,7 +32,9 @@ def _dataset_fingerprint(batch) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
-async def run(symbol: str, bars: int, *, walk_forward: bool = False,\n              min_train_samples: int = 100, test_window_size: int = 20,\n              step_size: int | None = None) -> dict:
+async def run(symbol: str, bars: int, *, walk_forward: bool = False,
+              min_train_samples: int = 100, test_window_size: int = 20,
+              step_size: int | None = None) -> dict:
     batch = await YahooFinanceAdapter().get_bars(symbol, "1d", bars)
     closes = [
         bar.adjusted_close if bar.adjusted_close is not None else bar.close
@@ -108,7 +110,10 @@ def main() -> None:
     parser.add_argument("--step-size", type=int, default=None,
                         help="Walk-forward step size; defaults to test-window size")
     args = parser.parse_args()
-    result = asyncio.run(run(args.symbol, args.bars, walk_forward=args.walk_forward,\n                             min_train_samples=args.min_train_samples,\n                             test_window_size=args.test_window_size,\n                             step_size=args.step_size))
+    result = asyncio.run(run(args.symbol, args.bars, walk_forward=args.walk_forward,
+                             min_train_samples=args.min_train_samples,
+                             test_window_size=args.test_window_size,
+                             step_size=args.step_size))
     print(json.dumps(result, indent=2, sort_keys=True))
 
 

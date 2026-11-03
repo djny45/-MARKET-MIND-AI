@@ -18,7 +18,7 @@ class ResearchQualityEvalTests(unittest.TestCase):
         self.assertAlmostEqual(metrics["claim_reference_coverage"], 2 / 3, places=4)
         self.assertAlmostEqual(metrics["known_source_reference_coverage"], 1 / 3, places=4)
         self.assertEqual(metrics["unknown_source_id_count"], 1)
-        self.assertIn("limitations", metrics["uncertainty_markers"])
+        self.assertIn("limitation", metrics["uncertainty_markers"])
         self.assertEqual(result["evaluation_type"], "deterministic_research_traceability_check")
 
     def test_compares_metrics_with_explicit_baseline(self):

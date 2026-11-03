@@ -61,7 +61,7 @@ class SharedIntelligenceCoreTests(unittest.TestCase):
         response.read.return_value = json.dumps({
             "choices": [{"message": {"content": "Concise summary"}}]
         }).encode("utf-8")
-        response.headers = {"X-Routed-Via": "groq/llama-test", "X-Fallback-Attempts": "2"}
+        response.headers = {"X-Routed-Via": "groq%2Fllama-test", "X-Fallback-Attempts": "2"}
         response.__enter__ = Mock(return_value=response)
         response.__exit__ = Mock(return_value=False)
         opener = Mock(return_value=response)

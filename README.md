@@ -323,15 +323,16 @@ The utility validates source and backup integrity and refuses to overwrite an ex
 
 ## Latest verified CI run
 
-The GitHub Actions quality workflow completed successfully for commit `55bd328faffc5815f0bc7a5c9fdacddf21ed3765` (31 October 2026):
+The GitHub Actions quality workflow completed successfully for commit `f7642cd1ce83b4c91ef19c26fdfa59733944fdaf` (3 November 2026):
 
-- Backend: Python 3.12 compilation passed; **153 unit tests passed**; directed workflow smoke test passed.
-- Frontend: Vite/TypeScript production build passed.
-- Dependency audit: `pip-audit` and `npm audit --audit-level=high` passed.
+- Backend: passed.
+- Frontend: passed.
+- Container build and smoke test: passed.
+- Dependency audit: passed.
 
-[View the successful GitHub Actions run](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/41232757766).
+[View the successful GitHub Actions run](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/41621173501).
 
-This verifies the checks defined in the workflow at that commit; it is not a live deployment test or a market-data provider connectivity test. The current provider status remains `no_live_provider_configured`, and broker execution remains disabled. Deployment smoke tests and authorized live/delayed data-provider integration remain release gates.
+This verifies the checks defined in the workflow at that commit; it is not a live deployment test or a market-data provider connectivity test. Provider access remains best-effort and broker execution remains disabled.
 
 
 - `GET /api/market-data/trade-flow` — historical trade volume/delta buckets with side-coverage diagnostics; CVD is withheld when any sampled trade has unknown side.

@@ -64,8 +64,7 @@ from fastapi.responses import Response
 
 app = FastAPI(title="MARKET-MIND-AI API", version="0.2.0",
  description="Multi-market, evidence-first research pipeline. No brokerage execution.")
-# Keep browser origins explicit; Vercel deployments configure FRONTEND_ORIGINS
-# as a comma-separated allowlist (for example, https://market-mind.vercel.app).
+# Keep browser origins explicit using a comma-separated allowlist.
 _frontend_origins = [
     origin.strip().rstrip("/")
     for origin in os.getenv("FRONTEND_ORIGINS", "http://localhost:5173").split(",")

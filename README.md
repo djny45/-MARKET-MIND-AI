@@ -65,6 +65,31 @@ No real-money trading, order routing, or brokerage integration is included.
 
 The shared intelligence core includes an optional FreeLLMAPI adapter for bounded research-text synthesis. FreeLLMAPI runs separately; MARKET-MIND-AI does not host the gateway or bundle provider credentials. Setup and environment variables are documented in [FreeLLMAPI integration](docs/FREELLMAPI-INTEGRATION.md). The adapter is disabled by default and loopback-restricted. It does not provide market data or trading execution.
 
+## Routed specialist research tasks
+
+The research API now supports a single brief being routed to matched specialist
+profiles and persisted as individual research tasks:
+
+- `POST /api/research/specialist-routing` — preview deterministic keyword matches.
+- `POST /api/research/route-and-queue` — route and queue matched specialist tasks.
+
+Example request:
+
+```json
+{
+  "brief": "Compare historical volatility and data quality across supplied instruments",
+  "data": {"observations": []},
+  "max_specialists": 3
+}
+```
+
+The response includes the routing explanation and task IDs. Each task is persisted
+in SQLite and scheduled through FastAPI's process-local background task mechanism.
+This is **not** a durable distributed queue: a process restart can interrupt
+execution, and recovery remains explicit. Selected specialists share one configured
+inference provider; routing is keyword matching, not semantic LLM reasoning.
+Only supplied data is used. No live market feed or trade execution is involved.
+
 ## Cross-market collaboration API
 
 - `GET /api/agent-network` — inspect the four-market research mesh.

@@ -7,8 +7,14 @@ import asyncio
 import hashlib
 import time
 from email.utils import parsedate_to_datetime
-from urllib.request import Request, urlopen
+from urllib.request import Request, urlopen, HTTPRedirectHandler, build_opener
 from xml.etree import ElementTree as ET
+
+
+class _NoRedirectHandler(HTTPRedirectHandler):
+    """Reject redirects so an allowlisted feed cannot redirect to an arbitrary host."""
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise RuntimeError("RSS redirects are not followed")
 
 
 def parse_rss(raw: bytes, source: str, feed_url: str) -> list[dict]:
@@ -40,7 +46,8 @@ async def fetch_public_rss(source: str, feed_url: str, timeout: int = 8) -> dict
         req = Request(feed_url, headers={
             "User-Agent": "MARKET-MIND-AI public social research"
         })
-        with urlopen(req, timeout=timeout) as response:
+        opener = build_opener(_NoRedirectHandler())
+        with opener.open(req, timeout=timeout) as response:
             if response.status != 200:
                 raise RuntimeError(f"HTTP {response.status}")
             return parse_rss(response.read(1_500_000), source, feed_url)

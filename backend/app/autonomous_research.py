@@ -11,7 +11,7 @@ from typing import Iterable
 
 from .chart_research import build_chart_report
 from .intelligence_core import synthesize_research
-from .market_data import MarketDataAdapter, DataStatus
+from .market_data import MarketDataAdapter
 from .market_discovery import MarketCandidate, prioritize_for_research
 
 DEFAULT_INTERVALS = ("15m", "1h", "4h", "1d")
@@ -42,9 +42,10 @@ async def run_autonomous_research(
     if len(set(intervals)) != len(intervals):
         raise ValueError("intervals must not contain duplicates")
 
+    candidate_list = list(candidates)
     current_time = now or datetime.now(timezone.utc)
     queue = prioritize_for_research(
-        candidates, now=current_time, max_age_hours=max_age_hours,
+        candidate_list, now=current_time, max_age_hours=max_age_hours,
         limit=research_limit,
     )
     results = []
@@ -86,7 +87,7 @@ async def run_autonomous_research(
             "symbol": priority.symbol,
             "venue": priority.venue,
             "asset_class": next(
-                (c.asset_class for c in candidates
+                (c.asset_class for c in candidate_list
                  if c.symbol.strip().upper() == priority.symbol
                  and c.venue.strip().lower() == priority.venue.strip().lower()),
                 "unknown",
@@ -109,7 +110,7 @@ async def run_autonomous_research(
         "mode": "autonomous_descriptive_market_research",
         "generated_at": current_time.isoformat(),
         "adapter": getattr(adapter, "name", type(adapter).__name__),
-        "candidates_received": len(list(candidates)) if not isinstance(candidates, (list, tuple)) else len(candidates),
+        "candidates_received": len(candidate_list),
         "research_queue_size": len(queue),
         "results": results,
         "limitations": [

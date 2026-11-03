@@ -17,6 +17,60 @@ class _NoRedirectHandler(HTTPRedirectHandler):
         raise RuntimeError("RSS redirects are not followed")
 
 
+def _source_record(item: dict, channel: str) -> dict:
+    """Normalize news/social items into a shared, provenance-preserving schema."""
+    url = (item.get("url") or item.get("link") or "").strip()
+    title = (item.get("title") or "").strip()
+    source = (item.get("source") or item.get("publisher") or "unknown").strip()
+    published = item.get("published_at") or item.get("published")
+    retrieved = item.get("retrieved_at") or item.get("ingested_at")
+    record_id = item.get("id") or hashlib.sha256(
+        f"{channel}|{source}|{url}|{title}".encode()
+    ).hexdigest()
+    return {
+        "id": record_id,
+        "channel": channel,
+        "source": source,
+        "url": url,
+        "title": title,
+        "published_at": published,
+        "retrieved_at": retrieved,
+        "claim_status": "unverified",
+        "content_policy": item.get("content_policy", "metadata_only"),
+    }
+
+
+def merge_research_evidence(news_items: list[dict], social_items: list[dict]) -> dict:
+    """Merge feed metadata into one stable, provenance-preserving evidence list."""
+    records = [
+        _source_record(item, "news") for item in news_items
+    ] + [
+        _source_record(item, "social") for item in social_items
+    ]
+    # Deduplicate only identical source URLs; retain channel and original source.
+    seen = set()
+    merged = []
+    for record in records:
+        key = (record["source"].casefold(), record["url"].casefold())
+        if record["url"] and key in seen:
+            continue
+        if record["url"]:
+            seen.add(key)
+        merged.append(record)
+    merged.sort(
+        key=lambda record: str(record.get("published_at") or ""),
+        reverse=True,
+    )
+    return {
+        "schema": "market_mind_evidence_v1",
+        "items": merged,
+        "count": len(merged),
+        "channels": sorted({record["channel"] for record in merged}),
+        "claim_status": "unverified_until_cross_checked",
+        "coverage": "only_configured_sources",
+    }
+
+
 def parse_rss(raw: bytes, source: str, feed_url: str) -> list[dict]:
     root = ET.fromstring(raw)
     items = []

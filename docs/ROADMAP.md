@@ -81,3 +81,6 @@ A module is considered implemented only when it has:
 ## Analytical agent swarm milestone (2026-11-02)
 
 Implemented the first per-agent brain and governed learning lifecycle scaffold. Every registered worker now has a distinct role prompt/context, specialty metadata, memory namespace and context hash while sharing one inference provider. Feedback can be recorded as worker-scoped validation memory. Agent configuration updates are proposals only, remain pending review, and are not automatically applied. This is not yet 550 continuously running autonomous cloud agents: independent task execution, cloud workspaces, scheduled research and a benchmark-driven learning/promotion loop remain future milestones. Paper trading and brokerage execution remain excluded.
+
+
+- [x] Add guarded research report assembly that joins dataset metadata, chronological split checks, and classification metrics; no raw-data inspection or predictive-performance claim is made.

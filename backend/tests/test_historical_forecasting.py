@@ -97,5 +97,53 @@ class HistoricalForecastingTests(unittest.TestCase):
             evaluate_next_day_return_forecast(self.synthetic_closes(50))
 
 
+    def test_walk_forward_uses_expanding_pretest_history_and_aggregates(self):
+        from app.historical_forecasting import evaluate_walk_forward_return_forecast
+
+        report = evaluate_walk_forward_return_forecast(
+            self.synthetic_closes(500),
+            min_history_samples=100,
+            test_window=20,
+            step_size=20,
+        )
+        self.assertTrue(report["research_only"])
+        self.assertGreaterEqual(report["window_count"], 5)
+        self.assertEqual(report["window_count"], len(report["windows"]))
+        previous_start = -1
+        for window in report["windows"]:
+            start = window["test_start_target_index"]
+            end = window["test_end_target_index_exclusive"]
+            self.assertGreater(start, previous_start)
+            self.assertEqual(end - start, 20)
+            self.assertEqual(window["history_samples"], start)
+            self.assertEqual(
+                window["pretest_mean_return_baseline"]["fit_samples"], start
+            )
+            self.assertEqual(window["model"]["sample_count"], 20)
+            self.assertEqual(window["zero_return_baseline"]["sample_count"], 20)
+            previous_start = start
+        aggregate = report["aggregate_test_metrics"]["model"]["mae_log_return"]
+        self.assertEqual(aggregate["window_count"], report["window_count"])
+        self.assertTrue(math.isfinite(aggregate["mean"]))
+        self.assertTrue(math.isfinite(aggregate["median"]))
+
+    def test_walk_forward_rejects_invalid_parameters_and_short_history(self):
+        from app.historical_forecasting import evaluate_walk_forward_return_forecast
+
+        prices = self.synthetic_closes(220)
+        for kwargs in (
+            {"min_history_samples": 39},
+            {"test_window": 4},
+            {"step_size": 0},
+        ):
+            with self.subTest(kwargs=kwargs):
+                with self.assertRaises(ValueError):
+                    evaluate_walk_forward_return_forecast(prices, **kwargs)
+        with self.assertRaisesRegex(ValueError, "insufficient history"):
+            evaluate_walk_forward_return_forecast(
+                self.synthetic_closes(100), min_history_samples=80, test_window=30
+            )
+
+
 if __name__ == "__main__":
     unittest.main()

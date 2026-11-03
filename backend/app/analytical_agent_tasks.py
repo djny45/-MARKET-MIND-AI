@@ -16,6 +16,7 @@ from pathlib import Path
 from .analytical_agent_runtime import brain_config
 from .intelligence_core import synthesize_research
 from .worker_memory import recall_memory
+from .research_quality_eval import evaluate_research_draft
 
 MAX_TASK_INPUT_CHARS = 10000
 TASK_TYPE = "research_brief"
@@ -111,9 +112,26 @@ def execute_queued_research_task(task_id: str) -> None:
     }
     try:
         synthesis = synthesize_research(payload)
+        task_data = task_input.get("data")
+        evaluation = None
+        evaluation_status = "not_requested_or_missing_structured_claims"
+        if isinstance(task_data, dict) and isinstance(task_data.get("claims"), list) and isinstance(task_data.get("source_registry"), list):
+            candidate_draft = synthesis.get("summary") if synthesis.get("status") == "completed" else task_data.get("draft")
+            if isinstance(candidate_draft, str) and candidate_draft.strip():
+                evaluation = evaluate_research_draft(
+                    draft=candidate_draft,
+                    claims=task_data["claims"],
+                    source_registry=task_data["source_registry"],
+                    baseline=task_data.get("baseline"),
+                )
+                evaluation_status = "evaluated"
+            else:
+                evaluation_status = "structured_claims_present_but_no_draft"
         result = {"agent_id": agent_id, "brain_context_sha256": row["brain_context_sha256"],
                   "brief": task_input["brief"], "input_data_received": task_input["data"] is not None,
                   "shared_core_result": synthesis,
+                  "research_quality_evaluation": evaluation,
+                  "research_quality_evaluation_status": evaluation_status,
                   "result_mode": "shared_core_synthesis" if synthesis.get("status") == "completed" else "provider_unavailable_or_not_configured",
                   "research_boundary": "supplied_data_only_no_live_market_fetch"}
         status = "completed"

@@ -324,5 +324,37 @@ class BinaryResearchReportTests(unittest.TestCase):
             )
 
 
+class HistoricalForecastingTests(unittest.TestCase):
+    def test_chronological_forecast_returns_test_metrics_and_baseline(self):
+        import math
+        from app.historical_forecasting import evaluate_next_day_return_forecast
+
+        # Deterministic synthetic prices are test fixtures only, not market data.
+        prices = [100.0 * math.exp(0.001 * i + 0.01 * math.sin(i / 5)) for i in range(180)]
+        result = evaluate_next_day_return_forecast(prices)
+        self.assertEqual(result["task"], "next_day_log_return_forecast")
+        self.assertFalse(result["split"]["shuffle"])
+        self.assertGreater(result["split"]["train_samples"], result["split"]["validation_samples"])
+        self.assertGreater(result["test_model"]["sample_count"], 0)
+        self.assertEqual(
+            result["test_model"]["sample_count"],
+            result["test_zero_return_baseline"]["sample_count"],
+        )
+        self.assertTrue(result["research_only"])
+        self.assertTrue(result["limitations"])
+
+    def test_rejects_invalid_prices_lookback_and_short_history(self):
+        from app.historical_forecasting import evaluate_next_day_return_forecast
+
+        for prices in ([100, 0, 101], [100, float("nan"), 101], [100, -1, 101]):
+            with self.subTest(prices=prices):
+                with self.assertRaises(ValueError):
+                    evaluate_next_day_return_forecast(prices)
+        with self.assertRaisesRegex(ValueError, "lookback"):
+            evaluate_next_day_return_forecast([100.0] * 120, lookback=True)
+        with self.assertRaisesRegex(ValueError, "insufficient history"):
+            evaluate_next_day_return_forecast([100.0, 101.0, 102.0])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -71,3 +71,13 @@ cross-checking. They do not prove independent corroboration, agreement, or truth
 The system does not currently perform semantic contradiction detection; reviewers
 must inspect the linked source material and distinguish primary evidence from
 reposts or commentary.
+
+## Shared intelligence-core handling
+
+The shared synthesis prompt now instructs the model to interpret provenance
+completeness separately from credibility, treat source/channel labels as context
+rather than authority, and treat matching-title candidates as manual review leads.
+It must not infer consensus, contradiction, or truth from repetition, popularity,
+title similarity, or sentiment alone. This is prompt-level behavior, not a guarantee
+that every model response will comply; inspect provider output and retain the
+deterministic evidence report as authoritative.

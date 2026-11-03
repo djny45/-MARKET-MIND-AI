@@ -13,7 +13,7 @@ from .worker_registry import evaluate_registry, registry_manifest
 from .analytical_agent_runtime import runtime_manifest, brain_config, validate_learning_feedback, validate_update_proposal
 from .learning_engine import learning_overview, agent_learning_summary, run_feedback_improvement_cycle
 from .specialist_router import route_research_brief
-from .analytical_agent_tasks import submit_research_task, get_research_task, list_research_tasks, enqueue_research_task, execute_queued_research_task, recover_interrupted_research_tasks, list_recent_task_activity, agent_supervisor_status, dispatch_queued_research_tasks, list_task_audit_events
+from .analytical_agent_tasks import submit_research_task, get_research_task, list_research_tasks, enqueue_research_task, execute_queued_research_task, recover_interrupted_research_tasks, list_recent_task_activity, agent_supervisor_status, dispatch_queued_research_tasks, list_task_audit_events, get_task_quality_evaluation
 from .research_orchestrator import orchestrate_research
 from .intelligence_core import intelligence_core_status, synthesize_research, IntelligenceCoreError
 from .synthesis_review import build_synthesis_review
@@ -462,6 +462,15 @@ def analytical_agent_task_detail(task_id: str):
  if record is None:
   raise HTTPException(status_code=404, detail="Analytical-agent task not found")
  return record
+
+@app.get("/api/analytical-agent-tasks/{task_id}/quality-evaluation")
+def analytical_agent_task_quality_evaluation(task_id: str):
+ """Retrieve a persisted structural traceability evaluation for one task."""
+ record = get_task_quality_evaluation(task_id)
+ if record is None:
+  raise HTTPException(status_code=404, detail="Analytical-agent task not found")
+ return record
+
 
 @app.get("/api/analytical-agent-tasks/{task_id}/audit")
 def analytical_agent_task_audit(

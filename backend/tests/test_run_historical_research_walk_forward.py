@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from run_historical_research import run
+from run_historical_research import _dataset_fingerprint, run
 
 
 class HistoricalRunnerWalkForwardTests(unittest.IsolatedAsyncioTestCase):
@@ -58,7 +58,7 @@ class HistoricalRunnerWalkForwardTests(unittest.IsolatedAsyncioTestCase):
                 period["test_target_end"],
                 target_dates[window["test_sample_end_index_exclusive"] - 1],
             )
-        self.assertEqual(report["data"]["dataset_sha256"], report["data"]["dataset_sha256"])
+        self.assertEqual(report["data"]["dataset_sha256"], _dataset_fingerprint(batch))
         self.assertEqual(len(report["data"]["dataset_sha256"]), 64)
 
 

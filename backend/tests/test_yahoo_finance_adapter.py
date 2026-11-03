@@ -15,6 +15,7 @@ def chart_payload():
                 "indicators": {"quote": [{
                     "open": [100, 101], "high": [103, 104], "low": [99, 100],
                     "close": [102, 103], "volume": [1000, 1100],
+                }], "adjclose": [{"adjclose": [101.5, 102.7]}]},
                 }]}
             }]
         }
@@ -31,6 +32,7 @@ class YahooFinanceAdapterTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(batch.source, "yahoo-finance-chart")
         self.assertEqual(len(batch.bars), 1)
         self.assertEqual(batch.bars[0].close, 103.0)
+        self.assertEqual(batch.bars[0].adjusted_close, 102.7)
         self.assertTrue(batch.warnings)
 
     async def test_skips_non_finite_negative_volume_and_invalid_ohlc_rows(self):

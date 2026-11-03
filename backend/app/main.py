@@ -44,6 +44,8 @@ from . import watchlist
 from .model_registry import list_model_integrations
 from .setup_report import build_setup_report
 from .chart_research import build_chart_report
+from .autonomous_research import run_autonomous_research
+from .market_discovery import MarketCandidate
 from .multi_timeframe import build_multi_timeframe_report, SUPPORTED_INTERVALS
 from .deep_analysis import build_deep_analysis_report
 from .research_timeline import build_research_timeline
@@ -262,6 +264,29 @@ def audit_events(symbol: str | None = None, interval: str | None = None, limit: 
  if limit < 1 or limit > 500:
   raise HTTPException(status_code=400, detail="limit must be between 1 and 500")
  return market_store.get_audit_events(symbol, interval, limit)
+
+
+class AutonomousResearchCandidateRequest(BaseModel):
+ symbol: str = Field(min_length=1, max_length=32)
+ venue: str = Field(min_length=1, max_length=80)
+ asset_class: str = Field(min_length=1, max_length=40)
+ source: str = Field(min_length=1, max_length=80)
+ observed_at: datetime
+ data_available: bool = True
+ data_quality: float = Field(ge=0, le=1)
+ activity: float | None = Field(default=None, ge=0, le=1)
+ volatility: float | None = Field(default=None, ge=0, le=1)
+ news_attention: float | None = Field(default=None, ge=0, le=1)
+ social_attention: float | None = Field(default=None, ge=0, le=1)
+ timeframes: list[str] = Field(default_factory=lambda: ["1d"], max_length=4)
+ notes: list[str] = Field(default_factory=list, max_length=20)
+
+
+class AutonomousResearchFixtureRequest(BaseModel):
+ candidates: list[AutonomousResearchCandidateRequest] = Field(min_length=1, max_length=20)
+ research_limit: int = Field(default=10, ge=1, le=20)
+ bars_limit: int = Field(default=5, ge=2, le=5)
+ use_shared_ai: bool = False
 
 
 class MarketDataValidationRequest(BaseModel):
@@ -856,6 +881,30 @@ async def sample_market_data(symbol: str = "BTCUSD", interval: str = "1d", limit
  try:
   batch = await SyntheticFixtureAdapter().get_bars(symbol, interval, limit)
   return batch.model_dump(mode="json")
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/research/autonomous-fixture")
+async def autonomous_research_fixture(request: AutonomousResearchFixtureRequest):
+ """Run discovery-to-chart analysis with synthetic fixtures for integration tests only."""
+ try:
+  candidates = [
+   MarketCandidate(
+    symbol=item.symbol, venue=item.venue, asset_class=item.asset_class,
+    source=item.source, observed_at=item.observed_at.isoformat(),
+    data_available=item.data_available, data_quality=item.data_quality,
+    activity=item.activity, volatility=item.volatility,
+    news_attention=item.news_attention, social_attention=item.social_attention,
+    timeframes=tuple(item.timeframes), notes=tuple(item.notes),
+   )
+   for item in request.candidates
+  ]
+  return await run_autonomous_research(
+   candidates, SyntheticFixtureAdapter(),
+   research_limit=request.research_limit, bars_limit=request.bars_limit,
+   intervals=("1d",), use_shared_ai=request.use_shared_ai,
+  )
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 

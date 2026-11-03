@@ -128,9 +128,14 @@ def evaluate_next_day_return_forecast(
     )
     model_predictions = _predict(final_coefficients, test_x)
     baseline_predictions = [0.0] * len(test_y)
+    # Fit the constant-mean baseline on the same pre-test history only.
+    pretest_targets = targets[:validation_end]
+    mean_return = sum(pretest_targets) / len(pretest_targets)
+    mean_baseline_predictions = [mean_return] * len(test_y)
 
     model_metrics = _metrics(test_y, model_predictions)
     baseline_metrics = _metrics(test_y, baseline_predictions)
+    mean_baseline_metrics = _metrics(test_y, mean_baseline_predictions)
 
     def _baseline_comparison(model_value: float, baseline_value: float) -> dict:
         # Positive improvement means the model's error is lower than baseline.
@@ -161,6 +166,11 @@ def evaluate_next_day_return_forecast(
         ],
         "test_model": model_metrics,
         "test_zero_return_baseline": baseline_metrics,
+        "pretest_mean_return_baseline": {
+            "forecast_log_return": mean_return,
+            **mean_baseline_metrics,
+            "fit_samples": len(pretest_targets),
+        },
         "test_vs_zero_return_baseline": {
             "mae": _baseline_comparison(
                 model_metrics["mae_log_return"],
@@ -174,6 +184,20 @@ def evaluate_next_day_return_forecast(
                 "Positive error reduction means lower holdout error than the "
                 "zero-return baseline; negative means worse. This is descriptive "
                 "for this test window only, not evidence of tradable edge."
+            ),
+        },
+        "test_vs_pretest_mean_baseline": {
+            "mae": _baseline_comparison(
+                model_metrics["mae_log_return"],
+                mean_baseline_metrics["mae_log_return"],
+            ),
+            "rmse": _baseline_comparison(
+                model_metrics["rmse_log_return"],
+                mean_baseline_metrics["rmse_log_return"],
+            ),
+            "interpretation": (
+                "The constant-mean baseline is estimated using pre-test targets "
+                "only; comparison is descriptive for this holdout window."
             ),
         },
         "research_only": True,

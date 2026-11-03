@@ -56,6 +56,20 @@ class YahooHistoricalApiTests(unittest.TestCase):
         self.assertIn("storage", body)
         fetch.assert_called_once_with("AAPL", "1d", 2)
 
+    def test_invalid_query_parameters_return_400_before_provider_call(self):
+        cases = [
+            ({"symbol": ""}, "symbol"),
+            ({"symbol": "AAPL", "interval": "2m"}, "interval"),
+            ({"symbol": "AAPL", "limit": 0}, "limit"),
+            ({"symbol": "AAPL", "limit": 5001}, "limit"),
+        ]
+        with patch("app.main.YahooFinanceAdapter.get_bars") as fetch:
+            for params, expected in cases:
+                response = self.client.get("/api/market-data/yahoo", params=params)
+                self.assertEqual(response.status_code, 400, params)
+                self.assertIn(expected, response.json()["detail"])
+            fetch.assert_not_called()
+
     def test_provider_failure_maps_to_502_without_live_network(self):
         with patch("app.main.YahooFinanceAdapter.get_bars", side_effect=RuntimeError("mock provider failure")):
             response = self.client.get("/api/market-data/yahoo", params={"symbol": "AAPL"})

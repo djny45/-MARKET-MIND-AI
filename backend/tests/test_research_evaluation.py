@@ -125,3 +125,69 @@ class ChronologicalSplitTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DatasetManifestTests(unittest.TestCase):
+    def valid_manifest(self):
+        return {
+            "dataset_id": "demo-ohlcv-001",
+            "source": "local_fixture",
+            "symbol": "TEST-USD",
+            "timeframe": "1h",
+            "start": "2024-01-01T00:00:00Z",
+            "end": "2024-02-01T00:00:00Z",
+            "sample_count": 744,
+            "missing_fraction": 0.0,
+            "synthetic": False,
+        }
+
+    def test_valid_manifest_is_normalized_and_marked_ready(self):
+        from app.research_evaluation import validate_dataset_manifest
+
+        result = validate_dataset_manifest(self.valid_manifest())
+        self.assertTrue(result["metadata_valid"])
+        self.assertTrue(result["evaluation_ready"])
+        self.assertEqual(result["sample_count"], 744)
+        self.assertEqual(result["start"], "2024-01-01T00:00:00+00:00")
+        self.assertTrue(result["research_only"])
+        self.assertTrue(result["limitations"])
+
+    def test_synthetic_or_missing_data_is_not_marked_ready(self):
+        from app.research_evaluation import validate_dataset_manifest
+
+        manifest = self.valid_manifest()
+        manifest["synthetic"] = True
+        self.assertFalse(validate_dataset_manifest(manifest)["evaluation_ready"])
+        manifest["synthetic"] = False
+        manifest["missing_fraction"] = 0.01
+        self.assertFalse(validate_dataset_manifest(manifest)["evaluation_ready"])
+
+    def test_rejects_invalid_required_fields_and_time_range(self):
+        from app.research_evaluation import validate_dataset_manifest
+
+        for field, value in (("source", " "), ("sample_count", 0), ("sample_count", True)):
+            manifest = self.valid_manifest()
+            manifest[field] = value
+            with self.subTest(field=field, value=value):
+                with self.assertRaises(ValueError):
+                    validate_dataset_manifest(manifest)
+
+        manifest = self.valid_manifest()
+        manifest["end"] = manifest["start"]
+        with self.assertRaisesRegex(ValueError, "end must be after start"):
+            validate_dataset_manifest(manifest)
+
+    def test_rejects_invalid_missing_fraction_and_timezone(self):
+        from app.research_evaluation import validate_dataset_manifest
+
+        for value in (-0.1, 1.1, True, "0.2"):
+            manifest = self.valid_manifest()
+            manifest["missing_fraction"] = value
+            with self.subTest(missing_fraction=value):
+                with self.assertRaisesRegex(ValueError, "missing_fraction"):
+                    validate_dataset_manifest(manifest)
+
+        manifest = self.valid_manifest()
+        manifest["start"] = "2024-01-01T00:00:00"
+        with self.assertRaisesRegex(ValueError, "must include a timezone"):
+            validate_dataset_manifest(manifest)

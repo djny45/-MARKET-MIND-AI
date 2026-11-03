@@ -104,6 +104,10 @@ class AgentResearchTaskRequest(BaseModel):
  brief: str = Field(min_length=1, max_length=4000)
  data: dict[str, Any] | list[Any] | None = None
 
+
+class SpecialistResearchQueueRequest(AgentResearchTaskRequest):
+ max_specialists: int = Field(default=3, ge=1, le=10)
+
 class AgentLearningFeedbackRequest(BaseModel):
  summary: str = Field(min_length=1, max_length=4000)
  outcome: Literal["helpful", "partially_helpful", "not_helpful", "unverified"]
@@ -341,6 +345,34 @@ def research_specialist_routing(request: AgentResearchTaskRequest):
   return route_research_brief(request.brief, request.data, limit=10)
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+@app.post("/api/research/route-and-queue", status_code=202)
+def route_and_queue_research(request: SpecialistResearchQueueRequest, background_tasks: BackgroundTasks):
+ """Route a brief to matched specialists, persist one task per selected profile, and schedule process-local execution."""
+ try:
+  routing = route_research_brief(request.brief, request.data, limit=request.max_specialists)
+  queued_tasks = []
+  for candidate in routing["candidates"]:
+   worker_id = candidate["worker_id"]
+   queued = enqueue_research_task(worker_id, request.brief, request.data)
+   background_tasks.add_task(execute_queued_research_task, queued["task_id"])
+   queued_tasks.append({**queued, "department": candidate["department"], "specialty": candidate["specialty"],
+                        "routing_score": candidate["score"]})
+  return {
+   "routing": routing,
+   "queued_count": len(queued_tasks),
+   "tasks": queued_tasks,
+   "execution_mode": "process_local_background_tasks",
+   "limitations": [
+    "Routing is deterministic keyword matching, not semantic reasoning.",
+    "Each task uses the same configured intelligence provider; worker profiles supply role context, not separate models.",
+    "Background execution is local to this API process and is not a durable distributed queue.",
+    "No market data is fetched; the brief and supplied data are the only research inputs.",
+   ],
+  }
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
 
 @app.get("/api/workers/{worker_id}/memory")
 def get_worker_memory(worker_id: str, memory_type: str | None = None, limit: int = 50):

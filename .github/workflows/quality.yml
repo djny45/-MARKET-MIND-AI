@@ -1,4 +1,4 @@
-name: Quality checks (Version 3.3)
+name: Quality checks (Version 3.4)
 
 on:
   push:
@@ -197,13 +197,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
 
       - name: Install and build frontend
         working-directory: frontend
         run: |
-          npm ci
+          npm install
           npm run build
 
       - name: Capture frontend failure diagnostics
@@ -389,7 +387,7 @@ jobs:
       - name: Audit frontend dependencies
         working-directory: frontend
         run: |
-          npm ci --ignore-scripts
+          npm install --ignore-scripts
           npm audit --audit-level=high
 
       - name: Capture dependency audit diagnostics

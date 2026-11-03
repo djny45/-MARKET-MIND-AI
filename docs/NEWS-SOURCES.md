@@ -31,3 +31,17 @@ The companion agent skill is `.agents/skills/social-research/SKILL.md`.
 - This is configured-feed coverage only, not a complete social-media scan.
 - User-generated posts are unverified claims. Verify material statements against primary sources; sentiment is descriptive context, never a forecast or trade signal.
 - No order execution or financial recommendation is provided.
+
+## Social evidence synthesis endpoint
+
+`POST /api/research/social-feeds/synthesize` accepts the same allowlisted public
+Reddit RSS feed configuration as `/api/research/social-feeds`. It returns the
+collected feed metadata and optionally passes those evidence records to the
+existing shared intelligence core for bounded synthesis. If the core is not
+configured, its explicit `not_configured` response is returned alongside the
+evidence.
+
+This is not a platform-wide scanner. The synthesis must describe discussion
+themes and disagreement, not predict prices or produce trading setups. RSS
+titles and links are unverified user-generated claims; verify material claims
+against primary sources. Broker/order execution remains disabled.

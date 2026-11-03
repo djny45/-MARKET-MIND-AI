@@ -13,7 +13,7 @@ This repository contains a Vite frontend in `frontend/` and a FastAPI backend in
 
 1. Import the same GitHub repository as a **second** Vercel project.
 2. Set **Root Directory** to `backend`.
-3. Vercel should detect the Python/FastAPI app at `app/main.py`; dependencies are in `backend/requirements.txt`.
+3. The `backend/vercel.json` and `backend/api/index.py` files route requests to the FastAPI app. Dependencies are in `backend/requirements.txt`.
 4. Deploy the backend and copy its URL. Check `/docs` to confirm the FastAPI app is reachable.
 
 ## 3. Backend environment variables
@@ -26,7 +26,7 @@ In the backend Vercel project, open **Settings → Environment Variables** and s
 | `INTELLIGENCE_CORE_ENABLED` | `true` |
 | `INTELLIGENCE_CORE_PROVIDER` | `mercury` |
 | `INCEPTION_MODEL` | `mercury-3` |
-| `FRONTEND_ORIGINS` | `https://market-mind-ai-ashen.vercel.app` (or your actual frontend URL; include localhost only if needed) |
+| `FRONTEND_ORIGINS` | `https://<your-frontend-project>.vercel.app` (replace with the actual deployed frontend origin) |
 
 For multiple allowed frontend origins, separate them with commas. Do not include URL paths or a trailing slash. Keep the API key only in the backend environment; never use a `VITE_*` variable for the secret because Vite exposes those values to browser code.
 
@@ -38,9 +38,9 @@ The frontend reads `VITE_API_URL` (in `frontend/src/App.tsx` and other API-calli
 
 ## 5. MARKET-MIND-AI terminal HTML
 
-The uploaded terminal design is included at `frontend/public/market-terminal.html` and is served by the Vite frontend at `/market-terminal.html`. Open the page and use its **Backend Connection** panel to enter the deployed FastAPI backend origin (for example, `https://your-backend.vercel.app`), then press **CONNECT**. It checks `/api/health` and attempts to read `/api/market-data/overview`. The page remembers the backend origin in that browser's local storage. Its static market tiles and agent cards are mock/demo values, not live quotes, real performance, or active trading agents.
+The terminal page at `frontend/public/market-terminal.html` is served by the Vite frontend at `/market-terminal.html`. Open the page and use its **Backend Connection** panel to enter the deployed FastAPI backend origin (for example, `https://your-backend.vercel.app`), then press **CONNECT**. It checks `/api/health` and attempts to read `/api/market-data/overview`. The page remembers the backend origin in that browser's local storage. Its static market tiles and agent cards are mock/demo values, not live quotes, real performance, or active trading agents.
 
-## 6. Verify
+## 6. Frontend project settings\n\nThe `frontend/vercel.json` file adds an SPA fallback to `/index.html`, so client-side routes resolve correctly. Keep the frontend project root set to `frontend`; keep the backend project root set to `backend`.\n\n## 7. Verify
 
 - Open the backend's `/docs` URL and confirm FastAPI responds.
 - Check the backend's provider-status endpoint; it reports configuration only and does **not** prove Mercury credentials are valid or make a provider request.

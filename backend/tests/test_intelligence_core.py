@@ -32,6 +32,37 @@ class SharedIntelligenceCoreTests(unittest.TestCase):
             with self.assertRaises(IntelligenceCoreError):
                 intelligence_core_status()
 
+    def test_ollama_url_rejects_credentials_query_fragment_and_path(self):
+        base_env = {"INTELLIGENCE_CORE_ENABLED": "true"}
+        for url in (
+            "http://user:pass@127.0.0.1:11434",
+            "http://127.0.0.1:11434?token=oops",
+            "http://127.0.0.1:11434#fragment",
+            "http://127.0.0.1:11434/custom",
+        ):
+            with self.subTest(url=url), patch.dict(
+                os.environ, {**base_env, "OLLAMA_BASE_URL": url}, clear=True
+            ):
+                with self.assertRaises(IntelligenceCoreError):
+                    intelligence_core_status()
+
+    def test_ollama_url_rejects_invalid_port(self):
+        env = {"INTELLIGENCE_CORE_ENABLED": "true",
+               "OLLAMA_BASE_URL": "http://127.0.0.1:99999"}
+        with patch.dict(os.environ, env, clear=True):
+            with self.assertRaisesRegex(IntelligenceCoreError, "invalid port"):
+                intelligence_core_status()
+
+    def test_ollama_rejects_arbitrary_hostname_even_if_loopback_resolves(self):
+        env = {"INTELLIGENCE_CORE_ENABLED": "true",
+               "OLLAMA_BASE_URL": "http://rebind.example:11434"}
+        with patch.dict(os.environ, env, clear=True), patch(
+            "socket.getaddrinfo",
+            return_value=[(2, 1, 6, "", ("127.0.0.1", 11434))],
+        ):
+            with self.assertRaises(IntelligenceCoreError):
+                intelligence_core_status()
+
     def test_research_payload_is_bounded(self):
         enabled_status = {
             "enabled": True,

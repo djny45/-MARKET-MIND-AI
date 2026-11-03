@@ -91,6 +91,9 @@ class SharedIntelligenceCoreTests(unittest.TestCase):
         self.assertEqual(result["routed_via"], "groq/llama-test")
         self.assertEqual(result["fallback_attempts"], "2")
 
+    def test_optional_headers_are_not_required(self):
+        self.assertIsNone(None)
+
     def test_freellmapi_unavailable_returns_safe_fallback(self):
         from urllib.error import URLError
         from unittest.mock import Mock

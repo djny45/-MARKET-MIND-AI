@@ -163,6 +163,47 @@ class SharedIntelligenceCoreTests(unittest.TestCase):
         self.assertEqual(len(result["routed_via"]), 120)
         self.assertIsNone(result["fallback_attempts"])
 
+    def test_mercury_synthesis_uses_inceptionlabs_chat_completions(self):
+        import json
+        from unittest.mock import Mock
+
+        env = {
+            "INTELLIGENCE_CORE_ENABLED": "true",
+            "INTELLIGENCE_CORE_PROVIDER": "mercury",
+            "INCEPTION_API_KEY": "test-secret",
+            "INCEPTION_MODEL": "mercury-3",
+        }
+        response = Mock()
+        response.read.return_value = json.dumps({
+            "choices": [{"message": {"content": "Mercury summary"}}]
+        }).encode("utf-8")
+        response.headers = {}
+        response.__enter__ = Mock(return_value=response)
+        response.__exit__ = Mock(return_value=False)
+        opener = Mock(return_value=response)
+
+        with patch.dict(os.environ, env, clear=True), patch(
+            "app.intelligence_core.intelligence_core_status",
+            return_value={"enabled": True, "model": "mercury-3"},
+        ):
+            result = synthesize_research({"facts": ["test fact"]}, opener=opener)
+
+        request = opener.call_args.args[0]
+        self.assertEqual(
+            request.full_url,
+            "https://api.inceptionlabs.ai/v1/chat/completions",
+        )
+        self.assertEqual(request.get_header("Authorization"), "Bearer test-secret")
+        sent = json.loads(request.data.decode("utf-8"))
+        self.assertEqual(sent["model"], "mercury-3")
+        self.assertEqual(sent["messages"][0]["role"], "user")
+        self.assertIn("test fact", sent["messages"][0]["content"])
+        self.assertFalse(sent["stream"])
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual(result["provider"], "inceptionlabs_mercury")
+        self.assertEqual(result["model"], "mercury-3")
+        self.assertEqual(result["summary"], "Mercury summary")
+
     def test_ollama_rejects_non_string_response_text(self):
         import json
         from unittest.mock import Mock

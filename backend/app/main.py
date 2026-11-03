@@ -279,6 +279,10 @@ class EvidenceMergeRequest(BaseModel):
  social_items: list[dict[str, Any]] = Field(default_factory=list, max_length=500)
 
 
+class EvidenceReportRequest(EvidenceMergeRequest):
+ topic: str = Field(default="general research", min_length=1, max_length=300)
+
+
 class SocialResearchRequest(BaseModel):
  feeds: list[SocialFeedRequest] = Field(min_length=1, max_length=20)
  concurrency: int = Field(default=3, ge=1, le=8)
@@ -830,6 +834,40 @@ def merge_news_social_evidence(request: EvidenceMergeRequest):
   )
  except (TypeError, ValueError) as exc:
   raise HTTPException(status_code=400, detail="Evidence must be JSON-compatible records") from exc
+
+
+@app.post("/api/research/evidence/report")
+def research_evidence_report(request: EvidenceReportRequest):
+ """Return normalized evidence review plus shared-core synthesis."""
+ try:
+  evidence = social_sources.merge_research_evidence(
+   request.news_items, request.social_items
+  )
+  synthesis = synthesize_research({
+   "research_type": "evidence_review_report",
+   "topic": request.topic,
+   "evidence_report": evidence,
+   "agent_context": (
+    "Analyze the supplied evidence review report for the requested topic. "
+    "Explain provenance gaps and manual cross-check candidates. Distinguish "
+    "source metadata from credibility. Matching titles are not proof of "
+    "corroboration. Do not infer consensus, contradiction, or truth from "
+    "repetition or sentiment. State unknowns and keep source links available. "
+    "Research only; no trading recommendations or execution."
+   ),
+  })
+ except IntelligenceCoreError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+ except (TypeError, ValueError) as exc:
+  raise HTTPException(status_code=400, detail="Evidence must be JSON-compatible records") from exc
+ return {
+  "mode": "evidence_review_research",
+  "topic": request.topic,
+  "evidence_report": evidence,
+  "synthesis": synthesis,
+  "execution": "disabled",
+  "financial_advice": False,
+ }
 
 
 @app.post("/api/research/social-feeds/synthesize")

@@ -938,7 +938,15 @@ async def autonomous_research_stored(
     "Source/status metadata are preserved; stored-data freshness and provider authenticity are not guaranteed.",
    ],
   )
-  report = build_chart_report(batch)
+  chart_history = {
+   "symbol": batch.symbol, "interval": batch.interval,
+   "bars": [{
+    **bar.model_dump(mode="json"),
+    "source": batch.source, "status": batch.status.value,
+    "retrieved_at": batch.retrieved_at.isoformat(),
+   } for bar in batch.bars],
+  }
+  report = build_chart_report(chart_history)
  except (ValueError, TypeError, KeyError) as exc:
   raise HTTPException(status_code=422, detail=f"Stored bars failed validation: {type(exc).__name__}") from exc
  return {

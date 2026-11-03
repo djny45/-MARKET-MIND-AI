@@ -173,6 +173,7 @@ def synthesize_research(research: dict, *, opener=urlopen) -> dict:
             response_headers = getattr(response, "headers", None)
             if response_headers is not None and hasattr(response_headers, "get"):
                 routed_via = response_headers.get("X-Routed-Via") or response_headers.get("x-routed-via")
+                fallback_attempts = response_headers.get("X-Fallback-Attempts") or response_headers.get("x-fallback-attempts")
             decoded = json.loads(response.read(MAX_OUTPUT_CHARS * 2).decode("utf-8"))
     except (HTTPError, URLError, TimeoutError, OSError, ValueError):
         return {
@@ -192,6 +193,7 @@ def synthesize_research(research: dict, *, opener=urlopen) -> dict:
         "status": "completed", "core_id": CORE_ID, "provider": provider_name,
         "model": model, "summary": summary.strip()[:MAX_OUTPUT_CHARS],
         "routed_via": routed_via if isinstance(routed_via, str) and routed_via.strip() else None,
+        "fallback_attempts": fallback_attempts if isinstance(fallback_attempts, str) and fallback_attempts.isdigit() else None,
         "source": "bounded_supplied_research_only",
         "deterministic_report_authoritative": True,
     }

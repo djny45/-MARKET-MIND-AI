@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from .workflow import NODE_TYPES, execute_workflow
 from .workers import list_workers
 from .worker_runtime import worker_runtime_status
-from .worker_memory import append_memory, read_memory
+from .worker_memory import append_memory, read_memory, recall_memory
 from .worker_registry import evaluate_registry, registry_manifest
 from .analytical_agent_runtime import runtime_manifest, brain_config, validate_learning_feedback, validate_update_proposal
 from .learning_engine import learning_overview, agent_learning_summary, run_feedback_improvement_cycle
@@ -339,6 +339,15 @@ def get_worker_memory(worker_id: str, memory_type: str | None = None, limit: int
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+
+
+@app.get("/api/workers/{worker_id}/memory/recall")
+def recall_worker_memory(worker_id: str, query: str, limit: int = 5):
+ """Retrieve bounded keyword-relevant worker notes for a research query."""
+ try:
+  return recall_memory(worker_id, query, limit)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.post("/api/analytical-agents/{worker_id}/tasks")

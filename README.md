@@ -63,6 +63,19 @@ expands over time. This still is not proof of predictive skill or profitability.
 for model selection. These comparisons describe this test window only; they do
 not establish predictive skill or a tradable edge.
 
+A separate expanding-window walk-forward evaluator is available as
+`evaluate_walk_forward_forecast` in
+`backend/app/historical_forecasting.py`. It repeatedly selects ridge alpha
+using only a validation slice from the pre-test history, refits on all
+pre-test samples, and evaluates the next fixed-size test window. Each subsequent
+window expands the available history. It reports per-window results and
+arithmetic mean window-level metrics against zero-return and pre-test
+constant-mean baselines. These are not pooled metrics; windows may overlap if
+the step size is smaller than the test-window size. Returned indices identify
+sample positions, not calendar dates. The walk-forward routine is a benchmark
+utility; the current Yahoo runner still reports its original single holdout
+evaluation unless separately extended to invoke walk-forward mode.
+
 **Important:** Yahoo's chart endpoint is unofficial and provider-dependent.
 Check data licensing and availability. Results can vary by symbol, period, data
 adjustments, and provider corrections. The experiment models one symbol and

@@ -33,6 +33,13 @@ def configured_freellmapi() -> tuple[str, str, str] | None:
         raise FreeLLMAPIConfigurationError(
             "FREELLMAPI_BASE_URL must be an http URL without embedded credentials."
         )
+    # Avoid DNS-rebinding risks: accept only explicit loopback hostnames/IPs,
+    # not arbitrary names that happen to resolve to loopback at configuration time.
+    hostname = parsed.hostname.lower()
+    if hostname not in {"localhost", "127.0.0.1", "::1"}:
+        raise FreeLLMAPIConfigurationError(
+            "FreeLLMAPI host must be localhost, 127.0.0.1, or ::1."
+        )
     try:
         addresses = {item[4][0] for item in socket.getaddrinfo(
             parsed.hostname, parsed.port or 80

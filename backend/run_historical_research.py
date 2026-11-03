@@ -11,11 +11,11 @@ import json
 from datetime import timezone
 
 from app.historical_forecasting import evaluate_next_day_return_forecast
-from app.market_data import YahooFinanceHistoricalAdapter
+from app.yahoo_finance_adapter import YahooFinanceAdapter
 
 
 async def run(symbol: str, bars: int) -> dict:
-    batch = await YahooFinanceHistoricalAdapter().get_bars(symbol, "1d", bars)
+    batch = await YahooFinanceAdapter().get_bars(symbol, "1d", bars)
     closes = [
         bar.adjusted_close if bar.adjusted_close is not None else bar.close
         for bar in batch.bars

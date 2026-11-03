@@ -101,6 +101,17 @@ class ChronologicalSplitTests(unittest.TestCase):
         self.assertEqual(result["train_validation_gap_seconds"], 10)
         self.assertEqual(result["validation_test_gap_seconds"], 10)
 
+    def test_checks_embargo_for_each_split_boundary_independently(self):
+        # The first gap is sufficient, but the validation/test gap is not.
+        with self.assertRaisesRegex(ValueError, "validation/test boundary"):
+            validate_chronological_splits(
+                "2024-01-01T00:00:00Z",
+                "2024-01-01T00:01:00Z",
+                "2024-01-02T00:00:00Z",
+                "2024-01-02T00:00:59Z",
+                embargo_seconds=60,
+            )
+
     def test_rejects_insufficient_embargo(self):
         with self.assertRaisesRegex(ValueError, "does not satisfy embargo_seconds"):
             validate_chronological_splits(

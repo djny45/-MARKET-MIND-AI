@@ -24,7 +24,10 @@ for required in LICENSE README.md openbb_platform cli; do
   fi
 done
 
-if ! git ls-tree -d HEAD "$DEST" >/dev/null 2>&1; then
+# git ls-tree exits successfully even when the path is absent. Check its
+# returned tree entry instead of relying on the exit status.
+tracked_entry="$(git ls-tree -d HEAD -- "$DEST")"
+if [[ -z "$tracked_entry" ]]; then
   echo "$DEST is not tracked in the current commit." >&2
   echo "Commit the completed subtree import before verifying." >&2
   exit 1

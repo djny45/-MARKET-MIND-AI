@@ -42,9 +42,10 @@ credentials are optional and depend on the research data sources you choose.
 ## Backend adapter (implemented)
 
 `backend/app/openbb_cli.py` supports only the informational actions `help`
-and `version`. It invokes the executable without a shell, applies an
-8-second timeout, and caps output. It does not accept raw command strings or
-arbitrary arguments.
+and `version`. Help invokes the executable without a shell, applies an
+8-second timeout, and caps output. Version is read from the installed
+`openbb-cli` package metadata because OpenBB CLI v5 does not document a
+`--version` flag. It does not accept raw command strings or arbitrary arguments.
 
 **Execution is disabled by default.** For trusted local development, explicitly
 set the environment variable:

@@ -1,0 +1,53 @@
+# OpenBB source import and CLI integration
+
+MARKET-MIND-AI can vendor OpenBB's complete upstream source under `vendor/openbb`
+without replacing its existing backend or research code.
+
+## Import the full source
+
+The full upstream repository is large. GitHub's file-by-file Contents API cannot
+reliably copy an entire repository. Run the checked-in import helper locally
+from the MARKET-MIND-AI root:
+
+```bash
+bash scripts/import-openbb.sh
+```
+
+It uses Git subtree to add the upstream `develop` branch at `vendor/openbb`,
+refuses to overwrite an existing destination, and creates a local commit.
+Review OpenBB's Apache-2.0 license and notices after importing. Keep upstream
+changes isolated under `vendor/openbb`; do not overwrite MARKET-MIND-AI files.
+
+## CLI installation
+
+OpenBB CLI is a separate Python package. Install it in an isolated virtual
+environment (Python 3.10+):
+
+```bash
+python -m venv .venv-openbb
+# Linux/macOS
+source .venv-openbb/bin/activate
+# Windows PowerShell:
+# .venv-openbb\\Scripts\\Activate.ps1
+
+python -m pip install --upgrade pip
+python -m pip install openbb-cli openbb-oecd openbb-cboe
+openbb --help
+openbb -i
+```
+
+The CLI's interactive REPL is `openbb -i`. One-shot commands and server/spec
+mode are documented upstream. Provider packages and API credentials are
+optional and depend on the research data sources you choose.
+
+## Terminal replacement status
+
+This import helper does not replace the current React UI by itself. A browser
+terminal requires a separate interactive process bridge (PTY/WebSocket), user
+authentication, command allowlisting, session lifecycle management, and
+resource/time limits. Do not expose a raw server shell or unrestricted
+subprocess endpoint to the public internet.
+
+Current MARKET-MIND-AI backend and historical research remain separate.
+OpenBB is a research/data platform; it does not authorize live brokerage
+execution. Keep data-source terms, credentials, and provenance visible.

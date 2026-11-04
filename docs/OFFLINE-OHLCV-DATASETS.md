@@ -60,3 +60,15 @@ bars; avoid look-ahead bias.
 - Use only data you are authorized to use and check its license.
 - Historical datasets can contain gaps, revisions, and survivorship bias.
 - These examples are for educational software testing, not financial advice.
+
+## Local CSV inspector
+
+For a lightweight CSV header and row-count check without loading indicator
+libraries, run:
+
+```bash
+python backend/examples/local_csv_inspector.py path/to/local.csv
+```
+
+This reports the file name, row count, and column names. It reads the file
+locally and does not modify it or access network services.

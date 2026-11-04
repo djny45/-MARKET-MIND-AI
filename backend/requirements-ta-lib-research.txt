@@ -1,0 +1,5 @@
+# Optional technical-indicator research package; not part of core install.
+# TA-Lib Python wheels bundle the upstream C library on supported platforms.
+pandas>=2.0
+numpy>=1.24
+TA-Lib>=0.6.0

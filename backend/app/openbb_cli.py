@@ -5,6 +5,7 @@ interactive REPL over HTTP. Install OpenBB CLI separately (see docs/OPENBB-INTEG
 """
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -31,10 +32,24 @@ _MAX_OUTPUT_CHARS = 12_000
 _TIMEOUT_SECONDS = 8
 
 
+def openbb_cli_enabled() -> bool:
+    """Require an explicit opt-in before starting the local CLI subprocess."""
+    return os.getenv("OPENBB_CLI_ENABLED", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
 def run_openbb_cli(action: OpenBBAction) -> OpenBBCLIResult:
     """Run one fixed OpenBB CLI informational command without invoking a shell."""
     if action not in _ALLOWED_ARGS:
         raise ValueError("Unsupported OpenBB CLI action")
+
+    if not openbb_cli_enabled():
+        return OpenBBCLIResult(
+            available=False,
+            action=action,
+            exit_code=None,
+            output="",
+            error="OpenBB CLI execution is disabled. Set OPENBB_CLI_ENABLED=true for trusted local use.",
+        )
 
     executable = shutil.which("openbb")
     if executable is None:

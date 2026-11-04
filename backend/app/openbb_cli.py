@@ -5,6 +5,7 @@ interactive REPL over HTTP. Install OpenBB CLI separately (see docs/OPENBB-INTEG
 """
 from __future__ import annotations
 
+import importlib.metadata
 import os
 import shutil
 import subprocess
@@ -26,7 +27,6 @@ class OpenBBCLIResult:
 
 _ALLOWED_ARGS: dict[OpenBBAction, tuple[str, ...]] = {
     "help": ("--help",),
-    "version": ("--version",),
 }
 _MAX_OUTPUT_CHARS = 12_000
 _TIMEOUT_SECONDS = 8
@@ -38,8 +38,8 @@ def openbb_cli_enabled() -> bool:
 
 
 def run_openbb_cli(action: OpenBBAction) -> OpenBBCLIResult:
-    """Run one fixed OpenBB CLI informational command without invoking a shell."""
-    if action not in _ALLOWED_ARGS:
+    """Run a fixed informational action without exposing arbitrary CLI arguments."""
+    if action not in {"help", "version"}:
         raise ValueError("Unsupported OpenBB CLI action")
 
     if not openbb_cli_enabled():
@@ -59,6 +59,26 @@ def run_openbb_cli(action: OpenBBAction) -> OpenBBCLIResult:
             exit_code=None,
             output="",
             error="OpenBB CLI is not installed. See docs/OPENBB-INTEGRATION.md.",
+        )
+
+    # OpenBB CLI v5 does not document a --version flag. Read the installed
+    # distribution metadata instead of invoking an unsupported command.
+    if action == "version":
+        try:
+            version = importlib.metadata.version("openbb-cli")
+        except importlib.metadata.PackageNotFoundError:
+            return OpenBBCLIResult(
+                available=True,
+                action=action,
+                exit_code=None,
+                output="",
+                error="The openbb executable exists, but openbb-cli package metadata was not found.",
+            )
+        return OpenBBCLIResult(
+            available=True,
+            action=action,
+            exit_code=0,
+            output=f"OpenBB CLI version {version}",
         )
 
     try:

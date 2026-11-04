@@ -18,8 +18,17 @@ def inspect_csv(path: Path) -> dict[str, object]:
         if not reader.fieldnames:
             raise ValueError("CSV must include a header row")
         columns = [name.strip() for name in reader.fieldnames]
+        if any(not name for name in columns):
+            raise ValueError("CSV contains an empty column name")
+        if len(set(columns)) != len(columns):
+            raise ValueError("CSV contains duplicate column names after trimming")
         rows = sum(1 for _ in reader)
-    return {"file": path.name, "rows": rows, "columns": columns}
+    return {
+        "file": path.name,
+        "file_size_bytes": path.stat().st_size,
+        "rows": rows,
+        "columns": columns,
+    }
 
 
 def main() -> int:

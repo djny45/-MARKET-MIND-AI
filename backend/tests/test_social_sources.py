@@ -24,7 +24,9 @@ class SocialSourceTests(unittest.TestCase):
         self.assertIsNotNone(item["published_at"])
 
     def test_feed_error_is_reported_as_status_not_raised(self):
-        with patch("app.social_sources.urlopen", side_effect=OSError("offline")):
+        mock_opener = unittest.mock.Mock()
+        mock_opener.open.side_effect = OSError("offline")
+        with patch("app.social_sources.build_opener", return_value=mock_opener):
             result = asyncio.run(
                 social_sources.fetch_public_rss("sample", "https://example.org/rss")
             )

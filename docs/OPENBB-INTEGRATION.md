@@ -54,7 +54,9 @@ OPENBB_CLI_ENABLED=true
 ```
 
 The status endpoint reports both whether the CLI is installed and whether
-execution is enabled. Do not enable this on a public deployment without
+execution is enabled. The frontend displays these as separate statuses. Unit
+tests cover the opt-in gate and confirm a disabled request does not spawn a
+subprocess. Do not enable this on a public deployment without
 authentication, authorization, and rate limiting.
 
 ## Current terminal status

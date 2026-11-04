@@ -80,7 +80,25 @@ def _predict(coefficients: list[float], features: list[list[float]]) -> list[flo
 
 
 def _metrics(actual: list[float], predicted: list[float]) -> dict[str, float]:
+    """Compute forecast metrics after validating aligned finite observations."""
+    if len(actual) != len(predicted):
+        raise ValueError("actual and predicted must have equal lengths")
+    if not actual:
+        raise ValueError("actual and predicted must be non-empty")
+    for name, values in (("actual", actual), ("predicted", predicted)):
+        for index, value in enumerate(values):
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise ValueError(f"{name}[{index}] must be numeric")
+            try:
+                finite = math.isfinite(value)
+            except (OverflowError, TypeError):
+                finite = False
+            if not finite:
+                raise ValueError(f"{name}[{index}] must be finite")
+
     errors = [prediction - target for target, prediction in zip(actual, predicted)]
+    if not all(math.isfinite(error) for error in errors):
+        raise ValueError("forecast errors must be finite")
     mae = sum(abs(error) for error in errors) / len(errors)
     rmse = math.sqrt(sum(error * error for error in errors) / len(errors))
     directional = sum(

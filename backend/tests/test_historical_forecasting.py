@@ -79,6 +79,12 @@ class HistoricalForecastingTests(unittest.TestCase):
         self.assertAlmostEqual(values[0], math.log(1e300) - math.log(1e-300))
         self.assertAlmostEqual(values[1], math.log(1e-300) - math.log(1e300))
 
+    def test_rejects_integer_too_large_for_float_conversion(self):
+        from app.historical_forecasting import _log_returns
+
+        with self.assertRaisesRegex(ValueError, r"prices\[0\] must be finite and positive"):
+            _log_returns([10**10000, 100.0])
+
     def test_rejects_invalid_prices(self):
         invalid_cases = (
             [100, 0, 101],

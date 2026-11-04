@@ -1,0 +1,54 @@
+import { useState } from 'react'
+
+const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+type Action = 'help' | 'version'
+
+export default function OpenBBTerminal() {
+ const [action, setAction] = useState<Action>('help')
+ const [output, setOutput] = useState('')
+ const [error, setError] = useState('')
+ const [busy, setBusy] = useState(false)
+ const [installed, setInstalled] = useState<boolean | null>(null)
+
+ async function checkStatus() {
+  try {
+   const response = await fetch(`${API}/api/openbb/status`)
+   if (!response.ok) throw new Error(`API returned ${response.status}`)
+   const data = await response.json()
+   setInstalled(Boolean(data.installed))
+  } catch (e) {
+   setError(e instanceof Error ? e.message : 'Could not reach backend')
+  }
+ }
+
+ async function runCommand() {
+  setBusy(true); setError(''); setOutput('')
+  try {
+   const response = await fetch(`${API}/api/openbb/cli`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action })
+   })
+   if (!response.ok) throw new Error(`API returned ${response.status}`)
+   const data = await response.json()
+   setOutput(data.output || '')
+   if (data.error) setError(data.error)
+   setInstalled(Boolean(data.available))
+  } catch (e) {
+   setError(e instanceof Error ? e.message : 'Could not reach backend')
+  } finally { setBusy(false) }
+ }
+
+ return <section className="openbb-terminal">
+  <div className="overview-heading"><div><span className="eyebrow">OPENBB / LOCAL CLI</span><h1>OpenBB terminal</h1><p>Restricted informational CLI bridge. This is not an unrestricted shell or an interactive REPL.</p></div><button className="soft-btn" onClick={checkStatus}>CHECK INSTALLATION</button></div>
+  <div className="overview-status"><span className={installed===true?'status-ok':installed===false?'status-off':''}>{installed===true?'INSTALLED':installed===false?'NOT INSTALLED':'UNKNOWN'}</span><span>OPENBB CLI</span><span className="overview-separator">·</span><span>ALLOWLISTED COMMANDS ONLY</span></div>
+  <div className="overview-panel openbb-controls">
+   <label htmlFor="openbb-action">COMMAND</label>
+   <select id="openbb-action" value={action} onChange={e=>setAction(e.target.value as Action)}><option value="help">openbb --help</option><option value="version">openbb --version</option></select>
+   <button className="run-btn" onClick={runCommand} disabled={busy}>{busy?'RUNNING…':'RUN COMMAND'}</button>
+  </div>
+  {error && <p className="news-error">{error}</p>}
+  <div className="overview-panel"><div className="overview-panel-head"><b>CLI OUTPUT</b><small>Local backend response</small></div><pre className="openbb-output">{output || 'Select a command and run it. Install OpenBB CLI in the backend environment to receive output.'}</pre></div>
+  <p className="overview-disclaimer">Safety: no raw shell input, no brokerage execution, and no interactive server-side REPL. For interactive OpenBB, use a local terminal with <code>openbb -i</code>.</p>
+ </section>
+}

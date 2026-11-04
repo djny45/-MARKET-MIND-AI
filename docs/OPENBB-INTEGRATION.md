@@ -24,30 +24,33 @@ After the subtree commit, run the import verifier:
 bash scripts/verify-openbb-import.sh
 ```
 
-The verifier checks for the expected upstream source markers and confirms
-`vendor/openbb` is tracked in the current Git commit. It does not install
+The verifier checks expected source markers and Git tracking. It does not install
 OpenBB or verify provider connectivity.
 
 ## CLI installation
 
-OpenBB CLI is a separate Python package. Install it in an isolated virtual
-environment (Python 3.10+):
+Use the setup helper to install OpenBB CLI in a dedicated Python 3.10+ virtual
+environment without changing MARKET-MIND-AI's backend dependencies:
 
 ```bash
-python -m venv .venv-openbb
-# Linux/macOS
-source .venv-openbb/bin/activate
-# Windows PowerShell:
-# .venv-openbb\\Scripts\\Activate.ps1
-
-python -m pip install --upgrade pip
-python -m pip install openbb-cli openbb-oecd openbb-cboe
-openbb --help
-openbb -i
+bash scripts/setup-openbb-cli.sh
 ```
 
-The CLI's interactive REPL is `openbb -i`. Provider packages and API
-credentials are optional and depend on the research data sources you choose.
+The script creates `.venv-openbb`, installs `openbb-cli`, and runs
+`openbb --help` as a smoke check. It refuses to overwrite an existing
+environment. On Windows, run it from Git Bash or Codespaces; PowerShell users
+can activate the environment with:
+
+```powershell
+.\.venv-openbb\Scripts\Activate.ps1
+```
+
+To install optional provider packages, activate that environment and install
+only the provider integrations you need. Credentials and provider availability
+depend on the chosen source.
+
+The CLI's interactive REPL is `openbb -i`. It is for trusted local use only;
+the MARKET-MIND-AI web API does not proxy an interactive REPL.
 
 ## Backend adapter (implemented)
 

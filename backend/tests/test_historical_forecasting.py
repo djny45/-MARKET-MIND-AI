@@ -71,6 +71,14 @@ class HistoricalForecastingTests(unittest.TestCase):
         self.assertEqual(candidates, {1e-6, 1e-4, 1e-2, 1.0})
         self.assertIn(report["selected_ridge_alpha"], candidates)
 
+    def test_log_returns_avoid_intermediate_ratio_overflow(self):
+        from app.historical_forecasting import _log_returns
+
+        values = _log_returns([1e-300, 1e300, 1e-300])
+        self.assertTrue(all(math.isfinite(value) for value in values))
+        self.assertAlmostEqual(values[0], math.log(1e300) - math.log(1e-300))
+        self.assertAlmostEqual(values[1], math.log(1e-300) - math.log(1e300))
+
     def test_rejects_invalid_prices(self):
         invalid_cases = (
             [100, 0, 101],

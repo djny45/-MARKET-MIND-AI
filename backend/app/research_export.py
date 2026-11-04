@@ -40,12 +40,18 @@ def render_research_methodology_markdown(bundle):
     scope = bundle.get("scope") or {}
     sources = scope.get("sources") or ([scope.get("source")] if scope.get("source") else [])
     integrity = bundle.get("integrity") or {}
-    lines = [f"# Historical Research Report: {scope.get('symbol', 'Unknown')}", "",
+    data_quality_json = json.dumps(
+        bundle.get("data_quality") or {}, ensure_ascii=False, indent=2, allow_nan=False
+    )
+    source_comparison_json = json.dumps(
+        bundle.get("source_comparison") or {}, ensure_ascii=False, indent=2, allow_nan=False
+    )
+    lines = [f"# Historical Research Report: {scope.get('symbol') or 'Unknown'}", "",
         "## Scope and provenance",
-        f"- **Symbol:** {scope.get('symbol', 'Not supplied')}",
-        f"- **Interval:** {scope.get('interval', 'Not supplied')}",
+        f"- **Symbol:** {scope.get('symbol') or 'Not supplied'}",
+        f"- **Interval:** {scope.get('interval') or 'Not supplied'}",
         f"- **Observations:** {scope.get('observation_count', 0)}",
-        f"- **Status:** {scope.get('status', 'Not supplied')}",
+        f"- **Status:** {scope.get('status') or 'Not supplied'}",
         f"- **Source metadata:** {', '.join(str(x) for x in sources) if sources else 'Not supplied'}",
         f"- **Retrieved at:** {scope.get('retrieved_at') or 'Not supplied'}",
         f"- **Time range:** {scope.get('first_timestamp') or 'Not supplied'} to {scope.get('last_timestamp') or 'Not supplied'}",
@@ -54,12 +60,16 @@ def render_research_methodology_markdown(bundle):
         "- Includes deterministic quality diagnostics, source comparisons, and a descriptive timeline.",
         "- Source labels are supplied metadata, not independent source verification.",
         "", "## Data-quality diagnostics",
-        json.dumps(bundle.get("data_quality") or {}, ensure_ascii=False, indent=2, allow_nan=False),
+        "```json",
+        data_quality_json,
+        "```",
         "", "## Source comparison",
-        json.dumps(bundle.get("source_comparison") or {}, ensure_ascii=False, indent=2, allow_nan=False),
+        "```json",
+        source_comparison_json,
+        "```",
         "", "## Integrity",
-        f"- **Algorithm:** {integrity.get('algorithm', 'Not supplied')}",
-        f"- **Digest:** {integrity.get('digest', 'Not supplied')}",
+        f"- **Algorithm:** {integrity.get('algorithm') or 'Not supplied'}",
+        f"- **Digest:** {integrity.get('digest') or 'Not supplied'}",
         "", "## Limitations"]
     lines.extend(f"- {item}" for item in (bundle.get("limitations") or ["Limitations not supplied."]))
     lines.extend(["", "> Research documentation only—not a forecast, investment recommendation, or trading instruction.", ""])

@@ -1,5 +1,4 @@
 """Unit tests for the offline indicator JSON report exporter."""
-import math
 import unittest
 from unittest.mock import patch
 

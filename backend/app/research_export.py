@@ -37,7 +37,7 @@ def build_research_evidence_bundle(symbol, interval, history, deep_report=None):
 def _escape_markdown_inline(value):
     """Escape untrusted metadata before inserting it into Markdown prose."""
     text = str(value).replace("\\", "\\\\")
-    for char in ("`", "*", "_", "[", "]", "|"):
+    for char in ("`", "*", "_", "[", "]", "|", "#"):
         text = text.replace(char, "\\" + char)
     return text.replace("<", "&lt;").replace(">", "&gt;").replace("\r", " ").replace("\n", " ")
 
@@ -55,12 +55,12 @@ def render_research_methodology_markdown(bundle):
     source_comparison_json = json.dumps(
         bundle.get("source_comparison") or {}, ensure_ascii=False, indent=2, allow_nan=False
     )
-    lines = [f"# Historical Research Report: {scope.get('symbol') or 'Unknown'}", "",
+    lines = [f"# Historical Research Report: {_escape_markdown_inline(scope.get('symbol') or 'Unknown')}", "",
         "## Scope and provenance",
-        f"- **Symbol:** {scope.get('symbol') or 'Not supplied'}",
-        f"- **Interval:** {scope.get('interval') or 'Not supplied'}",
-        f"- **Observations:** {scope.get('observation_count', 0)}",
-        f"- **Status:** {scope.get('status') or 'Not supplied'}",
+        f"- **Symbol:** {_escape_markdown_inline(scope.get('symbol') or 'Not supplied')}",
+        f"- **Interval:** {_escape_markdown_inline(scope.get('interval') or 'Not supplied')}",
+        f"- **Observations:** {_escape_markdown_inline(scope.get('observation_count', 0))}",
+        f"- **Status:** {_escape_markdown_inline(scope.get('status') or 'Not supplied')}",
         f"- **Source metadata:** {', '.join(_escape_markdown_inline(x) for x in sources) if sources else 'Not supplied'}",
         f"- **Retrieved at:** {_escape_markdown_inline(scope.get('retrieved_at') or 'Not supplied')}",
         f"- **Time range:** {_escape_markdown_inline(scope.get('first_timestamp') or 'Not supplied')} to {_escape_markdown_inline(scope.get('last_timestamp') or 'Not supplied')}",
@@ -77,8 +77,8 @@ def render_research_methodology_markdown(bundle):
         source_comparison_json,
         "```",
         "", "## Integrity",
-        f"- **Algorithm:** {integrity.get('algorithm') or 'Not supplied'}",
-        f"- **Digest:** {integrity.get('digest') or 'Not supplied'}",
+        f"- **Algorithm:** {_escape_markdown_inline(integrity.get('algorithm') or 'Not supplied')}",
+        f"- **Digest:** {_escape_markdown_inline(integrity.get('digest') or 'Not supplied')}",
         "", "## Limitations"]
     lines.extend(f"- {_escape_markdown_inline(item)}" for item in (bundle.get("limitations") or ["Limitations not supplied."]))
     lines.extend(["", "> Research documentation only—not a forecast, investment recommendation, or trading instruction.", ""])

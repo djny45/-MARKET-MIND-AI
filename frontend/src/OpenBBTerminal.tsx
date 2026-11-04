@@ -9,6 +9,7 @@ export default function OpenBBTerminal() {
  const [error, setError] = useState('')
  const [busy, setBusy] = useState(false)
  const [installed, setInstalled] = useState<boolean | null>(null)
+ const [enabled, setEnabled] = useState<boolean | null>(null)
 
  async function checkStatus() {
   try {
@@ -16,6 +17,7 @@ export default function OpenBBTerminal() {
    if (!response.ok) throw new Error(`API returned ${response.status}`)
    const data = await response.json()
    setInstalled(Boolean(data.installed))
+   setEnabled(Boolean(data.enabled))
   } catch (e) {
    setError(e instanceof Error ? e.message : 'Could not reach backend')
   }
@@ -34,6 +36,7 @@ export default function OpenBBTerminal() {
    setOutput(data.output || '')
    if (data.error) setError(data.error)
    setInstalled(Boolean(data.available))
+   if (data.error?.includes('disabled')) setEnabled(false)
   } catch (e) {
    setError(e instanceof Error ? e.message : 'Could not reach backend')
   } finally { setBusy(false) }
@@ -41,14 +44,14 @@ export default function OpenBBTerminal() {
 
  return <section className="openbb-terminal">
   <div className="overview-heading"><div><span className="eyebrow">OPENBB / LOCAL CLI</span><h1>OpenBB terminal</h1><p>Restricted informational CLI bridge. This is not an unrestricted shell or an interactive REPL.</p></div><button className="soft-btn" onClick={checkStatus}>CHECK INSTALLATION</button></div>
-  <div className="overview-status"><span className={installed===true?'status-ok':installed===false?'status-off':''}>{installed===true?'INSTALLED':installed===false?'NOT INSTALLED':'UNKNOWN'}</span><span>OPENBB CLI</span><span className="overview-separator">·</span><span>ALLOWLISTED COMMANDS ONLY</span></div>
+  <div className="overview-status"><span className={installed===true?'status-ok':installed===false?'status-off':''}>{installed===true?'INSTALLED':installed===false?'NOT INSTALLED':'UNKNOWN'}</span><span>OPENBB CLI</span><span className="overview-separator">·</span><span className={enabled===true?'status-ok':enabled===false?'status-off':''}>{enabled===true?'EXECUTION ENABLED':enabled===false?'EXECUTION DISABLED':'EXECUTION STATUS UNKNOWN'}</span><span className="overview-separator">·</span><span>ALLOWLISTED COMMANDS ONLY</span></div>
   <div className="overview-panel openbb-controls">
    <label htmlFor="openbb-action">COMMAND</label>
    <select id="openbb-action" value={action} onChange={e=>setAction(e.target.value as Action)}><option value="help">openbb --help</option><option value="version">openbb --version</option></select>
    <button className="run-btn" onClick={runCommand} disabled={busy}>{busy?'RUNNING…':'RUN COMMAND'}</button>
   </div>
   {error && <p className="news-error">{error}</p>}
-  <div className="overview-panel"><div className="overview-panel-head"><b>CLI OUTPUT</b><small>Local backend response</small></div><pre className="openbb-output">{output || 'Select a command and run it. Install OpenBB CLI in the backend environment to receive output.'}</pre></div>
+  <div className="overview-panel"><div className="overview-panel-head"><b>CLI OUTPUT</b><small>Local backend response</small></div><pre className="openbb-output">{output || 'Select a command and run it. Install OpenBB CLI and explicitly enable OPENBB_CLI_ENABLED=true in the trusted backend environment.'}</pre></div>
   <p className="overview-disclaimer">Safety: no raw shell input, no brokerage execution, and no interactive server-side REPL. For interactive OpenBB, use a local terminal with <code>openbb -i</code>.</p>
  </section>
 }

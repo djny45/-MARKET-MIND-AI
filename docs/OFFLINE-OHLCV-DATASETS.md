@@ -21,15 +21,17 @@ from app.offline_dataset import load_ohlcv_csv
 df = load_ohlcv_csv("datasets/sample_ohlcv.csv", timestamp_column="timestamp")
 ```
 
-## Important limitations
+## Run the synthetic demo
 
-- The loader does not download market data or access external services.
-- It does not produce trade recommendations, trading signals, or orders.
-- Use only data you are authorized to use and check its source/licensing.
-- Historical data may contain survivorship bias, gaps, and revisions.
-- SMC swing labels can use future bars; do not treat them as point-in-time
-  information or as evidence of predictive performance.
-- This is an educational dataset validation utility, not financial advice.
+The repository includes a clearly labeled **synthetic** sample dataset and
+runnable validation demo. From the repository root:
+
+```bash
+python backend/examples/run_synthetic_offline_demo.py
+```
+
+The example is fabricated test data, not market history. It validates CSV
+loading only and does not produce predictions, recommendations, or trades.
 
 ## Run the research pipeline
 
@@ -47,3 +49,13 @@ print(result["indicators"].keys())
 ```
 
 Leave both indicator flags disabled to validate and load a dataset without installing optional indicator packages. Indicator output is historical annotation only; it is not a prediction or recommendation.
+
+## Important limitations
+
+- The loader does not download market data or access external services.
+- It does not produce trade recommendations, trading signals, or orders.
+- Use only data you are authorized to use and check its source/licensing.
+- Historical data may contain survivorship bias, gaps, and revisions.
+- SMC swing labels can use future bars; do not treat them as point-in-time
+  information or as evidence of predictive performance.
+- This is an educational dataset validation utility, not financial advice.

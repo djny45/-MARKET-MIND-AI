@@ -3,6 +3,7 @@ set -euo pipefail
 
 # Install OpenBB CLI into a dedicated virtual environment without modifying
 # MARKET-MIND-AI's backend environment.
+# Upstream OpenBB CLI v2 requires Python >=3.11,<4.
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$ROOT"
 
@@ -17,11 +18,11 @@ fi
 
 if ! command -v "$PYTHON_BIN" >/dev/null 2>&1; then
   echo "Python executable not found: $PYTHON_BIN" >&2
-  echo "Set PYTHON_BIN to your Python 3.10+ executable." >&2
+  echo "Set PYTHON_BIN to a Python 3.11+ executable." >&2
   exit 1
 fi
 
-"$PYTHON_BIN" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else "OpenBB CLI setup requires Python 3.10+")'
+"$PYTHON_BIN" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else "OpenBB CLI v2 requires Python 3.11+")'
 "$PYTHON_BIN" -m venv "$VENV"
 
 if [[ -f "$VENV/bin/python" ]]; then

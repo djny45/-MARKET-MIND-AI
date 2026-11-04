@@ -73,3 +73,18 @@ python backend/examples/local_csv_inspector.py path/to/local.csv
 This reports the file name, file size in bytes, row count, and column names.
 It rejects empty or duplicate headers (after trimming whitespace). It reads the
 file locally and does not modify it or access network services.
+
+## Offline dataset report generator
+
+Generate a descriptive JSON report from a local OHLCV file:
+
+```bash
+python backend/examples/offline_dataset_report.py path/to/data.csv
+python backend/examples/offline_dataset_report.py path/to/data.csv --timestamp-column timestamp --output report.json
+```
+
+The report includes file metadata, row count, column names, min/max/mean
+statistics for OHLCV columns, and validation summaries. If a timestamp column
+is provided, it also reports the UTC time range after chronological sorting.
+This is descriptive historical analysis only; it does not create forecasts,
+trading signals, or orders.

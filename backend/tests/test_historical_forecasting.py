@@ -105,6 +105,19 @@ class HistoricalForecastingTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "forecast errors must be finite"):
             _metrics([-1e308], [1e308])
 
+    def test_metrics_rmse_handles_large_finite_errors_without_square_overflow(self):
+        from app.historical_forecasting import _metrics
+
+        metrics = _metrics([0.0, 0.0], [1e200, -1e200])
+        self.assertTrue(math.isfinite(metrics["rmse_log_return"]))
+        self.assertAlmostEqual(metrics["rmse_log_return"], 1e200)
+
+    def test_metrics_reject_unrepresentable_mean_absolute_error(self):
+        from app.historical_forecasting import _metrics
+
+        with self.assertRaisesRegex(ValueError, "forecast metrics must be finite"):
+            _metrics([0.0, 0.0], [1.7e308, 1.7e308])
+
     def test_rejects_invalid_prices(self):
         invalid_cases = (
             [100, 0, 101],

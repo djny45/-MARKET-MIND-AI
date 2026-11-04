@@ -85,6 +85,26 @@ class HistoricalForecastingTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, r"prices\[0\] must be finite and positive"):
             _log_returns([10**10000, 100.0])
 
+    def test_metrics_reject_empty_mismatched_and_nonfinite_inputs(self):
+        from app.historical_forecasting import _metrics
+
+        for actual, predicted, message in (
+            ([], [], "non-empty"),
+            ([0.1], [], "equal lengths"),
+            ([0.1], [float("nan")], r"predicted\[0\] must be finite"),
+            ([float("inf")], [0.1], r"actual\[0\] must be finite"),
+            ([True], [0.1], r"actual\[0\] must be numeric"),
+        ):
+            with self.subTest(actual=actual, predicted=predicted):
+                with self.assertRaisesRegex(ValueError, message):
+                    _metrics(actual, predicted)
+
+    def test_metrics_reject_nonfinite_error_overflow(self):
+        from app.historical_forecasting import _metrics
+
+        with self.assertRaisesRegex(ValueError, "forecast errors must be finite"):
+            _metrics([-1e308], [1e308])
+
     def test_rejects_invalid_prices(self):
         invalid_cases = (
             [100, 0, 101],

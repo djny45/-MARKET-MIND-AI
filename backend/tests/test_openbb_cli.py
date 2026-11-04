@@ -36,6 +36,16 @@ class OpenBBCLITests(unittest.TestCase):
         self.assertEqual(kwargs["timeout"], 8)
 
     @patch.dict(os.environ, {"OPENBB_CLI_ENABLED": "true"})
+    @patch("app.openbb_cli.importlib.metadata.version", return_value="5.0.1")
+    @patch("app.openbb_cli.shutil.which", return_value="/usr/bin/openbb")
+    def test_version_uses_package_metadata_not_unsupported_flag(self, _which, version):
+        result = run_openbb_cli("version")
+        self.assertTrue(result.available)
+        self.assertEqual(result.exit_code, 0)
+        self.assertEqual(result.output, "OpenBB CLI version 5.0.1")
+        version.assert_called_once_with("openbb-cli")
+
+    @patch.dict(os.environ, {"OPENBB_CLI_ENABLED": "true"})
     @patch("app.openbb_cli.subprocess.run")
     @patch("app.openbb_cli.shutil.which", return_value="/usr/bin/openbb")
     def test_caps_output_and_reports_nonzero(self, _which, run):

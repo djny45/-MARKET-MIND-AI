@@ -1,0 +1,3 @@
+[submodule "vendor/pynecore"]
+	path = vendor/pynecore
+	url = https://github.com/PyneSys/pynecore.git

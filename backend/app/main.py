@@ -1666,7 +1666,7 @@ def resume_workflow_run(run_id: str):
  replay["resume_note"] = "Completed nodes from the last durable layer checkpoint were restored; incomplete nodes were scheduled again."
  return replay
 
-from .openbb_cli import run_openbb_cli
+from .openbb_cli import openbb_cli_enabled, run_openbb_cli
 
 class OpenBBCLIRequest(BaseModel):
  action: Literal["help", "version"] = "help"
@@ -1676,7 +1676,7 @@ class OpenBBCLIRequest(BaseModel):
 def openbb_cli_status():
  """Report whether the local OpenBB CLI executable is installed."""
  import shutil
- return {"installed": shutil.which("openbb") is not None, "mode": "restricted-informational-cli"}
+ return {"installed": shutil.which("openbb") is not None, "enabled": openbb_cli_enabled(), "mode": "restricted-informational-cli"}
 
 
 @app.post("/api/openbb/cli")

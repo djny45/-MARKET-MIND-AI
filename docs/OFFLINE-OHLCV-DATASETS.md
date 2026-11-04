@@ -70,5 +70,6 @@ libraries, run:
 python backend/examples/local_csv_inspector.py path/to/local.csv
 ```
 
-This reports the file name, row count, and column names. It reads the file
-locally and does not modify it or access network services.
+This reports the file name, file size in bytes, row count, and column names.
+It rejects empty or duplicate headers (after trimming whitespace). It reads the
+file locally and does not modify it or access network services.

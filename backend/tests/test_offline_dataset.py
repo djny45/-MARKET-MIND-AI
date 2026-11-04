@@ -27,6 +27,18 @@ class OfflineDatasetTests(unittest.TestCase):
         self.assertEqual(frame["close"].tolist(), [1.5, 2.5])
         self.assertEqual(str(frame["timestamp"].dt.tz), "UTC")
 
+    def test_blank_column_name_rejected_after_normalization(self):
+        from app.offline_dataset import load_ohlcv_csv
+        path = self.write_csv("open,high,low,close,   \\n1,2,0.5,1.5,7\\n")
+        with self.assertRaisesRegex(ValueError, "empty column name"):
+            load_ohlcv_csv(path)
+
+    def test_duplicate_columns_rejected_after_normalization(self):
+        from app.offline_dataset import load_ohlcv_csv
+        path = self.write_csv("open, high,high,low,close\\n1,2,2,0.5,1.5\\n")
+        with self.assertRaisesRegex(ValueError, "duplicate columns"):
+            load_ohlcv_csv(path)
+
     def test_missing_ohlc_column_rejected(self):
         from app.offline_dataset import load_ohlcv_csv
         path = self.write_csv("open,high,close\\n1,2,1.5\\n")

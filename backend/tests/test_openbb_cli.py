@@ -33,6 +33,7 @@ class OpenBBCLITests(unittest.TestCase):
         args, kwargs = run.call_args
         self.assertEqual(args[0], ["/usr/bin/openbb", "--help"])
         self.assertFalse(kwargs["shell"])
+        self.assertEqual(kwargs["stdin"], __import__("subprocess").DEVNULL)
         self.assertEqual(kwargs["timeout"], 8)
 
     @patch.dict(os.environ, {"OPENBB_CLI_ENABLED": "true"})

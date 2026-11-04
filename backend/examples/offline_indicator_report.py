@@ -88,7 +88,7 @@ def main() -> int:
         return 2
     rendered = json.dumps(report, indent=2, ensure_ascii=False, allow_nan=False)
     if args.output:
-        args.output.expanduser().write_text(rendered + "\\n", encoding="utf-8")
+        args.output.expanduser().write_text(rendered + "\n", encoding="utf-8")
     print(rendered)
     print("Offline historical annotations only; no forecasts or trading actions.")
     return 0

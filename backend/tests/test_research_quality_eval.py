@@ -33,6 +33,21 @@ class ResearchQualityEvalTests(unittest.TestCase):
         )
         self.assertEqual(result["baseline_comparison"]["claim_reference_coverage"]["delta"], 0.5)
 
+    def test_reports_duplicate_source_ids_after_normalization(self):
+        result = evaluate_research_draft(
+            draft="Duplicate registry IDs should be visible.",
+            claims=[{"text": "Claim", "source_refs": ["src-1"]}],
+            source_registry=[
+                {"source_id": "src-1", "title": "First entry"},
+                {"source_id": " src-1 ", "title": "Duplicate entry"},
+                {"source_id": "src-2", "title": "Unique entry"},
+            ],
+        )
+        metrics = result["metrics"]
+        self.assertEqual(metrics["source_registry_count"], 2)
+        self.assertEqual(metrics["duplicate_source_id_count"], 1)
+        self.assertEqual(metrics["duplicate_source_ids"], ["src-1"])
+
     def test_empty_claim_set_has_null_coverage(self):
         result = evaluate_research_draft(draft="No claims.", claims=[], source_registry=[])
         self.assertIsNone(result["metrics"]["claim_reference_coverage"])

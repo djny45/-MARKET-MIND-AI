@@ -1,16 +1,29 @@
 import unittest
 from unittest.mock import patch, Mock
+import os
 
 from app.openbb_cli import run_openbb_cli
 
 
 class OpenBBCLITests(unittest.TestCase):
+    @patch.dict(os.environ, {"OPENBB_CLI_ENABLED": "false"})
+    @patch("app.openbb_cli.shutil.which", return_value="/usr/bin/openbb")
+    def test_disabled_by_default_gate_does_not_spawn_cli(self, _which):
+        with patch("app.openbb_cli.subprocess.run") as run:
+            result = run_openbb_cli("help")
+        self.assertFalse(result.available)
+        self.assertIn("disabled", result.error)
+        run.assert_not_called()
+
+    @patch.dict(os.environ, {"OPENBB_CLI_ENABLED": "true"})
+    @patch.dict(os.environ, {"OPENBB_CLI_ENABLED": "true"})
     @patch("app.openbb_cli.shutil.which", return_value=None)
     def test_reports_missing_cli(self, _which):
         result = run_openbb_cli("help")
         self.assertFalse(result.available)
         self.assertIn("not installed", result.error)
 
+    @patch.dict(os.environ, {"OPENBB_CLI_ENABLED": "true"})
     @patch("app.openbb_cli.subprocess.run")
     @patch("app.openbb_cli.shutil.which", return_value="/usr/bin/openbb")
     def test_help_uses_fixed_argument_and_no_shell(self, _which, run):
@@ -31,6 +44,7 @@ class OpenBBCLITests(unittest.TestCase):
         self.assertEqual(len(result.output), 12000)
         self.assertIsNotNone(result.error)
 
+    @patch.dict(os.environ, {"OPENBB_CLI_ENABLED": "true"})
     @patch("app.openbb_cli.subprocess.run", side_effect=__import__("subprocess").TimeoutExpired("openbb", 8))
     @patch("app.openbb_cli.shutil.which", return_value="/usr/bin/openbb")
     def test_timeout_is_reported(self, _which, _run):

@@ -6,7 +6,7 @@ from app.openbb_cli import run_openbb_cli
 
 
 class OpenBBCLITests(unittest.TestCase):
-    @patch.dict(os.environ, {"OPENBB_CLI_ENABLED": "false"})
+    @patch.dict(os.environ, {}, clear=True)
     @patch("app.openbb_cli.shutil.which", return_value="/usr/bin/openbb")
     def test_disabled_by_default_gate_does_not_spawn_cli(self, _which):
         with patch("app.openbb_cli.subprocess.run") as run:
@@ -15,7 +15,6 @@ class OpenBBCLITests(unittest.TestCase):
         self.assertIn("disabled", result.error)
         run.assert_not_called()
 
-    @patch.dict(os.environ, {"OPENBB_CLI_ENABLED": "true"})
     @patch.dict(os.environ, {"OPENBB_CLI_ENABLED": "true"})
     @patch("app.openbb_cli.shutil.which", return_value=None)
     def test_reports_missing_cli(self, _which):
@@ -36,6 +35,7 @@ class OpenBBCLITests(unittest.TestCase):
         self.assertFalse(kwargs["shell"])
         self.assertEqual(kwargs["timeout"], 8)
 
+    @patch.dict(os.environ, {"OPENBB_CLI_ENABLED": "true"})
     @patch("app.openbb_cli.subprocess.run")
     @patch("app.openbb_cli.shutil.which", return_value="/usr/bin/openbb")
     def test_caps_output_and_reports_nonzero(self, _which, run):

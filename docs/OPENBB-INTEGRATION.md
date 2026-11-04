@@ -29,7 +29,11 @@ OpenBB or verify provider connectivity.
 
 ## CLI installation
 
-Use the setup helper to install OpenBB CLI in a dedicated Python 3.10+ virtual
+**Use Python 3.11 or newer.** The current upstream OpenBB CLI v2 package declares
+`requires-python = ">=3.11,<4"`; Python 3.10 will fail dependency installation.
+See the [upstream CLI project metadata](https://github.com/openbq-org/OpenBB/blob/develop/cli/pyproject.toml).
+
+Use the setup helper to install OpenBB CLI in a dedicated Python virtual
 environment without changing MARKET-MIND-AI's backend dependencies:
 
 ```bash
@@ -42,7 +46,7 @@ environment. On Windows, run it from Git Bash or Codespaces; PowerShell users
 can activate the environment with:
 
 ```powershell
-.\.venv-openbb\Scripts\Activate.ps1
+.\\.venv-openbb\\Scripts\\Activate.ps1
 ```
 
 To install optional provider packages, activate that environment and install

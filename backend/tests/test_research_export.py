@@ -34,7 +34,7 @@ class ResearchMethodologyMarkdownTests(unittest.TestCase):
             "bars": [], "source": "fixture\n- injected item", "sources": ["fixture\n## forged heading"],
             "status": "synthetic", "retrieved_at": "2026-01-02T00:00:00Z"})
         report = render_research_methodology_markdown(bundle)
-        self.assertIn(r"BTC \#\# injected", report)
+        self.assertIn(r"BTC \#\# INJECTED", report)
         self.assertIn("1h\\|\\[click\\]", report)
         self.assertIn(r"fixture \#\# forged heading", report)
         self.assertNotIn("\n## injected", report)

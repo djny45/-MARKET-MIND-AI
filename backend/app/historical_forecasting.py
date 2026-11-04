@@ -254,6 +254,10 @@ def evaluate_walk_forward_return_forecast(
         features.append(returns[target_index - lookback:target_index])
         targets.append(returns[target_index])
 
+    if step_size < test_window:
+        raise ValueError(
+            "step_size must be >= test_window to prevent overlapping test windows"
+        )
     if len(targets) < min_history_samples + test_window:
         raise ValueError("insufficient history for walk-forward evaluation")
 

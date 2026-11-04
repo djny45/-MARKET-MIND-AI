@@ -9,7 +9,7 @@ class ResearchMethodologyMarkdownTests(unittest.TestCase):
             "status": "synthetic", "retrieved_at": "2026-01-02T00:00:00Z"})
         report = render_research_methodology_markdown(bundle)
         self.assertIn("# Historical Research Report: BTCUSD", report)
-        self.assertIn("fixture", report)
+        self.assertIn(r"fixture \#\# forged heading", report)
         self.assertIn(bundle["integrity"]["digest"], report)
         self.assertIn("not a forecast", report.lower())
 
@@ -33,9 +33,9 @@ class ResearchMethodologyMarkdownTests(unittest.TestCase):
             "bars": [], "source": "fixture\n- injected item", "sources": ["fixture\n## forged heading"],
             "status": "synthetic", "retrieved_at": "2026-01-02T00:00:00Z"})
         report = render_research_methodology_markdown(bundle)
-        self.assertIn("BTC\\n\\# injected", report)
+        self.assertIn(r"BTC \#\# injected", report)
         self.assertIn("1h\\|\\[click\\]", report)
-        self.assertIn("fixture\\n\\# forged heading", report)
+        self.assertIn(r"fixture \#\# forged heading", report)
         self.assertNotIn("\n## injected", report)
         self.assertNotIn("\n## forged heading", report)
 

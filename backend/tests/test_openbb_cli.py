@@ -62,6 +62,24 @@ class OpenBBCLITests(unittest.TestCase):
         self.assertTrue(result.available)
         self.assertIn("timed out", result.error)
 
+    @patch.dict(os.environ, {"OPENBB_CLI_ENABLED": " TrUe "})
+    def test_enable_flag_is_case_insensitive_and_trimmed(self):
+        from app.openbb_cli import openbb_cli_enabled
+        self.assertTrue(openbb_cli_enabled())
+
+    @patch.dict(os.environ, {"OPENBB_CLI_ENABLED": "true"})
+    @patch("app.openbb_cli.importlib.metadata.version", side_effect=__import__("importlib").metadata.PackageNotFoundError)
+    @patch("app.openbb_cli.shutil.which", return_value="/usr/bin/openbb")
+    def test_version_handles_missing_distribution_metadata(self, _which, _version):
+        result = run_openbb_cli("version")
+        self.assertTrue(result.available)
+        self.assertIsNone(result.exit_code)
+        self.assertIn("metadata was not found", result.error)
+
+    def test_rejects_unsupported_action(self):
+        with self.assertRaises(ValueError):
+            run_openbb_cli("arbitrary")
+
 
 if __name__ == "__main__":
     unittest.main()

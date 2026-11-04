@@ -141,6 +141,17 @@ class HistoricalForecastingTests(unittest.TestCase):
         self.assertTrue(math.isfinite(aggregate["mean"]))
         self.assertTrue(math.isfinite(aggregate["median"]))
 
+    def test_walk_forward_rejects_overlapping_test_windows(self):
+        from app.historical_forecasting import evaluate_walk_forward_return_forecast
+
+        with self.assertRaisesRegex(ValueError, "step_size must be >= test_window"):
+            evaluate_walk_forward_return_forecast(
+                self.synthetic_closes(500),
+                min_history_samples=100,
+                test_window=20,
+                step_size=10,
+            )
+
     def test_walk_forward_rejects_invalid_parameters_and_short_history(self):
         from app.historical_forecasting import evaluate_walk_forward_return_forecast
 

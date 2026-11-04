@@ -40,6 +40,14 @@ The CLI's interactive REPL is `openbb -i`. One-shot commands and server/spec
 mode are documented upstream. Provider packages and API credentials are
 optional and depend on the research data sources you choose.
 
+## Backend adapter (implemented)
+
+`backend/app/openbb_cli.py` provides a restricted local adapter for the two
+informational commands `help` and `version`. It invokes the executable without
+a shell, applies an 8-second timeout, caps output, and returns a clear message
+when OpenBB is not installed. It deliberately does not accept raw command
+strings or expose an HTTP endpoint.
+
 ## Terminal replacement status
 
 This import helper does not replace the current React UI by itself. A browser

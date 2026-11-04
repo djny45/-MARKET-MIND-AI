@@ -9,7 +9,7 @@ Open `frontend/research-terminal-2026/index.html` directly in a modern browser. 
 ## UI sections
 
 - **Overview:** synthetic chart, dataset cards, sample watchlist, feature coverage, and terminal activity.
-- **Dataset Lab:** commands to inspect local CSV files using the Python tools.
+- **Dataset Lab:** browser-local CSV picker for a small preview (up to 10 MB, first 12 columns and five data rows), plus commands to inspect files with the Python tools.
 - **Indicator Matrix:** definitions and limitations for historical annotations.
 - **Terminal Logs:** simulated read-only log console with a small allowlist of UI commands (`help`, `status`, `dataset`, `indicators`, `clear`).
 
@@ -17,6 +17,6 @@ Open `frontend/research-terminal-2026/index.html` directly in a modern browser. 
 
 - Dashboard chart and sample instrument values are fabricated UI demo data. They are not real-time market data.
 - The terminal accepts only its documented UI commands; it does not execute shell commands.
-- This frontend does not upload or access files on your computer. Run the Python research utilities separately from the repository root.
+- The CSV picker reads only the file you explicitly select, in browser memory using FileReader; it does not upload or transmit it. The quick preview is intentionally basic (CSV quoting support, non-empty line count, limited rows/columns), not a replacement for robust OHLCV validation. Run the Python research utilities separately from the repository root for full validation and indicator analysis.
 - No exchange/broker connections, forecasts, trade signals, or order execution are included.
 - SMC swing annotations may use future bars and can introduce look-ahead bias.

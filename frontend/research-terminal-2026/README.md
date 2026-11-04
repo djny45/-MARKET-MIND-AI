@@ -43,7 +43,7 @@ python backend/examples/offline_indicator_report.py path/to/data.csv --ta-lib --
 
 Add `--timestamp-column timestamp` when your dataset has a timestamp column and you want it included in the report. The optional TA-Lib dependencies must be installed from `backend/requirements-ta-lib-research.txt`.
 
-Open **Dataset Lab → Historical Indicator Viewer** and select `indicators.json`. The viewer summarizes valid/null counts and latest valid historical values for RSI, MACD, ATR, SMA/EMA, and Bollinger Bands. It imports the report locally and does not run calculations or upload files in the browser.
+Open **Dataset Lab → Historical Indicator Viewer** and select `indicators.json`. The viewer summarizes valid/null counts and latest valid historical values for RSI, MACD, ATR, SMA/EMA, and Bollinger Bands. Select an indicator to plot its historical series; null values create gaps, and the horizontal axis is row index (not timestamps). It imports the report locally and does not run calculations or upload files in the browser.
 
 This report is for retrospective research only. Warm-up values may be null; values are not forecasts, trade signals, or recommendations. The exporter currently supports TA-Lib indicators; SMC annotations remain available through the existing research pipeline and are not included in this JSON exporter.
 

@@ -22,13 +22,14 @@ if ! command -v "$PYTHON_BIN" >/dev/null 2>&1; then
 fi
 
 "$PYTHON_BIN" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else "OpenBB CLI setup requires Python 3.10+")'
-
 "$PYTHON_BIN" -m venv "$VENV"
 
 if [[ -f "$VENV/bin/python" ]]; then
   VENV_PYTHON="$VENV/bin/python"
+  OPENBB="$VENV/bin/openbb"
 elif [[ -f "$VENV/Scripts/python.exe" ]]; then
   VENV_PYTHON="$VENV/Scripts/python.exe"
+  OPENBB="$VENV/Scripts/openbb.exe"
 else
   echo "Could not locate Python inside $VENV." >&2
   exit 1
@@ -37,7 +38,12 @@ fi
 "$VENV_PYTHON" -m pip install --upgrade pip
 "$VENV_PYTHON" -m pip install openbb-cli
 "$VENV_PYTHON" -m pip show openbb-cli
-"$VENV_PYTHON" -m openbb --help
+
+if [[ ! -x "$OPENBB" ]]; then
+  echo "OpenBB executable not found after installation: $OPENBB" >&2
+  exit 1
+fi
+"$OPENBB" --help
 
 echo
 echo "OpenBB CLI installed in $VENV."

@@ -28,7 +28,6 @@ def analyze_historical_ohlcv(
     try:
         import numpy as np
         import pandas as pd
-        import talib
     except ImportError as exc:
         raise RuntimeError(
             "TA-Lib research dependencies are optional. Install "
@@ -58,6 +57,17 @@ def analyze_historical_ohlcv(
         raise ValueError("OHLC integrity error: high is below an OHLC component")
     if (frame["low"] > frame[["open", "close", "high"]].min(axis=1)).any():
         raise ValueError("OHLC integrity error: low is above an OHLC component")
+
+    # Load TA-Lib only after input validation. This lets the adapter's
+    # validation path remain testable when optional indicator binaries are
+    # unavailable; calculations still require the TA-Lib package.
+    try:
+        import talib
+    except ImportError as exc:
+        raise RuntimeError(
+            "TA-Lib research dependencies are optional. Install "
+            "backend/requirements-ta-lib-research.txt first."
+        ) from exc
 
     high = frame["high"].to_numpy(dtype=np.float64)
     low = frame["low"].to_numpy(dtype=np.float64)

@@ -81,3 +81,25 @@ Not implemented by this update:
 Verification:
 - The previous quality-check workflow for commit `1b68619b9f87b7afb2a9c563812f0a5884298451` passed all four jobs.
 - New commits in this four-market update require their own CI run before being considered verified.
+
+## OpenBB research integration update — 2026-11-05
+
+Implemented on the open PR branch:
+- Added an isolated OpenBB CLI setup script and import-verification script.
+- Hardened setup cleanup so failed installation does not leave a partial virtual environment.
+- Improved the import verifier's Git-tracking check.
+- Documented Windows Python interpreter selection and ignored the local `.venv-openbb/` directory.
+- Restricted the API adapter to informational CLI actions; this is not a public shell or an unrestricted interactive terminal.
+
+CI:
+- Latest PR head: `a629ad95a3a6bbb3745a09ed161d910e6b7e7687`
+- Quality checks (Version 3.4): passed.
+- PR #4 remains open and unmerged.
+
+Not yet completed:
+- The full upstream OpenBB repository has not been imported into `vendor/openbb`.
+- Import verification has not been run against a completed subtree checkout.
+- OpenBB providers, credentials, and live data access have not been validated.
+- The current frontend OpenBB panel is an informational restricted command panel, not a full interactive terminal.
+
+Do not describe OpenBB as fully integrated or live-data-ready until these gates are completed.

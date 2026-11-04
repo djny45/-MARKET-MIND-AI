@@ -19,9 +19,9 @@ class OfflineDatasetReportTests(unittest.TestCase):
     def test_report_contains_basic_quality_and_summary(self):
         from examples.offline_dataset_report import build_report
         path = self.write_csv(
-            "timestamp,open,high,low,close,volume\\n"
-            "2024-01-02,2,3,1,2.5,10\\n"
-            "2024-01-01,1,2,0.5,1.5,5\\n"
+            "timestamp,open,high,low,close,volume\n"
+            "2024-01-02,2,3,1,2.5,10\n"
+            "2024-01-01,1,2,0.5,1.5,5\n"
         )
         report = build_report(path, timestamp_column="timestamp")
         self.assertEqual(report["status"], "ok")
@@ -34,7 +34,7 @@ class OfflineDatasetReportTests(unittest.TestCase):
 
     def test_invalid_dataset_is_rejected(self):
         from examples.offline_dataset_report import build_report
-        path = self.write_csv("open,high,low,close\\n1,0,0.5,1.2\\n")
+        path = self.write_csv("open,high,low,close\n1,0,0.5,1.2\n")
         with self.assertRaisesRegex(ValueError, "high is below"):
             build_report(path)
 

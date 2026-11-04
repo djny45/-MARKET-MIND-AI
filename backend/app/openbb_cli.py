@@ -86,6 +86,7 @@ def run_openbb_cli(action: OpenBBAction) -> OpenBBCLIResult:
             [executable, *_ALLOWED_ARGS[action]],
             capture_output=True,
             text=True,
+            stdin=subprocess.DEVNULL,
             timeout=_TIMEOUT_SECONDS,
             check=False,
             shell=False,

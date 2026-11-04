@@ -33,6 +33,15 @@ def build_research_evidence_bundle(symbol, interval, history, deep_report=None):
     return bundle
 
 
+
+def _escape_markdown_inline(value):
+    """Escape untrusted metadata before inserting it into Markdown prose."""
+    text = str(value).replace("\\", "\\\\")
+    for char in ("`", "*", "_", "[", "]", "|"):
+        text = text.replace(char, "\\" + char)
+    return text.replace("<", "&lt;").replace(">", "&gt;").replace("\r", " ").replace("\n", " ")
+
+
 def render_research_methodology_markdown(bundle):
     """Render a reproducible Markdown summary from a historical evidence bundle."""
     if not isinstance(bundle, dict) or bundle.get("report_type") != "historical_research_evidence":
@@ -52,9 +61,9 @@ def render_research_methodology_markdown(bundle):
         f"- **Interval:** {scope.get('interval') or 'Not supplied'}",
         f"- **Observations:** {scope.get('observation_count', 0)}",
         f"- **Status:** {scope.get('status') or 'Not supplied'}",
-        f"- **Source metadata:** {', '.join(str(x) for x in sources) if sources else 'Not supplied'}",
-        f"- **Retrieved at:** {scope.get('retrieved_at') or 'Not supplied'}",
-        f"- **Time range:** {scope.get('first_timestamp') or 'Not supplied'} to {scope.get('last_timestamp') or 'Not supplied'}",
+        f"- **Source metadata:** {', '.join(_escape_markdown_inline(x) for x in sources) if sources else 'Not supplied'}",
+        f"- **Retrieved at:** {_escape_markdown_inline(scope.get('retrieved_at') or 'Not supplied')}",
+        f"- **Time range:** {_escape_markdown_inline(scope.get('first_timestamp') or 'Not supplied')} to {_escape_markdown_inline(scope.get('last_timestamp') or 'Not supplied')}",
         "", "## Methodology",
         "- Uses observations preserved in the supplied evidence bundle.",
         "- Includes deterministic quality diagnostics, source comparisons, and a descriptive timeline.",
@@ -71,6 +80,6 @@ def render_research_methodology_markdown(bundle):
         f"- **Algorithm:** {integrity.get('algorithm') or 'Not supplied'}",
         f"- **Digest:** {integrity.get('digest') or 'Not supplied'}",
         "", "## Limitations"]
-    lines.extend(f"- {item}" for item in (bundle.get("limitations") or ["Limitations not supplied."]))
+    lines.extend(f"- {_escape_markdown_inline(item)}" for item in (bundle.get("limitations") or ["Limitations not supplied."]))
     lines.extend(["", "> Research documentation only—not a forecast, investment recommendation, or trading instruction.", ""])
     return "\n".join(lines)

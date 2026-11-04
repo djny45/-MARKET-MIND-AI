@@ -99,8 +99,14 @@ def _metrics(actual: list[float], predicted: list[float]) -> dict[str, float]:
     errors = [prediction - target for target, prediction in zip(actual, predicted)]
     if not all(math.isfinite(error) for error in errors):
         raise ValueError("forecast errors must be finite")
-    mae = sum(abs(error) for error in errors) / len(errors)
-    rmse = math.sqrt(sum(error * error for error in errors) / len(errors))
+    # hypot avoids overflow from squaring large, but finite, error values.
+    try:
+        mae = math.fsum(abs(error) for error in errors) / len(errors)
+        rmse = math.hypot(*errors) / math.sqrt(len(errors))
+    except (OverflowError, ValueError):
+        raise ValueError("forecast metrics must be finite") from None
+    if not math.isfinite(mae) or not math.isfinite(rmse):
+        raise ValueError("forecast metrics must be finite")
     directional = sum(
         (target > 0 and prediction > 0) or (target < 0 and prediction < 0)
         or (target == 0 and prediction == 0)

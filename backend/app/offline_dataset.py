@@ -33,6 +33,8 @@ def load_ohlcv_csv(path: str | Path, *, timestamp_column: str | None = None) -> 
         raise ValueError("CSV dataset is empty")
 
     frame.columns = [str(column).strip().lower() for column in frame.columns]
+    if any(not column for column in frame.columns):
+        raise ValueError("CSV contains an empty column name after normalization")
     if len(set(frame.columns)) != len(frame.columns):
         raise ValueError("CSV contains duplicate columns after normalization")
 

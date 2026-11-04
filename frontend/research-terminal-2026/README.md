@@ -1,5 +1,9 @@
 # MARKET-MIND AI Research Terminal 2026
 
+![MARKET-MIND AI terminal preview](assets/market-mind-terminal-preview.svg)
+
+*Static concept image for the offline research dashboard. Values are illustrative/synthetic.*
+
 A standalone, responsive HTML dashboard preview for the offline research workflow.
 
 ## Open the dashboard

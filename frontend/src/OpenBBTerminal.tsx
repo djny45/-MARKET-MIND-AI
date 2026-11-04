@@ -12,6 +12,7 @@ export default function OpenBBTerminal() {
  const [enabled, setEnabled] = useState<boolean | null>(null)
 
  async function checkStatus() {
+  setError('')
   try {
    const response = await fetch(`${API}/api/openbb/status`)
    if (!response.ok) throw new Error(`API returned ${response.status}`)
@@ -47,7 +48,7 @@ export default function OpenBBTerminal() {
   <div className="overview-status"><span className={installed===true?'status-ok':installed===false?'status-off':''}>{installed===true?'INSTALLED':installed===false?'NOT INSTALLED':'UNKNOWN'}</span><span>OPENBB CLI</span><span className="overview-separator">·</span><span className={enabled===true?'status-ok':enabled===false?'status-off':''}>{enabled===true?'EXECUTION ENABLED':enabled===false?'EXECUTION DISABLED':'EXECUTION STATUS UNKNOWN'}</span><span className="overview-separator">·</span><span>ALLOWLISTED COMMANDS ONLY</span></div>
   <div className="overview-panel openbb-controls">
    <label htmlFor="openbb-action">COMMAND</label>
-   <select id="openbb-action" value={action} onChange={e=>setAction(e.target.value as Action)}><option value="help">openbb --help</option><option value="version">openbb --version</option></select>
+   <select id="openbb-action" value={action} onChange={e=>setAction(e.target.value as Action)}><option value="help">openbb --help</option><option value="version">OpenBB CLI version (package metadata)</option></select>
    <button className="run-btn" onClick={runCommand} disabled={busy}>{busy?'RUNNING…':'RUN COMMAND'}</button>
   </div>
   {error && <p className="news-error">{error}</p>}

@@ -17,9 +17,9 @@ class LocalCsvInspectorTests(unittest.TestCase):
             path = Path(directory) / "sample.csv"
             path.write_text("time,close\n2025-01-01,10\n2025-01-02,11\n", encoding="utf-8")
             result = inspect_csv(path)
-        self.assertEqual(result["rows"], 2)
-        self.assertEqual(result["columns"], ["time", "close"])
-        self.assertEqual(result["file_size_bytes"], path.stat().st_size)
+            self.assertEqual(result["rows"], 2)
+            self.assertEqual(result["columns"], ["time", "close"])
+            self.assertEqual(result["file_size_bytes"], path.stat().st_size)
 
     def test_rejects_headerless_csv(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -44,7 +44,7 @@ class WebhookPayloadLabTests(unittest.TestCase):
 
     def test_rejects_invalid_utf8_bytes(self):
         with self.assertRaisesRegex(ValueError, "UTF-8"):
-            validate_payload(b"\\xff")
+            validate_payload(b"\xff")
 
     def test_trims_string_fields(self):
         event = validate_payload(

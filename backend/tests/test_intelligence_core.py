@@ -22,7 +22,8 @@ class SharedIntelligenceCoreTests(unittest.TestCase):
 
     def test_rejects_non_loopback_ollama_host(self):
         env = {"OLLAMA_BASE_URL": "http://example.com:11434",
-               "INTELLIGENCE_CORE_ENABLED": "true"}
+               "INTELLIGENCE_CORE_ENABLED": "true",
+               "INTELLIGENCE_CORE_PROVIDER": "ollama"}
         # Patch the standard-library socket module directly. This is resilient
         # to the core changing how it imports/re-exports socket.
         with patch.dict(os.environ, env, clear=True), patch(
@@ -33,7 +34,8 @@ class SharedIntelligenceCoreTests(unittest.TestCase):
                 intelligence_core_status()
 
     def test_ollama_url_rejects_credentials_query_fragment_and_path(self):
-        base_env = {"INTELLIGENCE_CORE_ENABLED": "true"}
+        base_env = {"INTELLIGENCE_CORE_ENABLED": "true",
+                    "INTELLIGENCE_CORE_PROVIDER": "ollama"}
         for url in (
             "http://user:pass@127.0.0.1:11434",
             "http://127.0.0.1:11434?token=oops",
@@ -48,6 +50,7 @@ class SharedIntelligenceCoreTests(unittest.TestCase):
 
     def test_ollama_url_rejects_invalid_port(self):
         env = {"INTELLIGENCE_CORE_ENABLED": "true",
+               "INTELLIGENCE_CORE_PROVIDER": "ollama",
                "OLLAMA_BASE_URL": "http://127.0.0.1:99999"}
         with patch.dict(os.environ, env, clear=True):
             with self.assertRaisesRegex(IntelligenceCoreError, "invalid port"):
@@ -55,6 +58,7 @@ class SharedIntelligenceCoreTests(unittest.TestCase):
 
     def test_ollama_rejects_arbitrary_hostname_even_if_loopback_resolves(self):
         env = {"INTELLIGENCE_CORE_ENABLED": "true",
+               "INTELLIGENCE_CORE_PROVIDER": "ollama",
                "OLLAMA_BASE_URL": "http://rebind.example:11434"}
         with patch.dict(os.environ, env, clear=True), patch(
             "socket.getaddrinfo",

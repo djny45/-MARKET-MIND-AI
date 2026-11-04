@@ -42,8 +42,14 @@ bash scripts/setup-openbb-cli.sh
 
 The script creates `.venv-openbb`, installs `openbb-cli`, and runs
 `openbb --help` as a smoke check. It refuses to overwrite an existing
-environment. On Windows, run it from Git Bash or Codespaces; PowerShell users
-can activate the environment with:
+environment. On Windows, run it from Git Bash or Codespaces. If `python3` is
+not on PATH, explicitly select a Python 3.11+ interpreter (for example, in Git Bash):
+
+```bash
+PYTHON_BIN=python bash scripts/setup-openbb-cli.sh
+```
+
+PowerShell users can activate the environment with:
 
 ```powershell
 .\\.venv-openbb\\Scripts\\Activate.ps1

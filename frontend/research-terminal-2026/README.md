@@ -46,3 +46,14 @@ Add `--timestamp-column timestamp` when your dataset has a timestamp column and 
 Open **Dataset Lab → Historical Indicator Viewer** and select `indicators.json`. The viewer summarizes valid/null counts and latest valid historical values for RSI, MACD, ATR, SMA/EMA, and Bollinger Bands. It imports the report locally and does not run calculations or upload files in the browser.
 
 This report is for retrospective research only. Warm-up values may be null; values are not forecasts, trade signals, or recommendations. The exporter currently supports TA-Lib indicators; SMC annotations remain available through the existing research pipeline and are not included in this JSON exporter.
+
+
+## Run the offline report exporter tests
+
+From the repository root:
+
+```bash
+PYTHONPATH=backend python -m unittest backend.tests.test_offline_indicator_report
+```
+
+The tests use a mocked pipeline to verify JSON-safe null handling, valid/null counts, timestamp inclusion, and empty-report behavior without requiring TA-Lib or market data.

@@ -16,7 +16,13 @@ def _log_returns(prices: Sequence[float]) -> list[float]:
     for i, price in enumerate(prices):
         if isinstance(price, bool) or not isinstance(price, (int, float)):
             raise ValueError(f"prices[{i}] must be numeric")
-        if not math.isfinite(price) or price <= 0:
+        # Very large Python integers can raise OverflowError during float
+        # conversion inside math.isfinite; normalize that into our input error.
+        try:
+            finite = math.isfinite(price)
+        except (OverflowError, TypeError):
+            finite = False
+        if not finite or price <= 0:
             raise ValueError(f"prices[{i}] must be finite and positive")
     for index, (previous, current) in enumerate(zip(prices, prices[1:])):
         # Avoid overflow/underflow in the intermediate current / previous ratio.

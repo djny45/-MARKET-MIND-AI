@@ -23,10 +23,10 @@ class ResearchMethodologyMarkdownTests(unittest.TestCase):
     def test_json_diagnostics_are_rendered_as_fenced_blocks(self):
         bundle = build_research_evidence_bundle("btcusd", "1h", {"bars": []})
         report = render_research_methodology_markdown(bundle)
-        self.assertIn("## Data-quality diagnostics\\n```json\\n", report)
-        self.assertIn("## Source comparison\\n```json\\n", report)
-        self.assertEqual(report.count("```json"), 2)
-        self.assertEqual(report.count("```"), 4)
+        self.assertIn("## Data-quality diagnostics\\n\`\`\`json\\n", report)
+        self.assertIn("## Source comparison\\n\`\`\`json\\n", report)
+        self.assertEqual(report.count("\`\`\`json"), 2)
+        self.assertEqual(report.count("\`\`\`"), 4)
 
     def test_untrusted_metadata_cannot_inject_markdown_structure(self):
         bundle = build_research_evidence_bundle("BTC\\n## injected", "1h|[click](https://bad.example)", {

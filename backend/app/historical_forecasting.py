@@ -18,8 +18,12 @@ def _log_returns(prices: Sequence[float]) -> list[float]:
             raise ValueError(f"prices[{i}] must be numeric")
         if not math.isfinite(price) or price <= 0:
             raise ValueError(f"prices[{i}] must be finite and positive")
-    for previous, current in zip(prices, prices[1:]):
-        result.append(math.log(current / previous))
+    for index, (previous, current) in enumerate(zip(prices, prices[1:])):
+        # Avoid overflow/underflow in the intermediate current / previous ratio.
+        log_return = math.log(current) - math.log(previous)
+        if not math.isfinite(log_return):
+            raise ValueError(f"log return at index {index} must be finite")
+        result.append(log_return)
     return result
 
 

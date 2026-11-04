@@ -24,7 +24,10 @@ def validate_payload(payload: str | bytes | dict[str, Any]) -> dict[str, Any]:
     if isinstance(payload, bytes):
         if len(payload) > MAX_PAYLOAD_BYTES:
             raise ValueError("Payload exceeds maximum size")
-        payload = payload.decode("utf-8")
+        try:
+            payload = payload.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise ValueError("Payload must be UTF-8") from exc
     elif isinstance(payload, str):
         if len(payload.encode("utf-8")) > MAX_PAYLOAD_BYTES:
             raise ValueError("Payload exceeds maximum size")

@@ -53,7 +53,7 @@ To install optional provider packages, activate that environment and install
 only the provider integrations you need. Credentials and provider availability
 depend on the chosen source.
 
-The CLI's interactive REPL is `openbb -i`. It is for trusted local use only;
+OpenBB Platform V5 uses the `openbb-cli` 2.x package line. The CLI's interactive REPL is `openbb -i` (the default invocation is one-shot in V5). It is for trusted local use only;
 the MARKET-MIND-AI web API does not proxy an interactive REPL.
 
 ## Backend adapter (implemented)

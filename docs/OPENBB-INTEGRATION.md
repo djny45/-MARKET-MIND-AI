@@ -36,26 +36,36 @@ openbb --help
 openbb -i
 ```
 
-The CLI's interactive REPL is `openbb -i`. One-shot commands and server/spec
-mode are documented upstream. Provider packages and API credentials are
-optional and depend on the research data sources you choose.
+The CLI's interactive REPL is `openbb -i`. Provider packages and API
+credentials are optional and depend on the research data sources you choose.
 
 ## Backend adapter (implemented)
 
-`backend/app/openbb_cli.py` provides a restricted local adapter for the two
-informational commands `help` and `version`. It invokes the executable without
-a shell, applies an 8-second timeout, caps output, and returns a clear message
-when OpenBB is not installed. It deliberately does not accept raw command
-strings or expose an HTTP endpoint.
+`backend/app/openbb_cli.py` supports only the informational actions `help`
+and `version`. It invokes the executable without a shell, applies an
+8-second timeout, and caps output. It does not accept raw command strings or
+arbitrary arguments.
 
-## Terminal replacement status
+**Execution is disabled by default.** For trusted local development, explicitly
+set the environment variable:
 
-This import helper does not replace the current React UI by itself. A browser
-terminal requires a separate interactive process bridge (PTY/WebSocket), user
-authentication, command allowlisting, session lifecycle management, and
-resource/time limits. Do not expose a raw server shell or unrestricted
-subprocess endpoint to the public internet.
+```bash
+OPENBB_CLI_ENABLED=true
+```
 
-Current MARKET-MIND-AI backend and historical research remain separate.
+The status endpoint reports both whether the CLI is installed and whether
+execution is enabled. Do not enable this on a public deployment without
+authentication, authorization, and rate limiting.
+
+## Current terminal status
+
+The React workspace contains an OpenBB panel, but it is a restricted
+informational command panel—not a full interactive browser REPL. A browser
+terminal requires a separate PTY/WebSocket bridge, authenticated sessions,
+command allowlisting, lifecycle management, and resource/time limits. Do not
+expose a raw server shell or unrestricted subprocess endpoint to the public
+internet.
+
+The full upstream source import is still a separate local Git-subtree step.
 OpenBB is a research/data platform; it does not authorize live brokerage
 execution. Keep data-source terms, credentials, and provenance visible.

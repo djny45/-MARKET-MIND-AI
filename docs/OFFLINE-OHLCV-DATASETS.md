@@ -30,3 +30,20 @@ df = load_ohlcv_csv("datasets/sample_ohlcv.csv", timestamp_column="timestamp")
 - SMC swing labels can use future bars; do not treat them as point-in-time
   information or as evidence of predictive performance.
 - This is an educational dataset validation utility, not financial advice.
+
+## Run the research pipeline
+
+```python
+from app.offline_research_pipeline import run_offline_research
+
+result = run_offline_research(
+    "datasets/sample_ohlcv.csv",
+    timestamp_column="timestamp",
+    include_ta_lib=True,  # requires optional TA-Lib dependencies
+    include_smc=True,     # requires optional SMC research dependencies
+)
+print(result["row_count"])
+print(result["indicators"].keys())
+```
+
+Leave both indicator flags disabled to validate and load a dataset without installing optional indicator packages. Indicator output is historical annotation only; it is not a prediction or recommendation.

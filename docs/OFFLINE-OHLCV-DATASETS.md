@@ -1,39 +1,42 @@
-# Offline OHLCV CSV Research
+# Offline OHLCV and Webhook Payload Research
 
-This utility reads a **local CSV file** for educational analysis with the
-existing SMC and TA-Lib research adapters. It is deliberately isolated from
-TradingView, exchange APIs, broker APIs, and order execution.
+This repository's research utilities operate on local files and fabricated
+examples. They are isolated from TradingView, exchange APIs, broker APIs,
+external notification services, and order execution.
 
-## Required columns
+## Offline OHLCV CSV research
 
-`open`, `high`, `low`, and `close` are required (column names are
-case-insensitive). `volume` is optional. Numeric fields must be finite;
-OHLC bounds must be internally consistent; volume must be non-negative.
+Required columns are `open`, `high`, `low`, and `close` (case-insensitive).
+`volume` is optional. Numeric values must be finite, OHLC bounds consistent,
+and volume non-negative. Timestamp parsing (when enabled) normalizes to UTC,
+rejects duplicates, and sorts chronologically.
 
-## Optional timestamp handling
-
-Pass `timestamp_column="timestamp"` (or the actual column name) to parse
-timestamps as UTC, reject duplicate timestamps, and sort rows chronologically.
-
-```python
-from app.offline_dataset import load_ohlcv_csv
-
-df = load_ohlcv_csv("datasets/sample_ohlcv.csv", timestamp_column="timestamp")
-```
-
-## Run the synthetic demo
-
-The repository includes a clearly labeled **synthetic** sample dataset and
-runnable validation demo. From the repository root:
+Run the synthetic sample validation demo from the repository root:
 
 ```bash
 python backend/examples/run_synthetic_offline_demo.py
 ```
 
-The example is fabricated test data, not market history. It validates CSV
-loading only and does not produce predictions, recommendations, or trades.
+The bundled CSV is fabricated test data, not actual market history.
 
-## Run the research pipeline
+## Offline webhook payload lab
+
+A safe local parser demonstration inspired by webhook event formats is provided.
+It accepts only inert sample/synthetic/local events and rejects unknown fields,
+including credentials. It does **not** open an HTTP port, receive external
+webhooks, forward messages to Telegram/Discord/Slack, or connect to TradingView.
+
+Run it from the repository root:
+
+```bash
+python backend/examples/webhook_payload_lab_demo.py
+```
+
+The accepted sample schema is limited to:
+- `event_id`, `source`, and `message` (required)
+- `symbol`, `timeframe`, and `created_at` (optional)
+
+## Research pipeline
 
 ```python
 from app.offline_research_pipeline import run_offline_research
@@ -41,21 +44,19 @@ from app.offline_research_pipeline import run_offline_research
 result = run_offline_research(
     "datasets/sample_ohlcv.csv",
     timestamp_column="timestamp",
-    include_ta_lib=True,  # requires optional TA-Lib dependencies
-    include_smc=True,     # requires optional SMC research dependencies
+    include_ta_lib=False,
+    include_smc=False,
 )
 print(result["row_count"])
-print(result["indicators"].keys())
 ```
 
-Leave both indicator flags disabled to validate and load a dataset without installing optional indicator packages. Indicator output is historical annotation only; it is not a prediction or recommendation.
+Optional TA-Lib and SMC adapters provide historical annotations only, not
+predictions, recommendations, or trade signals. SMC swing labels can use future
+bars; avoid look-ahead bias.
 
-## Important limitations
+## Limitations and data responsibility
 
-- The loader does not download market data or access external services.
-- It does not produce trade recommendations, trading signals, or orders.
-- Use only data you are authorized to use and check its source/licensing.
-- Historical data may contain survivorship bias, gaps, and revisions.
-- SMC swing labels can use future bars; do not treat them as point-in-time
-  information or as evidence of predictive performance.
-- This is an educational dataset validation utility, not financial advice.
+- No network calls, trading signals, orders, or external notifications.
+- Use only data you are authorized to use and check its license.
+- Historical datasets can contain gaps, revisions, and survivorship bias.
+- These examples are for educational software testing, not financial advice.

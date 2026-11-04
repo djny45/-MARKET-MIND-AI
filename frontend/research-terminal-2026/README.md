@@ -32,3 +32,17 @@ python backend/examples/offline_dataset_report.py path/to/data.csv --timestamp-c
 Then, in the dashboard's **Python Report Viewer**, choose the generated `report.json` file. The browser reads the JSON locally and displays row count, column names, quality checks, numeric summaries, and optional UTC range. It does not upload the report or run Python in the browser.
 
 If your CSV has no timestamp column, omit `--timestamp-column timestamp`. Run the command from the repository root in an environment with the project's Python dependencies installed.
+
+## Historical indicator annotations
+
+The dashboard can display an optional TA-Lib indicator report generated from a local OHLCV CSV:
+
+```bash
+python backend/examples/offline_indicator_report.py path/to/data.csv --ta-lib --output indicators.json
+```
+
+Add `--timestamp-column timestamp` when your dataset has a timestamp column and you want it included in the report. The optional TA-Lib dependencies must be installed from `backend/requirements-ta-lib-research.txt`.
+
+Open **Dataset Lab → Historical Indicator Viewer** and select `indicators.json`. The viewer summarizes valid/null counts and latest valid historical values for RSI, MACD, ATR, SMA/EMA, and Bollinger Bands. It imports the report locally and does not run calculations or upload files in the browser.
+
+This report is for retrospective research only. Warm-up values may be null; values are not forecasts, trade signals, or recommendations. The exporter currently supports TA-Lib indicators; SMC annotations remain available through the existing research pipeline and are not included in this JSON exporter.

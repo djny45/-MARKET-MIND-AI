@@ -1,0 +1,5 @@
+# Optional dependencies for the vendored Smart Money Concepts historical research adapter.
+# Install separately; these are not required by the core API.
+pandas>=2.0.2
+numpy>=1.24.3
+numba>=0.58.1

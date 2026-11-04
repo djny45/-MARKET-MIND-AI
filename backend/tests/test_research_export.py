@@ -28,6 +28,17 @@ class ResearchMethodologyMarkdownTests(unittest.TestCase):
         self.assertEqual(report.count("```json"), 2)
         self.assertEqual(report.count("```"), 4)
 
+    def test_untrusted_metadata_cannot_inject_markdown_structure(self):
+        bundle = build_research_evidence_bundle("BTC\n## injected", "1h|[click](https://bad.example)", {
+            "bars": [], "source": "fixture\n- injected item", "sources": ["fixture\n## forged heading"],
+            "status": "synthetic", "retrieved_at": "2026-01-02T00:00:00Z"})
+        report = render_research_methodology_markdown(bundle)
+        self.assertIn("BTC\\n\\# injected", report)
+        self.assertIn("1h\\|\\[click\\]", report)
+        self.assertIn("fixture\\n\\# forged heading", report)
+        self.assertNotIn("\n## injected", report)
+        self.assertNotIn("\n## forged heading", report)
+
     def test_rejects_wrong_bundle_type(self):
         with self.assertRaises(ValueError):
             render_research_methodology_markdown({"report_type": "other"})

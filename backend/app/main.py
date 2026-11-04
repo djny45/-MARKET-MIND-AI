@@ -1665,3 +1665,28 @@ def resume_workflow_run(run_id: str):
  }
  replay["resume_note"] = "Completed nodes from the last durable layer checkpoint were restored; incomplete nodes were scheduled again."
  return replay
+
+from .openbb_cli import run_openbb_cli
+
+class OpenBBCLIRequest(BaseModel):
+ action: Literal["help", "version"] = "help"
+
+
+@app.get("/api/openbb/status")
+def openbb_cli_status():
+ """Report whether the local OpenBB CLI executable is installed."""
+ import shutil
+ return {"installed": shutil.which("openbb") is not None, "mode": "restricted-informational-cli"}
+
+
+@app.post("/api/openbb/cli")
+def openbb_cli_command(request: OpenBBCLIRequest):
+ """Run only fixed, informational OpenBB CLI commands; never a shell."""
+ result = run_openbb_cli(request.action)
+ return {
+  "available": result.available,
+  "action": result.action,
+  "exit_code": result.exit_code,
+  "output": result.output,
+  "error": result.error,
+ }

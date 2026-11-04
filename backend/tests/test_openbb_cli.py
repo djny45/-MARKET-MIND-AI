@@ -50,7 +50,7 @@ class OpenBBCLITests(unittest.TestCase):
     @patch("app.openbb_cli.shutil.which", return_value="/usr/bin/openbb")
     def test_caps_output_and_reports_nonzero(self, _which, run):
         run.return_value = Mock(stdout="x" * 13000, stderr="", returncode=2)
-        result = run_openbb_cli("version")
+        result = run_openbb_cli("help")
         self.assertEqual(len(result.output), 12000)
         self.assertIsNotNone(result.error)
 

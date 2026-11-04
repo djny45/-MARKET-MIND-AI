@@ -18,6 +18,16 @@ refuses to overwrite an existing destination, and creates a local commit.
 Review OpenBB's Apache-2.0 license and notices after importing. Keep upstream
 changes isolated under `vendor/openbb`; do not overwrite MARKET-MIND-AI files.
 
+After the subtree commit, run the import verifier:
+
+```bash
+bash scripts/verify-openbb-import.sh
+```
+
+The verifier checks for the expected upstream source markers and confirms
+`vendor/openbb` is tracked in the current Git commit. It does not install
+OpenBB or verify provider connectivity.
+
 ## CLI installation
 
 OpenBB CLI is a separate Python package. Install it in an isolated virtual

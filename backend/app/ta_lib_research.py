@@ -5,6 +5,7 @@ connect to exchanges/brokers, or execute orders.
 """
 from __future__ import annotations
 
+from numbers import Integral
 from typing import Any
 
 
@@ -37,8 +38,10 @@ def analyze_historical_ohlcv(
     if not isinstance(ohlc, pd.DataFrame):
         raise TypeError("ohlc must be a pandas DataFrame")
     periods = (rsi_period, fast_period, slow_period, signal_period, atr_period, bbands_period)
-    if any(not isinstance(period, int) or isinstance(period, bool) for period in periods):
+    if any(not isinstance(period, Integral) or isinstance(period, bool) for period in periods):
         raise ValueError("Indicator periods must be integers >= 2")
+    periods = tuple(int(period) for period in periods)
+    rsi_period, fast_period, slow_period, signal_period, atr_period, bbands_period = periods
     if min(periods) < 2:
         raise ValueError("Indicator periods must be integers >= 2")
     if fast_period >= slow_period:
@@ -56,6 +59,8 @@ def analyze_historical_ohlcv(
     values = frame[["open", "high", "low", "close"]].to_numpy(dtype=float)
     if not np.isfinite(values).all():
         raise ValueError("OHLC data contains NaN or infinite values")
+    if (values <= 0).any():
+        raise ValueError("OHLC prices must be strictly positive")
     if (frame["high"] < frame[["open", "close", "low"]].max(axis=1)).any():
         raise ValueError("OHLC integrity error: high is below an OHLC component")
     if (frame["low"] > frame[["open", "close", "high"]].min(axis=1)).any():

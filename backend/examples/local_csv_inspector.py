@@ -40,8 +40,7 @@ def main() -> int:
     except (OSError, UnicodeError, csv.Error, ValueError) as exc:
         print(json.dumps({"status": "error", "error": str(exc)}, indent=2))
         return 2
-    print(json.dumps({"status": "ok", **summary}, indent=2))
-    print("Local file only; no network access or external actions.")
+    print(json.dumps({"status": "ok", **summary, "note": "Local file only; no network access or external actions."}, indent=2))
     return 0
 
 

@@ -26,8 +26,9 @@ class ResearchMethodologyMarkdownTests(unittest.TestCase):
         fence = chr(96) * 3
         self.assertIn("## Data-quality diagnostics\n" + fence + "json\n", report)
         self.assertIn("## Source comparison\n" + fence + "json\n", report)
-        self.assertEqual(report.count(fence + "json"), 2)
-        self.assertEqual(report.count(fence), 4)
+        self.assertIn("## Descriptive timeline\\n" + fence + "json\\n", report)
+        self.assertEqual(report.count(fence + "json"), 3)
+        self.assertEqual(report.count(fence), 6)
 
     def test_untrusted_metadata_cannot_inject_markdown_structure(self):
         bundle = build_research_evidence_bundle("BTC\n## injected", "1h|[click](https://bad.example)", {

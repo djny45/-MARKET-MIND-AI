@@ -81,9 +81,13 @@ def main() -> int:
 
     rendered = json.dumps(report, indent=2, ensure_ascii=False)
     if args.output:
-        args.output.expanduser().write_text(rendered + "\n", encoding="utf-8")
+        try:
+            args.output.expanduser().write_text(rendered + "\n", encoding="utf-8")
+        except OSError as exc:
+            print(json.dumps({"status": "error", "error": f"Could not write report: {exc}"}))
+            return 2
     print(rendered)
-    print("Offline descriptive report only; no forecasts or trading actions.")
+    return 0
     return 0
 
 

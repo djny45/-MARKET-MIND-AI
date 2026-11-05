@@ -25,16 +25,26 @@ indicator tables for Fair Value Gaps, swing highs/lows, BOS/CHoCH, order blocks,
 liquidity, and retracements. The caller supplies the historical DataFrame; the
 module does not fetch data or provide a broker/data-provider connection.
 
+The result includes a `research_metadata` object identifying the analysis as
+research-only and flagging potential look-ahead bias. It reports
+`swing_confirmation_bars` using the configured swing length and provides a
+warning for downstream backtest/evaluation code.
+
 ## Important methodology limitation
 
 **This library contains retrospective calculations.** In particular, swing
-high/low detection uses bars on both sides of a candidate. A historical chart
-may therefore label a past candle using information that only became available
-later. Some returned columns also include mitigation/broken indices. Do not
-treat a marker at its plotted candle as information that was available then,
-and do not use these outputs as a live signal or as evidence of predictive
-performance. Any future evaluation must explicitly model information
-availability, timestamps, data quality, and look-ahead bias.
+high/low detection uses bars on both sides of a candidate. The configured
+`swing_length` is the number of future bars required to confirm a candidate
+swing. A historical chart may therefore label a past candle using information
+that only became available later. Some returned columns also include
+mitigation/broken indices. Do not treat a marker at its plotted candle as
+information that was available then, and do not use these outputs as evidence
+of predictive performance.
+
+For causal evaluation, align swing-derived annotations to their confirmation
+timestamp (or implement a separately tested causal detector), preserve the
+data's availability timestamp, and account for data quality and other
+look-ahead sources.
 
 ## Scope
 

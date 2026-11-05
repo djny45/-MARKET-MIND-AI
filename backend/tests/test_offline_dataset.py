@@ -51,6 +51,16 @@ class OfflineDatasetTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "high is below"):
             load_ohlcv_csv(path)
 
+    def test_nonpositive_ohlc_prices_rejected(self):
+        from app.offline_dataset import load_ohlcv_csv
+        for bad_price in (0, -1):
+            with self.subTest(bad_price=bad_price):
+                path = self.write_csv(
+                    f"open,high,low,close\\n{bad_price},2,0.5,1.5\\n"
+                )
+                with self.assertRaisesRegex(ValueError, "strictly positive"):
+                    load_ohlcv_csv(path)
+
     def test_duplicate_timestamps_rejected(self):
         from app.offline_dataset import load_ohlcv_csv
         path = self.write_csv(

@@ -26,7 +26,7 @@ class ResearchMethodologyMarkdownTests(unittest.TestCase):
         fence = chr(96) * 3
         self.assertIn("## Data-quality diagnostics\n" + fence + "json\n", report)
         self.assertIn("## Source comparison\n" + fence + "json\n", report)
-        self.assertIn("## Descriptive timeline\\n" + fence + "json\\n", report)
+        self.assertIn("## Descriptive timeline\n" + fence + "json\n", report)
         self.assertEqual(report.count(fence + "json"), 3)
         self.assertEqual(report.count(fence), 6)
 

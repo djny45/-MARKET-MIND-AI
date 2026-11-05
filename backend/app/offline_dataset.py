@@ -6,6 +6,7 @@ TradingView/exchanges/brokers, generate trade signals, or place orders.
 from __future__ import annotations
 
 from pathlib import Path
+import csv
 import re
 from typing import Any
 
@@ -30,6 +31,18 @@ def load_ohlcv_csv(path: str | Path, *, timestamp_column: str | None = None) -> 
     source = Path(path).expanduser()
     if not source.is_file():
         raise FileNotFoundError(f"CSV file does not exist: {source}")
+    # Inspect the literal header before pandas renames blank fields to
+    # generated names such as "Unnamed: 4".
+    try:
+        with source.open("r", encoding="utf-8-sig", newline="") as handle:
+            header = next(csv.reader(handle), None)
+    except (OSError, UnicodeError, csv.Error) as exc:
+        raise ValueError(f"Could not read CSV header: {exc}") from exc
+    if not header or all(not str(name).strip() for name in header):
+        raise ValueError("CSV must include a non-empty header row")
+    if any(not str(name).strip() for name in header):
+        raise ValueError("CSV contains an empty column name")
+
     frame = pd.read_csv(source)
     if frame.empty:
         raise ValueError("CSV dataset is empty")

@@ -77,6 +77,20 @@ class OpenBBCLITests(unittest.TestCase):
         self.assertIsNone(result.exit_code)
         self.assertIn("metadata was not found", result.error)
 
+    @patch.dict(os.environ, {"OPENBB_CLI_ENABLED": "true"})
+    @patch("app.openbb_cli.subprocess.run")
+    @patch("app.openbb_cli.shutil.which", return_value="/usr/bin/openbb")
+    def test_busy_semaphore_prevents_extra_subprocess(self, _which, run):
+        from app.openbb_cli import _HELP_RUN_SEMAPHORE
+        self.assertTrue(_HELP_RUN_SEMAPHORE.acquire(blocking=False))
+        try:
+            result = run_openbb_cli("help")
+        finally:
+            _HELP_RUN_SEMAPHORE.release()
+        self.assertTrue(result.available)
+        self.assertIn("busy", result.error)
+        run.assert_not_called()
+
     def test_rejects_unsupported_action(self):
         with self.assertRaises(ValueError):
             run_openbb_cli("arbitrary")

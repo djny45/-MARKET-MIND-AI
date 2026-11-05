@@ -1,7 +1,6 @@
 """Validation tests for the optional TA-Lib historical adapter."""
 import importlib.util
 import unittest
-from unittest.mock import patch
 
 available = all(importlib.util.find_spec(name) is not None for name in ("pandas", "numpy"))
 
@@ -42,6 +41,10 @@ class TALibResearchTests(unittest.TestCase):
             analyze_historical_ohlcv(self.frame, rsi_period=1)
         with self.assertRaisesRegex(ValueError, "fast_period"):
             analyze_historical_ohlcv(self.frame, fast_period=26, slow_period=12)
+        for invalid in (2.5, True):
+            with self.subTest(invalid=invalid):
+                with self.assertRaisesRegex(ValueError, "periods must be"):
+                    analyze_historical_ohlcv(self.frame, rsi_period=invalid)
 
     @unittest.skipUnless(importlib.util.find_spec("talib") is not None, "TA-Lib package not installed")
     def test_indicator_output_keys(self):

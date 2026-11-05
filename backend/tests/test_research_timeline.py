@@ -54,3 +54,31 @@ def test_timeline_indicator_context_respects_warmup_periods():
     assert mature["sma20"] is not None
     assert mature["rsi14"] is not None
     assert set(mature) == {"sma20", "rsi14", "macd", "macd_signal", "macd_histogram"}
+
+
+def test_timeline_rejects_non_finite_ohlcv_values():
+    import pytest
+    bars = sample_bars()
+    bars[3]["close"] = float("nan")
+    with pytest.raises(ValueError, match=r"bars\\[3\\]\\.close must be finite"):
+        build_research_timeline({"bars": bars})
+
+
+def test_timeline_rejects_inconsistent_ohlc_and_negative_volume():
+    import pytest
+    bars = sample_bars()
+    bars[0]["high"] = bars[0]["close"] - 1
+    with pytest.raises(ValueError, match="high must be >= open and close"):
+        build_research_timeline({"bars": bars})
+    bars = sample_bars()
+    bars[0]["volume"] = -1
+    with pytest.raises(ValueError, match=r"bars\\[0\\]\\.volume must be non-negative"):
+        build_research_timeline({"bars": bars})
+
+
+def test_timeline_rejects_boolean_as_numeric_ohlcv():
+    import pytest
+    bars = sample_bars()
+    bars[0]["open"] = True
+    with pytest.raises(ValueError, match=r"bars\\[0\\]\\.open must be numeric"):
+        build_research_timeline({"bars": bars})

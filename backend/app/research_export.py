@@ -1,6 +1,7 @@
 """Portable evidence bundle and human-readable methodology report; no forecasts or orders."""
 import hashlib
 import json
+import re
 
 from .historical_quality import build_historical_quality_diagnostics
 from .source_comparison import compare_source_observations
@@ -42,6 +43,13 @@ def _escape_markdown_inline(value):
     return text.replace("<", "&lt;").replace(">", "&gt;").replace("\r", " ").replace("\n", " ")
 
 
+def _markdown_json_block(value):
+    """Fence JSON safely even when untrusted values contain Markdown backticks."""
+    longest_run = max((len(run) for run in re.findall(r"`+", value)), default=0)
+    fence = "`" * max(3, longest_run + 1)
+    return f"{fence}json\n{value}\n{fence}"
+
+
 def render_research_methodology_markdown(bundle):
     """Render a reproducible Markdown summary from a historical evidence bundle."""
     if not isinstance(bundle, dict) or bundle.get("report_type") != "historical_research_evidence":
@@ -69,13 +77,9 @@ def render_research_methodology_markdown(bundle):
         "- Includes deterministic quality diagnostics, source comparisons, and a descriptive timeline.",
         "- Source labels are supplied metadata, not independent source verification.",
         "", "## Data-quality diagnostics",
-        "```json",
-        data_quality_json,
-        "```",
+        _markdown_json_block(data_quality_json),
         "", "## Source comparison",
-        "```json",
-        source_comparison_json,
-        "```",
+        _markdown_json_block(source_comparison_json),
         "", "## Integrity",
         f"- **Algorithm:** {_escape_markdown_inline(integrity.get('algorithm') or 'Not supplied')}",
         f"- **Digest:** {_escape_markdown_inline(integrity.get('digest') or 'Not supplied')}",

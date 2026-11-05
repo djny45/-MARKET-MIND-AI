@@ -107,8 +107,8 @@ class SMCResearchAdapterTests(unittest.TestCase):
             result = analyze_historical_ohlcv(frame, swing_length=5)
 
         for name, table in tables.items():
-            self.assertEqual(result[name].index, frame.index)
-            self.assertEqual(table.index, frame.index)
+            self.pd.testing.assert_index_equal(result[name].index, frame.index)
+            self.pd.testing.assert_index_equal(table.index, frame.index)
 
     def test_metadata_warns_about_future_bar_confirmation(self):
         from app.smc_research import analyze_historical_ohlcv

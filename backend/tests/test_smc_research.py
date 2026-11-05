@@ -25,6 +25,25 @@ class SMCResearchAdapterTests(unittest.TestCase):
             "volume": [100.0] * 120,
         })
 
+    def _mock_indicator_tables(self, frame):
+        from app.vendor.smartmoneyconcepts import smc
+        tables = {
+            name: self.pd.DataFrame({"value": range(len(frame))})
+            for name in (
+                "fvg", "swing_highs_lows", "bos_choch",
+                "order_blocks", "liquidity", "retracements",
+            )
+        }
+        patches = [
+            patch.object(smc, "fvg", return_value=tables["fvg"]),
+            patch.object(smc, "swing_highs_lows", return_value=tables["swing_highs_lows"]),
+            patch.object(smc, "bos_choch", return_value=tables["bos_choch"]),
+            patch.object(smc, "ob", return_value=tables["order_blocks"]),
+            patch.object(smc, "liquidity", return_value=tables["liquidity"]),
+            patch.object(smc, "retracements", return_value=tables["retracements"]),
+        ]
+        return tables, patches
+
     def test_missing_ohlc_column_rejected(self):
         from app.smc_research import analyze_historical_ohlcv
         with self.assertRaisesRegex(ValueError, "Missing required OHLC"):
@@ -49,29 +68,54 @@ class SMCResearchAdapterTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Not enough bars"):
             analyze_historical_ohlcv(self.frame.iloc[:10], swing_length=5)
 
-    def test_returns_expected_indicator_keys(self):
+    def test_swing_length_must_be_positive_integer_not_bool(self):
+        from app.smc_research import analyze_historical_ohlcv
+        for invalid in (0, -1, 2.5, True):
+            with self.subTest(invalid=invalid):
+                with self.assertRaisesRegex(ValueError, "positive integer"):
+                    analyze_historical_ohlcv(self.frame, swing_length=invalid)
+
+    def test_missing_volume_skips_order_blocks_without_fabricating_volume(self):
         from app.smc_research import analyze_historical_ohlcv
         from app.vendor.smartmoneyconcepts import smc
+        frame = self.frame.drop(columns=["volume"])
+        with patch.object(smc, "fvg"), \
+             patch.object(smc, "swing_highs_lows", return_value=self.pd.DataFrame(index=range(len(frame)))), \
+             patch.object(smc, "bos_choch"), \
+             patch.object(smc, "ob") as order_blocks, \
+             patch.object(smc, "liquidity"), \
+             patch.object(smc, "retracements"):
+            result = analyze_historical_ohlcv(frame, swing_length=5)
 
-        fake_results = {name: object() for name in (
-            "fvg", "swing_highs_lows", "bos_choch", "ob", "liquidity", "retracements"
-        )}
-        with patch.object(smc, "fvg", return_value=fake_results["fvg"]), \
-             patch.object(smc, "swing_highs_lows", return_value=fake_results["swing_highs_lows"]), \
-             patch.object(smc, "bos_choch", return_value=fake_results["bos_choch"]), \
-             patch.object(smc, "ob", return_value=fake_results["ob"]), \
-             patch.object(smc, "liquidity", return_value=fake_results["liquidity"]), \
-             patch.object(smc, "retracements", return_value=fake_results["retracements"]):
-            result = analyze_historical_ohlcv(self.frame, swing_length=5)
-        self.assertEqual(set(result), set(fake_results) | {"research_metadata"})
-        self.assertIs(result["swing_highs_lows"], fake_results["swing_highs_lows"])
+        order_blocks.assert_not_called()
+        self.assertIsNone(result["order_blocks"])
+        self.assertIn("requires a volume column", result["research_metadata"]["skipped_indicators"]["order_blocks"])
+
+    def test_invalid_volume_rejected(self):
+        from app.smc_research import analyze_historical_ohlcv
+        bad = self.frame.copy()
+        bad.loc[2, "volume"] = -1
+        with self.assertRaisesRegex(ValueError, "Volume must be non-negative"):
+            analyze_historical_ohlcv(bad, swing_length=5)
+
+    def test_indicator_tables_preserve_input_timestamp_index(self):
+        from app.smc_research import analyze_historical_ohlcv
+        frame = self.frame.copy()
+        frame.index = self.pd.date_range("2024-01-01", periods=len(frame), freq="h")
+        tables, patches = self._mock_indicator_tables(frame)
+        with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5]:
+            result = analyze_historical_ohlcv(frame, swing_length=5)
+
+        for name, table in tables.items():
+            self.assertEqual(result[name].index, frame.index)
+            self.assertEqual(table.index, frame.index)
 
     def test_metadata_warns_about_future_bar_confirmation(self):
         from app.smc_research import analyze_historical_ohlcv
         from app.vendor.smartmoneyconcepts import smc
 
         with patch.object(smc, "fvg"), \
-             patch.object(smc, "swing_highs_lows", return_value=object()), \
+             patch.object(smc, "swing_highs_lows", return_value=self.pd.DataFrame(index=range(len(self.frame)))), \
              patch.object(smc, "bos_choch"), \
              patch.object(smc, "ob"), \
              patch.object(smc, "liquidity"), \

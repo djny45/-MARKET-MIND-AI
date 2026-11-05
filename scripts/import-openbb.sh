@@ -23,8 +23,10 @@ if [[ -e "$DEST" ]]; then
   exit 1
 fi
 
-if ! git subtree --version >/dev/null 2>&1; then
-  echo "git-subtree is required. Install it, then retry." >&2
+# Git does not provide a reliable "git subtree --version" command. Let the
+# actual subtree operation report if the helper is unavailable.
+if ! git subtree add --help >/dev/null 2>&1; then
+  echo "git-subtree support is required. Install it, then retry." >&2
   exit 1
 fi
 

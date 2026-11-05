@@ -17,10 +17,16 @@ def analyze_historical_ohlcv(
     close_mitigation: bool = False,
     liquidity_range_percent: float = 0.01,
 ) -> dict[str, Any]:
-    """Return SMC indicator tables for an offline, historical OHLC DataFrame.
+    """Return SMC indicator tables and explicit temporal-validity metadata.
 
     Input columns are case-insensitive and must include open/high/low/close.
     The caller is responsible for provenance, timezone, and chronological data.
+
+    Important: SMC swing detection uses swing_length bars both before and
+    after a candidate bar. Swing-derived outputs therefore contain look-ahead
+    information relative to the candidate bar. Do not use them as same-bar
+    features in a causal backtest; shift them to their confirmation timestamp
+    or use a separately implemented causal detector.
     """
     try:
         import numpy as np
@@ -74,4 +80,15 @@ def analyze_historical_ohlcv(
             frame, swings, range_percent=liquidity_range_percent
         ),
         "retracements": smc.retracements(frame, swings),
+        "research_metadata": {
+            "indicator_family": "smart_money_concepts",
+            "research_only": True,
+            "lookahead_bias_possible": True,
+            "swing_confirmation_bars": swing_length,
+            "warning": (
+                "Swing-derived annotations require future bars for confirmation. "
+                "Do not use candidate-bar values as causal same-bar backtest "
+                "features; align them to their confirmation timestamp."
+            ),
+        },
     }

@@ -19,7 +19,8 @@ def validate_payload(payload: str | bytes | dict[str, Any]) -> dict[str, Any]:
 
     The output is a normalized dictionary for display/logging in a local demo.
     Fields such as secret keys, URLs, destination IDs, and order instructions
-    are deliberately not accepted.
+    are deliberately not accepted. The byte limit applies to string, bytes,
+    and already-parsed dictionary inputs.
     """
     if isinstance(payload, bytes):
         if len(payload) > MAX_PAYLOAD_BYTES:
@@ -28,16 +29,28 @@ def validate_payload(payload: str | bytes | dict[str, Any]) -> dict[str, Any]:
             payload = payload.decode("utf-8")
         except UnicodeDecodeError as exc:
             raise ValueError("Payload must be UTF-8") from exc
-    elif isinstance(payload, str):
+
+    if isinstance(payload, str):
         if len(payload.encode("utf-8")) > MAX_PAYLOAD_BYTES:
             raise ValueError("Payload exceeds maximum size")
         try:
             payload = json.loads(payload)
         except json.JSONDecodeError as exc:
             raise ValueError("Payload must be valid JSON") from exc
+    elif isinstance(payload, dict):
+        try:
+            serialized = json.dumps(
+                payload, ensure_ascii=False, separators=(",", ":"), allow_nan=False
+            )
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Payload must be JSON-serializable") from exc
+        if len(serialized.encode("utf-8")) > MAX_PAYLOAD_BYTES:
+            raise ValueError("Payload exceeds maximum size")
 
     if not isinstance(payload, dict):
         raise ValueError("Payload must be a JSON object")
+    if any(not isinstance(key, str) for key in payload):
+        raise ValueError("Payload object keys must be strings")
 
     unknown = set(payload) - ALLOWED_KEYS
     missing = REQUIRED_KEYS - set(payload)

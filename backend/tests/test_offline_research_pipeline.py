@@ -20,8 +20,10 @@ class OfflineResearchPipelineTests(unittest.TestCase):
 
     def test_pipeline_loads_dataset_without_optional_indicators(self):
         from app.offline_research_pipeline import run_offline_research
-        result = run_offline_research(self.write_csv(), timestamp_column="timestamp")
+        self._last_csv_path = self.write_csv()
+        result = run_offline_research(self._last_csv_path, timestamp_column="timestamp")
         self.assertEqual(result["row_count"], 2)
+        self.assertEqual(result["source_path"], str(Path(self._last_csv_path).resolve()))
         self.assertIn("dataset", result)
         self.assertEqual(result["indicators"], {})
 

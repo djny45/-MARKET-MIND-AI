@@ -1,4 +1,6 @@
 """Timestamped descriptive event timeline for stored OHLCV observations."""
+import math
+
 from .candle_patterns import classify_candles
 from .swing_points import find_swing_points
 from .indicators import sma, rsi, macd
@@ -16,7 +18,7 @@ def _validate_ohlcv_bars(bars):
             if isinstance(raw, bool) or not isinstance(raw, (int, float)):
                 raise ValueError(f"bars[{index}].{field} must be numeric")
             value = float(raw)
-            if not __import__("math").isfinite(value):
+            if not math.isfinite(value):
                 raise ValueError(f"bars[{index}].{field} must be finite")
             values[field] = value
         if values["low"] > values["high"]:

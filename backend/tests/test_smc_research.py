@@ -63,8 +63,26 @@ class SMCResearchAdapterTests(unittest.TestCase):
              patch.object(smc, "liquidity", return_value=fake_results["liquidity"]), \
              patch.object(smc, "retracements", return_value=fake_results["retracements"]):
             result = analyze_historical_ohlcv(self.frame, swing_length=5)
-        self.assertEqual(set(result), set(fake_results))
+        self.assertEqual(set(result), set(fake_results) | {"research_metadata"})
         self.assertIs(result["swing_highs_lows"], fake_results["swing_highs_lows"])
+
+    def test_metadata_warns_about_future_bar_confirmation(self):
+        from app.smc_research import analyze_historical_ohlcv
+        from app.vendor.smartmoneyconcepts import smc
+
+        with patch.object(smc, "fvg"), \
+             patch.object(smc, "swing_highs_lows", return_value=object()), \
+             patch.object(smc, "bos_choch"), \
+             patch.object(smc, "ob"), \
+             patch.object(smc, "liquidity"), \
+             patch.object(smc, "retracements"):
+            result = analyze_historical_ohlcv(self.frame, swing_length=7)
+
+        metadata = result["research_metadata"]
+        self.assertTrue(metadata["research_only"])
+        self.assertTrue(metadata["lookahead_bias_possible"])
+        self.assertEqual(metadata["swing_confirmation_bars"], 7)
+        self.assertIn("confirmation timestamp", metadata["warning"])
 
 
 if __name__ == "__main__":

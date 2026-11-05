@@ -12,8 +12,8 @@ class OfflineResearchPipelineTests(unittest.TestCase):
     def write_csv(self):
         with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as file:
             file.write("timestamp,open,high,low,close\n")
-            file.write("2024-01-01,10,12,9,11\n")
-            file.write("2024-01-02,11,13,10,12\n")
+            file.write("2024-01-01T00:00:00Z,10,12,9,11\n")
+            file.write("2024-01-02T00:00:00Z,11,13,10,12\n")
             path = file.name
         self.addCleanup(Path(path).unlink, missing_ok=True)
         return path

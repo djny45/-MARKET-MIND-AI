@@ -21,9 +21,17 @@ def run_offline_research(
 ) -> dict[str, Any]:
     """Load a local CSV and optionally calculate offline indicator annotations.
 
-    Optional indicator packages are imported only when requested. Returned
-    arrays/tables are research annotations, not trading signals or advice.
+    Indicator analysis requires a timestamp column so the dataset is parsed
+    and sorted chronologically before calculations. Optional indicator packages
+    are imported only when requested. Returned arrays/tables are research
+    annotations, not trading signals or advice.
     """
+    if (include_ta_lib or include_smc) and timestamp_column is None:
+        raise ValueError(
+            "timestamp_column is required when indicator analysis is enabled "
+            "to ensure chronological ordering"
+        )
+
     frame = load_ohlcv_csv(csv_path, timestamp_column=timestamp_column)
     result: dict[str, Any] = {
         "row_count": len(frame),

@@ -23,9 +23,10 @@ if [[ -e "$DEST" ]]; then
   exit 1
 fi
 
-# Git does not provide a reliable "git subtree --version" command. Let the
-# actual subtree operation report if the helper is unavailable.
-if ! git subtree add --help >/dev/null 2>&1; then
+# Git subtree is implemented by the git-subtree helper script. Check for the
+# executable directly; it does not support a reliable --version flag.
+GIT_EXEC_PATH="$(git --exec-path)"
+if ! command -v git-subtree >/dev/null 2>&1 && [[ ! -x "$GIT_EXEC_PATH/git-subtree" ]]; then
   echo "git-subtree support is required. Install it, then retry." >&2
   exit 1
 fi

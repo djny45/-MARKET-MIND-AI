@@ -20,8 +20,8 @@ class OfflineDatasetTests(unittest.TestCase):
         from app.offline_dataset import load_ohlcv_csv
         path = self.write_csv(
             "Timestamp,Open,High,Low,Close,Volume\n"
-            "2024-01-02,2,3,1,2.5,10\n"
-            "2024-01-01,1,2,0.5,1.5,5\n"
+            "2024-01-02T00:00:00Z,2,3,1,2.5,10\n"
+            "2024-01-01T00:00:00Z,1,2,0.5,1.5,5\n"
         )
         frame = load_ohlcv_csv(path, timestamp_column="Timestamp")
         self.assertEqual(frame["close"].tolist(), [1.5, 2.5])
@@ -55,8 +55,8 @@ class OfflineDatasetTests(unittest.TestCase):
         from app.offline_dataset import load_ohlcv_csv
         path = self.write_csv(
             "time,open,high,low,close\n"
-            "2024-01-01,1,2,0.5,1.5\n"
-            "2024-01-01,1,2,0.5,1.5\n"
+            "2024-01-01T00:00:00Z,1,2,0.5,1.5\n"
+            "2024-01-01T00:00:00Z,1,2,0.5,1.5\n"
         )
         with self.assertRaisesRegex(ValueError, "Duplicate timestamps"):
             load_ohlcv_csv(path, timestamp_column="time")
@@ -75,7 +75,7 @@ class OfflineDatasetTests(unittest.TestCase):
         from app.offline_dataset import load_ohlcv_csv
         path = self.write_csv(
             "timestamp,open,high,low,close\n"
-            "2024-01-01,1,2,0.5,1.5\n"
+            "2024-01-01T00:00:00Z,1,2,0.5,1.5\n"
             ",1,2,0.5,1.5\n"
         )
         with self.assertRaisesRegex(ValueError, "Missing timestamps"):

@@ -2,10 +2,10 @@
 import importlib.util
 import unittest
 
-available = all(importlib.util.find_spec(name) is not None for name in ("pandas", "numpy"))
+available = all(importlib.util.find_spec(name) is not None for name in ("pandas", "numpy", "talib"))
 
 
-@unittest.skipUnless(available, "optional pandas/numpy research dependencies not installed")
+@unittest.skipUnless(available, "optional pandas/numpy/TA-Lib research dependencies not installed")
 class TALibResearchTests(unittest.TestCase):
     def setUp(self):
         import pandas as pd

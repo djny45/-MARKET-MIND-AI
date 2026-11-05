@@ -35,6 +35,13 @@ class TALibResearchTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "high is below"):
             analyze_historical_ohlcv(bad)
 
+    def test_nonpositive_prices_rejected(self):
+        from app.ta_lib_research import analyze_historical_ohlcv
+        bad = self.frame.copy()
+        bad.loc[0, ["Open", "High", "Low", "Close"]] = [0.0, 1.0, 0.0, 0.5]
+        with self.assertRaisesRegex(ValueError, "strictly positive"):
+            analyze_historical_ohlcv(bad)
+
     def test_period_validation(self):
         from app.ta_lib_research import analyze_historical_ohlcv
         with self.assertRaisesRegex(ValueError, "periods must be"):

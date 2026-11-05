@@ -84,8 +84,8 @@ class OfflineDatasetTests(unittest.TestCase):
     def test_timezone_naive_timestamp_rejected(self):
         from app.offline_dataset import load_ohlcv_csv
         path = self.write_csv(
-            "timestamp,open,high,low,close\\n"
-            "2024-01-01 09:30:00,1,2,0.5,1.5\\n"
+            "timestamp,open,high,low,close\n"
+            "2024-01-01 09:30:00,1,2,0.5,1.5\n"
         )
         with self.assertRaisesRegex(ValueError, "Timezone-naive timestamps"):
             load_ohlcv_csv(path, timestamp_column="timestamp")

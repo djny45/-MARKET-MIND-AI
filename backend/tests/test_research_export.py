@@ -56,6 +56,15 @@ class ResearchMethodologyMarkdownTests(unittest.TestCase):
         self.assertNotIn("\n```\n", source_section)
         self.assertIn("feed-```", report)
 
+
+    def test_invalid_ohlcv_is_retained_with_timeline_validation_error(self):
+        bundle = build_research_evidence_bundle("BTCUSD", "1h", {
+            "bars": [{"open": 10, "high": 9, "low": 8, "close": 10, "volume": 1}],
+        })
+        self.assertEqual(bundle["observations"][0]["high"], 9)
+        self.assertEqual(bundle["timeline"]["status"], "unavailable_invalid_ohlcv")
+        self.assertIn("high must be >= open and close", bundle["timeline"]["validation_error"])
+
     def test_rejects_wrong_bundle_type(self):
         with self.assertRaises(ValueError):
             render_research_methodology_markdown({"report_type": "other"})

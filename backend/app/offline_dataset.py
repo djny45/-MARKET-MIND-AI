@@ -15,9 +15,10 @@ OPTIONAL_COLUMNS = ("volume",)
 def load_ohlcv_csv(path: str | Path, *, timestamp_column: str | None = None) -> Any:
     """Load and validate a local OHLCV CSV into a pandas DataFrame.
 
-    Column names are normalized to lowercase. If ``timestamp_column`` is
-    supplied, it is parsed as UTC and rows are sorted chronologically.
-    Duplicate timestamps and malformed OHLC rows are rejected.
+    Column names are normalized to lowercase. If a timestamp column is
+    supplied, it must contain unambiguous datetime-like values (not numeric
+    epoch timestamps), is parsed as UTC, and rows are sorted chronologically.
+    Duplicate or missing timestamps and malformed OHLC rows are rejected.
     """
     try:
         import numpy as np
@@ -46,8 +47,10 @@ def load_ohlcv_csv(path: str | Path, *, timestamp_column: str | None = None) -> 
         if column in frame.columns:
             frame[column] = pd.to_numeric(frame[column], errors="raise")
 
-    numeric_columns = [column for column in REQUIRED_COLUMNS + OPTIONAL_COLUMNS
-                       if column in frame.columns]
+    numeric_columns = [
+        column for column in REQUIRED_COLUMNS + OPTIONAL_COLUMNS
+        if column in frame.columns
+    ]
     values = frame[numeric_columns].to_numpy(dtype=float)
     if not np.isfinite(values).all():
         raise ValueError("Dataset contains NaN or infinite numeric values")
@@ -62,11 +65,19 @@ def load_ohlcv_csv(path: str | Path, *, timestamp_column: str | None = None) -> 
         timestamp_column = timestamp_column.strip().lower()
         if timestamp_column not in frame.columns:
             raise ValueError(f"Timestamp column not found: {timestamp_column}")
-        frame[timestamp_column] = pd.to_datetime(
-            frame[timestamp_column], utc=True, errors="raise"
-        )
-        if frame[timestamp_column].duplicated().any():
+        if timestamp_column in REQUIRED_COLUMNS or timestamp_column in OPTIONAL_COLUMNS:
+            raise ValueError("Timestamp column cannot be an OHLCV field")
+        if pd.api.types.is_numeric_dtype(frame[timestamp_column]):
+            raise ValueError(
+                "Numeric timestamps are ambiguous; convert epoch values to "
+                "ISO-8601 timestamps with an explicit timezone before import"
+            )
+        parsed = pd.to_datetime(frame[timestamp_column], utc=True, errors="raise")
+        if parsed.isna().any():
+            raise ValueError("Missing timestamps are not allowed")
+        if parsed.duplicated().any():
             raise ValueError("Duplicate timestamps are not allowed")
+        frame[timestamp_column] = parsed
         frame = frame.sort_values(timestamp_column, kind="stable").reset_index(drop=True)
 
     return frame

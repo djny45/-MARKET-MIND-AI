@@ -34,6 +34,7 @@ def run_offline_research(
 
     frame = load_ohlcv_csv(csv_path, timestamp_column=timestamp_column)
     result: dict[str, Any] = {
+        "source_path": str(Path(csv_path).expanduser().resolve()),
         "row_count": len(frame),
         "columns": list(frame.columns),
         "dataset": frame,

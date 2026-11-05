@@ -62,6 +62,8 @@ def analyze_historical_ohlcv(
     values = frame[["open", "high", "low", "close"]].to_numpy(dtype=float)
     if not np.isfinite(values).all():
         raise ValueError("OHLC data contains NaN or infinite values")
+    if (values <= 0).any():
+        raise ValueError("OHLC prices must be strictly positive")
     if (frame["high"] < frame[["open", "close", "low"]].max(axis=1)).any():
         raise ValueError("OHLC integrity error: high is below an OHLC component")
     if (frame["low"] > frame[["open", "close", "high"]].min(axis=1)).any():

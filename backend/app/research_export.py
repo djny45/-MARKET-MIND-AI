@@ -12,7 +12,18 @@ def build_research_evidence_bundle(symbol, interval, history, deep_report=None):
     """Assemble reproducible inputs and diagnostics while retaining source provenance."""
     quality = build_historical_quality_diagnostics(history)
     comparison = compare_source_observations(history)
-    timeline = build_research_timeline(history, max(1, min(1000, len(history.get("bars", [])))))
+    try:
+        timeline = build_research_timeline(history, max(1, min(1000, len(history.get("bars", [])))))
+    except ValueError as exc:
+        # Preserve malformed source rows in the evidence bundle; timeline
+        # annotations are optional diagnostics and must not hide bad data.
+        timeline = {
+            "status": "unavailable_invalid_ohlcv",
+            "events": [],
+            "bars_included": 0,
+            "validation_error": str(exc),
+            "execution": "disabled",
+        }
     bundle = {
         "schema_version": "1.1", "report_type": "historical_research_evidence",
         "scope": {"symbol": symbol.strip().upper(), "interval": interval,

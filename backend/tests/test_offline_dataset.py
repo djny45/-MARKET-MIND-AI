@@ -19,9 +19,9 @@ class OfflineDatasetTests(unittest.TestCase):
     def test_loads_and_sorts_timestamps(self):
         from app.offline_dataset import load_ohlcv_csv
         path = self.write_csv(
-            "Timestamp,Open,High,Low,Close,Volume\\n"
-            "2024-01-02,2,3,1,2.5,10\\n"
-            "2024-01-01,1,2,0.5,1.5,5\\n"
+            "Timestamp,Open,High,Low,Close,Volume\n"
+            "2024-01-02,2,3,1,2.5,10\n"
+            "2024-01-01,1,2,0.5,1.5,5\n"
         )
         frame = load_ohlcv_csv(path, timestamp_column="Timestamp")
         self.assertEqual(frame["close"].tolist(), [1.5, 2.5])
@@ -29,37 +29,63 @@ class OfflineDatasetTests(unittest.TestCase):
 
     def test_blank_column_name_rejected_after_normalization(self):
         from app.offline_dataset import load_ohlcv_csv
-        path = self.write_csv("open,high,low,close,   \\n1,2,0.5,1.5,7\\n")
+        path = self.write_csv("open,high,low,close,   \n1,2,0.5,1.5,7\n")
         with self.assertRaisesRegex(ValueError, "empty column name"):
             load_ohlcv_csv(path)
 
     def test_duplicate_columns_rejected_after_normalization(self):
         from app.offline_dataset import load_ohlcv_csv
-        path = self.write_csv("open, high,high,low,close\\n1,2,2,0.5,1.5\\n")
+        path = self.write_csv("open, high,high,low,close\n1,2,2,0.5,1.5\n")
         with self.assertRaisesRegex(ValueError, "duplicate columns"):
             load_ohlcv_csv(path)
 
     def test_missing_ohlc_column_rejected(self):
         from app.offline_dataset import load_ohlcv_csv
-        path = self.write_csv("open,high,close\\n1,2,1.5\\n")
+        path = self.write_csv("open,high,close\n1,2,1.5\n")
         with self.assertRaisesRegex(ValueError, "Missing required OHLC"):
             load_ohlcv_csv(path)
 
     def test_invalid_ohlc_rejected(self):
         from app.offline_dataset import load_ohlcv_csv
-        path = self.write_csv("open,high,low,close\\n1,0,0.5,1.2\\n")
+        path = self.write_csv("open,high,low,close\n1,0,0.5,1.2\n")
         with self.assertRaisesRegex(ValueError, "high is below"):
             load_ohlcv_csv(path)
 
     def test_duplicate_timestamps_rejected(self):
         from app.offline_dataset import load_ohlcv_csv
         path = self.write_csv(
-            "time,open,high,low,close\\n"
-            "2024-01-01,1,2,0.5,1.5\\n"
-            "2024-01-01,1,2,0.5,1.5\\n"
+            "time,open,high,low,close\n"
+            "2024-01-01,1,2,0.5,1.5\n"
+            "2024-01-01,1,2,0.5,1.5\n"
         )
         with self.assertRaisesRegex(ValueError, "Duplicate timestamps"):
             load_ohlcv_csv(path, timestamp_column="time")
+
+    def test_numeric_epoch_timestamps_rejected_as_ambiguous(self):
+        from app.offline_dataset import load_ohlcv_csv
+        path = self.write_csv(
+            "timestamp,open,high,low,close\n"
+            "1704067200,1,2,0.5,1.5\n"
+            "1704153600,1,2,0.5,1.5\n"
+        )
+        with self.assertRaisesRegex(ValueError, "Numeric timestamps are ambiguous"):
+            load_ohlcv_csv(path, timestamp_column="timestamp")
+
+    def test_missing_timestamp_rejected(self):
+        from app.offline_dataset import load_ohlcv_csv
+        path = self.write_csv(
+            "timestamp,open,high,low,close\n"
+            "2024-01-01,1,2,0.5,1.5\n"
+            ",1,2,0.5,1.5\n"
+        )
+        with self.assertRaisesRegex(ValueError, "Missing timestamps"):
+            load_ohlcv_csv(path, timestamp_column="timestamp")
+
+    def test_timestamp_cannot_overwrite_ohlcv_column(self):
+        from app.offline_dataset import load_ohlcv_csv
+        path = self.write_csv("open,high,low,close\n1,2,0.5,1.5\n")
+        with self.assertRaisesRegex(ValueError, "cannot be an OHLCV field"):
+            load_ohlcv_csv(path, timestamp_column="open")
 
 
 if __name__ == "__main__":

@@ -63,6 +63,13 @@ class SMCResearchAdapterTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "high is below"):
             analyze_historical_ohlcv(bad, swing_length=5)
 
+    def test_nonpositive_prices_rejected(self):
+        from app.smc_research import analyze_historical_ohlcv
+        bad = self.frame.copy()
+        bad.loc[0, ["open", "high", "low", "close"]] = [0.0, 1.0, 0.0, 0.5]
+        with self.assertRaisesRegex(ValueError, "strictly positive"):
+            analyze_historical_ohlcv(bad, swing_length=5)
+
     def test_insufficient_history_rejected_before_smc_import(self):
         from app.smc_research import analyze_historical_ohlcv
         with self.assertRaisesRegex(ValueError, "Not enough bars"):

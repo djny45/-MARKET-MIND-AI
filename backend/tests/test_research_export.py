@@ -40,6 +40,20 @@ class ResearchMethodologyMarkdownTests(unittest.TestCase):
         self.assertNotIn("\n## injected", report)
         self.assertNotIn("\n## forged heading", report)
 
+    def test_json_code_fence_cannot_be_closed_by_source_metadata(self):
+        timestamp = "2026-01-02T00:00:00Z"
+        bundle = build_research_evidence_bundle("BTCUSD", "1h", {
+            "bars": [
+                {"timestamp": timestamp, "source": "feed-a", "open": 1, "high": 2, "low": 1, "close": 1, "volume": 10},
+                {"timestamp": timestamp, "source": "feed-```\n## injected heading", "open": 1, "high": 2, "low": 1, "close": 1, "volume": 10},
+            ]
+        })
+        report = render_research_methodology_markdown(bundle)
+        self.assertIn("````json\n", report)
+        self.assertIn("\n````\n", report)
+        self.assertNotIn("\n```\n", report)
+        self.assertIn("feed-```", report)
+
     def test_rejects_wrong_bundle_type(self):
         with self.assertRaises(ValueError):
             render_research_methodology_markdown({"report_type": "other"})

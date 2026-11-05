@@ -20,6 +20,8 @@ def _validate_ohlcv_bars(bars):
             value = float(raw)
             if not math.isfinite(value):
                 raise ValueError(f"bars[{index}].{field} must be finite")
+            if field != "volume" and value <= 0:
+                raise ValueError(f"bars[{index}].{field} must be positive")
             values[field] = value
         if values["low"] > values["high"]:
             raise ValueError(f"bars[{index}] low must be <= high")
@@ -93,3 +95,11 @@ def build_research_timeline(history: dict, limit: int = 200) -> dict:
                         "Percentage change is close-to-close and is not a return forecast."],
         "execution": "disabled",
     }
+
+
+def test_timeline_rejects_nonpositive_prices():
+    import pytest
+    bars = sample_bars()
+    bars[0]["open"] = 0
+    with pytest.raises(ValueError, match="open must be positive"):
+        build_research_timeline({"bars": bars})

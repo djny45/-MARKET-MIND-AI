@@ -36,8 +36,11 @@ def analyze_historical_ohlcv(
 
     if not isinstance(ohlc, pd.DataFrame):
         raise TypeError("ohlc must be a pandas DataFrame")
-    if min(rsi_period, fast_period, slow_period, signal_period, atr_period, bbands_period) < 2:
-        raise ValueError("Indicator periods must be >= 2")
+    periods = (rsi_period, fast_period, slow_period, signal_period, atr_period, bbands_period)
+    if any(not isinstance(period, int) or isinstance(period, bool) for period in periods):
+        raise ValueError("Indicator periods must be integers >= 2")
+    if min(periods) < 2:
+        raise ValueError("Indicator periods must be integers >= 2")
     if fast_period >= slow_period:
         raise ValueError("fast_period must be less than slow_period")
 

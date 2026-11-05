@@ -55,6 +55,8 @@ def load_ohlcv_csv(path: str | Path, *, timestamp_column: str | None = None) -> 
     values = frame[numeric_columns].to_numpy(dtype=float)
     if not np.isfinite(values).all():
         raise ValueError("Dataset contains NaN or infinite numeric values")
+    if (frame[list(REQUIRED_COLUMNS)] <= 0).any().any():
+        raise ValueError("OHLC prices must be strictly positive")
     if (frame["high"] < frame[["open", "close", "low"]].max(axis=1)).any():
         raise ValueError("OHLC integrity error: high is below an OHLC component")
     if (frame["low"] > frame[["open", "close", "high"]].min(axis=1)).any():

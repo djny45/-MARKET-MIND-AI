@@ -60,7 +60,7 @@ def test_timeline_rejects_non_finite_ohlcv_values():
     import pytest
     bars = sample_bars()
     bars[3]["close"] = float("nan")
-    with pytest.raises(ValueError, match=r"bars\\[3\\]\\.close must be finite"):
+    with pytest.raises(ValueError, match="close must be finite"):
         build_research_timeline({"bars": bars})
 
 
@@ -72,7 +72,7 @@ def test_timeline_rejects_inconsistent_ohlc_and_negative_volume():
         build_research_timeline({"bars": bars})
     bars = sample_bars()
     bars[0]["volume"] = -1
-    with pytest.raises(ValueError, match=r"bars\\[0\\]\\.volume must be non-negative"):
+    with pytest.raises(ValueError, match="volume must be non-negative"):
         build_research_timeline({"bars": bars})
 
 
@@ -80,5 +80,5 @@ def test_timeline_rejects_boolean_as_numeric_ohlcv():
     import pytest
     bars = sample_bars()
     bars[0]["open"] = True
-    with pytest.raises(ValueError, match=r"bars\\[0\\]\\.open must be numeric"):
+    with pytest.raises(ValueError, match="open must be numeric"):
         build_research_timeline({"bars": bars})

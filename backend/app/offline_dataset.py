@@ -6,6 +6,7 @@ TradingView/exchanges/brokers, generate trade signals, or place orders.
 from __future__ import annotations
 
 from pathlib import Path
+import re
 from typing import Any
 
 REQUIRED_COLUMNS = ("open", "high", "low", "close")
@@ -16,9 +17,9 @@ def load_ohlcv_csv(path: str | Path, *, timestamp_column: str | None = None) -> 
     """Load and validate a local OHLCV CSV into a pandas DataFrame.
 
     Column names are normalized to lowercase. If a timestamp column is
-    supplied, it must contain unambiguous datetime-like values (not numeric
-    epoch timestamps), is parsed as UTC, and rows are sorted chronologically.
-    Duplicate or missing timestamps and malformed OHLC rows are rejected.
+    supplied, every value must include an explicit timezone offset (not a
+    numeric epoch or timezone-naive timestamp). Values are normalized to UTC
+    and rows sorted chronologically. Duplicate/missing timestamps are rejected.
     """
     try:
         import numpy as np
@@ -72,7 +73,17 @@ def load_ohlcv_csv(path: str | Path, *, timestamp_column: str | None = None) -> 
                 "Numeric timestamps are ambiguous; convert epoch values to "
                 "ISO-8601 timestamps with an explicit timezone before import"
             )
-        parsed = pd.to_datetime(frame[timestamp_column], utc=True, errors="raise")
+        raw_timestamps = frame[timestamp_column].astype("string").str.strip()
+        timezone_suffix = re.compile(r"(?:Z|[+-]\\d{2}:?\\d{2})$", re.IGNORECASE)
+        naive = raw_timestamps.isna() | ~raw_timestamps.map(
+            lambda value: bool(timezone_suffix.search(value)) if value is not pd.NA else False
+        )
+        if naive.any():
+            raise ValueError(
+                "Timezone-naive timestamps are ambiguous; add an explicit "
+                "ISO-8601 timezone offset (for example Z or +05:30)"
+            )
+        parsed = pd.to_datetime(raw_timestamps, utc=True, errors="raise")
         if parsed.isna().any():
             raise ValueError("Missing timestamps are not allowed")
         if parsed.duplicated().any():

@@ -10,6 +10,7 @@ import os
 import shutil
 import subprocess
 from dataclasses import dataclass
+from threading import BoundedSemaphore
 from typing import Literal
 
 
@@ -30,6 +31,9 @@ _ALLOWED_ARGS: dict[OpenBBAction, tuple[str, ...]] = {
 }
 _MAX_OUTPUT_CHARS = 12_000
 _TIMEOUT_SECONDS = 8
+# One help subprocess per backend worker at a time. This prevents bursts of
+# requests from spawning unbounded child processes in a single worker.
+_HELP_RUN_SEMAPHORE = BoundedSemaphore(1)
 
 
 def openbb_cli_enabled() -> bool:
@@ -81,33 +85,45 @@ def run_openbb_cli(action: OpenBBAction) -> OpenBBCLIResult:
             output=f"OpenBB CLI version {version}",
         )
 
+    if not _HELP_RUN_SEMAPHORE.acquire(blocking=False):
+        return OpenBBCLIResult(
+            available=True,
+            action=action,
+            exit_code=None,
+            output="",
+            error="OpenBB CLI is busy; retry after the current informational command finishes.",
+        )
+
     try:
-        completed = subprocess.run(
-            [executable, *_ALLOWED_ARGS[action]],
-            capture_output=True,
-            text=True,
-            stdin=subprocess.DEVNULL,
-            timeout=_TIMEOUT_SECONDS,
-            check=False,
-            shell=False,
-            cwd=None,
-        )
-    except subprocess.TimeoutExpired:
-        return OpenBBCLIResult(
-            available=True,
-            action=action,
-            exit_code=None,
-            output="",
-            error=f"OpenBB CLI timed out after {_TIMEOUT_SECONDS} seconds.",
-        )
-    except OSError as exc:
-        return OpenBBCLIResult(
-            available=True,
-            action=action,
-            exit_code=None,
-            output="",
-            error=f"Could not start OpenBB CLI: {exc.__class__.__name__}",
-        )
+        try:
+            completed = subprocess.run(
+                [executable, *_ALLOWED_ARGS[action]],
+                capture_output=True,
+                text=True,
+                stdin=subprocess.DEVNULL,
+                timeout=_TIMEOUT_SECONDS,
+                check=False,
+                shell=False,
+                cwd=None,
+            )
+        except subprocess.TimeoutExpired:
+            return OpenBBCLIResult(
+                available=True,
+                action=action,
+                exit_code=None,
+                output="",
+                error=f"OpenBB CLI timed out after {_TIMEOUT_SECONDS} seconds.",
+            )
+        except OSError as exc:
+            return OpenBBCLIResult(
+                available=True,
+                action=action,
+                exit_code=None,
+                output="",
+                error=f"Could not start OpenBB CLI: {exc.__class__.__name__}",
+            )
+    finally:
+        _HELP_RUN_SEMAPHORE.release()
 
     output = (completed.stdout + completed.stderr).strip()
     return OpenBBCLIResult(

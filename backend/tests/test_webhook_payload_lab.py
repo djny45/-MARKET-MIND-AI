@@ -12,6 +12,12 @@ class WebhookPayloadLabTests(unittest.TestCase):
         self.assertEqual(event["event_id"], "demo-001")
         self.assertEqual(event["source"], "synthetic")
 
+    def test_accepts_valid_json_bytes(self):
+        event = validate_payload(
+            b'{"event_id":"bytes-1","source":"local","message":"bytes event"}'
+        )
+        self.assertEqual(event["event_id"], "bytes-1")
+
     def test_rejects_live_source(self):
         with self.assertRaisesRegex(ValueError, "Only sample"):
             validate_payload(
@@ -57,9 +63,17 @@ class WebhookPayloadLabTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "cannot be empty"):
             validate_payload({"event_id": "x", "source": "sample", "message": "  "})
 
-    def test_rejects_oversized_payload(self):
+    def test_rejects_oversized_string_payload(self):
         with self.assertRaisesRegex(ValueError, "maximum size"):
             validate_payload(" " * 8193)
+
+    def test_rejects_oversized_dict_payload(self):
+        with self.assertRaisesRegex(ValueError, "maximum size"):
+            validate_payload({
+                "event_id": "x",
+                "source": "sample",
+                "message": "a" * 9000,
+            })
 
 
 if __name__ == "__main__":

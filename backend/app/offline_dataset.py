@@ -74,10 +74,10 @@ def load_ohlcv_csv(path: str | Path, *, timestamp_column: str | None = None) -> 
                 "ISO-8601 timestamps with an explicit timezone before import"
             )
         raw_timestamps = frame[timestamp_column].astype("string").str.strip()
+        if raw_timestamps.isna().any() or raw_timestamps.eq("").any():
+            raise ValueError("Missing timestamps are not allowed")
         timezone_suffix = re.compile(r"(?:Z|[+-]\d{2}:?\d{2})$", re.IGNORECASE)
-        naive = raw_timestamps.isna() | ~raw_timestamps.map(
-            lambda value: bool(timezone_suffix.search(value)) if value is not pd.NA else False
-        )
+        naive = ~raw_timestamps.map(lambda value: bool(timezone_suffix.search(value)))
         if naive.any():
             raise ValueError(
                 "Timezone-naive timestamps are ambiguous; add an explicit "

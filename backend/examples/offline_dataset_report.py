@@ -11,8 +11,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import Any
+
+# Support the documented repository-root invocation without requiring an
+# editable install or an implicit PYTHONPATH=backend environment variable.
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
+if str(BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(BACKEND_ROOT))
 
 from app.offline_dataset import load_ohlcv_csv
 

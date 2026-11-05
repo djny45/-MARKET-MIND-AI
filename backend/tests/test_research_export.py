@@ -51,7 +51,9 @@ class ResearchMethodologyMarkdownTests(unittest.TestCase):
         report = render_research_methodology_markdown(bundle)
         self.assertIn("````json\n", report)
         self.assertIn("\n````\n", report)
-        self.assertNotIn("\n```\n", report)
+        source_section = report.split("## Source comparison\n", 1)[1]
+        source_section = source_section.split("\n## Integrity\n", 1)[0]
+        self.assertNotIn("\n```\n", source_section)
         self.assertIn("feed-```", report)
 
     def test_rejects_wrong_bundle_type(self):

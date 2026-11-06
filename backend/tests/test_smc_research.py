@@ -49,6 +49,14 @@ class SMCResearchAdapterTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Missing required OHLC"):
             analyze_historical_ohlcv(self.frame.drop(columns=["low"]), swing_length=5)
 
+
+    def test_duplicate_columns_after_normalization_rejected(self):
+        from app.smc_research import analyze_historical_ohlcv
+        bad = self.frame.copy()
+        bad.columns = [" Open ", "open", "low", "close", "volume"]
+        with self.assertRaisesRegex(ValueError, "Duplicate columns after case/whitespace normalization"):
+            analyze_historical_ohlcv(bad, swing_length=5)
+
     def test_nan_ohlc_rejected(self):
         from app.smc_research import analyze_historical_ohlcv
         bad = self.frame.copy()

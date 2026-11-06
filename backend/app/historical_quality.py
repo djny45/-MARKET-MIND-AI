@@ -45,7 +45,12 @@ def _mad_flags(values, minimum=20, threshold=6.0):
 
 
 def build_historical_quality_diagnostics(history):
+    """Return diagnostics for a mapping containing a list/tuple of OHLCV rows."""
+    if not isinstance(history, dict):
+        raise ValueError("history must be a mapping")
     bars = history.get("bars", [])
+    if not isinstance(bars, (list, tuple)):
+        raise ValueError("history bars must be a list or tuple")
     interval = history.get("interval")
     expected = INTERVAL_SECONDS.get(interval)
     malformed_bar_indices = [i for i, bar in enumerate(bars) if not isinstance(bar, dict)]

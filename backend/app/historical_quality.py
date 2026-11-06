@@ -52,7 +52,9 @@ def build_historical_quality_diagnostics(history):
     if not isinstance(bars, (list, tuple)):
         raise ValueError("history bars must be a list or tuple")
     interval = history.get("interval")
-    expected = INTERVAL_SECONDS.get(interval)
+    # Malformed interval metadata should be reported as unsupported rather
+    # than raising TypeError for unhashable values (e.g. lists or dicts).
+    expected = INTERVAL_SECONDS.get(interval) if isinstance(interval, str) else None
     malformed_bar_indices = [i for i, bar in enumerate(bars) if not isinstance(bar, dict)]
     safe_bars = [bar if isinstance(bar, dict) else {} for bar in bars]
     parsed = [_timestamp(bar.get("timestamp")) for bar in safe_bars]

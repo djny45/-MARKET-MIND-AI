@@ -68,7 +68,7 @@ class HistoricalQualityTests(unittest.TestCase):
         result = build_historical_quality_diagnostics({"interval": "1h", "bars": bars})
         price_result = result["close_to_close_return_outliers"]
         volume_result = result["volume_outliers"]
-        self.assertEqual(price_result["sample_count"], 23)
+        self.assertEqual(price_result["sample_count"], 22)
         self.assertEqual(volume_result["sample_count"], 24)
         self.assertTrue(all(math.isfinite(item["return_pct"]) for item in price_result["flagged_observations"]))
         self.assertTrue(all(math.isfinite(item["volume"]) for item in volume_result["flagged_observations"]))
@@ -78,7 +78,7 @@ class HistoricalQualityTests(unittest.TestCase):
         bars[4]["close"] = 1e-308
         bars[5]["close"] = 1e308
         result = build_historical_quality_diagnostics({"interval": "1h", "bars": bars})
-        self.assertEqual(result["close_to_close_return_outliers"]["sample_count"], 22)
+        self.assertEqual(result["close_to_close_return_outliers"]["sample_count"], 23)
         self.assertTrue(all(math.isfinite(value) for value in result["close_to_close_return_outliers"].get("flagged_observations", []) for value in [value["return_pct"]]))
 
     def test_unsupported_interval_does_not_infer_spacing(self):

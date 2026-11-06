@@ -35,6 +35,34 @@ class BenchmarkRecordStoreTests(unittest.TestCase):
             self.assertNotEqual(first, second)
             self.assertEqual(len(store.list_records()), 2)
 
+    def test_retrieval_rejects_database_index_metadata_tampering(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "history.sqlite"
+            store = BenchmarkRecordStore(database)
+            record_id = store.save(benchmark_result())
+            import sqlite3
+            with sqlite3.connect(database) as connection:
+                connection.execute(
+                    "UPDATE research_benchmark_records SET benchmark_id = ? WHERE record_id = ?",
+                    ("tampered", record_id),
+                )
+            with self.assertRaisesRegex(ValueError, "benchmark ID does not match database index"):
+                store.get(record_id)
+
+    def test_retrieval_rejects_malformed_record_json(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "history.sqlite"
+            store = BenchmarkRecordStore(database)
+            record_id = store.save(benchmark_result())
+            import sqlite3
+            with sqlite3.connect(database) as connection:
+                connection.execute(
+                    "UPDATE research_benchmark_records SET record_json = ? WHERE record_id = ?",
+                    ("{broken", record_id),
+                )
+            with self.assertRaisesRegex(ValueError, "not valid JSON"):
+                store.get(record_id)
+
     def test_unknown_record_returns_none(self):
         with tempfile.TemporaryDirectory() as directory:
             store = BenchmarkRecordStore(Path(directory) / "history.sqlite")

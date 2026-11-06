@@ -88,6 +88,7 @@ class ResearchExportCompareTests(unittest.TestCase):
         self.assertTrue(result["integrity_validation"]["before"]["valid"])
         self.assertFalse(result["integrity_validation"]["after"]["valid"])
         self.assertEqual(result["integrity_validation"]["after"]["reason"], "digest_mismatch")
+        self.assertEqual(result["comparison_status"], "integrity_failed")
 
     def test_detects_missing_field_vs_explicit_null_in_observations(self):
         before = bundle([{"timestamp": "2026-01-01T00:00:00Z", "source": "alpha"}])
@@ -118,6 +119,42 @@ class ResearchExportCompareTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             compare_research_exports(before, after)
 
+
+    def test_comparison_status_distinguishes_unverified_from_verified(self):
+        import hashlib
+        import json
+        before = bundle([])
+        after = bundle([])
+        for item in (before, after):
+            payload = dict(item)
+            payload.pop("integrity", None)
+            canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+            item["integrity"] = {
+                "algorithm": "sha256",
+                "digest": hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
+                "scope": "complete evidence bundle excluding this integrity field",
+                "canonicalization": "UTF-8 JSON with sorted keys and compact separators",
+            }
+        self.assertEqual(compare_research_exports(before, after)["comparison_status"], "integrity_verified")
+        before.pop("integrity")
+        self.assertEqual(compare_research_exports(before, after)["comparison_status"], "integrity_unverified")
+
+    def test_comparison_status_flags_invalid_observation_keys_after_valid_integrity(self):
+        import hashlib
+        import json
+        before = bundle([])
+        after = bundle([{"close": 10}])
+        for item in (before, after):
+            payload = dict(item)
+            payload.pop("integrity", None)
+            canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+            item["integrity"] = {
+                "algorithm": "sha256",
+                "digest": hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
+                "scope": "complete evidence bundle excluding this integrity field",
+                "canonicalization": "UTF-8 JSON with sorted keys and compact separators",
+            }
+        self.assertEqual(compare_research_exports(before, after)["comparison_status"], "observation_keys_incomplete")
 
 if __name__ == "__main__":
     unittest.main()

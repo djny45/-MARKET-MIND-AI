@@ -1,7 +1,10 @@
 # Offline Research Benchmark Records
 
-The backend can export a deterministic JSON record for an offline research
-traceability benchmark:
+The backend exports deterministic JSON records for offline research traceability
+benchmarks. Records can be archived in SQLite and linked to reviewed candidate
+configuration proposals.
+
+## Benchmark record export
 
 ```python
 from app.research_benchmark import run_offline_research_benchmark
@@ -11,18 +14,12 @@ result = run_offline_research_benchmark(cases)
 record_json = serialize_benchmark_record(result)
 ```
 
-## Record contract
-
-- `record_schema_version` identifies the export envelope schema (currently 1).
-- `record_id` is a SHA-256 digest of the canonical benchmark result payload.
+- `record_schema_version` identifies the envelope schema.
+- `record_id` is a SHA-256 digest of the canonical result payload.
 - `benchmark_id` identifies the benchmark input/configuration fingerprint.
-- `result` retains the complete benchmark output, including per-case evaluations,
-  aggregate metrics, baseline comparison, regression summary, and limitations.
-- Serialization is canonical JSON (sorted keys, compact separators, UTF-8) and
-  excludes wall-clock timestamps. Identical results therefore produce identical
-  record bytes and IDs.
+- Serialization is canonical JSON without wall-clock timestamps.
 
-## SQLite history store
+## SQLite history
 
 ```python
 from app.research_benchmark_store import BenchmarkRecordStore
@@ -33,37 +30,44 @@ record = store.get(record_id)
 recent_records = store.list_records(limit=50)
 ```
 
-The store is synchronous and local to the configured SQLite file. Back up the
-SQLite file to retain the archive.
+The store is local and synchronous. Back up its SQLite file to retain history.
 
-## Human-reviewed configuration proposals
-
-Candidate configuration changes can be recorded for explicit review and linked
-to an existing benchmark record:
+## Candidate review and approval gate
 
 ```python
-from app.research_promotion_review import PromotionReviewStore
+from app.research_promotion_review import (
+    PromotionReviewStore, promotion_eligibility,
+)
 
+benchmark_record = store.get(record_id)
+gate = promotion_eligibility(benchmark_record)
+```
+
+The gate blocks approval if there is no baseline comparison, any metric was
+skipped, the regression status is not `no_regression_detected`, or a compared
+metric lacks a numeric delta. An explicit reviewer decision and rationale are
+then stored:
+
+```python
 reviews = PromotionReviewStore("data/research_benchmark_history.sqlite")
 reviews.submit_review(
     proposal_id="proposal-001",
     benchmark_record_id=record_id,
     candidate_config={"example_parameter": 0.2},
-    decision="rejected",  # or "approved"
+    decision="approved",  # or "rejected"
     reviewer="human-reviewer",
-    rationale="Document the evidence and reason for the decision.",
+    rationale="Record the evidence supporting this decision.",
 )
-review = reviews.get_review("proposal-001")
 ```
 
-Review records are append-only by proposal ID: duplicate IDs are rejected.
-The foreign key requires the referenced benchmark record to exist. Approval is
-only a stored review decision—it does **not** apply configuration, retrain a
-model, deploy a change, or authorize trading. A real promotion pipeline still
-needs candidate validation, independent regression gates, authorization, and
-rollback controls.
+Approval is only a stored review decision. It does not modify active agent
+configuration, retrain a model, deploy code, or authorize trades. The gate is
+not a substitute for independent benchmark quality, candidate-specific testing,
+authorization, or rollback controls.
 
-The benchmark uses supplied fixtures and structural source-reference
-traceability. It does **not** establish factual correctness, source entailment,
-forecast quality, or profitability. Skipped baseline comparisons remain
-incomplete, not passing.
+## Limitations
+
+This benchmark uses supplied fixtures and measures structural source-reference
+traceability only. It does not establish factual correctness, source entailment,
+forecast quality, profitability, or autonomous learning. Skipped comparisons are
+incomplete, never passing.

@@ -20,7 +20,7 @@ def _median(values):
     if not ordered:
         return None
     middle = len(ordered) // 2
-    return ordered[middle] if len(ordered) % 2 else (ordered[middle - 1] + ordered[middle]) / 2
+    return ordered[middle] if len(ordered) % 2 else (ordered[middle - 1] / 2) + (ordered[middle] / 2)
 
 
 def _mad_flags(values, minimum=20, threshold=6.0):

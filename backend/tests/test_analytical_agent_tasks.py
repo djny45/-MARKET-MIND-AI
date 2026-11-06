@@ -121,6 +121,15 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertIn("task_claimed", event_types)
         self.assertIn("task_dispatch_finished", event_types)
 
+    def test_dispatch_counts_only_tasks_it_actually_claimed(self):
+        from app.analytical_agent_tasks import enqueue_research_task, dispatch_queued_research_tasks
+        queued = enqueue_research_task("worker_018", "dispatch no-op count")
+        with patch("app.analytical_agent_tasks.execute_queued_research_task", return_value=False):
+            result = dispatch_queued_research_tasks(limit=1, max_concurrency=1)
+        self.assertEqual(result["selected"], 1)
+        self.assertEqual(result["dispatched"], 0)
+        self.assertEqual(get_research_task(queued["task_id"])["status"], "queued")
+
     def test_network_activity_snapshot_includes_recent_audit_events(self):
         from app.analytical_agent_tasks import list_recent_task_activity
         result = submit_research_task("worker_011", "activity audit snapshot")

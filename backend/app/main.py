@@ -18,6 +18,7 @@ from .research_orchestrator import orchestrate_research
 from .intelligence_core import intelligence_core_status, synthesize_research, IntelligenceCoreError
 from .synthesis_review import build_synthesis_review
 from .research_quality_eval import evaluate_research_draft
+from .research_benchmark import run_offline_research_benchmark
 from .skill_catalog import list_skills, load_skill
 from .landing_page_builder import build_landing_page
 from .markets import market_catalog
@@ -110,6 +111,12 @@ class ResearchQualityEvaluationRequest(BaseModel):
  source_registry: list[dict[str, Any]] = Field(default_factory=list, max_length=500)
  baseline: dict[str, Any] | None = None
 
+
+
+
+class ResearchBenchmarkRequest(BaseModel):
+ cases: list[dict[str, Any]] = Field(min_length=1, max_length=100)
+ baseline: dict[str, Any] | None = None
 
 class SynthesisReviewRequest(BaseModel):
  draft: str = Field(min_length=1, max_length=8000)
@@ -1576,6 +1583,16 @@ def evaluate_research_quality(request: ResearchQualityEvaluationRequest):
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+
+
+
+@app.post("/api/research/benchmark")
+def run_research_benchmark(request: ResearchBenchmarkRequest):
+ """Run a bounded deterministic benchmark using caller-supplied offline fixtures only."""
+ try:
+  return run_offline_research_benchmark(request.cases, baseline=request.baseline)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 @app.post("/api/research/synthesis/review")
 def review_research_synthesis(request: SynthesisReviewRequest):

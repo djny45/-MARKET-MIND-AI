@@ -89,6 +89,15 @@ class ResearchExportCompareTests(unittest.TestCase):
         self.assertFalse(result["integrity_validation"]["after"]["valid"])
         self.assertEqual(result["integrity_validation"]["after"]["reason"], "digest_mismatch")
 
+    def test_malformed_integrity_metadata_does_not_crash_digest_summary(self):
+        before = bundle([], integrity="malformed")
+        after = bundle([], integrity=["not", "an", "object"])
+        result = compare_research_exports(before, after)
+        self.assertIsNone(result["integrity_digests"]["before"])
+        self.assertIsNone(result["integrity_digests"]["after"])
+        self.assertEqual(result["integrity_validation"]["before"]["reason"], "integrity_metadata_missing")
+        self.assertEqual(result["integrity_validation"]["after"]["reason"], "integrity_metadata_missing")
+
     def test_rejects_different_symbol_or_interval(self):
         before = bundle([])
         after = bundle([])

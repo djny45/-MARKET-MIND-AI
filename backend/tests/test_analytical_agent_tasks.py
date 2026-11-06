@@ -147,6 +147,30 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertEqual(result["dispatch_errors"], [{"task_id": first["task_id"], "error_type": "RuntimeError"}])
         self.assertEqual(get_research_task(second["task_id"])["status"], "completed")
 
+    def test_agent_task_performance_reports_outcome_rates(self):
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, execute_queued_research_task, agent_task_performance,
+        )
+        completed = enqueue_research_task("worker_021", "metrics success")
+        execute_queued_research_task(completed["task_id"])
+        failed = enqueue_research_task("worker_021", "metrics failure")
+        with patch("app.analytical_agent_tasks.synthesize_research", side_effect=RuntimeError("offline test")):
+            execute_queued_research_task(failed["task_id"])
+        queued = enqueue_research_task("worker_022", "metrics queued")
+        metrics = agent_task_performance("worker_021")
+        worker = metrics["agents"]["worker_021"]
+        self.assertEqual(worker["task_count"], 2)
+        self.assertEqual(worker["completed"], 1)
+        self.assertEqual(worker["failed"], 1)
+        self.assertEqual(worker["completion_rate"], 0.5)
+        self.assertEqual(worker["failure_rate"], 0.5)
+        self.assertEqual(metrics["recent_agents"]["worker_021"]["finished_count"], 2)
+        all_metrics = agent_task_performance()
+        self.assertEqual(all_metrics["agents"]["worker_022"]["queued"], 1)
+        self.assertEqual(all_metrics["task_count"], 3)
+        with self.assertRaises(ValueError):
+            agent_task_performance("worker_021", limit=0)
+
     def test_network_activity_snapshot_includes_recent_audit_events(self):
         from app.analytical_agent_tasks import list_recent_task_activity
         result = submit_research_task("worker_011", "activity audit snapshot")

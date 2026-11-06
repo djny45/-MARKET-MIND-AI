@@ -116,10 +116,11 @@ def evaluate_research_draft(
     }
 
     comparison = None
+    comparison_summary = None
     if baseline is not None:
-        supported_metrics = SUPPORTED_BASELINE_METRICS
         comparison = {}
-        for key in supported_metrics:
+        skipped_comparisons = []
+        for key in SUPPORTED_BASELINE_METRICS:
             current = metrics[key]
             previous = base_metrics.get(key)
             if isinstance(current, (int, float)) and isinstance(previous, (int, float)):
@@ -127,15 +128,35 @@ def evaluate_research_draft(
                     "current": current,
                     "baseline": previous,
                     "delta": round(current - previous, 4),
+                    "status": "compared",
                 }
             else:
-                comparison[key] = {"current": current, "baseline": previous, "delta": None}
+                reason = (
+                    "current_metric_unavailable"
+                    if not isinstance(current, (int, float))
+                    else "baseline_metric_missing"
+                )
+                comparison[key] = {
+                    "current": current,
+                    "baseline": previous,
+                    "delta": None,
+                    "status": "skipped",
+                    "reason": reason,
+                }
+                skipped_comparisons.append({"metric": key, "reason": reason})
+        comparison_summary = {
+            "status": "comparison_incomplete" if skipped_comparisons else "comparison_complete",
+            "skipped_comparison_count": len(skipped_comparisons),
+            "skipped_comparisons": skipped_comparisons,
+            "note": "Skipped comparisons are not evidence of a pass.",
+        }
 
     return {
         "evaluation_type": "deterministic_research_traceability_check",
         "metrics": metrics,
         "claims": reviewed,
         "baseline_comparison": comparison,
+        "baseline_comparison_summary": comparison_summary,
         "interpretation": (
             "Structural traceability only. This does not verify source authenticity, "
             "claim entailment, factual correctness, forecast accuracy, or investment value."

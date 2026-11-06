@@ -49,6 +49,9 @@ def analyze_historical_ohlcv(
 
     frame = ohlc.copy()
     frame.columns = [str(c).strip().lower() for c in frame.columns]
+    if frame.columns.duplicated().any():
+        duplicates = sorted(set(frame.columns[frame.columns.duplicated(keep=False)]))
+        raise ValueError(f"Duplicate columns after case/whitespace normalization: {duplicates}")
     required = {"open", "high", "low", "close"}
     missing = required.difference(frame.columns)
     if missing:

@@ -54,6 +54,9 @@ def compare_research_exports(before, after):
         raise ValueError("unsupported_before_export")
     if after.get("report_type") != "historical_research_evidence":
         raise ValueError("unsupported_after_export")
+    before_schema = before.get("schema_version")
+    after_schema = after.get("schema_version")
+    schema_compatible = before_schema == after_schema if before_schema is not None and after_schema is not None else None
     old_scope = before.get("scope") or {}
     new_scope = after.get("scope") or {}
     if not isinstance(old_scope, dict) or not isinstance(new_scope, dict):
@@ -111,7 +114,9 @@ def compare_research_exports(before, after):
         "after": _check_integrity(after),
     }
     integrity_results = (integrity_validation["before"], integrity_validation["after"])
-    if any(result.get("reason") == "digest_mismatch" for result in integrity_results):
+    if schema_compatible is False:
+        comparison_status = "schema_incompatible"
+    elif any(result.get("reason") == "digest_mismatch" for result in integrity_results):
         comparison_status = "integrity_failed"
     elif any(not result.get("valid") for result in integrity_results):
         comparison_status = "integrity_unverified"
@@ -122,6 +127,11 @@ def compare_research_exports(before, after):
 
     return {
         "comparison_status": comparison_status,
+        "schema_compatibility": {
+            "before": before_schema,
+            "after": after_schema,
+            "compatible": schema_compatible,
+        },
         "different": before != after,
         "scope": old_scope,
         "counts": {

@@ -149,6 +149,15 @@ class ResearchBenchmarkTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             run_offline_research_benchmark(duplicate)
 
+    def test_validates_baseline_before_evaluating_cases(self):
+        malformed_case = [{
+            "case_id": "bad-draft", "draft": "", "claims": [], "source_registry": [],
+        }]
+        with self.assertRaisesRegex(ValueError, "unsupported metrics"):
+            run_offline_research_benchmark(
+                malformed_case, baseline={"metrics": {"unknown_metric": 0.8}}
+            )
+
     def test_rejects_invalid_baseline_shape(self):
         with self.assertRaises(ValueError):
             run_offline_research_benchmark(fixture_cases(), baseline={"bad": "shape"})

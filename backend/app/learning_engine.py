@@ -50,6 +50,39 @@ def agent_learning_summary(worker_id: str, limit: int = 200) -> dict[str, Any]:
         if (parsed := _parse_time(item.get("created_at"))) is not None
     ]
     latest = max(feedback_times, default=None)
+
+    # Compare older and newer scored feedback only when both windows have
+    # enough observations. This is descriptive trend, not a causal claim.
+    dated_scored = [
+        (parsed, item) for item in scored
+        if (parsed := _parse_time(item.get("created_at"))) is not None
+    ]
+    dated_scored.sort(key=lambda pair: pair[0])
+    trend = {
+        "status": "insufficient_feedback",
+        "older_window_count": 0,
+        "newer_window_count": 0,
+        "older_window_score": None,
+        "newer_window_score": None,
+        "score_delta": None,
+        "minimum_per_window": 3,
+    }
+    if len(dated_scored) >= 6:
+        split = len(dated_scored) // 2
+        older = [item for _, item in dated_scored[:split]]
+        newer = [item for _, item in dated_scored[split:]]
+        older_score = sum(_SCORE[item["content"]["outcome"]] for item in older) / len(older)
+        newer_score = sum(_SCORE[item["content"]["outcome"]] for item in newer) / len(newer)
+        trend = {
+            "status": "descriptive_trend_available",
+            "older_window_count": len(older),
+            "newer_window_count": len(newer),
+            "older_window_score": round(older_score, 4),
+            "newer_window_score": round(newer_score, 4),
+            "score_delta": round(newer_score - older_score, 4),
+            "minimum_per_window": 3,
+            "interpretation": "Reviewer-label trend only; not proof of research accuracy, causality, or trading performance.",
+        }
     return {
         "worker_id": worker_id,
         "feedback_count": len(feedback),
@@ -57,6 +90,7 @@ def agent_learning_summary(worker_id: str, limit: int = 200) -> dict[str, Any]:
         "feedback_outcomes": outcomes,
         "observed_feedback_score": round(score, 4) if score is not None else None,
         "latest_feedback_at": latest.isoformat() if latest else None,
+        "feedback_trend": trend,
         "improvement_proposals": len(proposals),
         "evaluation_status": "insufficient_feedback" if len(scored) < 5 else "review_required",
         "minimum_feedback_for_trend": 5,

@@ -237,5 +237,22 @@ class ResearchExportCompareTests(unittest.TestCase):
         )
 
 
+    def test_empty_timestamp_or_source_is_counted_as_invalid_key(self):
+        before = bundle([
+            {"timestamp": "", "source": "alpha", "close": 10},
+            {"timestamp": "2026-01-01T00:00:00Z", "source": "   ", "close": 11},
+            {"timestamp": "2026-01-01T01:00:00Z", "source": "alpha", "close": 12},
+        ])
+        after = bundle([
+            {"timestamp": "2026-01-01T01:00:00Z", "source": "alpha", "close": 12},
+        ])
+
+        result = compare_research_exports(before, after)
+        self.assertEqual(
+            result["counts"]["invalid_or_duplicate_keys"]["before"], 2
+        )
+        self.assertEqual(result["counts"]["unchanged"], 1)
+
+
 if __name__ == "__main__":
     unittest.main()

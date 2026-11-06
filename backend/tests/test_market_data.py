@@ -97,6 +97,24 @@ class MarketDataContractTests(unittest.TestCase):
                 bars=[first, second],
             )
 
+
+    def test_batch_rejects_blank_warning_metadata(self):
+        base = {
+            "symbol": "BTCUSD", "interval": "1d", "status": "historical",
+            "source": "provider-x", "retrieved_at": "2026-01-02T00:00:00Z",
+            "bars": [],
+        }
+        with self.assertRaisesRegex(ValidationError, "warnings must not contain blank"):
+            MarketDataBatch(**base, warnings=["provider caveat", "   "])
+
+    def test_batch_trims_warning_metadata(self):
+        batch = MarketDataBatch(
+            symbol="BTCUSD", interval="1d", status="historical",
+            source="provider-x", retrieved_at="2026-01-02T00:00:00Z",
+            bars=[], warnings=["  provider caveat  "],
+        )
+        self.assertEqual(batch.warnings, ["provider caveat"])
+
     def test_batch_rejects_unlabelled_extra_fields(self):
         with self.assertRaises(ValidationError):
             MarketDataBatch(

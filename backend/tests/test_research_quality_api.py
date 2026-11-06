@@ -93,6 +93,39 @@ class ResearchQualityApiTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             ResearchBenchmarkRequest(cases=[{"case_id": "x"}], regression_threshold=1.5)
 
+
+    def test_benchmark_api_exposes_baseline_regression_summary(self):
+        from app.main import ResearchBenchmarkRequest, run_research_benchmark
+        baseline = {"metrics": {
+            "claim_reference_coverage": 1.0,
+            "known_source_reference_coverage": 1.0,
+        }}
+        request = ResearchBenchmarkRequest(
+            cases=[{
+                "case_id": "baseline-regression-fixture",
+                "draft": "Fixture only; source structure is evaluated.",
+                "claims": [{"text": "Claim", "source_refs": ["missing-ref"]}],
+                "source_registry": [{"source_id": "known-ref"}],
+            }],
+            baseline=baseline,
+            regression_threshold=0.05,
+        )
+        result = run_research_benchmark(request)
+        self.assertEqual(result["regression_summary"]["status"], "regression_detected")
+        self.assertEqual(result["regression_summary"]["threshold"], 0.05)
+        self.assertTrue(result["regression_summary"]["items"])
+
+    def test_benchmark_api_rejects_threshold_outside_range(self):
+        from pydantic import ValidationError
+        from app.main import ResearchBenchmarkRequest
+        for threshold in (-0.01, 1.01):
+            with self.subTest(threshold=threshold):
+                with self.assertRaises(ValidationError):
+                    ResearchBenchmarkRequest(
+                        cases=[{"case_id": "fixture", "draft": "x", "claims": [], "source_registry": []}],
+                        regression_threshold=threshold,
+                    )
+
     def test_offline_benchmark_api_translates_invalid_case_to_400(self):
         from fastapi import HTTPException
         from app.main import ResearchBenchmarkRequest, run_research_benchmark

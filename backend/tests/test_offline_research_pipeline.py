@@ -76,6 +76,32 @@ class OfflineResearchPipelineTests(unittest.TestCase):
         self.assertEqual(bundle["scope"]["observation_count"], 2)
         self.assertEqual(bundle["observations"][0]["timestamp"], "2024-01-01T00:00:00+00:00")
 
+
+    def test_evidence_bundle_round_trip_preserves_integrity_and_provenance(self):
+        import json
+        from app.offline_research_pipeline import (
+            run_offline_research, build_offline_evidence_bundle,
+        )
+        from app.research_export_compare import compare_research_exports
+
+        path = self.write_csv()
+        research = run_offline_research(path, timestamp_column="timestamp")
+        bundle = build_offline_evidence_bundle(
+            research, symbol="BTCUSD", interval="1d"
+        )
+        restored = json.loads(json.dumps(bundle, ensure_ascii=False, allow_nan=False))
+
+        comparison = compare_research_exports(bundle, restored)
+        self.assertFalse(comparison["different"])
+        self.assertEqual(bundle["integrity"]["digest"], restored["integrity"]["digest"])
+        self.assertEqual(
+            bundle["scope"]["source_sha256"], restored["scope"]["source_sha256"]
+        )
+        self.assertTrue(comparison["integrity_validation"]["before"]["valid"])
+        self.assertTrue(comparison["integrity_validation"]["after"]["valid"])
+        self.assertEqual(comparison["counts"]["before"], 2)
+        self.assertEqual(comparison["counts"]["after"], 2)
+
     def test_indicator_pipeline_requires_timestamp_column(self):
         from app.offline_research_pipeline import run_offline_research
         with self.assertRaisesRegex(ValueError, "timestamp_column is required"):

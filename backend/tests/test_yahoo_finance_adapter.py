@@ -61,6 +61,15 @@ class YahooFinanceAdapterTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(batch.bars), 2)
         self.assertEqual([bar.close for bar in batch.bars], [102.0, 103.0])
 
+
+    async def test_malformed_timestamp_is_reported_as_invalid_chart_data(self):
+        payload = chart_payload()
+        payload["chart"]["result"][0]["timestamp"][0] = 10**100
+        adapter = YahooFinanceAdapter()
+        with patch.object(adapter, "_fetch_chart", return_value=payload):
+            with self.assertRaisesRegex(ValueError, "valid OHLCV chart data"):
+                await adapter.get_bars("AAPL", "1d", 10)
+
     async def test_rejects_invalid_symbol_interval_and_limit(self):
         adapter = YahooFinanceAdapter()
         for args in [("", "1d", 5), ("AAPL", "5m", 5), ("AAPL", "1d", 0), ("AAPL", "1d", 5001)]:

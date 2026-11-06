@@ -88,6 +88,17 @@ def run_offline_research_benchmark(
         baseline_metrics = baseline.get("metrics")
         if not isinstance(baseline_metrics, dict):
             raise ValueError("baseline must include a metrics object")
+        recognized_metrics = set(metric_keys).intersection(baseline_metrics)
+        if not recognized_metrics:
+            raise ValueError("baseline metrics must include at least one supported metric")
+        for metric_name in recognized_metrics:
+            metric_value = baseline_metrics[metric_name]
+            if (isinstance(metric_value, bool)
+                    or not isinstance(metric_value, (int, float))
+                    or not 0 <= metric_value <= 1):
+                raise ValueError(
+                    f"baseline metric {metric_name} must be a number between 0 and 1"
+                )
         baseline_comparison = {}
         regressions = []
         for key in metric_keys:

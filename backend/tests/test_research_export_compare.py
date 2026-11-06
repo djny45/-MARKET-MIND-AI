@@ -288,3 +288,15 @@ if __name__ == "__main__":
                     ValueError, "export_scope_symbol_and_interval_required"
                 ):
                     compare_research_exports(before, after)
+
+    def test_mixed_type_observation_fields_compare_without_sort_error(self):
+        before = bundle([{"timestamp": "t1", "source": "csv", "close": 10, 7: "legacy"}])
+        after = bundle([{"timestamp": "t1", "source": "csv", "close": 10, "extra": 1}])
+        result = compare_research_exports(before, after)
+        self.assertEqual(result["counts"]["changed"], 1)
+
+    def test_mixed_type_diagnostic_keys_compare_without_sort_error(self):
+        before = bundle([], data_quality={"gap_count": 0, 7: "legacy"})
+        after = bundle([], data_quality={"gap_count": 1, "other": True})
+        result = compare_research_exports(before, after)
+        self.assertIn("data_quality", result["diagnostic_changed_paths"])

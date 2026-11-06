@@ -30,12 +30,16 @@ def evaluate_research_draft(
         raise ValueError("baseline must be an object")
 
     source_ids = set()
+    duplicate_source_ids = set()
     for source in source_registry:
         if not isinstance(source, dict):
             raise ValueError("source_registry entries must be objects")
         source_id = source.get("source_id")
         if isinstance(source_id, str) and source_id.strip():
-            source_ids.add(source_id.strip())
+            normalized_id = source_id.strip()
+            if normalized_id in source_ids:
+                duplicate_source_ids.add(normalized_id)
+            source_ids.add(normalized_id)
 
     total = len(claims)
     claims_with_refs = 0
@@ -80,6 +84,8 @@ def evaluate_research_draft(
         "known_source_reference_coverage": round(claims_with_known_refs / denominator, 4) if total else None,
         "unknown_source_id_count": len(unknown_refs),
         "source_registry_count": len(source_ids),
+        "duplicate_source_id_count": len(duplicate_source_ids),
+        "duplicate_source_ids": sorted(duplicate_source_ids),
         "uncertainty_marker_count": len(uncertainty_markers),
         "uncertainty_markers": uncertainty_markers,
     }

@@ -1,5 +1,6 @@
 import unittest
-from app.historical_quality import build_historical_quality_diagnostics
+import math
+from app.historical_quality import build_historical_quality_diagnostics, _median, _mad_flags
 
 
 class HistoricalQualityTests(unittest.TestCase):
@@ -7,6 +8,28 @@ class HistoricalQualityTests(unittest.TestCase):
         return [{"timestamp": f"2026-01-01T{(i // 60):02d}:{i % 60:02d}:00+00:00",
                  "open": 100, "high": 102, "low": 99, "close": 100 + i * 0.1,
                  "volume": 100 + (i % 3)} for i in range(count)]
+
+    def test_history_must_be_mapping(self):
+        for invalid in (None, [], "history"):
+            with self.subTest(invalid=invalid):
+                with self.assertRaisesRegex(ValueError, "history must be a mapping"):
+                    build_historical_quality_diagnostics(invalid)
+
+    def test_bars_must_be_list_or_tuple(self):
+        for invalid in (None, {}, "bars"):
+            with self.subTest(invalid=invalid):
+                with self.assertRaisesRegex(ValueError, "history bars must be a list or tuple"):
+                    build_historical_quality_diagnostics({"bars": invalid})
+
+    def test_malformed_bar_rows_are_reported_and_skipped(self):
+        bars = self.bars(25)
+        bars[7] = "malformed-row"
+        result = build_historical_quality_diagnostics({"interval": "1h", "bars": bars})
+        self.assertEqual(result["bars_checked"], 25)
+        self.assertEqual(result["malformed_bar_count"], 1)
+        self.assertEqual(result["malformed_bar_indices"], [7])
+        self.assertEqual(result["timestamp_integrity"]["invalid_timestamp_count"], 1)
+        self.assertEqual(result["volume_outliers"]["sample_count"], 24)
 
     def test_spacing_reports_elapsed_time_without_filling_bars(self):
         bars = self.bars(3)
@@ -59,6 +82,51 @@ class HistoricalQualityTests(unittest.TestCase):
         bars[1]["timestamp"] = "2026-01-01T01:00:00+01:00"
         result = build_historical_quality_diagnostics({"interval": "1h", "bars": bars})
         self.assertEqual(result["timestamp_integrity"]["duplicate_timestamp_count"], 1)
+
+    def test_non_finite_close_and_volume_values_are_excluded(self):
+        bars = self.bars(25)
+        bars[5]["close"] = float("nan")
+        bars[6]["volume"] = float("inf")
+        result = build_historical_quality_diagnostics({"interval": "1h", "bars": bars})
+        price_result = result["close_to_close_return_outliers"]
+        volume_result = result["volume_outliers"]
+        self.assertEqual(price_result["sample_count"], 22)
+        self.assertEqual(volume_result["sample_count"], 24)
+        self.assertTrue(all(math.isfinite(item["return_pct"]) for item in price_result["flagged_observations"]))
+        self.assertTrue(all(math.isfinite(item["volume"]) for item in volume_result["flagged_observations"]))
+
+    def test_overflowing_close_to_close_return_is_skipped(self):
+        bars = self.bars(25)
+        bars[4]["close"] = 1e-308
+        bars[5]["close"] = 1e308
+        result = build_historical_quality_diagnostics({"interval": "1h", "bars": bars})
+        self.assertEqual(result["close_to_close_return_outliers"]["sample_count"], 23)
+        self.assertTrue(all(math.isfinite(value) for value in result["close_to_close_return_outliers"].get("flagged_observations", []) for value in [value["return_pct"]]))
+
+    def test_median_of_extreme_finite_values_does_not_overflow(self):
+        self.assertEqual(_median([1e308, 1e308]), 1e308)
+        self.assertTrue(math.isfinite(_median([1e308, 1e308])))
+
+    def test_mad_reports_unavailable_when_finite_values_overflow_deviation(self):
+        values = [-1e308, 1e308] + [1e308] * 23
+        result = _mad_flags(values)
+        self.assertEqual(result["status"], "unavailable_nonfinite_deviation")
+        self.assertEqual(result["sample_count"], 25)
+        self.assertEqual(result["flagged_indices"], [])
+
+
+    def test_unhashable_interval_metadata_is_reported_as_unsupported(self):
+        for interval in ([], {}, None):
+            with self.subTest(interval=interval):
+                result = build_historical_quality_diagnostics({
+                    "interval": interval, "bars": self.bars(4)
+                })
+                self.assertEqual(
+                    result["timestamp_spacing"]["status"], "unsupported_interval"
+                )
+                self.assertIsNone(
+                    result["timestamp_spacing"]["expected_interval_seconds"]
+                )
 
     def test_unsupported_interval_does_not_infer_spacing(self):
         result = build_historical_quality_diagnostics({"interval": "weekly", "bars": self.bars(4)})

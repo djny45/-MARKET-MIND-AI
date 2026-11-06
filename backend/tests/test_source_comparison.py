@@ -52,6 +52,28 @@ class SourceComparisonTests(unittest.TestCase):
         self.assertEqual(volume["invalid_value_count"], 1)
         self.assertEqual(volume["valid_value_count"], 2)
 
+    def test_non_object_observations_are_reported_and_skipped(self):
+        bars = self.bars()
+        bars.insert(1, "bad-row")
+        result = compare_source_observations({"bars": bars})
+        self.assertEqual(result["observations_checked"], 4)
+        self.assertEqual(result["invalid_timestamp_count"], 1)
+        self.assertEqual(result["invalid_timestamps"][0]["bar_index"], 1)
+        self.assertEqual(result["invalid_timestamps"][0]["reason"], "observation_must_be_object")
+        self.assertEqual(result["source_count"], 2)
+
+    def test_extreme_finite_values_do_not_emit_infinite_spread(self):
+        bars = [
+            {"timestamp": "2026-01-01T00:00:00Z", "source": "provider-a",
+             "open": 1, "high": 1, "low": 1, "close": -1e308, "volume": 0},
+            {"timestamp": "2026-01-01T00:00:00Z", "source": "provider-b",
+             "open": 1, "high": 1, "low": 1, "close": 1e308, "volume": 0},
+        ]
+        result = compare_source_observations({"bars": bars})
+        close = result["comparisons"][0]["field_ranges"]["close"]
+        self.assertIsNone(close["absolute_spread"])
+        self.assertEqual(close["spread_status"], "unavailable_nonfinite_spread")
+
     def test_same_source_duplicate_instant_is_reported(self):
         bars = self.bars()
         bars.append({**bars[0], "timestamp": "2026-01-01T01:00:00Z", "close": 106})

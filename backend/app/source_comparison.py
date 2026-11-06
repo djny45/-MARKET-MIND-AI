@@ -21,6 +21,13 @@ def compare_source_observations(history):
     grouped = {}
     invalid = []
     for index, bar in enumerate(bars):
+        if not isinstance(bar, dict):
+            invalid.append({
+                "bar_index": index,
+                "timestamp": None,
+                "reason": "observation_must_be_object",
+            })
+            continue
         instant = _instant(bar.get("timestamp"))
         if instant is None:
             invalid.append({"bar_index": index, "timestamp": bar.get("timestamp")})
@@ -63,10 +70,18 @@ def compare_source_observations(history):
                             "bar_index": item["bar_index"],
                             "raw_value": raw,
                         })
+            minimum = min(values) if values else None
+            maximum = max(values) if values else None
+            spread = maximum - minimum if values else None
+            spread_status = "available"
+            if spread is not None and not math.isfinite(spread):
+                spread = None
+                spread_status = "unavailable_nonfinite_spread"
             ranges[field] = {
-                "minimum": min(values) if values else None,
-                "maximum": max(values) if values else None,
-                "absolute_spread": max(values) - min(values) if values else None,
+                "minimum": minimum,
+                "maximum": maximum,
+                "absolute_spread": spread,
+                "spread_status": spread_status if values else "no_valid_values",
                 "valid_value_count": len(values),
                 "missing_value_count": missing_count,
                 "invalid_value_count": len(invalid_values),
@@ -84,7 +99,7 @@ def compare_source_observations(history):
         "symbol": history.get("symbol"),
         "interval": history.get("interval"),
         "observations_checked": len(bars),
-        "source_count": len({str(bar.get("source") or "unknown") for bar in bars}),
+        "source_count": len({str(bar.get("source") or "unknown") for bar in bars if isinstance(bar, dict)}),
         "shared_timestamp_count": len(comparisons),
         "comparisons": comparisons,
         "invalid_timestamp_count": len(invalid),

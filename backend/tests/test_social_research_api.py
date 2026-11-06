@@ -91,7 +91,7 @@ class SocialResearchApiTests(unittest.TestCase):
         }
         synthesis = {"status": "not_configured", "summary": None}
         with patch("app.main.social_sources.ingest_public_social_feeds",
-                   new_callable=AsyncMock, return_value=evidence), \\
+                   new_callable=AsyncMock, return_value=evidence), \
              patch("app.main.synthesize_research", return_value=synthesis) as synth:
             response = self.client.post("/api/research/social-feeds/synthesize", json={
                 "feeds": [{

@@ -1,7 +1,36 @@
 """Timestamped descriptive event timeline for stored OHLCV observations."""
+import math
+
 from .candle_patterns import classify_candles
 from .swing_points import find_swing_points
 from .indicators import sma, rsi, macd
+
+
+def _validate_ohlcv_bars(bars):
+    """Reject malformed OHLCV before indicator math can emit misleading values."""
+    required = ("open", "high", "low", "close", "volume")
+    for index, bar in enumerate(bars):
+        if not isinstance(bar, dict):
+            raise ValueError(f"bars[{index}] must be an object")
+        values = {}
+        for field in required:
+            raw = bar.get(field)
+            if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+                raise ValueError(f"bars[{index}].{field} must be numeric")
+            value = float(raw)
+            if not math.isfinite(value):
+                raise ValueError(f"bars[{index}].{field} must be finite")
+            if field != "volume" and value <= 0:
+                raise ValueError(f"bars[{index}].{field} must be positive")
+            values[field] = value
+        if values["low"] > values["high"]:
+            raise ValueError(f"bars[{index}] low must be <= high")
+        if values["low"] > min(values["open"], values["close"]):
+            raise ValueError(f"bars[{index}] low must be <= open and close")
+        if values["high"] < max(values["open"], values["close"]):
+            raise ValueError(f"bars[{index}] high must be >= open and close")
+        if values["volume"] < 0:
+            raise ValueError(f"bars[{index}].volume must be non-negative")
 
 
 def build_research_timeline(history: dict, limit: int = 200) -> dict:
@@ -12,6 +41,7 @@ def build_research_timeline(history: dict, limit: int = 200) -> dict:
         return {"symbol": history.get("symbol"), "interval": history.get("interval"),
                 "events": [], "bars_included": 0, "status": "no_stored_observations",
                 "execution": "disabled"}
+    _validate_ohlcv_bars(bars)
     labels = classify_candles(bars)
     closes = [float(bar['close']) for bar in bars]
     sma20 = sma(closes, 20)
@@ -30,7 +60,9 @@ def build_research_timeline(history: dict, limit: int = 200) -> dict:
         if previous:
             prior_close = float(previous["close"])
             if prior_close:
-                change_pct = round((close / prior_close - 1) * 100, 6)
+                raw_change_pct = (close / prior_close - 1) * 100
+                if math.isfinite(raw_change_pct):
+                    change_pct = round(raw_change_pct, 6)
         kinds = []
         patterns = labels[index]["patterns"]
         if patterns:
@@ -65,3 +97,11 @@ def build_research_timeline(history: dict, limit: int = 200) -> dict:
                         "Percentage change is close-to-close and is not a return forecast."],
         "execution": "disabled",
     }
+
+
+def test_timeline_rejects_nonpositive_prices():
+    import pytest
+    bars = sample_bars()
+    bars[0]["open"] = 0
+    with pytest.raises(ValueError, match="open must be positive"):
+        build_research_timeline({"bars": bars})

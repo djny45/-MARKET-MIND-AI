@@ -16,10 +16,20 @@ def _log_returns(prices: Sequence[float]) -> list[float]:
     for i, price in enumerate(prices):
         if isinstance(price, bool) or not isinstance(price, (int, float)):
             raise ValueError(f"prices[{i}] must be numeric")
-        if not math.isfinite(price) or price <= 0:
+        # Very large Python integers can raise OverflowError during float
+        # conversion inside math.isfinite; normalize that into our input error.
+        try:
+            finite = math.isfinite(price)
+        except (OverflowError, TypeError):
+            finite = False
+        if not finite or price <= 0:
             raise ValueError(f"prices[{i}] must be finite and positive")
-    for previous, current in zip(prices, prices[1:]):
-        result.append(math.log(current / previous))
+    for index, (previous, current) in enumerate(zip(prices, prices[1:])):
+        # Avoid overflow/underflow in the intermediate current / previous ratio.
+        log_return = math.log(current) - math.log(previous)
+        if not math.isfinite(log_return):
+            raise ValueError(f"log return at index {index} must be finite")
+        result.append(log_return)
     return result
 
 
@@ -70,9 +80,33 @@ def _predict(coefficients: list[float], features: list[list[float]]) -> list[flo
 
 
 def _metrics(actual: list[float], predicted: list[float]) -> dict[str, float]:
+    """Compute forecast metrics after validating aligned finite observations."""
+    if len(actual) != len(predicted):
+        raise ValueError("actual and predicted must have equal lengths")
+    if not actual:
+        raise ValueError("actual and predicted must be non-empty")
+    for name, values in (("actual", actual), ("predicted", predicted)):
+        for index, value in enumerate(values):
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise ValueError(f"{name}[{index}] must be numeric")
+            try:
+                finite = math.isfinite(value)
+            except (OverflowError, TypeError):
+                finite = False
+            if not finite:
+                raise ValueError(f"{name}[{index}] must be finite")
+
     errors = [prediction - target for target, prediction in zip(actual, predicted)]
-    mae = sum(abs(error) for error in errors) / len(errors)
-    rmse = math.sqrt(sum(error * error for error in errors) / len(errors))
+    if not all(math.isfinite(error) for error in errors):
+        raise ValueError("forecast errors must be finite")
+    # hypot avoids overflow from squaring large, but finite, error values.
+    try:
+        mae = math.fsum(abs(error) for error in errors) / len(errors)
+        rmse = math.hypot(*errors) / math.sqrt(len(errors))
+    except (OverflowError, ValueError):
+        raise ValueError("forecast metrics must be finite") from None
+    if not math.isfinite(mae) or not math.isfinite(rmse):
+        raise ValueError("forecast metrics must be finite")
     directional = sum(
         (target > 0 and prediction > 0) or (target < 0 and prediction < 0)
         or (target == 0 and prediction == 0)
@@ -244,6 +278,10 @@ def evaluate_walk_forward_return_forecast(
         features.append(returns[target_index - lookback:target_index])
         targets.append(returns[target_index])
 
+    if step_size < test_window:
+        raise ValueError(
+            "step_size must be >= test_window to prevent overlapping test windows"
+        )
     if len(targets) < min_history_samples + test_window:
         raise ValueError("insufficient history for walk-forward evaluation")
 

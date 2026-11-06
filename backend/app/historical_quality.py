@@ -1,5 +1,6 @@
 """Robust historical observation diagnostics; no inferred prices or trade signals."""
 from datetime import datetime
+import math
 
 INTERVAL_SECONDS = {"15m": 900, "1h": 3600, "4h": 14400, "1d": 86400}
 
@@ -19,14 +20,24 @@ def _median(values):
     if not ordered:
         return None
     middle = len(ordered) // 2
-    return ordered[middle] if len(ordered) % 2 else (ordered[middle - 1] + ordered[middle]) / 2
+    return ordered[middle] if len(ordered) % 2 else (ordered[middle - 1] / 2) + (ordered[middle] / 2)
 
 
 def _mad_flags(values, minimum=20, threshold=6.0):
     if len(values) < minimum:
         return {"status": "insufficient_history", "sample_count": len(values), "threshold_mad": threshold, "flagged_indices": []}
     center = _median(values)
-    mad = _median([abs(value - center) for value in values])
+    deviations = [abs(value - center) for value in values]
+    if not all(math.isfinite(value) for value in deviations):
+        return {
+            "status": "unavailable_nonfinite_deviation",
+            "sample_count": len(values),
+            "median": center,
+            "mad": None,
+            "threshold_mad": threshold,
+            "flagged_indices": [],
+        }
+    mad = _median(deviations)
     if mad is None or mad == 0:
         return {"status": "unavailable_zero_mad", "sample_count": len(values), "median": center, "mad": mad, "threshold_mad": threshold, "flagged_indices": []}
     flags = [i for i, value in enumerate(values) if abs(value - center) / (1.4826 * mad) > threshold]
@@ -34,27 +45,36 @@ def _mad_flags(values, minimum=20, threshold=6.0):
 
 
 def build_historical_quality_diagnostics(history):
+    """Return diagnostics for a mapping containing a list/tuple of OHLCV rows."""
+    if not isinstance(history, dict):
+        raise ValueError("history must be a mapping")
     bars = history.get("bars", [])
+    if not isinstance(bars, (list, tuple)):
+        raise ValueError("history bars must be a list or tuple")
     interval = history.get("interval")
-    expected = INTERVAL_SECONDS.get(interval)
-    parsed = [_timestamp(bar.get("timestamp")) for bar in bars]
+    # Malformed interval metadata should be reported as unsupported rather
+    # than raising TypeError for unhashable values (e.g. lists or dicts).
+    expected = INTERVAL_SECONDS.get(interval) if isinstance(interval, str) else None
+    malformed_bar_indices = [i for i, bar in enumerate(bars) if not isinstance(bar, dict)]
+    safe_bars = [bar if isinstance(bar, dict) else {} for bar in bars]
+    parsed = [_timestamp(bar.get("timestamp")) for bar in safe_bars]
     valid_pairs = [(i, value) for i, value in enumerate(parsed) if value is not None]
-    invalid_timestamps = [{"bar_index": i, "timestamp": bars[i].get("timestamp")}
+    invalid_timestamps = [{"bar_index": i, "timestamp": safe_bars[i].get("timestamp")}
                           for i, value in enumerate(parsed) if value is None]
     seen_timestamps = {}
     duplicate_timestamps = []
     for i, value in valid_pairs:
         if value in seen_timestamps:
             duplicate_timestamps.append({"bar_index": i, "first_bar_index": seen_timestamps[value],
-                                          "timestamp": bars[i].get("timestamp")})
+                                          "timestamp": safe_bars[i].get("timestamp")})
         else:
             seen_timestamps[value] = i
     out_of_order_timestamps = []
     for (previous_index, previous), (current_index, current) in zip(valid_pairs, valid_pairs[1:]):
         if current < previous:
             out_of_order_timestamps.append({"bar_index": current_index, "previous_bar_index": previous_index,
-                                            "timestamp": bars[current_index].get("timestamp"),
-                                            "previous_timestamp": bars[previous_index].get("timestamp")})
+                                            "timestamp": safe_bars[current_index].get("timestamp"),
+                                            "previous_timestamp": safe_bars[previous_index].get("timestamp")})
     spacing = []
     if expected:
         for (previous_index, previous), (current_index, current) in zip(valid_pairs, valid_pairs[1:]):
@@ -62,25 +82,27 @@ def build_historical_quality_diagnostics(history):
             if delta > expected * 1.5:
                 spacing.append({"from_index": previous_index, "to_index": current_index,
                                 "elapsed_seconds": delta, "expected_interval_seconds": expected,
-                                "from_timestamp": bars[previous_index].get("timestamp"),
-                                "to_timestamp": bars[current_index].get("timestamp"),
+                                "from_timestamp": safe_bars[previous_index].get("timestamp"),
+                                "to_timestamp": safe_bars[current_index].get("timestamp"),
                                 "interval_multiples": round(delta / expected, 3)})
     returns = []
     return_indices = []
     for i in range(1, len(bars)):
         try:
             previous, current = float(bars[i - 1]["close"]), float(bars[i]["close"])
-            if previous > 0 and current > 0:
-                returns.append((current / previous) - 1)
-                return_indices.append(i)
+            if math.isfinite(previous) and math.isfinite(current) and previous > 0 and current > 0:
+                value = (current / previous) - 1
+                if math.isfinite(value):
+                    returns.append(value)
+                    return_indices.append(i)
         except (KeyError, TypeError, ValueError, ZeroDivisionError):
             continue
     price_result = _mad_flags(returns)
     price_result["flagged_bar_indices"] = [return_indices[i] for i in price_result["flagged_indices"]]
     price_result["flagged_observations"] = [{
         "bar_index": return_indices[i],
-        "timestamp": bars[return_indices[i]].get("timestamp"),
-        "previous_timestamp": bars[return_indices[i] - 1].get("timestamp"),
+        "timestamp": safe_bars[return_indices[i]].get("timestamp"),
+        "previous_timestamp": safe_bars[return_indices[i] - 1].get("timestamp"),
         "previous_close": float(bars[return_indices[i] - 1]["close"]),
         "close": float(bars[return_indices[i]]["close"]),
         "return_pct": round(returns[i] * 100, 6),
@@ -91,7 +113,7 @@ def build_historical_quality_diagnostics(history):
     for i, bar in enumerate(bars):
         try:
             value = float(bar["volume"])
-            if value >= 0:
+            if math.isfinite(value) and value >= 0:
                 volumes.append(value)
                 volume_indices.append(i)
         except (KeyError, TypeError, ValueError):
@@ -100,13 +122,15 @@ def build_historical_quality_diagnostics(history):
     volume_result["flagged_bar_indices"] = [volume_indices[i] for i in volume_result["flagged_indices"]]
     volume_result["flagged_observations"] = [{
         "bar_index": volume_indices[i],
-        "timestamp": bars[volume_indices[i]].get("timestamp"),
+        "timestamp": safe_bars[volume_indices[i]].get("timestamp"),
         "volume": volumes[i],
         "robust_deviation_mad": round(abs(volumes[i] - volume_result["median"]) / (1.4826 * volume_result["mad"]), 3)
     } for i in volume_result["flagged_indices"]] if volume_result["status"] == "available" else []
     return {
         "interval": interval,
         "bars_checked": len(bars),
+        "malformed_bar_count": len(malformed_bar_indices),
+        "malformed_bar_indices": malformed_bar_indices,
         "timestamp_integrity": {
             "invalid_timestamp_count": len(invalid_timestamps),
             "invalid_timestamps": invalid_timestamps,

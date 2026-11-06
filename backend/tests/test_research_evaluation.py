@@ -310,6 +310,23 @@ class BinaryResearchReportTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "not evaluation-ready"):
             build_binary_research_report(manifest, self.boundaries, [[0]], [[0]])
 
+    def test_rejects_split_boundaries_outside_manifest_date_range(self):
+        from app.research_evaluation import build_binary_research_report
+
+        boundaries = dict(self.boundaries)
+        boundaries["train_end"] = "2023-12-31T23:59:59Z"
+        with self.assertRaisesRegex(ValueError, "within the dataset manifest date range"):
+            build_binary_research_report(
+                self.manifest, boundaries, [[0]], [[0]]
+            )
+
+        boundaries = dict(self.boundaries)
+        boundaries["test_start"] = "2024-02-02T00:00:00Z"
+        with self.assertRaisesRegex(ValueError, "within the dataset manifest date range"):
+            build_binary_research_report(
+                self.manifest, boundaries, [[0]], [[0]]
+            )
+
     def test_rejects_missing_boundaries_and_sample_overflow(self):
         from app.research_evaluation import build_binary_research_report
         with self.assertRaisesRegex(ValueError, "missing required fields"):

@@ -287,6 +287,17 @@ def build_binary_research_report(
         split_boundaries["test_start"],
         embargo_seconds=embargo_seconds,
     )
+
+    # Ensure the declared evaluation window belongs to the declared dataset.
+    # Otherwise valid-looking split boundaries can silently refer to data
+    # outside the manifest's advertised coverage.
+    dataset_start = _parse_timestamp(normalized_manifest["start"], "dataset.start").astimezone(timezone.utc)
+    dataset_end = _parse_timestamp(normalized_manifest["end"], "dataset.end").astimezone(timezone.utc)
+    split_start = _parse_timestamp(split_boundaries["train_end"], "train_end").astimezone(timezone.utc)
+    split_end = _parse_timestamp(split_boundaries["test_start"], "test_start").astimezone(timezone.utc)
+    if split_start < dataset_start or split_end > dataset_end:
+        raise ValueError("split boundaries must fall within the dataset manifest date range")
+
     aggregate = aggregate_binary_evaluation_runs(actual_runs, predicted_runs)
     evaluated_samples = aggregate["pooled"]["sample_count"]
     if evaluated_samples > normalized_manifest["sample_count"]:

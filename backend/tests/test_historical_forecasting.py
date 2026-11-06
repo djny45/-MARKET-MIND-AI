@@ -71,6 +71,53 @@ class HistoricalForecastingTests(unittest.TestCase):
         self.assertEqual(candidates, {1e-6, 1e-4, 1e-2, 1.0})
         self.assertIn(report["selected_ridge_alpha"], candidates)
 
+    def test_log_returns_avoid_intermediate_ratio_overflow(self):
+        from app.historical_forecasting import _log_returns
+
+        values = _log_returns([1e-300, 1e300, 1e-300])
+        self.assertTrue(all(math.isfinite(value) for value in values))
+        self.assertAlmostEqual(values[0], math.log(1e300) - math.log(1e-300))
+        self.assertAlmostEqual(values[1], math.log(1e-300) - math.log(1e300))
+
+    def test_rejects_integer_too_large_for_float_conversion(self):
+        from app.historical_forecasting import _log_returns
+
+        with self.assertRaisesRegex(ValueError, r"prices\[0\] must be finite and positive"):
+            _log_returns([10**10000, 100.0])
+
+    def test_metrics_reject_empty_mismatched_and_nonfinite_inputs(self):
+        from app.historical_forecasting import _metrics
+
+        for actual, predicted, message in (
+            ([], [], "non-empty"),
+            ([0.1], [], "equal lengths"),
+            ([0.1], [float("nan")], r"predicted\[0\] must be finite"),
+            ([float("inf")], [0.1], r"actual\[0\] must be finite"),
+            ([True], [0.1], r"actual\[0\] must be numeric"),
+        ):
+            with self.subTest(actual=actual, predicted=predicted):
+                with self.assertRaisesRegex(ValueError, message):
+                    _metrics(actual, predicted)
+
+    def test_metrics_reject_nonfinite_error_overflow(self):
+        from app.historical_forecasting import _metrics
+
+        with self.assertRaisesRegex(ValueError, "forecast errors must be finite"):
+            _metrics([-1e308], [1e308])
+
+    def test_metrics_rmse_handles_large_finite_errors_without_square_overflow(self):
+        from app.historical_forecasting import _metrics
+
+        metrics = _metrics([0.0, 0.0], [1e200, -1e200])
+        self.assertTrue(math.isfinite(metrics["rmse_log_return"]))
+        self.assertAlmostEqual(metrics["rmse_log_return"], 1e200)
+
+    def test_metrics_reject_unrepresentable_mean_absolute_error(self):
+        from app.historical_forecasting import _metrics
+
+        with self.assertRaisesRegex(ValueError, "forecast metrics must be finite"):
+            _metrics([0.0, 0.0], [1.7e308, 1.7e308])
+
     def test_rejects_invalid_prices(self):
         invalid_cases = (
             [100, 0, 101],
@@ -126,6 +173,17 @@ class HistoricalForecastingTests(unittest.TestCase):
         self.assertEqual(aggregate["window_count"], report["window_count"])
         self.assertTrue(math.isfinite(aggregate["mean"]))
         self.assertTrue(math.isfinite(aggregate["median"]))
+
+    def test_walk_forward_rejects_overlapping_test_windows(self):
+        from app.historical_forecasting import evaluate_walk_forward_return_forecast
+
+        with self.assertRaisesRegex(ValueError, "step_size must be >= test_window"):
+            evaluate_walk_forward_return_forecast(
+                self.synthetic_closes(500),
+                min_history_samples=100,
+                test_window=20,
+                step_size=10,
+            )
 
     def test_walk_forward_rejects_invalid_parameters_and_short_history(self):
         from app.historical_forecasting import evaluate_walk_forward_return_forecast

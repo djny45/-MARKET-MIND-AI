@@ -14,10 +14,13 @@ def _check_integrity(bundle):
     if integrity.get("canonicalization") != "UTF-8 JSON with sorted keys and compact separators":
         return {"valid": False, "reason": "unsupported_canonicalization"}
     expected = integrity.get("digest")
-    if not isinstance(expected, str) or len(expected) != 64:
+    if (
+        not isinstance(expected, str)
+        or len(expected) != 64
+        or any(char not in "0123456789abcdefABCDEF" for char in expected)
+    ):
         return {"valid": False, "reason": "invalid_digest_format"}
     try:
-        int(expected, 16)
         payload = dict(bundle)
         payload.pop("integrity", None)
         canonical = json.dumps(
@@ -36,6 +39,17 @@ def _check_integrity(bundle):
     }
 
 
+def _stable_field_sort_key(field):
+    """Order heterogeneous dictionary keys deterministically, including str collisions."""
+    return (str(field), type(field).__name__, repr(field))
+
+
+def _integrity_digest(bundle):
+    """Return a digest only when integrity metadata has the expected shape."""
+    integrity = bundle.get("integrity")
+    return integrity.get("digest") if isinstance(integrity, dict) else None
+
+
 def compare_research_exports(before, after):
     """Compare export scope and observation records by timestamp and source."""
     if not isinstance(before, dict) or not isinstance(after, dict):
@@ -48,6 +62,12 @@ def compare_research_exports(before, after):
     new_scope = after.get("scope") or {}
     if not isinstance(old_scope, dict) or not isinstance(new_scope, dict):
         raise ValueError("export_scope_must_be_an_object")
+    for scope in (old_scope, new_scope):
+        if any(
+            not isinstance(scope.get(field), str) or not scope[field].strip()
+            for field in ("symbol", "interval")
+        ):
+            raise ValueError("export_scope_symbol_and_interval_required")
     if (old_scope.get("symbol"), old_scope.get("interval")) != (new_scope.get("symbol"), new_scope.get("interval")):
         raise ValueError("export_scope_mismatch")
     def index(bundle):
@@ -62,7 +82,12 @@ def compare_research_exports(before, after):
                 continue
             timestamp = observation.get("timestamp")
             source = observation.get("source")
-            if not isinstance(timestamp, str) or not isinstance(source, str):
+            if (
+                not isinstance(timestamp, str)
+                or not timestamp.strip()
+                or not isinstance(source, str)
+                or not source.strip()
+            ):
                 invalid += 1
                 continue
             key = (timestamp, source)
@@ -80,8 +105,11 @@ def compare_research_exports(before, after):
     changed = []
     for key in sorted(old_keys & new_keys):
         fields = sorted(
-            field for field in set(old[key]) | set(new[key])
-            if old[key].get(field) != new[key].get(field)
+            (
+                field for field in set(old[key]) | set(new[key])
+                if old[key].get(field) != new[key].get(field)
+            ),
+            key=_stable_field_sort_key,
         )
         if fields:
             changed.append({"timestamp": key[0], "source": key[1], "fields": fields})
@@ -92,7 +120,11 @@ def compare_research_exports(before, after):
         if left != right:
             if isinstance(left, dict) and isinstance(right, dict):
                 diagnostic_changes[section] = sorted(
-                    key for key in set(left) | set(right) if left.get(key) != right.get(key)
+                    (
+                        key for key in set(left) | set(right)
+                        if left.get(key) != right.get(key)
+                    ),
+                    key=str,
                 )
             else:
                 diagnostic_changes[section] = ["$"]
@@ -115,8 +147,8 @@ def compare_research_exports(before, after):
         ],
         "diagnostic_changed_paths": diagnostic_changes,
         "integrity_digests": {
-            "before": (before.get("integrity") or {}).get("digest"),
-            "after": (after.get("integrity") or {}).get("digest"),
+            "before": _integrity_digest(before),
+            "after": _integrity_digest(after),
         },
         "integrity_validation": {
             "before": _check_integrity(before),
@@ -124,7 +156,7 @@ def compare_research_exports(before, after):
         },
         "limitations": [
             "Observation keys use exact timestamp strings and source labels.",
-            "Duplicate or malformed keys are reported but cannot be matched.",
+            "Duplicate, empty, or malformed keys are reported but cannot be matched.",
             "This comparison does not authenticate a data provider.",
         ],
     }

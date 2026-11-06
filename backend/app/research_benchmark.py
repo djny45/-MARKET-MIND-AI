@@ -81,6 +81,7 @@ def run_offline_research_benchmark(
         aggregate[key] = {
             "mean": round(sum(values) / len(values), 4) if values else None,
             "evaluated_case_count": len(values),
+            "unevaluated_case_count": len(results) - len(values),
         }
 
     baseline_comparison = None

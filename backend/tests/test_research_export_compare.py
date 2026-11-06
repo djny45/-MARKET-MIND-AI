@@ -297,6 +297,12 @@ class ResearchExportCompareTests(unittest.TestCase):
         result = compare_research_exports(before, after)
         self.assertIn("data_quality", result["diagnostic_changed_paths"])
 
+    def test_colliding_stringified_field_keys_have_stable_order(self):
+        before = bundle([{"timestamp": "t1", "source": "csv", 1: "old", "1": "old"}])
+        after = bundle([{"timestamp": "t1", "source": "csv", 1: "new", "1": "new"}])
+        result = compare_research_exports(before, after)
+        self.assertEqual(result["changed"][0]["fields"], ["1", 1])
+
 
 if __name__ == "__main__":
     unittest.main()

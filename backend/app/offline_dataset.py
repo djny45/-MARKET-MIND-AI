@@ -61,7 +61,10 @@ def load_ohlcv_csv(path: str | Path, *, timestamp_column: str | None = None) -> 
     if len(set(normalized_header)) != len(normalized_header):
         raise ValueError("CSV contains duplicate columns after normalization")
 
-    frame = pd.read_csv(source)
+    try:
+        frame = pd.read_csv(source)
+    except (UnicodeError, OSError, pd.errors.ParserError) as exc:
+        raise ValueError(f"Could not parse CSV data: {exc}") from exc
     if frame.empty:
         raise ValueError("CSV dataset is empty")
 

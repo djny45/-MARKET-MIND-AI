@@ -58,6 +58,43 @@ class ResearchExportCompareCliTests(unittest.TestCase):
             self.assertEqual(code, 2)
             self.assertEqual(json.loads(output.getvalue())["error"], "comparison_failed")
 
+    def test_strict_cli_returns_nonzero_for_unverified_exports(self):
+        with tempfile.TemporaryDirectory() as directory:
+            before = Path(directory) / "before.json"
+            after = Path(directory) / "after.json"
+            before.write_text(json.dumps(export(10)), encoding="utf-8")
+            after.write_text(json.dumps(export(12)), encoding="utf-8")
+            output = io.StringIO()
+            with patch("sys.argv", ["compare_research_exports.py", str(before), str(after), "--strict"]):
+                with contextlib.redirect_stdout(output):
+                    code = main()
+            self.assertEqual(code, 1)
+            self.assertEqual(json.loads(output.getvalue())["comparison_status"], "integrity_unverified")
+
+    def test_strict_cli_returns_zero_for_verified_compatible_exports(self):
+        import hashlib
+        def signed(data):
+            payload = dict(data)
+            canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+            payload["integrity"] = {
+                "algorithm": "sha256",
+                "digest": hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
+                "scope": "complete evidence bundle excluding this integrity field",
+                "canonicalization": "UTF-8 JSON with sorted keys and compact separators",
+            }
+            return payload
+        with tempfile.TemporaryDirectory() as directory:
+            before = Path(directory) / "before.json"
+            after = Path(directory) / "after.json"
+            before.write_text(json.dumps(signed(export(10))), encoding="utf-8")
+            after.write_text(json.dumps(signed(export(12))), encoding="utf-8")
+            output = io.StringIO()
+            with patch("sys.argv", ["compare_research_exports.py", str(before), str(after), "--strict"]):
+                with contextlib.redirect_stdout(output):
+                    code = main()
+            self.assertEqual(code, 0)
+            self.assertEqual(json.loads(output.getvalue())["comparison_status"], "integrity_verified")
+
 
 if __name__ == "__main__":
     unittest.main()

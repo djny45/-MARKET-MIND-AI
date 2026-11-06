@@ -63,10 +63,18 @@ def compare_source_observations(history):
                             "bar_index": item["bar_index"],
                             "raw_value": raw,
                         })
+            minimum = min(values) if values else None
+            maximum = max(values) if values else None
+            spread = maximum - minimum if values else None
+            spread_status = "available"
+            if spread is not None and not math.isfinite(spread):
+                spread = None
+                spread_status = "unavailable_nonfinite_spread"
             ranges[field] = {
-                "minimum": min(values) if values else None,
-                "maximum": max(values) if values else None,
-                "absolute_spread": max(values) - min(values) if values else None,
+                "minimum": minimum,
+                "maximum": maximum,
+                "absolute_spread": spread,
+                "spread_status": spread_status if values else "no_valid_values",
                 "valid_value_count": len(values),
                 "missing_value_count": missing_count,
                 "invalid_value_count": len(invalid_values),

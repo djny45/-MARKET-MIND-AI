@@ -9,6 +9,7 @@ This document describes the implemented task lifecycle and its current execution
 - **Inspect:** `GET /api/analytical-agent-tasks/{task_id}` returns task state and stored result.
 - **Audit:** `GET /api/analytical-agent-tasks/{task_id}/audit` returns bounded, cursor-paginated lifecycle events.
 - **Cancel:** `POST /api/analytical-agent-tasks/{task_id}/cancel` changes a task from `queued` to `cancelled`. It cannot interrupt a task already claimed as `running`, nor alter completed/failed/cancelled tasks.
+- **Retry:** `POST /api/analytical-agent-tasks/{task_id}/retry` accepts only failed tasks and creates a *new* queued task with the original input. One retry per original task is allowed. It does not automatically dispatch or rerun in place; the new task must be explicitly dispatched.
 - **Recover:** `POST /api/analytical-agent-tasks/recover` requeues stale `running` tasks after the recovery grace period. Recovery does **not** dispatch them; dispatch remains explicit.
 
 ## State and safety properties
@@ -24,7 +25,7 @@ This document describes the implemented task lifecycle and its current execution
 ## Not implemented by this lifecycle
 
 - Distributed/cloud queue or multi-process coordination.
-- Automatic retry policy, scheduled research, or cloud workspaces.
+- Automatic retry policy, scheduled research, or cloud workspaces. Retry is manual and capped at one fresh task per failed original.
 - Live market-data execution as part of the task runner.
 - Broker or exchange order execution.
 - Independent model instances or continuous autonomous training for 550 workers.

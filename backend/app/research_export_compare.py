@@ -39,6 +39,11 @@ def _check_integrity(bundle):
     }
 
 
+def _stable_field_sort_key(field):
+    """Order heterogeneous dictionary keys deterministically, including str collisions."""
+    return (str(field), type(field).__name__, repr(field))
+
+
 def _integrity_digest(bundle):
     """Return a digest only when integrity metadata has the expected shape."""
     integrity = bundle.get("integrity")
@@ -104,7 +109,7 @@ def compare_research_exports(before, after):
                 field for field in set(old[key]) | set(new[key])
                 if old[key].get(field) != new[key].get(field)
             ),
-            key=str,
+            key=_stable_field_sort_key,
         )
         if fields:
             changed.append({"timestamp": key[0], "source": key[1], "fields": fields})

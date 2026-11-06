@@ -160,5 +160,57 @@ class ResearchExportCompareTests(unittest.TestCase):
             compare_research_exports(before, after)
 
 
+    def test_integrity_validation_accepts_uppercase_sha256_digest(self):
+        import hashlib
+        import json
+
+        item = bundle([])
+        payload = dict(item)
+        payload.pop("integrity", None)
+        canonical = json.dumps(
+            payload, sort_keys=True, separators=(",", ":"),
+            ensure_ascii=False, allow_nan=False,
+        )
+        digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+        item["integrity"] = {
+            "algorithm": "sha256",
+            "digest": digest.upper(),
+            "scope": "complete evidence bundle excluding this integrity field",
+            "canonicalization": "UTF-8 JSON with sorted keys and compact separators",
+        }
+
+        result = compare_research_exports(item, item)
+        self.assertTrue(result["integrity_validation"]["before"]["valid"])
+        self.assertEqual(
+            result["integrity_validation"]["before"]["expected_digest"], digest
+        )
+
+    def test_integrity_validation_rejects_non_finite_json_values(self):
+        import hashlib
+        import json
+
+        item = bundle([])
+        payload = dict(item)
+        payload.pop("integrity", None)
+        canonical = json.dumps(
+            payload, sort_keys=True, separators=(",", ":"),
+            ensure_ascii=False, allow_nan=False,
+        )
+        item["integrity"] = {
+            "algorithm": "sha256",
+            "digest": hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
+            "scope": "complete evidence bundle excluding this integrity field",
+            "canonicalization": "UTF-8 JSON with sorted keys and compact separators",
+        }
+        item["data_quality"]["unexpected_value"] = float("nan")
+
+        result = compare_research_exports(item, item)
+        self.assertFalse(result["integrity_validation"]["before"]["valid"])
+        self.assertEqual(
+            result["integrity_validation"]["before"]["reason"],
+            "bundle_cannot_be_canonicalized",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

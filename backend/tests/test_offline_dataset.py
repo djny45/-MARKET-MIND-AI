@@ -27,6 +27,20 @@ class OfflineDatasetTests(unittest.TestCase):
         self.assertEqual(frame["close"].tolist(), [1.5, 2.5])
         self.assertEqual(str(frame["timestamp"].dt.tz), "UTC")
 
+    def test_rows_with_missing_or_extra_fields_rejected(self):
+        from app.offline_dataset import load_ohlcv_csv
+        for row in ("1,2,0.5\\n", "1,2,0.5,1.5,extra\\n"):
+            with self.subTest(row=row):
+                path = self.write_csv("open,high,low,close\\n" + row)
+                with self.assertRaisesRegex(ValueError, "CSV row 2 has"):
+                    load_ohlcv_csv(path)
+
+    def test_blank_interior_csv_row_rejected(self):
+        from app.offline_dataset import load_ohlcv_csv
+        path = self.write_csv("open,high,low,close\\n1,2,0.5,1.5\\n\\n1,2,0.5,1.5\\n")
+        with self.assertRaisesRegex(ValueError, "blank row at line 3"):
+            load_ohlcv_csv(path)
+
     def test_blank_column_name_rejected_after_normalization(self):
         from app.offline_dataset import load_ohlcv_csv
         path = self.write_csv("open,high,low,close,   \n1,2,0.5,1.5,7\n")

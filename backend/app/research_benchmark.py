@@ -13,6 +13,31 @@ from app.research_quality_eval import evaluate_research_draft
 
 MAX_CASES = 100
 MAX_CASE_ID_CHARS = 120
+BASELINE_METRICS = ("claim_reference_coverage", "known_source_reference_coverage")
+
+
+def _validate_baseline_metrics(baseline: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Validate baseline schema before evaluating any benchmark cases."""
+    if baseline is None:
+        return None
+    metrics = baseline.get("metrics")
+    if not isinstance(metrics, dict):
+        raise ValueError("baseline must include a metrics object")
+    unknown_metrics = set(metrics) - set(BASELINE_METRICS)
+    if unknown_metrics:
+        raise ValueError(
+            f"baseline contains unsupported metrics: {sorted(unknown_metrics)}"
+        )
+    if not metrics:
+        raise ValueError("baseline metrics must include at least one supported metric")
+    for metric_name, metric_value in metrics.items():
+        if (isinstance(metric_value, bool)
+                or not isinstance(metric_value, (int, float))
+                or not 0 <= metric_value <= 1):
+            raise ValueError(
+                f"baseline metric {metric_name} must be a number between 0 and 1"
+            )
+    return metrics
 
 
 def run_offline_research_benchmark(
@@ -26,6 +51,7 @@ def run_offline_research_benchmark(
         raise ValueError(f"cases must contain 1 to {MAX_CASES} entries")
     if baseline is not None and not isinstance(baseline, dict):
         raise ValueError("baseline must be an object")
+    baseline_metrics = _validate_baseline_metrics(baseline)
     if (isinstance(regression_threshold, bool)
             or not isinstance(regression_threshold, (int, float))
             or not 0 <= regression_threshold <= 1):
@@ -70,7 +96,7 @@ def run_offline_research_benchmark(
             "evaluation": evaluation,
         })
 
-    metric_keys = ("claim_reference_coverage", "known_source_reference_coverage")
+    metric_keys = BASELINE_METRICS
     aggregate = {}
     for key in metric_keys:
         values = [
@@ -87,25 +113,6 @@ def run_offline_research_benchmark(
     baseline_comparison = None
     regression_summary = None
     if baseline is not None:
-        baseline_metrics = baseline.get("metrics")
-        if not isinstance(baseline_metrics, dict):
-            raise ValueError("baseline must include a metrics object")
-        unknown_metrics = set(baseline_metrics) - set(metric_keys)
-        if unknown_metrics:
-            raise ValueError(
-                f"baseline contains unsupported metrics: {sorted(unknown_metrics)}"
-            )
-        recognized_metrics = set(metric_keys).intersection(baseline_metrics)
-        if not recognized_metrics:
-            raise ValueError("baseline metrics must include at least one supported metric")
-        for metric_name in recognized_metrics:
-            metric_value = baseline_metrics[metric_name]
-            if (isinstance(metric_value, bool)
-                    or not isinstance(metric_value, (int, float))
-                    or not 0 <= metric_value <= 1):
-                raise ValueError(
-                    f"baseline metric {metric_name} must be a number between 0 and 1"
-                )
         baseline_comparison = {}
         regressions = []
         for key in metric_keys:

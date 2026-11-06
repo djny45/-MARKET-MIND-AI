@@ -66,9 +66,9 @@ class OfflineResearchPipelineTests(unittest.TestCase):
             run_offline_research, build_offline_evidence_bundle,
         )
         with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as file:
-            file.write("time_utc,open,high,low,close\\n")
-            file.write("2024-01-01T00:00:00Z,10,12,9,11\\n")
-            file.write("2024-01-02T00:00:00Z,11,13,10,12\\n")
+            file.write("time_utc,open,high,low,close\n")
+            file.write("2024-01-01T00:00:00Z,10,12,9,11\n")
+            file.write("2024-01-02T00:00:00Z,11,13,10,12\n")
             path = file.name
         self.addCleanup(Path(path).unlink, missing_ok=True)
         result = run_offline_research(path, timestamp_column="time_utc")

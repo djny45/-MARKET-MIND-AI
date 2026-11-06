@@ -43,10 +43,16 @@ benchmark_record = store.get(record_id)
 gate = promotion_eligibility(benchmark_record)
 ```
 
-The gate blocks approval if there is no baseline comparison, any metric was
-skipped, the regression status is not `no_regression_detected`, or a compared
-metric lacks a numeric delta. An explicit reviewer decision and rationale are
-then stored:
+Before evaluating metric eligibility, the promotion gate verifies the record
+schema version, envelope/result benchmark identifiers and types, and the
+SHA-256 content hash. Altered result payloads or inconsistent envelope fields
+are blocked. This is integrity checking, not a cryptographic signature or
+proof of who produced the record.
+
+The gate also blocks approval if there is no baseline comparison, any metric
+was skipped, the regression status is not `no_regression_detected`, the metric
+set is incomplete, or comparison values/deltas are missing or inconsistent.
+An explicit reviewer decision and rationale are then stored:
 
 ```python
 reviews = PromotionReviewStore("data/research_benchmark_history.sqlite")

@@ -57,6 +57,8 @@ def validate_payload(payload: str | bytes | dict[str, Any]) -> dict[str, Any]:
         except (json.JSONDecodeError, ValueError) as exc:
             raise ValueError("Payload must be valid JSON without duplicate keys or non-finite constants") from exc
     elif isinstance(payload, dict):
+        if any(not isinstance(key, str) for key in payload):
+            raise ValueError("Payload object keys must be strings")
         try:
             serialized = json.dumps(
                 payload, ensure_ascii=False, separators=(",", ":"), allow_nan=False

@@ -7,5 +7,14 @@ class IndicatorTests(unittest.TestCase):
  def test_rsi(self): self.assertTrue(all(x is None or 0<=x<=100 for x in rsi(list(range(1,40)))))
  def test_macd(self): self.assertEqual(len(macd(list(range(1,40)))["histogram"]),39)
  def test_bollinger(self): self.assertEqual(len(bollinger(list(range(1,25)))["upper"]),24)
+ def test_returns_reject_nonfinite_result(self):
+  with self.assertRaisesRegex(ValueError, "return is non-finite"):
+   returns([1e-308, 1e308])
+ def test_indicators_reject_nonfinite_input(self):
+  with self.assertRaisesRegex(ValueError, "finite numeric"):
+   sma([1, float("nan"), 3])
+ def test_indicators_reject_unconvertible_large_integer(self):
+  with self.assertRaisesRegex(ValueError, "finite numeric"):
+   ema([10**10000, 2])
  def test_volatility(self): self.assertGreater(realized_volatility([100,101,99,102])["per_observation"],0)
 if __name__=="__main__": unittest.main()

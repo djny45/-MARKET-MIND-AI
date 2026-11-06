@@ -72,8 +72,10 @@ def build_historical_quality_diagnostics(history):
         try:
             previous, current = float(bars[i - 1]["close"]), float(bars[i]["close"])
             if math.isfinite(previous) and math.isfinite(current) and previous > 0 and current > 0:
-                returns.append((current / previous) - 1)
-                return_indices.append(i)
+                value = (current / previous) - 1
+                if math.isfinite(value):
+                    returns.append(value)
+                    return_indices.append(i)
         except (KeyError, TypeError, ValueError, ZeroDivisionError):
             continue
     price_result = _mad_flags(returns)

@@ -6,6 +6,7 @@ It intentionally contains no network, broker, exchange, or order functionality.
 from __future__ import annotations
 
 from pathlib import Path
+import hashlib
 from typing import Any
 
 from app.offline_dataset import load_ohlcv_csv
@@ -32,9 +33,12 @@ def run_offline_research(
             "to ensure chronological ordering"
         )
 
-    frame = load_ohlcv_csv(csv_path, timestamp_column=timestamp_column)
+    source_file = Path(csv_path).expanduser().resolve()
+    source_sha256 = hashlib.sha256(source_file.read_bytes()).hexdigest()
+    frame = load_ohlcv_csv(source_file, timestamp_column=timestamp_column)
     result: dict[str, Any] = {
-        "source_path": str(Path(csv_path).expanduser().resolve()),
+        "source_path": str(source_file),
+        "source_sha256": source_sha256,
         "row_count": len(frame),
         "columns": list(frame.columns),
         "dataset": frame,

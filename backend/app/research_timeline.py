@@ -60,7 +60,9 @@ def build_research_timeline(history: dict, limit: int = 200) -> dict:
         if previous:
             prior_close = float(previous["close"])
             if prior_close:
-                change_pct = round((close / prior_close - 1) * 100, 6)
+                raw_change_pct = (close / prior_close - 1) * 100
+                if math.isfinite(raw_change_pct):
+                    change_pct = round(raw_change_pct, 6)
         kinds = []
         patterns = labels[index]["patterns"]
         if patterns:

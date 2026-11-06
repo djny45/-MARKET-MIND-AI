@@ -363,7 +363,17 @@ cd backend
 PYTHONPATH=. python compare_research_exports.py ./before.json ./after.json --report ./comparison.json
 ```
 
-The comparison reports added, removed and changed observations, per-observation provenance changes, diagnostic differences and embedded digest values. Matching uses exact timestamp strings and source labels. See [deep analysis guide](docs/DEEP-ANALYSIS.md).
+The comparison reports added, removed and changed observations, per-observation provenance changes, diagnostic differences and embedded digest values. Matching uses exact timestamp strings and source labels.
+
+For automation, add `--strict` to return exit code **1** unless the comparison status is `integrity_verified`; malformed inputs or I/O errors return **2**. The report is still printed and optionally written when strict validation returns 1:
+
+```bash
+PYTHONPATH=. python compare_research_exports.py ./before.json ./after.json --report ./comparison.json --strict
+```
+
+**Integrity limitation:** the SHA-256 digest detects changes relative to the stored digest, but it is not a digital signature and does not authenticate who produced the export. A party able to edit the bundle can recompute its digest. Treat `integrity_verified` as a consistency check—not proof of source authenticity, market-data accuracy, or investment performance.
+
+See [deep analysis guide](docs/DEEP-ANALYSIS.md).
 
 
 ### Verified SQLite backup

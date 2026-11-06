@@ -41,6 +41,7 @@ def run_offline_research(
         "source_sha256": source_sha256,
         "row_count": len(frame),
         "columns": list(frame.columns),
+        "timestamp_column": timestamp_column.strip().lower() if timestamp_column else None,
         "dataset": frame,
         "indicators": {},
     }
@@ -74,13 +75,17 @@ def build_offline_evidence_bundle(
     frame = research_result.get("dataset")
     if frame is None or not hasattr(frame, "to_dict"):
         raise ValueError("research_result must contain a pandas dataset")
-    timestamp_columns = [
-        column for column in frame.columns
-        if str(column).strip().lower() in {"timestamp", "datetime", "date", "time"}
-    ]
-    if len(timestamp_columns) != 1:
-        raise ValueError("dataset must contain exactly one recognized timestamp column")
-    timestamp_column = timestamp_columns[0]
+    declared_timestamp = research_result.get("timestamp_column")
+    if isinstance(declared_timestamp, str) and declared_timestamp in frame.columns:
+        timestamp_column = declared_timestamp
+    else:
+        timestamp_columns = [
+            column for column in frame.columns
+            if str(column).strip().lower() in {"timestamp", "datetime", "date", "time"}
+        ]
+        if len(timestamp_columns) != 1:
+            raise ValueError("dataset must contain exactly one recognized timestamp column")
+        timestamp_column = timestamp_columns[0]
     bars = []
     for row in frame.to_dict(orient="records"):
         timestamp = row.pop(timestamp_column)

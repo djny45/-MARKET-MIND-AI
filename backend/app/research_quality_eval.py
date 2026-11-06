@@ -90,6 +90,11 @@ def evaluate_research_draft(
         if not isinstance(base_metrics, dict):
             raise ValueError("baseline must include a metrics object")
         supported_metrics = ("claim_reference_coverage", "known_source_reference_coverage")
+        unknown_metrics = set(base_metrics) - set(supported_metrics)
+        if unknown_metrics:
+            raise ValueError(
+                f"baseline contains unsupported metrics: {sorted(unknown_metrics)}"
+            )
         recognized_metrics = set(supported_metrics).intersection(base_metrics)
         if not recognized_metrics:
             raise ValueError("baseline metrics must include at least one supported metric")

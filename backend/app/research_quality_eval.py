@@ -48,15 +48,17 @@ def evaluate_research_draft(
     source_registry: list[dict[str, Any]],
     baseline: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    # Validate baseline first so invalid benchmark configuration is reported
+    # consistently, even when the draft or claim payload is malformed.
+    if baseline is not None and not isinstance(baseline, dict):
+        raise ValueError("baseline must be an object")
+    base_metrics = _validate_baseline_metrics(baseline)
     if not isinstance(draft, str) or not draft.strip() or len(draft) > MAX_DRAFT_CHARS:
         raise ValueError("draft must contain 1 to 20000 characters")
     if not isinstance(claims, list) or len(claims) > MAX_CLAIMS:
         raise ValueError("claims must be a list with at most 200 entries")
     if not isinstance(source_registry, list) or len(source_registry) > MAX_SOURCES:
         raise ValueError("source_registry must be a list with at most 500 entries")
-    if baseline is not None and not isinstance(baseline, dict):
-        raise ValueError("baseline must be an object")
-    base_metrics = _validate_baseline_metrics(baseline)
 
     source_ids = set()
     for source in source_registry:

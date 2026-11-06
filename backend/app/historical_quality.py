@@ -1,5 +1,6 @@
 """Robust historical observation diagnostics; no inferred prices or trade signals."""
 from datetime import datetime
+import math
 
 INTERVAL_SECONDS = {"15m": 900, "1h": 3600, "4h": 14400, "1d": 86400}
 
@@ -70,7 +71,7 @@ def build_historical_quality_diagnostics(history):
     for i in range(1, len(bars)):
         try:
             previous, current = float(bars[i - 1]["close"]), float(bars[i]["close"])
-            if previous > 0 and current > 0:
+            if math.isfinite(previous) and math.isfinite(current) and previous > 0 and current > 0:
                 returns.append((current / previous) - 1)
                 return_indices.append(i)
         except (KeyError, TypeError, ValueError, ZeroDivisionError):
@@ -91,7 +92,7 @@ def build_historical_quality_diagnostics(history):
     for i, bar in enumerate(bars):
         try:
             value = float(bar["volume"])
-            if value >= 0:
+            if math.isfinite(value) and value >= 0:
                 volumes.append(value)
                 volume_indices.append(i)
         except (KeyError, TypeError, ValueError):

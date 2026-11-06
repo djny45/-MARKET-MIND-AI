@@ -28,7 +28,20 @@ class ResearchBenchmarkTests(unittest.TestCase):
         self.assertEqual(first["aggregate_metrics"]["claim_reference_coverage"]["mean"], 1.0)
         self.assertEqual(first["aggregate_metrics"]["known_source_reference_coverage"]["mean"], 0.5)
         self.assertEqual(first["case_count"], 2)
+        self.assertEqual(
+            first["aggregate_metrics"]["claim_reference_coverage"]["unevaluated_case_count"],
+            0,
+        )
         self.assertEqual(first["benchmark_type"], "offline_research_traceability")
+
+    def test_reports_cases_without_metric_values(self):
+        cases = fixture_cases()
+        cases[0]["claims"] = []
+        result = run_offline_research_benchmark(cases)
+        metric = result["aggregate_metrics"]["claim_reference_coverage"]
+        self.assertEqual(metric["evaluated_case_count"], 1)
+        self.assertEqual(metric["unevaluated_case_count"], 1)
+        self.assertEqual(metric["mean"], 1.0)
 
     def test_threshold_changes_benchmark_fingerprint(self):
         default = run_offline_research_benchmark(fixture_cases())

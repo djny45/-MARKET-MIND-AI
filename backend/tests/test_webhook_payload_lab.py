@@ -44,6 +44,15 @@ class WebhookPayloadLabTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "valid JSON"):
             validate_payload("{broken")
 
+
+    def test_rejects_duplicate_json_keys(self):
+        with self.assertRaisesRegex(ValueError, "duplicate keys"):
+            validate_payload('{"event_id":"first","event_id":"second","source":"sample","message":"hi"}')
+
+    def test_rejects_nonstandard_nan_json_constant(self):
+        with self.assertRaisesRegex(ValueError, "non-finite constants"):
+            validate_payload('{"event_id":"x","source":"sample","message":"hi","extra":NaN}')
+
     def test_rejects_non_object_json(self):
         with self.assertRaisesRegex(ValueError, "JSON object"):
             validate_payload('["not", "an", "object"]')

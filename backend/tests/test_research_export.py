@@ -66,6 +66,18 @@ class ResearchMethodologyMarkdownTests(unittest.TestCase):
         self.assertEqual(bundle["timeline"]["status"], "unavailable_invalid_ohlcv")
         self.assertIn("high must be >= open and close", bundle["timeline"]["validation_error"])
 
+    def test_malformed_optional_scope_integrity_and_source_metadata_are_safe(self):
+        bundle = build_research_evidence_bundle("BTCUSD", "1h", {
+            "bars": [], "source": "fallback-source"
+        })
+        bundle["scope"] = ["malformed", "scope"]
+        bundle["integrity"] = ["malformed", "integrity"]
+        report = render_research_methodology_markdown(bundle)
+        self.assertIn("- **Symbol:** Not supplied", report)
+        self.assertIn("- **Source metadata:** fallback-source", report)
+        self.assertIn("- **Algorithm:** Not supplied", report)
+        self.assertIn("- **Digest:** Not supplied", report)
+
     def test_rejects_wrong_bundle_type(self):
         with self.assertRaises(ValueError):
             render_research_methodology_markdown({"report_type": "other"})

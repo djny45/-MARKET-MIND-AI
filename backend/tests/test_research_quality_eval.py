@@ -33,6 +33,24 @@ class ResearchQualityEvalTests(unittest.TestCase):
         )
         self.assertEqual(result["baseline_comparison"]["claim_reference_coverage"]["delta"], 0.5)
 
+    def test_rejects_invalid_baseline_metric_values(self):
+        for value in (-0.01, 1.01, True, "0.8"):
+            with self.subTest(value=value):
+                with self.assertRaises(ValueError):
+                    evaluate_research_draft(
+                        draft="Draft.",
+                        claims=[{"text": "Claim", "source_refs": ["s1"]}],
+                        source_registry=[{"source_id": "s1"}],
+                        baseline={"metrics": {"claim_reference_coverage": value}},
+                    )
+
+    def test_rejects_baseline_without_supported_metrics(self):
+        with self.assertRaises(ValueError):
+            evaluate_research_draft(
+                draft="Draft.", claims=[], source_registry=[],
+                baseline={"metrics": {"factual_accuracy": 0.9}},
+            )
+
     def test_empty_claim_set_has_null_coverage(self):
         result = evaluate_research_draft(draft="No claims.", claims=[], source_registry=[])
         self.assertIsNone(result["metrics"]["claim_reference_coverage"])

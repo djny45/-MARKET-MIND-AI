@@ -64,6 +64,8 @@ class PromotionReviewStore:
         self.database_path = str(database_path)
         if self.database_path != ":memory:":
             Path(self.database_path).parent.mkdir(parents=True, exist_ok=True)
+        # Ensure the parent benchmark table exists before SQLite creates its FK.
+        BenchmarkRecordStore(self.database_path)
         with self._connect() as connection:
             connection.execute("PRAGMA foreign_keys = ON")
             connection.execute(_SCHEMA)
@@ -106,8 +108,6 @@ class PromotionReviewStore:
         except (TypeError, ValueError) as exc:
             raise ValueError("candidate_config must be JSON-serializable") from exc
 
-        # Retrieve through the same SQLite database and enforce the gate before
-        # recording an approval. Rejected proposals remain recordable for audit.
         if decision == "approved":
             benchmark = BenchmarkRecordStore(self.database_path).get(benchmark_record_id)
             if benchmark is None:

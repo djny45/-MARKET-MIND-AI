@@ -65,9 +65,17 @@ def render_research_methodology_markdown(bundle):
     """Render a reproducible Markdown summary from a historical evidence bundle."""
     if not isinstance(bundle, dict) or bundle.get("report_type") != "historical_research_evidence":
         raise ValueError("bundle must be a historical_research_evidence object")
-    scope = bundle.get("scope") or {}
-    sources = scope.get("sources") or ([scope.get("source")] if scope.get("source") else [])
-    integrity = bundle.get("integrity") or {}
+    scope_value = bundle.get("scope")
+    scope = scope_value if isinstance(scope_value, dict) else {}
+    source_values = scope.get("sources")
+    if isinstance(source_values, (list, tuple)):
+        sources = source_values
+    elif isinstance(source_values, str) and source_values:
+        sources = [source_values]
+    else:
+        sources = [scope.get("source")] if scope.get("source") else []
+    integrity_value = bundle.get("integrity")
+    integrity = integrity_value if isinstance(integrity_value, dict) else {}
     data_quality_json = json.dumps(
         bundle.get("data_quality") or {}, ensure_ascii=False, indent=2, allow_nan=False
     )
@@ -97,6 +105,9 @@ def render_research_methodology_markdown(bundle):
         f"- **Algorithm:** {_escape_markdown_inline(integrity.get('algorithm') or 'Not supplied')}",
         f"- **Digest:** {_escape_markdown_inline(integrity.get('digest') or 'Not supplied')}",
         "", "## Limitations"]
-    lines.extend(f"- {_escape_markdown_inline(item)}" for item in (bundle.get("limitations") or ["Limitations not supplied."]))
+    limitations = bundle.get("limitations")
+    if not isinstance(limitations, list):
+        limitations = ["Limitations not supplied."]
+    lines.extend(f"- {_escape_markdown_inline(item)}" for item in limitations)
     lines.extend(["", "> Research documentation only—not a forecast, investment recommendation, or trading instruction.", ""])
     return "\n".join(lines)

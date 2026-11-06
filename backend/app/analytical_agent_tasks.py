@@ -477,6 +477,71 @@ def agent_task_performance(agent_id: str | None = None, limit: int = 550) -> dic
     }
 
 
+def agent_research_quality_performance(agent_id: str | None = None, limit: int = 550) -> dict:
+    """Aggregate persisted structural traceability metrics; never score factual correctness."""
+    import math
+
+    if agent_id is not None:
+        brain_config(agent_id)
+    if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 550:
+        raise ValueError("limit must be between 1 and 550")
+    with _connect() as db:
+        if agent_id is None:
+            rows = db.execute(
+                """SELECT worker_id,evaluation_json,created_at FROM research_quality_evaluations
+                   ORDER BY created_at DESC LIMIT ?""", (limit,)
+            ).fetchall()
+        else:
+            rows = db.execute(
+                """SELECT worker_id,evaluation_json,created_at FROM research_quality_evaluations
+                   WHERE worker_id=? ORDER BY created_at DESC LIMIT ?""", (agent_id, limit)
+            ).fetchall()
+    agents = {}
+    invalid_count = 0
+    for row in rows:
+        try:
+            evaluation = json.loads(row["evaluation_json"])
+            metrics = evaluation.get("metrics") if isinstance(evaluation, dict) else None
+            if not isinstance(metrics, dict):
+                invalid_count += 1
+                continue
+            values = {}
+            for key in ("claim_reference_coverage", "known_source_reference_coverage"):
+                value = metrics.get(key)
+                if isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value) and 0 <= value <= 1:
+                    values[key] = float(value)
+            if not values:
+                invalid_count += 1
+                continue
+        except (TypeError, ValueError):
+            invalid_count += 1
+            continue
+        item = agents.setdefault(row["worker_id"], {
+            "agent_id": row["worker_id"], "evaluation_count": 0,
+            "claim_reference_coverage_sum": 0.0, "claim_reference_coverage_count": 0,
+            "known_source_reference_coverage_sum": 0.0, "known_source_reference_coverage_count": 0,
+        })
+        item["evaluation_count"] += 1
+        for key, value in values.items():
+            sum_key = key + "_sum"
+            count_key = key + "_count"
+            item[sum_key] += value
+            item[count_key] += 1
+    for item in agents.values():
+        for key in ("claim_reference_coverage", "known_source_reference_coverage"):
+            count = item[key + "_count"]
+            item[key + "_mean"] = round(item[key + "_sum"] / count, 4) if count else None
+            item.pop(key + "_sum")
+    return {
+        "agent_id": agent_id,
+        "evaluations_examined": len(rows),
+        "invalid_or_unusable_evaluation_count": invalid_count,
+        "agents": agents,
+        "metric_definition": "mean structural source-reference coverage across stored evaluations; values with null or invalid metrics are excluded per metric",
+        "quality_boundary": "does not establish source authenticity, entailment, factual accuracy, intelligence, or trading performance",
+    }
+
+
 def agent_supervisor_status() -> dict:
     """Return a point-in-time health snapshot of persisted agent task states."""
     with _connect() as db:

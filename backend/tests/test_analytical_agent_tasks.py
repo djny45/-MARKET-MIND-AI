@@ -374,6 +374,21 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         audit = list_task_audit_events(queued["task_id"])["events"]
         self.assertEqual(audit[-1]["event_type"], "task_retry_requested")
 
+    def test_retry_request_is_idempotent_and_returns_same_retry_id(self):
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, execute_queued_research_task,
+            retry_failed_research_task,
+        )
+        queued = enqueue_research_task("worker_029", "idempotent retry")
+        with patch("app.analytical_agent_tasks.synthesize_research", side_effect=RuntimeError("provider failure")):
+            execute_queued_research_task(queued["task_id"])
+        first = retry_failed_research_task(queued["task_id"])
+        second = retry_failed_research_task(queued["task_id"])
+        self.assertTrue(first["retried"])
+        self.assertFalse(second["retried"])
+        self.assertEqual(second["reason"], "retry_limit_reached")
+        self.assertEqual(first["task_id"], second["retry_task_id"])
+
     def test_retry_only_failed_tasks_and_unknown_ids(self):
         from app.analytical_agent_tasks import enqueue_research_task, retry_failed_research_task
         self.assertIsNone(retry_failed_research_task("not-found"))

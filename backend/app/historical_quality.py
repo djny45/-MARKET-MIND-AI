@@ -27,7 +27,17 @@ def _mad_flags(values, minimum=20, threshold=6.0):
     if len(values) < minimum:
         return {"status": "insufficient_history", "sample_count": len(values), "threshold_mad": threshold, "flagged_indices": []}
     center = _median(values)
-    mad = _median([abs(value - center) for value in values])
+    deviations = [abs(value - center) for value in values]
+    if not all(math.isfinite(value) for value in deviations):
+        return {
+            "status": "unavailable_nonfinite_deviation",
+            "sample_count": len(values),
+            "median": center,
+            "mad": None,
+            "threshold_mad": threshold,
+            "flagged_indices": [],
+        }
+    mad = _median(deviations)
     if mad is None or mad == 0:
         return {"status": "unavailable_zero_mad", "sample_count": len(values), "median": center, "mad": mad, "threshold_mad": threshold, "flagged_indices": []}
     flags = [i for i, value in enumerate(values) if abs(value - center) / (1.4826 * mad) > threshold]

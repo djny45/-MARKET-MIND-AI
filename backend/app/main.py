@@ -117,6 +117,7 @@ class ResearchQualityEvaluationRequest(BaseModel):
 class ResearchBenchmarkRequest(BaseModel):
  cases: list[dict[str, Any]] = Field(min_length=1, max_length=100)
  baseline: dict[str, Any] | None = None
+ regression_threshold: float = Field(default=0.05, ge=0, le=1)
 
 class SynthesisReviewRequest(BaseModel):
  draft: str = Field(min_length=1, max_length=8000)
@@ -1590,7 +1591,10 @@ def evaluate_research_quality(request: ResearchQualityEvaluationRequest):
 def run_research_benchmark(request: ResearchBenchmarkRequest):
  """Run a bounded deterministic benchmark using caller-supplied offline fixtures only."""
  try:
-  return run_offline_research_benchmark(request.cases, baseline=request.baseline)
+  return run_offline_research_benchmark(
+   request.cases, baseline=request.baseline,
+   regression_threshold=request.regression_threshold,
+  )
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 

@@ -19,12 +19,17 @@ def run_offline_research_benchmark(
     cases: list[dict[str, Any]],
     *,
     baseline: dict[str, Any] | None = None,
+    regression_threshold: float = 0.05,
 ) -> dict[str, Any]:
     """Evaluate a bounded, deterministic collection of synthetic research cases."""
     if not isinstance(cases, list) or not cases or len(cases) > MAX_CASES:
         raise ValueError(f"cases must contain 1 to {MAX_CASES} entries")
     if baseline is not None and not isinstance(baseline, dict):
         raise ValueError("baseline must be an object")
+    if (isinstance(regression_threshold, bool)
+            or not isinstance(regression_threshold, (int, float))
+            or not 0 <= regression_threshold <= 1):
+        raise ValueError("regression_threshold must be between 0 and 1")
 
     normalized_cases: list[dict[str, Any]] = []
     seen_ids: set[str] = set()
@@ -78,26 +83,42 @@ def run_offline_research_benchmark(
         }
 
     baseline_comparison = None
+    regression_summary = None
     if baseline is not None:
         baseline_metrics = baseline.get("metrics")
         if not isinstance(baseline_metrics, dict):
             raise ValueError("baseline must include a metrics object")
         baseline_comparison = {}
+        regressions = []
         for key in metric_keys:
             current = aggregate[key]["mean"]
             previous = baseline_metrics.get(key)
             if isinstance(current, (int, float)) and isinstance(previous, (int, float)):
+                delta = round(current - previous, 4)
                 baseline_comparison[key] = {
                     "current_mean": current,
                     "baseline_mean": previous,
-                    "delta": round(current - previous, 4),
+                    "delta": delta,
                 }
+                if delta <= -regression_threshold:
+                    regressions.append({
+                        "metric": key,
+                        "delta": delta,
+                        "threshold": regression_threshold,
+                        "severity": "regression",
+                    })
             else:
                 baseline_comparison[key] = {
                     "current_mean": current,
                     "baseline_mean": previous,
                     "delta": None,
                 }
+        regression_summary = {
+            "status": "regression_detected" if regressions else "no_regression_detected",
+            "threshold": regression_threshold,
+            "items": regressions,
+            "note": "Flags structural traceability metric drops only; not factual or trading performance.",
+        }
 
     return {
         "benchmark_id": benchmark_id,
@@ -105,6 +126,7 @@ def run_offline_research_benchmark(
         "case_count": len(results),
         "aggregate_metrics": aggregate,
         "baseline_comparison": baseline_comparison,
+        "regression_summary": regression_summary,
         "case_results": results,
         "limitations": [
             "Uses only the supplied fixture cases; it does not fetch live data.",

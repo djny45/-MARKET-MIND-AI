@@ -89,10 +89,13 @@ def promotion_eligibility(benchmark_record: dict[str, Any]) -> dict[str, Any]:
         reasons.append("regression threshold is invalid")
         threshold = None
 
+    expected_regressions = []
+    expected_skipped = 0
     for metric in BASELINE_METRICS:
         comparison = comparisons.get(metric)
         if not isinstance(comparison, dict) or comparison.get("status") != "compared":
             reasons.append(f"metric {metric} was not compared")
+            expected_skipped += 1
             continue
         current = comparison.get("current_mean")
         baseline = comparison.get("baseline_mean")
@@ -107,6 +110,24 @@ def promotion_eligibility(benchmark_record: dict[str, Any]) -> dict[str, Any]:
             reasons.append(f"metric {metric} is outside the expected 0–1 range")
         if threshold is not None and delta < 0 and delta <= -threshold:
             reasons.append(f"metric {metric} violates the regression threshold")
+            expected_regressions.append({
+                "metric": metric,
+                "delta": delta,
+                "threshold": threshold,
+                "severity": "regression",
+            })
+
+    if summary.get("skipped_comparison_count") != expected_skipped:
+        reasons.append("benchmark skipped-comparison count is inconsistent")
+    if summary.get("items") != expected_regressions:
+        reasons.append("benchmark regression items are inconsistent with metric deltas")
+    expected_status = (
+        "regression_detected" if expected_regressions
+        else ("comparison_incomplete" if expected_skipped
+              else "no_regression_detected")
+    )
+    if summary.get("status") != expected_status:
+        reasons.append("benchmark regression status is inconsistent with comparisons")
 
     return {"eligible": not reasons,
             "status": "eligible" if not reasons else "blocked",

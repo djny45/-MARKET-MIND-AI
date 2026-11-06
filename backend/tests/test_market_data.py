@@ -98,6 +98,15 @@ class MarketDataContractTests(unittest.TestCase):
             )
 
 
+
+    def test_warning_validator_rejects_non_string_entries(self):
+        with self.assertRaises(ValidationError):
+            MarketDataBatch(
+                symbol="BTCUSD", interval="1d", status="historical",
+                source="provider-x", retrieved_at="2026-01-02T00:00:00Z",
+                bars=[], warnings=["valid warning", None],
+            )
+
     def test_batch_rejects_blank_warning_metadata(self):
         base = {
             "symbol": "BTCUSD", "interval": "1d", "status": "historical",

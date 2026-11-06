@@ -149,8 +149,13 @@ def run_offline_research_benchmark(
                     "reason": reason,
                 }
                 skipped_comparisons.append({"metric": key, "reason": reason})
+        regression_status = (
+            "regression_detected" if regressions
+            else ("comparison_incomplete" if skipped_comparisons
+                  else "no_regression_detected")
+        )
         regression_summary = {
-            "status": "regression_detected" if regressions else "no_regression_detected",
+            "status": regression_status,
             "threshold": regression_threshold,
             "items": regressions,
             "skipped_comparison_count": len(skipped_comparisons),

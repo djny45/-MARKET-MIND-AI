@@ -22,9 +22,22 @@ record_json = serialize_benchmark_record(result)
   excludes wall-clock timestamps. Identical results therefore produce identical
   record bytes and IDs.
 
-This is an export/archival format only; it does not automatically write to a
-database, schedule benchmark runs, train a model, promote agent configurations,
-or execute trades.
+## SQLite history store
+
+The optional local store archives records and uses `record_id` as its primary key:
+
+```python
+from app.research_benchmark_store import BenchmarkRecordStore
+
+store = BenchmarkRecordStore("data/research_benchmark_history.sqlite")
+record_id = store.save(result)  # idempotent for identical result records
+record = store.get(record_id)
+recent_records = store.list_records(limit=50)
+```
+
+The store is synchronous and local to the configured SQLite file. It does not
+schedule benchmark runs, train a model, promote agent configurations, or execute
+trades. Back up the SQLite file if you need to retain the archive.
 
 The benchmark evaluates supplied fixtures and structural source-reference
 traceability. It does **not** establish factual correctness, source entailment,

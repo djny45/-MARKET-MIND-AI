@@ -193,6 +193,28 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             agent_research_quality_performance("worker_023", limit=0)
 
+    def test_supervisor_recommendations_are_advisory_and_evidence_gated(self):
+        from app.analytical_agent_tasks import agent_supervisor_recommendations
+        with patch("app.analytical_agent_tasks.agent_task_performance", return_value={
+            "agents": {
+                "worker_fail": {"finished_count": 6, "failure_rate": 0.5},
+                "worker_good": {"finished_count": 8, "failure_rate": 0.0},
+            }
+        }), patch("app.analytical_agent_tasks.agent_research_quality_performance", return_value={
+            "agents": {
+                "worker_fail": {"evaluation_count": 0},
+                "worker_good": {"evaluation_count": 4, "known_source_reference_coverage_mean": 0.95},
+                "worker_low_refs": {"evaluation_count": 4, "known_source_reference_coverage_mean": 0.4},
+            }
+        }):
+            result = agent_supervisor_recommendations()
+        reasons = {(item["agent_id"], item["reason_code"]) for item in result["recommendations"]}
+        self.assertIn(("worker_fail", "repeated_task_failures"), reasons)
+        self.assertIn(("worker_good", "consistent_structural_traceability"), reasons)
+        self.assertIn(("worker_low_refs", "low_source_reference_coverage"), reasons)
+        self.assertEqual(result["decision_mode"], "advisory_only")
+        self.assertTrue(any("No autonomous" in item for item in result["limitations"]))
+
     def test_network_activity_snapshot_includes_recent_audit_events(self):
         from app.analytical_agent_tasks import list_recent_task_activity
         result = submit_research_task("worker_011", "activity audit snapshot")

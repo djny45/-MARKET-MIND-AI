@@ -270,3 +270,21 @@ class ResearchExportCompareTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+    def test_rejects_interval_scope_mismatch(self):
+        before = bundle([])
+        after = bundle([])
+        after["scope"]["interval"] = "4h"
+        with self.assertRaisesRegex(ValueError, "export_scope_mismatch"):
+            compare_research_exports(before, after)
+
+    def test_rejects_non_string_symbol_and_interval(self):
+        for field, invalid_value in (("symbol", 123), ("interval", ["1h"])):
+            before = bundle([])
+            after = bundle([])
+            before["scope"][field] = invalid_value
+            with self.subTest(field=field, value=invalid_value):
+                with self.assertRaisesRegex(
+                    ValueError, "export_scope_symbol_and_interval_required"
+                ):
+                    compare_research_exports(before, after)

@@ -60,6 +60,7 @@ class SourceComparisonTests(unittest.TestCase):
         self.assertEqual(result["invalid_timestamp_count"], 1)
         self.assertEqual(result["invalid_timestamps"][0]["bar_index"], 1)
         self.assertEqual(result["invalid_timestamps"][0]["reason"], "observation_must_be_object")
+        self.assertEqual(result["source_count"], 2)
 
     def test_extreme_finite_values_do_not_emit_infinite_spread(self):
         bars = [

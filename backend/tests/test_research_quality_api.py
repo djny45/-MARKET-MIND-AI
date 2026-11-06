@@ -60,6 +60,39 @@ class ResearchQualityApiTests(unittest.TestCase):
         self.assertEqual(first["aggregate_metrics"]["known_source_reference_coverage"]["mean"], 1.0)
         self.assertIn("does not fetch live data", first["limitations"][0])
 
+
+    def test_benchmark_api_reports_baseline_regression(self):
+        from app.main import ResearchBenchmarkRequest, run_research_benchmark
+        cases = [{
+            "case_id": "regression-fixture",
+            "draft": "Synthetic fixture with a source reference.",
+            "claims": [{"text": "Fixture claim", "source_refs": ["unknown-ref"]}],
+            "source_registry": [{"source_id": "known-ref"}],
+        }]
+        request = ResearchBenchmarkRequest(
+            cases=cases,
+            baseline={"metrics": {
+                "claim_reference_coverage": 1.0,
+                "known_source_reference_coverage": 1.0,
+            }},
+            regression_threshold=0.05,
+        )
+        result = run_research_benchmark(request)
+        self.assertEqual(result["regression_summary"]["status"], "regression_detected")
+        self.assertEqual(
+            result["regression_summary"]["items"][0]["metric"],
+            "known_source_reference_coverage",
+        )
+        self.assertAlmostEqual(
+            result["regression_summary"]["items"][0]["delta"], -1.0
+        )
+
+    def test_benchmark_api_rejects_out_of_range_regression_threshold(self):
+        from pydantic import ValidationError
+        from app.main import ResearchBenchmarkRequest
+        with self.assertRaises(ValidationError):
+            ResearchBenchmarkRequest(cases=[{"case_id": "x"}], regression_threshold=1.5)
+
     def test_offline_benchmark_api_translates_invalid_case_to_400(self):
         from fastapi import HTTPException
         from app.main import ResearchBenchmarkRequest, run_research_benchmark

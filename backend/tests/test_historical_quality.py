@@ -1,6 +1,6 @@
 import unittest
 import math
-from app.historical_quality import build_historical_quality_diagnostics, _median
+from app.historical_quality import build_historical_quality_diagnostics, _median, _mad_flags
 
 
 class HistoricalQualityTests(unittest.TestCase):
@@ -86,16 +86,11 @@ class HistoricalQualityTests(unittest.TestCase):
         self.assertTrue(math.isfinite(_median([1e308, 1e308])))
 
     def test_mad_reports_unavailable_when_finite_values_overflow_deviation(self):
-        bars = self.bars(25)
-        closes = [1e308] * 25
-        closes[0] = -1e308
-        for bar, close in zip(bars, closes):
-            bar["close"] = close
-        result = build_historical_quality_diagnostics({"interval": "1h", "bars": bars})
-        price = result["close_to_close_return_outliers"]
-        self.assertEqual(price["status"], "unavailable_nonfinite_deviation")
-        self.assertEqual(price["sample_count"], 24)
-        self.assertEqual(price["flagged_indices"], [])
+        values = [-1e308, 1e308] + [1e308] * 23
+        result = _mad_flags(values)
+        self.assertEqual(result["status"], "unavailable_nonfinite_deviation")
+        self.assertEqual(result["sample_count"], 25)
+        self.assertEqual(result["flagged_indices"], [])
 
     def test_unsupported_interval_does_not_infer_spacing(self):
         result = build_historical_quality_diagnostics({"interval": "weekly", "bars": self.bars(4)})

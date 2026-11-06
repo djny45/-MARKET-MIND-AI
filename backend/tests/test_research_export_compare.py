@@ -15,6 +15,21 @@ def bundle(observations, **extra):
     return result
 
 
+def seal(bundle):
+    import hashlib
+    import json
+    payload = dict(bundle)
+    payload.pop("integrity", None)
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+    bundle["integrity"] = {
+        "algorithm": "sha256",
+        "digest": hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
+        "scope": "complete evidence bundle excluding this integrity field",
+        "canonicalization": "UTF-8 JSON with sorted keys and compact separators",
+    }
+    return bundle
+
+
 class ResearchExportCompareTests(unittest.TestCase):
     def test_reports_added_removed_and_changed_observations(self):
         before = bundle([
@@ -161,6 +176,8 @@ class ResearchExportCompareTests(unittest.TestCase):
         after = bundle([])
         before["schema_version"] = "1.0"
         after["schema_version"] = "1.1"
+        seal(before)
+        seal(after)
         result = compare_research_exports(before, after)
         self.assertEqual(result["comparison_status"], "schema_incompatible")
         self.assertEqual(result["schema_compatibility"], {
@@ -168,7 +185,8 @@ class ResearchExportCompareTests(unittest.TestCase):
         })
 
     def test_missing_schema_versions_are_reported_as_unknown_not_equal(self):
-        result = compare_research_exports(bundle([]), bundle([]))
+        before, after = seal(bundle([])), seal(bundle([]))
+        result = compare_research_exports(before, after)
         self.assertEqual(result["schema_compatibility"]["compatible"], None)
         self.assertEqual(result["comparison_status"], "schema_unverified")
 
@@ -177,6 +195,7 @@ class ResearchExportCompareTests(unittest.TestCase):
         after = bundle([])
         before["schema_version"] = "1.0"
         after["schema_version"] = "2.0"
+        seal(before)
         after["integrity"] = {
             "algorithm": "sha256",
             "digest": "0" * 64,

@@ -389,6 +389,22 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertEqual(second["reason"], "retry_limit_reached")
         self.assertEqual(first["task_id"], second["retry_task_id"])
 
+    def test_retry_lineage_cannot_be_retried_again(self):
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, execute_queued_research_task,
+            retry_failed_research_task,
+        )
+        original = enqueue_research_task("worker_030", "retry lineage")
+        with patch("app.analytical_agent_tasks.synthesize_research", side_effect=RuntimeError("initial failure")):
+            execute_queued_research_task(original["task_id"])
+        first_retry = retry_failed_research_task(original["task_id"])
+        with patch("app.analytical_agent_tasks.synthesize_research", side_effect=RuntimeError("retry failure")):
+            execute_queued_research_task(first_retry["task_id"])
+        blocked = retry_failed_research_task(first_retry["task_id"])
+        self.assertFalse(blocked["retried"])
+        self.assertEqual(blocked["reason"], "retry_limit_reached")
+        self.assertEqual(blocked["retry_lineage_limit"], 1)
+
     def test_retry_only_failed_tasks_and_unknown_ids(self):
         from app.analytical_agent_tasks import enqueue_research_task, retry_failed_research_task
         self.assertIsNone(retry_failed_research_task("not-found"))

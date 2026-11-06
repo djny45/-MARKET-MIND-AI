@@ -89,6 +89,28 @@ class ResearchExportCompareTests(unittest.TestCase):
         self.assertFalse(result["integrity_validation"]["after"]["valid"])
         self.assertEqual(result["integrity_validation"]["after"]["reason"], "digest_mismatch")
 
+    def test_detects_missing_field_vs_explicit_null_in_observations(self):
+        before = bundle([{"timestamp": "2026-01-01T00:00:00Z", "source": "alpha"}])
+        after = bundle([{"timestamp": "2026-01-01T00:00:00Z", "source": "alpha", "close": None}])
+        result = compare_research_exports(before, after)
+        self.assertEqual(result["changed"][0]["fields"], ["close"])
+        self.assertEqual(result["counts"]["changed"], 1)
+
+    def test_detects_missing_field_vs_explicit_null_in_diagnostics(self):
+        before = bundle([], data_quality={})
+        after = bundle([], data_quality={"gap_count": None})
+        result = compare_research_exports(before, after)
+        self.assertEqual(result["diagnostic_changed_paths"]["data_quality"], ["gap_count"])
+
+    def test_malformed_integrity_metadata_does_not_crash_digest_summary(self):
+        before = bundle([])
+        after = bundle([])
+        before["integrity"] = "not-an-object"
+        after["integrity"] = None
+        result = compare_research_exports(before, after)
+        self.assertEqual(result["integrity_digests"], {"before": None, "after": None})
+        self.assertEqual(result["integrity_validation"]["before"]["reason"], "integrity_metadata_missing")
+
     def test_rejects_different_symbol_or_interval(self):
         before = bundle([])
         after = bundle([])

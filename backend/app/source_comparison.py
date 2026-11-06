@@ -21,6 +21,13 @@ def compare_source_observations(history):
     grouped = {}
     invalid = []
     for index, bar in enumerate(bars):
+        if not isinstance(bar, dict):
+            invalid.append({
+                "bar_index": index,
+                "timestamp": None,
+                "reason": "observation_must_be_object",
+            })
+            continue
         instant = _instant(bar.get("timestamp"))
         if instant is None:
             invalid.append({"bar_index": index, "timestamp": bar.get("timestamp")})

@@ -27,6 +27,36 @@ CREATE TABLE IF NOT EXISTS research_promotion_reviews (
 """
 
 
+def promotion_eligibility(benchmark_record: dict[str, Any]) -> dict[str, Any]:
+    """Return explicit gate status; missing or incomplete comparisons never pass."""
+    if not isinstance(benchmark_record, dict):
+        raise ValueError("benchmark_record must be an object")
+    result = benchmark_record.get("result")
+    if not isinstance(result, dict):
+        raise ValueError("benchmark_record must include a result object")
+    summary = result.get("regression_summary")
+    comparisons = result.get("baseline_comparison")
+    if not isinstance(summary, dict) or not isinstance(comparisons, dict):
+        return {"eligible": False, "status": "baseline_required",
+                "reasons": ["baseline comparison is missing"]}
+    reasons = []
+    if summary.get("status") != "no_regression_detected":
+        reasons.append("benchmark regression status is not clean")
+    if summary.get("skipped_comparison_count") != 0:
+        reasons.append("benchmark contains skipped comparisons")
+    if not comparisons:
+        reasons.append("benchmark comparison metrics are missing")
+    for metric, comparison in comparisons.items():
+        if not isinstance(comparison, dict) or comparison.get("status") != "compared":
+            reasons.append(f"metric {metric} was not compared")
+        elif not isinstance(comparison.get("delta"), (int, float)) or isinstance(
+                comparison.get("delta"), bool):
+            reasons.append(f"metric {metric} has no numeric delta")
+    return {"eligible": not reasons,
+            "status": "eligible" if not reasons else "blocked",
+            "reasons": reasons}
+
+
 class PromotionReviewStore:
     """Persist explicit human review decisions for candidate configurations."""
 
@@ -54,7 +84,7 @@ class PromotionReviewStore:
         reviewer: str,
         rationale: str,
     ) -> None:
-        """Store a review. Reusing a proposal ID is rejected, preserving history."""
+        """Store a review; approval requires complete, regression-free comparisons."""
         required = {
             "proposal_id": proposal_id,
             "benchmark_record_id": benchmark_record_id,
@@ -75,6 +105,16 @@ class PromotionReviewStore:
             )
         except (TypeError, ValueError) as exc:
             raise ValueError("candidate_config must be JSON-serializable") from exc
+
+        # Retrieve through the same SQLite database and enforce the gate before
+        # recording an approval. Rejected proposals remain recordable for audit.
+        if decision == "approved":
+            benchmark = BenchmarkRecordStore(self.database_path).get(benchmark_record_id)
+            if benchmark is None:
+                raise ValueError("benchmark record does not exist")
+            gate = promotion_eligibility(benchmark)
+            if not gate["eligible"]:
+                raise ValueError("promotion approval blocked: " + "; ".join(gate["reasons"]))
 
         with self._connect() as connection:
             connection.execute(

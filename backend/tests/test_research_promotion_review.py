@@ -93,6 +93,25 @@ class PromotionReviewStoreTests(unittest.TestCase):
         self.assertFalse(gate["eligible"])
         self.assertTrue(any("metric set is incomplete" in reason for reason in gate["reasons"]))
 
+    def test_gate_rejects_tampered_record_result_and_envelope(self):
+        record = json.loads(serialize_benchmark_record(result()))
+        record["result"]["aggregate_metrics"]["tampered_metric"] = {"mean": 1.0}
+        gate = promotion_eligibility(record)
+        self.assertFalse(gate["eligible"])
+        self.assertIn("benchmark record content hash is invalid", gate["reasons"])
+
+        record = json.loads(serialize_benchmark_record(result()))
+        record["benchmark_id"] = "different-benchmark"
+        gate = promotion_eligibility(record)
+        self.assertFalse(gate["eligible"])
+        self.assertIn("benchmark ID does not match record result", gate["reasons"])
+
+        record = json.loads(serialize_benchmark_record(result()))
+        record["record_schema_version"] = 999
+        gate = promotion_eligibility(record)
+        self.assertFalse(gate["eligible"])
+        self.assertIn("benchmark record schema version is unsupported", gate["reasons"])
+
     def test_missing_benchmark_record_is_rejected_by_foreign_key(self):
         with tempfile.TemporaryDirectory() as directory:
             db = Path(directory) / "review.sqlite"

@@ -57,7 +57,15 @@ class BenchmarkRecordStore:
                 "SELECT record_json FROM research_benchmark_records WHERE record_id = ?",
                 (record_id,),
             ).fetchone()
-        return json.loads(row["record_json"]) if row else None
+        if row is None:
+            return None
+        try:
+            record = json.loads(row["record_json"])
+        except (TypeError, json.JSONDecodeError) as exc:
+            raise ValueError("stored benchmark record is not valid JSON") from exc
+        if not isinstance(record, dict):
+            raise ValueError("stored benchmark record must be an object")
+        return record
 
     def list_records(self, *, limit: int = 50) -> list[dict[str, Any]]:
         if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 500:

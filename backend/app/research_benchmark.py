@@ -112,7 +112,8 @@ def run_offline_research_benchmark(
                     "baseline_mean": previous,
                     "delta": delta,
                 }
-                if delta <= -regression_threshold:
+                # A zero threshold means "flag any decrease", not "flag a tie".
+                if delta < 0 and delta <= -regression_threshold:
                     regressions.append({
                         "metric": key,
                         "delta": delta,

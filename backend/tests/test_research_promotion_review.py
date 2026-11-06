@@ -93,6 +93,32 @@ class PromotionReviewStoreTests(unittest.TestCase):
         self.assertFalse(gate["eligible"])
         self.assertTrue(any("metric set is incomplete" in reason for reason in gate["reasons"]))
 
+    def test_gate_recomputes_regression_summary_from_comparisons(self):
+        benchmark = result()
+        benchmark["regression_summary"]["items"] = [{
+            "metric": "claim_reference_coverage",
+            "delta": -0.9,
+            "threshold": 0.05,
+            "severity": "regression",
+        }]
+        record = json.loads(serialize_benchmark_record(benchmark))
+        gate = promotion_eligibility(record)
+        self.assertFalse(gate["eligible"])
+        self.assertIn(
+            "benchmark regression items are inconsistent with metric deltas",
+            gate["reasons"],
+        )
+
+        benchmark = result()
+        benchmark["regression_summary"]["skipped_comparison_count"] = 1
+        record = json.loads(serialize_benchmark_record(benchmark))
+        gate = promotion_eligibility(record)
+        self.assertFalse(gate["eligible"])
+        self.assertIn(
+            "benchmark skipped-comparison count is inconsistent",
+            gate["reasons"],
+        )
+
     def test_gate_rejects_tampered_record_result_and_envelope(self):
         record = json.loads(serialize_benchmark_record(result()))
         record["result"]["aggregate_metrics"]["tampered_metric"] = {"mean": 1.0}

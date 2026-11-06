@@ -100,7 +100,7 @@ def compare_research_exports(before, after):
     changed = []
     for key in sorted(old_keys & new_keys):
         fields = sorted(
-            field for field in set(old[key]) | set(new[key])
+            field for field in sorted(set(old[key]) | set(new[key]), key=str)
             if old[key].get(field) != new[key].get(field)
         )
         if fields:
@@ -112,7 +112,7 @@ def compare_research_exports(before, after):
         if left != right:
             if isinstance(left, dict) and isinstance(right, dict):
                 diagnostic_changes[section] = sorted(
-                    key for key in set(left) | set(right) if left.get(key) != right.get(key)
+                    key for key in sorted(set(left) | set(right), key=str) if left.get(key) != right.get(key)
                 )
             else:
                 diagnostic_changes[section] = ["$"]

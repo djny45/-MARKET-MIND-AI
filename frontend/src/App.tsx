@@ -70,6 +70,7 @@ export default function App() {
  const [researchReport,setResearchReport] = useState<any>(null)
  const [qualityReport,setQualityReport] = useState<any>(null)
  const [benchmarkReport,setBenchmarkReport] = useState<any>(null)
+ const [benchmarkBaselineFile,setBenchmarkBaselineFile] = useState<File|null>(null)
  const [benchmarkBusy,setBenchmarkBusy] = useState(false)
  const [benchmarkError,setBenchmarkError] = useState('')
  const [sourceComparison,setSourceComparison] = useState<any>(null)
@@ -132,7 +133,15 @@ export default function App() {
  const runOfflineBenchmark = async()=>{
   setBenchmarkBusy(true);setBenchmarkError('');setBenchmarkReport(null);
   try{
-   const r=await fetch(API+'/api/research/benchmark',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cases:[
+   let baseline:any=undefined
+   if(benchmarkBaselineFile){
+    if(benchmarkBaselineFile.size>2_000_000)throw new Error('Baseline JSON exceeds 2 MB')
+    const parsed=JSON.parse(await benchmarkBaselineFile.text())
+    const metrics=parsed.aggregate_metrics||parsed.metrics
+    if(!metrics||typeof metrics!=='object')throw new Error('Baseline JSON must contain aggregate_metrics or metrics')
+    baseline={metrics:Object.fromEntries(Object.entries(metrics).map(([key,value]:any)=>[key,typeof value==='object'&&value!==null?'mean' in value?value.mean:value:value]))}
+   }
+   const r=await fetch(API+'/api/research/benchmark',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({baseline,regression_threshold:0.05,cases:[
     {case_id:'fixture-valid-reference',draft:'Synthetic fixture; factual meaning is not validated.',claims:[{text:'Synthetic claim A',source_refs:['fixture-source-a']}],source_registry:[{source_id:'fixture-source-a'}]},
     {case_id:'fixture-unknown-reference',draft:'Synthetic fixture with an unknown source reference.',claims:[{text:'Synthetic claim B',source_refs:['unknown-fixture-source']}],source_registry:[{source_id:'fixture-source-a'}]}
    ]})});
@@ -326,9 +335,14 @@ export default function App() {
 
     <div className="side-label">OFFLINE RESEARCH BENCHMARK <span>FIXTURE ONLY</span></div>
     <small className="research-note">Run a reproducible structural traceability check on two synthetic cases. No live market data or trading.</small>
+    <label>OPTIONAL BASELINE REPORT JSON</label>
+    <input type="file" accept=".json,application/json" aria-label="Upload previous benchmark JSON" onChange={e=>setBenchmarkBaselineFile(e.target.files?.[0]||null)}/>
+    <small className="research-note">{benchmarkBaselineFile?('Baseline selected: '+benchmarkBaselineFile.name):'Upload a previously downloaded benchmark report to compare structural metrics.'}</small>
     <button className="soft-btn research-run" onClick={runOfflineBenchmark} disabled={benchmarkBusy}>{benchmarkBusy?'RUNNING BENCHMARK…':'RUN OFFLINE BENCHMARK'}</button>
     {benchmarkError&&<small className="news-error">{benchmarkError}</small>}
-    {benchmarkReport&&<div className="research-results"><b>BENCHMARK {benchmarkReport.benchmark_id}</b><div className="aligned-row"><span>Cases</span><b>{benchmarkReport.case_count}</b></div>{Object.entries(benchmarkReport.aggregate_metrics||{}).map(([key,value]:any)=><div className="aligned-row" key={key}><span>{key.replaceAll('_',' ').toUpperCase()}</span><b>{value.mean===null?'N/A':(value.mean*100).toFixed(1)+'%'}</b></div>)}<small>Structural traceability only—not factual accuracy, agent intelligence, or trading performance.</small><button className="soft-btn" onClick={()=>{const blob=new Blob([JSON.stringify(benchmarkReport,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='market-mind-offline-benchmark.json';a.click();URL.revokeObjectURL(url)}}>DOWNLOAD BENCHMARK JSON</button></div>}
+    {benchmarkReport&&<div className="research-results"><b>BENCHMARK {benchmarkReport.benchmark_id}</b><div className="aligned-row"><span>Cases</span><b>{benchmarkReport.case_count}</b></div>{Object.entries(benchmarkReport.aggregate_metrics||{}).map(([key,value]:any)=><div className="aligned-row" key={key}><span>{key.replaceAll('_',' ').toUpperCase()}</span><b>{value.mean===null?'N/A':(value.mean*100).toFixed(1)+'%'}</b></div>)}
+    {benchmarkReport.regression_summary&&<><div className="aligned-row"><span>BASELINE CHECK</span><b>{benchmarkReport.regression_summary.status.replaceAll('_',' ').toUpperCase()}</b></div>{(benchmarkReport.regression_summary.items||[]).map((item:any)=><div className="aligned-row" key={item.metric}><span>{item.metric.replaceAll('_',' ').toUpperCase()}</span><b>{(item.delta*100).toFixed(1)} pp drop</b></div>)}</>}
+    <small>Structural traceability only—not factual accuracy, agent intelligence, or trading performance.</small><button className="soft-btn" onClick={()=>{const blob=new Blob([JSON.stringify(benchmarkReport,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='market-mind-offline-benchmark.json';a.click();URL.revokeObjectURL(url)}}>DOWNLOAD BENCHMARK JSON</button></div>}
     <div className="side-label">DEEP RESEARCH <span>DESCRIPTIVE</span></div>
     <label>INSTRUMENT</label><input value={researchSymbol} onChange={e=>setResearchSymbol(e.target.value.toUpperCase())} aria-label="Research symbol"/>
     <label>TIMEFRAMES</label><select value={researchIntervals} onChange={e=>setResearchIntervals(e.target.value)} aria-label="Research timeframes"><option value="15m,1h,4h,1d">15m · 1h · 4h · 1d</option><option value="15m,1h">15m · 1h</option><option value="1h,4h,1d">1h · 4h · 1d</option><option value="1h">1h only</option><option value="4h">4h only</option><option value="1d">1d only</option></select>

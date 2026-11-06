@@ -10,6 +10,7 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
+from app.research_benchmark import BASELINE_METRICS
 from app.research_benchmark_store import BenchmarkRecordStore
 
 
@@ -28,7 +29,7 @@ CREATE TABLE IF NOT EXISTS research_promotion_reviews (
 
 
 def promotion_eligibility(benchmark_record: dict[str, Any]) -> dict[str, Any]:
-    """Return explicit gate status; missing or incomplete comparisons never pass."""
+    """Fail closed on missing, incomplete, inconsistent, or regressing metrics."""
     if not isinstance(benchmark_record, dict):
         raise ValueError("benchmark_record must be an object")
     result = benchmark_record.get("result")
@@ -39,19 +40,40 @@ def promotion_eligibility(benchmark_record: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(summary, dict) or not isinstance(comparisons, dict):
         return {"eligible": False, "status": "baseline_required",
                 "reasons": ["baseline comparison is missing"]}
-    reasons = []
+
+    reasons: list[str] = []
     if summary.get("status") != "no_regression_detected":
         reasons.append("benchmark regression status is not clean")
     if summary.get("skipped_comparison_count") != 0:
         reasons.append("benchmark contains skipped comparisons")
-    if not comparisons:
-        reasons.append("benchmark comparison metrics are missing")
-    for metric, comparison in comparisons.items():
+    if set(comparisons) != set(BASELINE_METRICS):
+        reasons.append("benchmark comparison metric set is incomplete or unsupported")
+
+    threshold = summary.get("threshold")
+    if (isinstance(threshold, bool) or not isinstance(threshold, (int, float))
+            or not 0 <= threshold <= 1):
+        reasons.append("regression threshold is invalid")
+        threshold = None
+
+    for metric in BASELINE_METRICS:
+        comparison = comparisons.get(metric)
         if not isinstance(comparison, dict) or comparison.get("status") != "compared":
             reasons.append(f"metric {metric} was not compared")
-        elif not isinstance(comparison.get("delta"), (int, float)) or isinstance(
-                comparison.get("delta"), bool):
-            reasons.append(f"metric {metric} has no numeric delta")
+            continue
+        current = comparison.get("current_mean")
+        baseline = comparison.get("baseline_mean")
+        delta = comparison.get("delta")
+        numeric = lambda value: isinstance(value, (int, float)) and not isinstance(value, bool)
+        if not all(numeric(value) for value in (current, baseline, delta)):
+            reasons.append(f"metric {metric} has non-numeric comparison values")
+            continue
+        if round(current - baseline, 4) != delta:
+            reasons.append(f"metric {metric} delta is inconsistent")
+        if not 0 <= current <= 1 or not 0 <= baseline <= 1:
+            reasons.append(f"metric {metric} is outside the expected 0–1 range")
+        if threshold is not None and delta < 0 and delta <= -threshold:
+            reasons.append(f"metric {metric} violates the regression threshold")
+
     return {"eligible": not reasons,
             "status": "eligible" if not reasons else "blocked",
             "reasons": reasons}
@@ -64,7 +86,6 @@ class PromotionReviewStore:
         self.database_path = str(database_path)
         if self.database_path != ":memory:":
             Path(self.database_path).parent.mkdir(parents=True, exist_ok=True)
-        # Ensure the parent benchmark table exists before SQLite creates its FK.
         BenchmarkRecordStore(self.database_path)
         with self._connect() as connection:
             connection.execute("PRAGMA foreign_keys = ON")
@@ -77,14 +98,9 @@ class PromotionReviewStore:
         return connection
 
     def submit_review(
-        self,
-        *,
-        proposal_id: str,
-        benchmark_record_id: str,
-        candidate_config: dict[str, Any],
-        decision: str,
-        reviewer: str,
-        rationale: str,
+        self, *, proposal_id: str, benchmark_record_id: str,
+        candidate_config: dict[str, Any], decision: str,
+        reviewer: str, rationale: str,
     ) -> None:
         """Store a review; approval requires complete, regression-free comparisons."""
         required = {

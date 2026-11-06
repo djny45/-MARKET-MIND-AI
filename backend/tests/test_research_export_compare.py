@@ -159,6 +159,7 @@ class ResearchExportCompareTests(unittest.TestCase):
         import json
         before = bundle([])
         after = bundle([{"close": 10}])
+        before["schema_version"] = after["schema_version"] = "1.1"
         for item in (before, after):
             payload = dict(item)
             payload.pop("integrity", None)

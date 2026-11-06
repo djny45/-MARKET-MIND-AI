@@ -56,3 +56,47 @@ def run_offline_research(
         )
 
     return result
+
+
+def build_offline_evidence_bundle(
+    research_result: dict[str, Any],
+    *,
+    symbol: str,
+    interval: str,
+) -> dict[str, Any]:
+    """Create a provenance-linked evidence bundle from an offline CSV result.
+
+    This adapter preserves the source CSV hash and source path in the export.
+    It only packages historical observations; it does not generate signals.
+    """
+    from app.research_export import build_research_evidence_bundle
+
+    frame = research_result.get("dataset")
+    if frame is None or not hasattr(frame, "to_dict"):
+        raise ValueError("research_result must contain a pandas dataset")
+    timestamp_columns = [
+        column for column in frame.columns
+        if str(column).strip().lower() in {"timestamp", "datetime", "date", "time"}
+    ]
+    if len(timestamp_columns) != 1:
+        raise ValueError("dataset must contain exactly one recognized timestamp column")
+    timestamp_column = timestamp_columns[0]
+    bars = []
+    for row in frame.to_dict(orient="records"):
+        timestamp = row.pop(timestamp_column)
+        if hasattr(timestamp, "isoformat"):
+            timestamp = timestamp.isoformat()
+        row["timestamp"] = str(timestamp)
+        row["source"] = str(research_result.get("source_path") or "offline_csv")
+        bars.append(row)
+    history = {
+        "bars": bars,
+        "source": research_result.get("source_path"),
+        "sources": [research_result.get("source_path")] if research_result.get("source_path") else [],
+        "source_sha256": research_result.get("source_sha256"),
+        "status": "offline_csv",
+        "retrieved_at": None,
+        "first_timestamp": bars[0].get("timestamp") if bars else None,
+        "last_timestamp": bars[-1].get("timestamp") if bars else None,
+    }
+    return build_research_evidence_bundle(symbol, interval, history)

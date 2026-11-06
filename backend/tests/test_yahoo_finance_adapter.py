@@ -36,6 +36,15 @@ class YahooFinanceAdapterTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(batch.bars[0].adjusted_close, 102.7)
         self.assertTrue(batch.warnings)
 
+    async def test_four_hour_interval_discloses_unaggregated_hourly_source(self):
+        adapter = YahooFinanceAdapter()
+        with patch.object(adapter, "_fetch_chart", return_value=chart_payload()):
+            batch = await adapter.get_bars("AAPL", "4h", 10)
+
+        self.assertEqual(batch.interval, "4h")
+        self.assertEqual(len(batch.bars), 2)
+        self.assertTrue(any("not aggregated" in warning for warning in batch.warnings))
+
     async def test_skips_non_finite_negative_volume_and_invalid_ohlc_rows(self):
         payload = chart_payload()
         result = payload["chart"]["result"][0]

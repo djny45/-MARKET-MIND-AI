@@ -114,6 +114,20 @@ class HistoricalQualityTests(unittest.TestCase):
         self.assertEqual(result["sample_count"], 25)
         self.assertEqual(result["flagged_indices"], [])
 
+
+    def test_unhashable_interval_metadata_is_reported_as_unsupported(self):
+        for interval in ([], {}, None):
+            with self.subTest(interval=interval):
+                result = build_historical_quality_diagnostics({
+                    "interval": interval, "bars": self.bars(4)
+                })
+                self.assertEqual(
+                    result["timestamp_spacing"]["status"], "unsupported_interval"
+                )
+                self.assertIsNone(
+                    result["timestamp_spacing"]["expected_interval_seconds"]
+                )
+
     def test_unsupported_interval_does_not_infer_spacing(self):
         result = build_historical_quality_diagnostics({"interval": "weekly", "bars": self.bars(4)})
         self.assertEqual(result["timestamp_spacing"]["status"], "unsupported_interval")

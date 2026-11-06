@@ -35,10 +35,11 @@ class OfflineDatasetTests(unittest.TestCase):
 
     def test_timestamp_column_must_be_nonempty_string_or_none(self):
         from app.offline_dataset import load_ohlcv_csv
+        path = self.write_csv("open,high,low,close\\n1,2,0.5,1.5\\n")
         for invalid in (1, True, [], "", "   "):
             with self.subTest(invalid=invalid):
                 with self.assertRaisesRegex(ValueError, "timestamp_column must be a non-empty string or None"):
-                    load_ohlcv_csv(self.path, timestamp_column=invalid)
+                    load_ohlcv_csv(path, timestamp_column=invalid)
 
     def test_exact_duplicate_csv_headers_rejected_before_pandas_mangles_them(self):
         from app.offline_dataset import load_ohlcv_csv

@@ -123,7 +123,7 @@ def enqueue_research_task(agent_id: str, brief: str, data: dict | list | None = 
             "execution_mode": "process_local_background_task"}
 
 def cancel_queued_research_task(task_id: str) -> dict | None:
-    """Cancel a task only while queued; running and terminal tasks are untouched."""
+    """Cancel only queued tasks; running and terminal tasks are not interrupted."""
     if not isinstance(task_id, str) or not task_id.strip():
         raise ValueError("task_id must be a non-empty string")
     now = datetime.now(timezone.utc).isoformat()
@@ -204,6 +204,8 @@ def execute_queued_research_task(task_id: str) -> bool:
                     )
                     evaluation_status = "evaluated"
                 except ValueError as exc:
+                    # Optional quality metadata must not turn a successful research
+                    # synthesis into a failed task. Preserve the bounded error detail.
                     evaluation_status = "invalid_evaluation_input"
                     evaluation = {
                         "status": "invalid_input",
@@ -277,4 +279,441 @@ def recover_interrupted_research_tasks(stale_after_seconds: int = 900) -> dict:
         "stale_after_seconds": stale_after_seconds,
         "recovery_mode": "manual_stale_requeue_no_dispatch",
         "note": "Only tasks older than the recovery grace period are requeued; dispatch remains explicit.",
+    }
+def submit_research_task(agent_id: str, brief: str, data: dict | list | None = None) -> dict:
+    brain = brain_config(agent_id)
+    if not isinstance(brief, str) or not brief.strip() or len(brief) > 4000:
+        raise ValueError("brief must be a non-empty string of at most 4000 characters")
+    if data is not None and not isinstance(data, (dict, list)):
+        raise ValueError("data must be a JSON object or array")
+    task_input = {"brief": brief.strip(), "data": data}
+    input_json = _json(task_input)
+    if len(input_json) > MAX_TASK_INPUT_CHARS:
+        raise ValueError(f"Task input must not exceed {MAX_TASK_INPUT_CHARS} characters")
+    task_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    with _connect() as db:
+        db.execute("""INSERT INTO analytical_agent_tasks
+          (task_id,worker_id,task_type,status,input_json,result_json,brain_context_sha256,created_at,updated_at)
+          VALUES (?,?,?,?,?,?,?,?,?)""",
+          (task_id, agent_id, TASK_TYPE, "running", input_json, "{}", brain["brain_context_sha256"], now, now))
+        _record_event(db, task_id, agent_id, "task_submitted",
+                      from_status=None, to_status="running", occurred_at=now,
+                      detail={"execution_mode": "bounded_synchronous_shared_core"})
+
+    # The configured core sees only supplied user data and the agent's role.
+    research_payload = {
+        "agent": {"id": agent_id, "department": brain["department"], "specialty": brain["specialty"]},
+        "agent_context": brain["brain_context"],
+        "retrieved_memory": recall_memory(
+            agent_id, brief.strip() + " " + json.dumps(data, ensure_ascii=False)[:6000],
+            limit=5,
+        ),
+        "task": task_input,
+        "constraints": ["Use supplied data only.", "Distinguish facts, assumptions, and unknowns.",
+                       "Do not invent missing market data.", "No trade execution or investment certainty."],
+    }
+    try:
+        synthesis = synthesize_research(research_payload)
+        result = {
+            "agent_id": agent_id,
+            "brain_context_sha256": brain["brain_context_sha256"],
+            "brief": brief.strip(),
+            "input_data_received": data is not None,
+            "shared_core_result": synthesis,
+            "result_mode": "shared_core_synthesis" if synthesis.get("status") == "completed" else "provider_unavailable_or_not_configured",
+            "research_boundary": "supplied_data_only_no_live_market_fetch",
+        }
+        status = "completed"
+    except Exception as exc:
+        result = {"error": "Research task failed safely.", "error_type": type(exc).__name__}
+        status = "failed"
+    result_json = _json(result)
+    updated = datetime.now(timezone.utc).isoformat()
+    with _connect() as db:
+        db.execute("UPDATE analytical_agent_tasks SET status=?,result_json=?,updated_at=? WHERE task_id=?",
+                   (status, result_json, updated, task_id))
+        _record_event(db, task_id, agent_id, "task_" + status,
+                      from_status="running", to_status=status, occurred_at=updated,
+                      detail={"execution_mode": "bounded_synchronous_shared_core",
+                              "error_type": result.get("error_type")} if status == "failed"
+                      else {"execution_mode": "bounded_synchronous_shared_core"})
+    return {"task_id": task_id, "agent_id": agent_id, "worker_id": agent_id, "status": status,
+            "created_at": now, "updated_at": updated, "result": result,
+            "execution_mode": "bounded_synchronous_shared_core"}
+
+def list_task_audit_events(
+    task_id: str, limit: int = 100, event_type: str | None = None,
+    before_event_id: int | None = None,
+) -> dict:
+    """Return chronological audit events before an event ID, optionally filtered by type."""
+    if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 500:
+        raise ValueError("limit must be between 1 and 500")
+    if event_type is not None and (
+        not isinstance(event_type, str) or not event_type.strip() or len(event_type) > 80
+    ):
+        raise ValueError("event_type must contain 1 to 80 characters")
+    if before_event_id is not None and (
+        not isinstance(before_event_id, int) or isinstance(before_event_id, bool)
+        or before_event_id < 1
+    ):
+        raise ValueError("before_event_id must be a positive integer")
+    with _connect() as db:
+        exists = db.execute("SELECT task_id FROM analytical_agent_tasks WHERE task_id=?", (task_id,)).fetchone()
+        if exists is None:
+            return {"task_id": task_id, "count": 0, "events": [], "next_before_event_id": None}
+        clauses = ["task_id=?"]
+        params: list[Any] = [task_id]
+        if event_type is not None:
+            clauses.append("event_type=?")
+            params.append(event_type.strip())
+        if before_event_id is not None:
+            clauses.append("event_id<?")
+            params.append(before_event_id)
+        where = " AND ".join(clauses)
+        rows = db.execute(
+            f"""SELECT event_id,task_id,worker_id,event_type,from_status,to_status,occurred_at,detail_json
+                FROM analytical_agent_task_events WHERE {where}
+                ORDER BY event_id DESC LIMIT ?""",
+            (*params, limit),
+        ).fetchall()
+    events = []
+    for row in reversed(rows):
+        event = dict(row)
+        event["detail"] = json.loads(event.pop("detail_json"))
+        events.append(event)
+    next_cursor = rows[-1]["event_id"] if len(rows) == limit else None
+    return {
+        "task_id": task_id, "count": len(events), "events": events,
+        "next_before_event_id": next_cursor,
+    }
+
+def get_research_task(task_id: str) -> dict | None:
+    with _connect() as db:
+        row = db.execute("SELECT * FROM analytical_agent_tasks WHERE task_id=?", (task_id,)).fetchone()
+    if row is None:
+        return None
+    return {
+        "task_id": row["task_id"], "agent_id": row["worker_id"], "worker_id": row["worker_id"],
+        "task_type": row["task_type"], "status": row["status"],
+        "input": json.loads(row["input_json"]), "result": json.loads(row["result_json"]),
+        "brain_context_sha256": row["brain_context_sha256"],
+        "created_at": row["created_at"], "updated_at": row["updated_at"],
+    }
+
+def list_research_tasks(agent_id: str, limit: int = 20) -> dict:
+    brain_config(agent_id)
+    if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 100:
+        raise ValueError("limit must be between 1 and 100")
+    with _connect() as db:
+        rows = db.execute("""SELECT task_id,worker_id,task_type,status,brain_context_sha256,created_at,updated_at
+          FROM analytical_agent_tasks WHERE worker_id=? ORDER BY created_at DESC LIMIT ?""",
+          (agent_id, limit)).fetchall()
+        total = db.execute("SELECT COUNT(*) FROM analytical_agent_tasks WHERE worker_id=?", (agent_id,)).fetchone()[0]
+    return {"agent_id": agent_id, "worker_id": agent_id, "count": len(rows), "total": total, "tasks": [{**dict(row), "agent_id": row["worker_id"]} for row in rows]}
+
+
+def list_recent_task_activity(limit: int = 500) -> dict:
+    """Return a bounded cross-agent task activity snapshot for the network UI."""
+    if not isinstance(limit, int) or not 1 <= limit <= 1000:
+        raise ValueError("limit must be between 1 and 1000")
+    with _connect() as db:
+        rows = db.execute(
+            """SELECT task_id,worker_id,task_type,status,created_at,updated_at
+               FROM analytical_agent_tasks ORDER BY updated_at DESC LIMIT ?""",
+            (limit,),
+        ).fetchall()
+        event_rows = db.execute(
+            """SELECT event_id,task_id,worker_id,event_type,from_status,to_status,occurred_at,detail_json
+               FROM analytical_agent_task_events ORDER BY event_id DESC LIMIT ?""",
+            (min(limit, 1000),),
+        ).fetchall()
+    tasks = [{**dict(row), "agent_id": row["worker_id"]} for row in rows]
+    recent_events = []
+    for row in reversed(event_rows):
+        event = dict(row)
+        event["detail"] = json.loads(event.pop("detail_json"))
+        recent_events.append(event)
+    counts = {status: sum(task["status"] == status for task in tasks)
+              for status in ("queued", "running", "completed", "failed")}
+    latest_by_agent = {}
+    for task in tasks:
+        latest_by_agent.setdefault(task["worker_id"], task)
+    return {
+        "task_count": len(tasks),
+        "status_counts": counts,
+        "latest_by_agent": latest_by_agent,
+        "tasks": tasks,
+        "recent_audit_events": recent_events,
+        "audit_event_count": len(recent_events),
+        "source": "persisted_sqlite_task_records_and_audit_events",
+        "note": "This snapshot reflects recorded task lifecycle states and bounded audit events, not continuous agent activity.",
+    }
+
+
+def agent_task_performance(agent_id: str | None = None, limit: int = 550) -> dict:
+    """Summarize persisted task outcomes per worker; metrics are descriptive, not a skill score."""
+    if agent_id is not None:
+        brain_config(agent_id)
+    if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 550:
+        raise ValueError("limit must be between 1 and 550")
+    with _connect() as db:
+        if agent_id is None:
+            rows = db.execute(
+                """SELECT worker_id,status,COUNT(*) AS count
+                   FROM analytical_agent_tasks GROUP BY worker_id,status"""
+            ).fetchall()
+            total = db.execute("SELECT COUNT(*) FROM analytical_agent_tasks").fetchone()[0]
+        else:
+            rows = db.execute(
+                """SELECT worker_id,status,COUNT(*) AS count
+                   FROM analytical_agent_tasks WHERE worker_id=?
+                   GROUP BY worker_id,status""", (agent_id,)
+            ).fetchall()
+            total = db.execute(
+                "SELECT COUNT(*) FROM analytical_agent_tasks WHERE worker_id=?", (agent_id,)
+            ).fetchone()[0]
+        recent = db.execute(
+            """SELECT worker_id,status,COUNT(*) AS count
+               FROM (SELECT worker_id,status FROM analytical_agent_tasks
+                     ORDER BY updated_at DESC LIMIT ?)
+               GROUP BY worker_id,status""", (limit,)
+        ).fetchall() if agent_id is None else db.execute(
+            """SELECT worker_id,status,COUNT(*) AS count
+               FROM (SELECT worker_id,status FROM analytical_agent_tasks
+                     WHERE worker_id=? ORDER BY updated_at DESC LIMIT ?)
+               GROUP BY worker_id,status""", (agent_id, limit)
+        ).fetchall()
+    def summarize(grouped_rows):
+        result = {}
+        for row in grouped_rows:
+            item = result.setdefault(row["worker_id"], {
+                "agent_id": row["worker_id"], "task_count": 0,
+                "queued": 0, "running": 0, "completed": 0, "failed": 0,
+            })
+            item[row["status"]] = row["count"]
+            item["task_count"] += row["count"]
+        for item in result.values():
+            finished = item["completed"] + item["failed"]
+            item["finished_count"] = finished
+            item["completion_rate"] = round(item["completed"] / finished, 4) if finished else None
+            item["failure_rate"] = round(item["failed"] / finished, 4) if finished else None
+        return result
+    all_agents = summarize(rows)
+    recent_agents = summarize(recent)
+    return {
+        "agent_id": agent_id,
+        "task_count": total,
+        "agents": all_agents,
+        "recent_window_limit": limit,
+        "recent_agents": recent_agents,
+        "metric_definition": "completed/(completed+failed); queued/running excluded; descriptive historical task outcomes only",
+        "performance_boundary": "not a capability or intelligence score; no autonomous ranking or live trading",
+    }
+
+
+def agent_research_quality_performance(agent_id: str | None = None, limit: int = 550) -> dict:
+    """Aggregate persisted structural traceability metrics; never score factual correctness."""
+    import math
+
+    if agent_id is not None:
+        brain_config(agent_id)
+    if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 550:
+        raise ValueError("limit must be between 1 and 550")
+    with _connect() as db:
+        if agent_id is None:
+            rows = db.execute(
+                """SELECT worker_id,evaluation_json,created_at FROM research_quality_evaluations
+                   ORDER BY created_at DESC LIMIT ?""", (limit,)
+            ).fetchall()
+        else:
+            rows = db.execute(
+                """SELECT worker_id,evaluation_json,created_at FROM research_quality_evaluations
+                   WHERE worker_id=? ORDER BY created_at DESC LIMIT ?""", (agent_id, limit)
+            ).fetchall()
+    agents = {}
+    invalid_count = 0
+    for row in rows:
+        try:
+            evaluation = json.loads(row["evaluation_json"])
+            metrics = evaluation.get("metrics") if isinstance(evaluation, dict) else None
+            if not isinstance(metrics, dict):
+                invalid_count += 1
+                continue
+            values = {}
+            for key in ("claim_reference_coverage", "known_source_reference_coverage"):
+                value = metrics.get(key)
+                if isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value) and 0 <= value <= 1:
+                    values[key] = float(value)
+            if not values:
+                invalid_count += 1
+                continue
+        except (TypeError, ValueError):
+            invalid_count += 1
+            continue
+        item = agents.setdefault(row["worker_id"], {
+            "agent_id": row["worker_id"], "evaluation_count": 0,
+            "claim_reference_coverage_sum": 0.0, "claim_reference_coverage_count": 0,
+            "known_source_reference_coverage_sum": 0.0, "known_source_reference_coverage_count": 0,
+        })
+        item["evaluation_count"] += 1
+        for key, value in values.items():
+            sum_key = key + "_sum"
+            count_key = key + "_count"
+            item[sum_key] += value
+            item[count_key] += 1
+    for item in agents.values():
+        for key in ("claim_reference_coverage", "known_source_reference_coverage"):
+            count = item[key + "_count"]
+            item[key + "_mean"] = round(item[key + "_sum"] / count, 4) if count else None
+            item.pop(key + "_sum")
+    return {
+        "agent_id": agent_id,
+        "evaluations_examined": len(rows),
+        "invalid_or_unusable_evaluation_count": invalid_count,
+        "agents": agents,
+        "metric_definition": "mean structural source-reference coverage across stored evaluations; values with null or invalid metrics are excluded per metric",
+        "quality_boundary": "does not establish source authenticity, entailment, factual accuracy, intelligence, or trading performance",
+    }
+
+
+def agent_supervisor_recommendations(agent_id: str | None = None, limit: int = 550) -> dict:
+    """Return conservative, reviewable workflow suggestions from persisted metrics only."""
+    task_metrics = agent_task_performance(agent_id=agent_id, limit=limit)
+    quality_metrics = agent_research_quality_performance(agent_id=agent_id, limit=limit)
+    recommendations = []
+    task_agents = task_metrics["agents"]
+    quality_agents = quality_metrics["agents"]
+    agent_ids = sorted(set(task_agents) | set(quality_agents))
+    for worker_id in agent_ids:
+        tasks = task_agents.get(worker_id, {})
+        quality = quality_agents.get(worker_id, {})
+        finished = tasks.get("finished_count", 0)
+        eval_count = quality.get("evaluation_count", 0)
+        failure_rate = tasks.get("failure_rate")
+        known_coverage = quality.get("known_source_reference_coverage_mean")
+        if finished >= 5 and failure_rate is not None and failure_rate >= 0.30:
+            recommendations.append({
+                "agent_id": worker_id,
+                "priority": "review",
+                "reason_code": "repeated_task_failures",
+                "evidence": {"finished_tasks": finished, "failure_rate": failure_rate},
+                "suggested_action": "Inspect recent task failure types and input/provider availability before assigning more tasks.",
+            })
+        if eval_count >= 3 and known_coverage is not None and known_coverage < 0.70:
+            recommendations.append({
+                "agent_id": worker_id,
+                "priority": "review",
+                "reason_code": "low_source_reference_coverage",
+                "evidence": {"evaluations": eval_count, "mean_known_source_reference_coverage": known_coverage},
+                "suggested_action": "Review source registry completeness and claim-to-source mapping in the research workflow.",
+            })
+        if finished >= 5 and failure_rate is not None and failure_rate <= 0.10 and eval_count >= 3 and known_coverage is not None and known_coverage >= 0.90:
+            recommendations.append({
+                "agent_id": worker_id,
+                "priority": "observe",
+                "reason_code": "consistent_structural_traceability",
+                "evidence": {"finished_tasks": finished, "failure_rate": failure_rate,
+                             "evaluations": eval_count, "mean_known_source_reference_coverage": known_coverage},
+                "suggested_action": "Consider this workflow as a candidate for a controlled offline benchmark; do not auto-promote it.",
+            })
+    return {
+        "recommendation_count": len(recommendations),
+        "recommendations": recommendations,
+        "source": "persisted_task_outcomes_and_structural_traceability_metrics",
+        "decision_mode": "advisory_only",
+        "minimum_evidence": {"finished_tasks": 5, "quality_evaluations": 3},
+        "limitations": [
+            "No autonomous task reassignment, agent ranking, code changes, or deployment.",
+            "Task completion and source-reference coverage are proxies, not measures of intelligence or factual correctness.",
+            "Review recommendations against underlying records before acting.",
+        ],
+    }
+
+
+def agent_supervisor_status() -> dict:
+    """Return a point-in-time health snapshot of persisted agent task states."""
+    with _connect() as db:
+        rows = db.execute(
+            "SELECT status, COUNT(*) AS count FROM analytical_agent_tasks GROUP BY status"
+        ).fetchall()
+        total = db.execute("SELECT COUNT(*) FROM analytical_agent_tasks").fetchone()[0]
+    counts = {state: 0 for state in ("queued", "running", "completed", "failed")}
+    counts.update({row["status"]: row["count"] for row in rows})
+    return {
+        "supervisor": "manual_dispatch_supervisor",
+        "status": "healthy",
+        "task_count": total,
+        "status_counts": counts,
+        "registered_agent_count": 550,
+        "dispatch_mode": "explicit_bounded_dispatch",
+        "continuous_daemon": False,
+        "distributed_queue": False,
+    }
+
+
+def dispatch_queued_research_tasks(limit: int = 50, max_concurrency: int = 4) -> dict:
+    """Dispatch a bounded snapshot of queued tasks concurrently on this process."""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 550:
+        raise ValueError("limit must be an integer between 1 and 550")
+    if isinstance(max_concurrency, bool) or not isinstance(max_concurrency, int) or not 1 <= max_concurrency <= 16:
+        raise ValueError("max_concurrency must be an integer between 1 and 16")
+    with _connect() as db:
+        rows = db.execute(
+            "SELECT task_id FROM analytical_agent_tasks WHERE status='queued' ORDER BY created_at LIMIT ?",
+            (limit,),
+        ).fetchall()
+    task_ids = [row["task_id"] for row in rows]
+    if not task_ids:
+        return {"selected": 0, "dispatched": 0, "max_concurrency": max_concurrency,
+                "status": "idle", "task_ids": []}
+    dispatch_id = str(uuid.uuid4())
+    selected_at = datetime.now(timezone.utc).isoformat()
+    with _connect() as db:
+        for task_id in task_ids:
+            task = db.execute(
+                "SELECT worker_id FROM analytical_agent_tasks WHERE task_id=?", (task_id,)
+            ).fetchone()
+            if task is not None:
+                _record_event(db, task_id, task["worker_id"], "task_dispatch_selected",
+                              from_status="queued", to_status="queued", occurred_at=selected_at,
+                              detail={"dispatch_id": dispatch_id, "max_concurrency": max_concurrency})
+    completed = []
+    dispatch_errors = []
+    with ThreadPoolExecutor(max_workers=min(max_concurrency, len(task_ids)),
+                            thread_name_prefix="market-mind-supervisor") as pool:
+        futures = {pool.submit(execute_queued_research_task, task_id): task_id for task_id in task_ids}
+        for future in as_completed(futures):
+            task_id = futures[future]
+            try:
+                executed = future.result()
+                if executed:
+                    completed.append(task_id)
+            except Exception as exc:
+                # One task failure must not interrupt dispatch of sibling tasks.
+                dispatch_errors.append({"task_id": task_id, "error_type": type(exc).__name__})
+                continue
+    finished_at = datetime.now(timezone.utc).isoformat()
+    with _connect() as db:
+        for task_id in completed:
+            task = db.execute(
+                "SELECT worker_id,status FROM analytical_agent_tasks WHERE task_id=?", (task_id,)
+            ).fetchone()
+            if task is not None:
+                _record_event(db, task_id, task["worker_id"], "task_dispatch_finished",
+                              from_status=task["status"], to_status=task["status"],
+                              occurred_at=finished_at,
+                              detail={"dispatch_id": dispatch_id})
+    return {
+        "selected": len(task_ids),
+        "dispatched": len(completed),
+        "max_concurrency": min(max_concurrency, len(task_ids)),
+        "status": "completed",
+        "task_ids": task_ids,
+        "dispatch_error_count": len(dispatch_errors),
+        "dispatch_errors": dispatch_errors,
+        "dispatch_mode": "bounded_process_local_queue_snapshot",
+        "note": "Tasks are persisted in SQLite; dispatch is explicit and process-local, not a continuously running distributed supervisor.",
     }

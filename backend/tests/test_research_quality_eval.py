@@ -61,6 +61,39 @@ class ResearchQualityEvalTests(unittest.TestCase):
                 }},
             )
 
+    def test_missing_baseline_metric_is_reported_as_incomplete(self):
+        result = evaluate_research_draft(
+            draft="Draft.", claims=[{"text": "Claim", "source_refs": ["src"]}],
+            source_registry=[{"source_id": "src"}],
+            baseline={"metrics": {"claim_reference_coverage": 0.5}},
+        )
+        comparison = result["baseline_comparison"]["known_source_reference_coverage"]
+        self.assertEqual(comparison["status"], "skipped")
+        self.assertEqual(comparison["reason"], "baseline_metric_missing")
+        self.assertEqual(
+            result["baseline_comparison_summary"]["status"],
+            "comparison_incomplete",
+        )
+        self.assertEqual(
+            result["baseline_comparison_summary"]["skipped_comparison_count"], 1
+        )
+
+    def test_empty_claim_set_reports_unavailable_comparisons(self):
+        result = evaluate_research_draft(
+            draft="No claims.", claims=[], source_registry=[],
+            baseline={"metrics": {
+                "claim_reference_coverage": 0.8,
+                "known_source_reference_coverage": 0.7,
+            }},
+        )
+        self.assertEqual(
+            result["baseline_comparison_summary"]["status"],
+            "comparison_incomplete",
+        )
+        self.assertEqual(
+            result["baseline_comparison_summary"]["skipped_comparison_count"], 2
+        )
+
     def test_empty_claim_set_has_null_coverage(self):
         result = evaluate_research_draft(draft="No claims.", claims=[], source_registry=[])
         self.assertIsNone(result["metrics"]["claim_reference_coverage"])

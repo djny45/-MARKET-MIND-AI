@@ -52,6 +52,15 @@ class SourceComparisonTests(unittest.TestCase):
         self.assertEqual(volume["invalid_value_count"], 1)
         self.assertEqual(volume["valid_value_count"], 2)
 
+    def test_non_object_observations_are_reported_and_skipped(self):
+        bars = self.bars()
+        bars.insert(1, "bad-row")
+        result = compare_source_observations({"bars": bars})
+        self.assertEqual(result["observations_checked"], 4)
+        self.assertEqual(result["invalid_timestamp_count"], 1)
+        self.assertEqual(result["invalid_timestamps"][0]["bar_index"], 1)
+        self.assertEqual(result["invalid_timestamps"][0]["reason"], "observation_must_be_object")
+
     def test_extreme_finite_values_do_not_emit_infinite_spread(self):
         bars = [
             {"timestamp": "2026-01-01T00:00:00Z", "source": "provider-a",

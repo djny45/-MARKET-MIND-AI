@@ -131,7 +131,7 @@ class ResearchExportCompareTests(unittest.TestCase):
         after = bundle([])
         before["integrity"] = {
             "algorithm": "sha256",
-            "digest": "not-a-hex-digest",
+            "digest": "g" * 64,
             "scope": "complete evidence bundle excluding this integrity field",
             "canonicalization": "UTF-8 JSON with sorted keys and compact separators",
         }

@@ -20,7 +20,11 @@ from app.offline_research_pipeline import run_offline_research  # noqa: E402
 
 def main() -> int:
     sample = BACKEND_DIR / "examples" / "synthetic_ohlcv.csv"
-    result = run_offline_research(sample, timestamp_column="timestamp")
+    try:
+        result = run_offline_research(sample, timestamp_column="timestamp")
+    except RuntimeError as exc:
+        print(f"Offline demo unavailable: {exc}", file=sys.stderr)
+        return 2
 
     print("OFFLINE RESEARCH DEMO — SYNTHETIC DATA ONLY")
     print(f"Dataset: {sample.relative_to(REPO_ROOT)}")

@@ -53,6 +53,7 @@ class OpenBBCLITests(unittest.TestCase):
         run.return_value = Mock(stdout="x" * 13000, stderr="", returncode=2)
         result = run_openbb_cli("help")
         self.assertEqual(len(result.output), 12000)
+        self.assertTrue(result.output.endswith("… [output truncated]"))
         self.assertIsNotNone(result.error)
 
     @patch.dict(os.environ, {"OPENBB_CLI_ENABLED": "true"})

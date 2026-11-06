@@ -33,6 +33,12 @@ class OfflineDatasetTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "empty column name"):
             load_ohlcv_csv(path)
 
+    def test_exact_duplicate_csv_headers_rejected_before_pandas_mangles_them(self):
+        from app.offline_dataset import load_ohlcv_csv
+        path = self.write_csv("open,high,high,low,close\\n1,2,2,0.5,1.5\\n")
+        with self.assertRaisesRegex(ValueError, "duplicate columns after normalization"):
+            load_ohlcv_csv(path)
+
     def test_duplicate_columns_rejected_after_normalization(self):
         from app.offline_dataset import load_ohlcv_csv
         path = self.write_csv("open, high,high,low,close\n1,2,2,0.5,1.5\n")

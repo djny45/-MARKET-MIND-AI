@@ -54,7 +54,7 @@ class BenchmarkRecordStore:
     def get(self, record_id: str) -> dict[str, Any] | None:
         with self._connect() as connection:
             row = connection.execute(
-                "SELECT record_json FROM research_benchmark_records WHERE record_id = ?",
+                "SELECT record_id, benchmark_id, schema_version, record_json FROM research_benchmark_records WHERE record_id = ?",
                 (record_id,),
             ).fetchone()
         if row is None:
@@ -65,6 +65,12 @@ class BenchmarkRecordStore:
             raise ValueError("stored benchmark record is not valid JSON") from exc
         if not isinstance(record, dict):
             raise ValueError("stored benchmark record must be an object")
+        if record.get("record_id") != row["record_id"]:
+            raise ValueError("stored record ID does not match database index")
+        if record.get("benchmark_id") != row["benchmark_id"]:
+            raise ValueError("stored benchmark ID does not match database index")
+        if record.get("record_schema_version") != row["schema_version"]:
+            raise ValueError("stored schema version does not match database index")
         return record
 
     def list_records(self, *, limit: int = 50) -> list[dict[str, Any]]:

@@ -71,7 +71,12 @@ def compare_research_exports(before, after):
                 continue
             timestamp = observation.get("timestamp")
             source = observation.get("source")
-            if not isinstance(timestamp, str) or not isinstance(source, str):
+            if (
+                not isinstance(timestamp, str)
+                or not timestamp.strip()
+                or not isinstance(source, str)
+                or not source.strip()
+            ):
                 invalid += 1
                 continue
             key = (timestamp, source)
@@ -133,7 +138,7 @@ def compare_research_exports(before, after):
         },
         "limitations": [
             "Observation keys use exact timestamp strings and source labels.",
-            "Duplicate or malformed keys are reported but cannot be matched.",
+            "Duplicate, empty, or malformed keys are reported but cannot be matched.",
             "This comparison does not authenticate a data provider.",
         ],
     }

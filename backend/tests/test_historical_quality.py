@@ -1,6 +1,6 @@
 import unittest
 import math
-from app.historical_quality import build_historical_quality_diagnostics
+from app.historical_quality import build_historical_quality_diagnostics, _median
 
 
 class HistoricalQualityTests(unittest.TestCase):
@@ -80,6 +80,10 @@ class HistoricalQualityTests(unittest.TestCase):
         result = build_historical_quality_diagnostics({"interval": "1h", "bars": bars})
         self.assertEqual(result["close_to_close_return_outliers"]["sample_count"], 23)
         self.assertTrue(all(math.isfinite(value) for value in result["close_to_close_return_outliers"].get("flagged_observations", []) for value in [value["return_pct"]]))
+
+    def test_median_of_extreme_finite_values_does_not_overflow(self):
+        self.assertEqual(_median([1e308, 1e308]), 1e308)
+        self.assertTrue(math.isfinite(_median([1e308, 1e308])))
 
     def test_unsupported_interval_does_not_infer_spacing(self):
         result = build_historical_quality_diagnostics({"interval": "weekly", "bars": self.bars(4)})

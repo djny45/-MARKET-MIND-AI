@@ -42,6 +42,9 @@ def load_ohlcv_csv(path: str | Path, *, timestamp_column: str | None = None) -> 
         raise ValueError("CSV must include a non-empty header row")
     if any(not str(name).strip() for name in header):
         raise ValueError("CSV contains an empty column name")
+    normalized_header = [str(name).strip().lower() for name in header]
+    if len(set(normalized_header)) != len(normalized_header):
+        raise ValueError("CSV contains duplicate columns after normalization")
 
     frame = pd.read_csv(source)
     if frame.empty:

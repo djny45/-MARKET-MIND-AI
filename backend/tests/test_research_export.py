@@ -13,6 +13,14 @@ class ResearchMethodologyMarkdownTests(unittest.TestCase):
         self.assertIn(bundle["integrity"]["digest"], report)
         self.assertIn("not a forecast", report.lower())
 
+    def test_source_sha256_is_preserved_in_bundle_and_report(self):
+        digest = "a" * 64
+        bundle = build_research_evidence_bundle("BTCUSD", "1h", {
+            "bars": [], "source": "local-csv", "source_sha256": digest})
+        self.assertEqual(bundle["scope"]["source_sha256"], digest)
+        report = render_research_methodology_markdown(bundle)
+        self.assertIn(f"- **Source SHA-256:** {digest}", report)
+
     def test_empty_optional_metadata_uses_not_supplied_fallback(self):
         bundle = build_research_evidence_bundle("btcusd", "1h", {
             "bars": [], "status": None, "retrieved_at": None})

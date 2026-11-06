@@ -14,10 +14,13 @@ def _check_integrity(bundle):
     if integrity.get("canonicalization") != "UTF-8 JSON with sorted keys and compact separators":
         return {"valid": False, "reason": "unsupported_canonicalization"}
     expected = integrity.get("digest")
-    if not isinstance(expected, str) or len(expected) != 64:
+    if (
+        not isinstance(expected, str)
+        or len(expected) != 64
+        or any(char not in "0123456789abcdefABCDEF" for char in expected)
+    ):
         return {"valid": False, "reason": "invalid_digest_format"}
     try:
-        int(expected, 16)
         payload = dict(bundle)
         payload.pop("integrity", None)
         canonical = json.dumps(

@@ -40,9 +40,19 @@ def load_ohlcv_csv(path: str | Path, *, timestamp_column: str | None = None) -> 
     # generated names such as "Unnamed: 4".
     try:
         with source.open("r", encoding="utf-8-sig", newline="") as handle:
-            header = next(csv.reader(handle), None)
+            reader = csv.reader(handle)
+            header = next(reader, None)
+            if header is not None:
+                for row_number, row in enumerate(reader, start=2):
+                    if not row:
+                        raise ValueError(f"CSV contains a blank row at line {row_number}")
+                    if len(row) != len(header):
+                        raise ValueError(
+                            f"CSV row {row_number} has {len(row)} fields; "
+                            f"expected {len(header)}"
+                        )
     except (OSError, UnicodeError, csv.Error) as exc:
-        raise ValueError(f"Could not read CSV header: {exc}") from exc
+        raise ValueError(f"Could not read CSV: {exc}") from exc
     if not header or all(not str(name).strip() for name in header):
         raise ValueError("CSV must include a non-empty header row")
     if any(not str(name).strip() for name in header):

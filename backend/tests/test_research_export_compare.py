@@ -212,5 +212,30 @@ class ResearchExportCompareTests(unittest.TestCase):
         )
 
 
+    def test_integrity_validation_reports_unsupported_scope_and_canonicalization(self):
+        before = bundle([])
+        after = bundle([])
+        valid_metadata = {
+            "algorithm": "sha256",
+            "digest": "a" * 64,
+            "scope": "complete evidence bundle excluding this integrity field",
+            "canonicalization": "UTF-8 JSON with sorted keys and compact separators",
+        }
+        before["integrity"] = dict(valid_metadata, scope="observations only")
+        after["integrity"] = dict(
+            valid_metadata, canonicalization="JSON with default separators"
+        )
+
+        result = compare_research_exports(before, after)
+        self.assertEqual(
+            result["integrity_validation"]["before"]["reason"],
+            "unsupported_integrity_scope",
+        )
+        self.assertEqual(
+            result["integrity_validation"]["after"]["reason"],
+            "unsupported_canonicalization",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

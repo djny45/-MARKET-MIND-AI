@@ -73,6 +73,14 @@ class HistoricalQualityTests(unittest.TestCase):
         self.assertTrue(all(math.isfinite(item["return_pct"]) for item in price_result["flagged_observations"]))
         self.assertTrue(all(math.isfinite(item["volume"]) for item in volume_result["flagged_observations"]))
 
+    def test_overflowing_close_to_close_return_is_skipped(self):
+        bars = self.bars(25)
+        bars[4]["close"] = 1e-308
+        bars[5]["close"] = 1e308
+        result = build_historical_quality_diagnostics({"interval": "1h", "bars": bars})
+        self.assertEqual(result["close_to_close_return_outliers"]["sample_count"], 22)
+        self.assertTrue(all(math.isfinite(value) for value in result["close_to_close_return_outliers"].get("flagged_observations", []) for value in [value["return_pct"]]))
+
     def test_unsupported_interval_does_not_infer_spacing(self):
         result = build_historical_quality_diagnostics({"interval": "weekly", "bars": self.bars(4)})
         self.assertEqual(result["timestamp_spacing"]["status"], "unsupported_interval")

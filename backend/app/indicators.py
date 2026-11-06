@@ -12,7 +12,7 @@ def _valid(values, minimum=1):
 def sma(values,period):
  xs=_valid(values); p=int(period)
  if p<1: raise ValueError("period must be positive")
- return [sum(xs[max(0,i-p+1):i+1])/len(xs[max(0,i-p+1):i+1]) for i in range(len(xs))]
+ return [sum(x/len(window) for x in window) for i in range(len(xs)) for window in [xs[max(0,i-p+1):i+1]]]
 def ema(values,period):
  xs=_valid(values); p=int(period)
  if p<1: raise ValueError("period must be positive")

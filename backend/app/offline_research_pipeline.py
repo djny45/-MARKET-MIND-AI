@@ -72,6 +72,18 @@ def build_offline_evidence_bundle(
     """
     from app.research_export import build_research_evidence_bundle
 
+    if not isinstance(research_result, dict):
+        raise ValueError("research_result must be an object")
+    source_path = research_result.get("source_path")
+    if not isinstance(source_path, str) or not source_path.strip():
+        raise ValueError("research_result must include source_path provenance")
+    source_sha256 = research_result.get("source_sha256")
+    if (
+        not isinstance(source_sha256, str)
+        or len(source_sha256) != 64
+        or any(char not in "0123456789abcdefABCDEF" for char in source_sha256)
+    ):
+        raise ValueError("research_result must include a valid source_sha256")
     frame = research_result.get("dataset")
     if frame is None or not hasattr(frame, "to_dict"):
         raise ValueError("research_result must contain a pandas dataset")
@@ -92,13 +104,13 @@ def build_offline_evidence_bundle(
         if hasattr(timestamp, "isoformat"):
             timestamp = timestamp.isoformat()
         row["timestamp"] = str(timestamp)
-        row["source"] = str(research_result.get("source_path") or "offline_csv")
+        row["source"] = source_path
         bars.append(row)
     history = {
         "bars": bars,
-        "source": research_result.get("source_path"),
-        "sources": [research_result.get("source_path")] if research_result.get("source_path") else [],
-        "source_sha256": research_result.get("source_sha256"),
+        "source": source_path,
+        "sources": [source_path],
+        "source_sha256": source_sha256.lower(),
         "status": "offline_csv",
         "retrieved_at": None,
         "first_timestamp": bars[0].get("timestamp") if bars else None,

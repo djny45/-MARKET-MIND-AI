@@ -61,6 +61,21 @@ class OfflineResearchPipelineTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "exactly one recognized timestamp"):
             build_offline_evidence_bundle(result, symbol="BTCUSD", interval="1d")
 
+    def test_offline_export_uses_custom_timestamp_column(self):
+        from app.offline_research_pipeline import (
+            run_offline_research, build_offline_evidence_bundle,
+        )
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as file:
+            file.write("time_utc,open,high,low,close\\n")
+            file.write("2024-01-01T00:00:00Z,10,12,9,11\\n")
+            file.write("2024-01-02T00:00:00Z,11,13,10,12\\n")
+            path = file.name
+        self.addCleanup(Path(path).unlink, missing_ok=True)
+        result = run_offline_research(path, timestamp_column="time_utc")
+        bundle = build_offline_evidence_bundle(result, symbol="BTCUSD", interval="1d")
+        self.assertEqual(bundle["scope"]["observation_count"], 2)
+        self.assertEqual(bundle["observations"][0]["timestamp"], "2024-01-01T00:00:00+00:00")
+
     def test_indicator_pipeline_requires_timestamp_column(self):
         from app.offline_research_pipeline import run_offline_research
         with self.assertRaisesRegex(ValueError, "timestamp_column is required"):

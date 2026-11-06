@@ -301,7 +301,7 @@ class ResearchExportCompareTests(unittest.TestCase):
         before = bundle([{"timestamp": "t1", "source": "csv", 1: "old", "1": "old"}])
         after = bundle([{"timestamp": "t1", "source": "csv", 1: "new", "1": "new"}])
         result = compare_research_exports(before, after)
-        self.assertEqual(result["changed"][0]["fields"], ["1", 1])
+        self.assertEqual(result["changed"][0]["fields"], [1, "1"])
 
 
 if __name__ == "__main__":

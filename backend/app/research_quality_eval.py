@@ -144,11 +144,20 @@ def evaluate_research_draft(
                     "reason": reason,
                 }
                 skipped_comparisons.append({"metric": key, "reason": reason})
+        regression_metrics = sorted(
+            key for key, item in comparison.items()
+            if item["status"] == "compared" and item["delta"] < 0
+        )
         comparison_summary = {
-            "status": "comparison_incomplete" if skipped_comparisons else "comparison_complete",
+            "status": (
+                "comparison_incomplete" if skipped_comparisons
+                else ("regression_detected" if regression_metrics else "comparison_complete")
+            ),
             "skipped_comparison_count": len(skipped_comparisons),
             "skipped_comparisons": skipped_comparisons,
-            "note": "Skipped comparisons are not evidence of a pass.",
+            "regression_metric_count": len(regression_metrics),
+            "regression_metrics": regression_metrics,
+            "note": "For these coverage metrics, lower values indicate regression. Skipped comparisons are not evidence of a pass.",
         }
 
     return {

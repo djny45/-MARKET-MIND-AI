@@ -158,6 +158,41 @@ class ResearchBenchmarkTests(unittest.TestCase):
                 malformed_case, baseline={"metrics": {"unknown_metric": 0.8}}
             )
 
+    def test_reports_missing_baseline_metric_as_skipped_not_passed(self):
+        result = run_offline_research_benchmark(
+            fixture_cases(),
+            baseline={"metrics": {"claim_reference_coverage": 0.9}},
+        )
+        summary = result["regression_summary"]
+        self.assertEqual(summary["status"], "no_regression_detected")
+        self.assertEqual(summary["skipped_comparison_count"], 1)
+        self.assertEqual(
+            summary["skipped_comparisons"][0]["reason"],
+            "baseline_metric_missing",
+        )
+        self.assertEqual(
+            result["baseline_comparison"]["known_source_reference_coverage"]["status"],
+            "skipped",
+        )
+
+    def test_reports_unavailable_current_metric_as_skipped(self):
+        cases = fixture_cases()
+        cases[0]["claims"] = []
+        cases[1]["claims"] = []
+        result = run_offline_research_benchmark(
+            cases,
+            baseline={"metrics": {
+                "claim_reference_coverage": 0.8,
+                "known_source_reference_coverage": 0.8,
+            }},
+        )
+        self.assertEqual(result["aggregate_metrics"]["claim_reference_coverage"]["mean"], None)
+        self.assertEqual(
+            result["baseline_comparison"]["claim_reference_coverage"]["reason"],
+            "current_metric_unavailable",
+        )
+        self.assertEqual(result["regression_summary"]["skipped_comparison_count"], 2)
+
     def test_rejects_invalid_baseline_shape(self):
         with self.assertRaises(ValueError):
             run_offline_research_benchmark(fixture_cases(), baseline={"bad": "shape"})

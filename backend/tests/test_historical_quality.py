@@ -9,6 +9,16 @@ class HistoricalQualityTests(unittest.TestCase):
                  "open": 100, "high": 102, "low": 99, "close": 100 + i * 0.1,
                  "volume": 100 + (i % 3)} for i in range(count)]
 
+    def test_malformed_bar_rows_are_reported_and_skipped(self):
+        bars = self.bars(25)
+        bars[7] = "malformed-row"
+        result = build_historical_quality_diagnostics({"interval": "1h", "bars": bars})
+        self.assertEqual(result["bars_checked"], 25)
+        self.assertEqual(result["malformed_bar_count"], 1)
+        self.assertEqual(result["malformed_bar_indices"], [7])
+        self.assertEqual(result["timestamp_integrity"]["invalid_timestamp_count"], 1)
+        self.assertEqual(result["volume_outliers"]["sample_count"], 24)
+
     def test_spacing_reports_elapsed_time_without_filling_bars(self):
         bars = self.bars(3)
         bars[2]["timestamp"] = "2026-01-01T02:00:00+00:00"

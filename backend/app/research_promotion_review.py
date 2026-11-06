@@ -5,12 +5,14 @@ configuration or deploy changes.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
 from pathlib import Path
 from typing import Any
 
 from app.research_benchmark import BASELINE_METRICS
+from app.research_benchmark_record import RECORD_SCHEMA_VERSION
 from app.research_benchmark_store import BenchmarkRecordStore
 
 
@@ -28,20 +30,52 @@ CREATE TABLE IF NOT EXISTS research_promotion_reviews (
 """
 
 
+def _record_integrity_reasons(benchmark_record: dict[str, Any]) -> list[str]:
+    """Check envelope fields and content hash before trusting archived metrics."""
+    reasons: list[str] = []
+    result = benchmark_record.get("result")
+    record_id = benchmark_record.get("record_id")
+    if benchmark_record.get("record_schema_version") != RECORD_SCHEMA_VERSION:
+        reasons.append("benchmark record schema version is unsupported")
+    if not isinstance(record_id, str) or not record_id:
+        reasons.append("benchmark record ID is missing")
+    if not isinstance(result, dict):
+        reasons.append("benchmark record result is missing")
+        return reasons
+    if benchmark_record.get("benchmark_id") != result.get("benchmark_id"):
+        reasons.append("benchmark ID does not match record result")
+    if benchmark_record.get("benchmark_type") != result.get("benchmark_type"):
+        reasons.append("benchmark type does not match record result")
+    try:
+        canonical_result = json.dumps(
+            result, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
+            allow_nan=False,
+        )
+    except (TypeError, ValueError):
+        reasons.append("benchmark result is not canonical JSON")
+        return reasons
+    expected_id = hashlib.sha256(canonical_result.encode("utf-8")).hexdigest()
+    if record_id != expected_id:
+        reasons.append("benchmark record content hash is invalid")
+    return reasons
+
+
 def promotion_eligibility(benchmark_record: dict[str, Any]) -> dict[str, Any]:
-    """Fail closed on missing, incomplete, inconsistent, or regressing metrics."""
+    """Fail closed on tampered records and missing, inconsistent, or regressing metrics."""
     if not isinstance(benchmark_record, dict):
         raise ValueError("benchmark_record must be an object")
     result = benchmark_record.get("result")
     if not isinstance(result, dict):
         raise ValueError("benchmark_record must include a result object")
+
+    reasons = _record_integrity_reasons(benchmark_record)
     summary = result.get("regression_summary")
     comparisons = result.get("baseline_comparison")
     if not isinstance(summary, dict) or not isinstance(comparisons, dict):
+        reasons.append("baseline comparison is missing")
         return {"eligible": False, "status": "baseline_required",
-                "reasons": ["baseline comparison is missing"]}
+                "reasons": reasons}
 
-    reasons: list[str] = []
     if summary.get("status") != "no_regression_detected":
         reasons.append("benchmark regression status is not clean")
     if summary.get("skipped_comparison_count") != 0:

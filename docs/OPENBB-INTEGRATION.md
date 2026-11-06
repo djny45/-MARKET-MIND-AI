@@ -66,7 +66,7 @@ the MARKET-MIND-AI web API does not proxy an interactive REPL.
 
 `backend/app/openbb_cli.py` supports only the informational actions `help`
 and `version`. Help invokes the executable without a shell, applies an
-8-second timeout, and caps output. Version is read from the installed
+8-second timeout, and caps output at 12,000 characters. If the combined stdout/stderr exceeds that limit, the adapter appends `… [output truncated]` so callers can distinguish complete output from a clipped response. Version is read from the installed
 `openbb-cli` package metadata because OpenBB CLI v5 does not document a
 `--version` flag. It does not accept raw command strings or arbitrary arguments.
 

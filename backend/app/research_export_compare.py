@@ -114,12 +114,14 @@ def compare_research_exports(before, after):
         "after": _check_integrity(after),
     }
     integrity_results = (integrity_validation["before"], integrity_validation["after"])
-    if schema_compatible is False:
-        comparison_status = "schema_incompatible"
-    elif any(result.get("reason") == "digest_mismatch" for result in integrity_results):
+    if any(result.get("reason") == "digest_mismatch" for result in integrity_results):
         comparison_status = "integrity_failed"
     elif any(not result.get("valid") for result in integrity_results):
         comparison_status = "integrity_unverified"
+    elif schema_compatible is False:
+        comparison_status = "schema_incompatible"
+    elif schema_compatible is None:
+        comparison_status = "schema_unverified"
     elif old_invalid or new_invalid:
         comparison_status = "observation_keys_incomplete"
     else:

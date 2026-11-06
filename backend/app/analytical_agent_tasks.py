@@ -466,6 +466,7 @@ def dispatch_queued_research_tasks(limit: int = 50, max_concurrency: int = 4) ->
                               from_status="queued", to_status="queued", occurred_at=selected_at,
                               detail={"dispatch_id": dispatch_id, "max_concurrency": max_concurrency})
     completed = []
+    dispatch_errors = []
     with ThreadPoolExecutor(max_workers=min(max_concurrency, len(task_ids)),
                             thread_name_prefix="market-mind-supervisor") as pool:
         futures = {pool.submit(execute_queued_research_task, task_id): task_id for task_id in task_ids}
@@ -475,8 +476,9 @@ def dispatch_queued_research_tasks(limit: int = 50, max_concurrency: int = 4) ->
                 executed = future.result()
                 if executed:
                     completed.append(task_id)
-            except Exception:
+            except Exception as exc:
                 # One task failure must not interrupt dispatch of sibling tasks.
+                dispatch_errors.append({"task_id": task_id, "error_type": type(exc).__name__})
                 continue
     finished_at = datetime.now(timezone.utc).isoformat()
     with _connect() as db:
@@ -495,6 +497,8 @@ def dispatch_queued_research_tasks(limit: int = 50, max_concurrency: int = 4) ->
         "max_concurrency": min(max_concurrency, len(task_ids)),
         "status": "completed",
         "task_ids": task_ids,
+        "dispatch_error_count": len(dispatch_errors),
+        "dispatch_errors": dispatch_errors,
         "dispatch_mode": "bounded_process_local_queue_snapshot",
         "note": "Tasks are persisted in SQLite; dispatch is explicit and process-local, not a continuously running distributed supervisor.",
     }

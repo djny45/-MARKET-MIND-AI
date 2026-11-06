@@ -348,6 +348,45 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertIn("entries must be objects", result["research_quality_evaluation"]["error"])
         self.assertEqual(result["shared_core_result"]["status"], "not_configured")
 
+
+    def test_failed_task_retry_creates_one_new_queued_task(self):
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, execute_queued_research_task,
+            retry_failed_research_task, list_task_audit_events,
+        )
+        queued = enqueue_research_task("worker_027", "bounded retry", {"input": "preserve"})
+        with patch("app.analytical_agent_tasks.synthesize_research", side_effect=RuntimeError("provider unavailable")):
+            execute_queued_research_task(queued["task_id"])
+        failed = get_research_task(queued["task_id"])
+        self.assertEqual(failed["status"], "failed")
+        retry = retry_failed_research_task(queued["task_id"])
+        self.assertTrue(retry["retried"])
+        self.assertEqual(retry["status"], "queued")
+        self.assertEqual(retry["retry_limit"], 1)
+        self.assertNotEqual(retry["task_id"], queued["task_id"])
+        new_task = get_research_task(retry["task_id"])
+        self.assertEqual(new_task["status"], "queued")
+        self.assertEqual(new_task["input"]["brief"], "bounded retry")
+        self.assertEqual(new_task["input"]["data"], {"input": "preserve"})
+        blocked = retry_failed_research_task(queued["task_id"])
+        self.assertFalse(blocked["retried"])
+        self.assertEqual(blocked["reason"], "retry_limit_reached")
+        audit = list_task_audit_events(queued["task_id"])["events"]
+        self.assertEqual(audit[-1]["event_type"], "task_retry_requested")
+
+    def test_retry_only_failed_tasks_and_unknown_ids(self):
+        from app.analytical_agent_tasks import enqueue_research_task, retry_failed_research_task
+        self.assertIsNone(retry_failed_research_task("not-found"))
+        queued = enqueue_research_task("worker_028", "not failed")
+        result = retry_failed_research_task(queued["task_id"])
+        self.assertFalse(result["retried"])
+        self.assertEqual(result["reason"], "task_not_failed")
+
+    def test_retry_rejects_empty_task_id(self):
+        from app.analytical_agent_tasks import retry_failed_research_task
+        with self.assertRaises(ValueError):
+            retry_failed_research_task(" ")
+
 if __name__ == "__main__":
     unittest.main()
 

@@ -130,6 +130,23 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertEqual(result["dispatched"], 0)
         self.assertEqual(get_research_task(queued["task_id"])["status"], "queued")
 
+    def test_dispatch_reports_worker_exceptions_without_stopping_siblings(self):
+        from app.analytical_agent_tasks import enqueue_research_task, dispatch_queued_research_tasks
+        first = enqueue_research_task("worker_019", "dispatch exception case")
+        second = enqueue_research_task("worker_020", "dispatch healthy sibling")
+        from app.analytical_agent_tasks import execute_queued_research_task as real_execute
+        def fake_execute(task_id):
+            if task_id == first["task_id"]:
+                raise RuntimeError("internal detail should not be exposed")
+            return real_execute(task_id)
+        with patch("app.analytical_agent_tasks.execute_queued_research_task", side_effect=fake_execute):
+            result = dispatch_queued_research_tasks(limit=2, max_concurrency=1)
+        self.assertEqual(result["selected"], 2)
+        self.assertEqual(result["dispatched"], 1)
+        self.assertEqual(result["dispatch_error_count"], 1)
+        self.assertEqual(result["dispatch_errors"], [{"task_id": first["task_id"], "error_type": "RuntimeError"}])
+        self.assertEqual(get_research_task(second["task_id"])["status"], "completed")
+
     def test_network_activity_snapshot_includes_recent_audit_events(self):
         from app.analytical_agent_tasks import list_recent_task_activity
         result = submit_research_task("worker_011", "activity audit snapshot")

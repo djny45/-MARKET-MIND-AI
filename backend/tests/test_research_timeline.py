@@ -56,6 +56,17 @@ def test_timeline_indicator_context_respects_warmup_periods():
     assert set(mature) == {"sma20", "rsi14", "macd", "macd_signal", "macd_histogram"}
 
 
+def test_timeline_skips_non_finite_close_change_from_extreme_prices():
+    bars = [
+        {"timestamp": "2026-01-01T00:00:00Z", "open": 1e-308, "high": 1e-308,
+         "low": 1e-308, "close": 1e-308, "volume": 0},
+        {"timestamp": "2026-01-02T00:00:00Z", "open": 1e308, "high": 1e308,
+         "low": 1e308, "close": 1e308, "volume": 0},
+    ]
+    report = build_research_timeline({"bars": bars})
+    assert report["events"][1]["close_change_pct"] is None
+
+
 def test_timeline_rejects_non_finite_ohlcv_values():
     import pytest
     bars = sample_bars()

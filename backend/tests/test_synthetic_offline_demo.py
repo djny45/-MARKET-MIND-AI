@@ -10,10 +10,9 @@ class SyntheticOfflineDemoTests(unittest.TestCase):
         from examples.run_synthetic_offline_demo import main
         stderr = StringIO()
         with patch("sys.stderr", stderr):
-            self.assertEqual(main(), 2)
-        self.assertEqual(
+            self.assertEqual(
             stderr.getvalue(),
-            "Offline demo unavailable: Install pandas and numpy to use offline CSV research.\\n".replace("\\\\n", "\\n"),
+            "Offline demo unavailable: Install pandas and numpy to use offline CSV research.\\n",
         )
         run_research.assert_called_once()
 

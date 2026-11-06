@@ -69,6 +69,9 @@ export default function App() {
  const [researchCompare,setResearchCompare] = useState('ETHUSD,SOLUSD')
  const [researchReport,setResearchReport] = useState<any>(null)
  const [qualityReport,setQualityReport] = useState<any>(null)
+ const [benchmarkReport,setBenchmarkReport] = useState<any>(null)
+ const [benchmarkBusy,setBenchmarkBusy] = useState(false)
+ const [benchmarkError,setBenchmarkError] = useState('')
  const [sourceComparison,setSourceComparison] = useState<any>(null)
  const [sourceComparisonBusy,setSourceComparisonBusy] = useState(false)
  const [sourceComparisonError,setSourceComparisonError] = useState('')
@@ -125,6 +128,18 @@ export default function App() {
  const [dataLabel,setDataLabel] = useState('MANUAL DEMO INPUT')
  const chartValues = useMemo(()=>values.split(',').map(v=>Number(v.trim())).filter(Number.isFinite),[values])
  useEffect(()=>{fetch(API+'/api/health').then(r=>r.json()).then(()=>setApiState('CONNECTED')).catch(()=>setApiState('OFFLINE'));fetch(API+'/api/workers?limit=550').then(r=>r.json()).then(d=>setWorkers(d.workers||[])).catch(()=>{});fetch(API+'/api/skills').then(r=>r.json()).then(d=>setSkills((d.skills||[]).filter((s:any)=>s.available))).catch(()=>{});refreshWorkspaces();refreshWatchlist();refreshExecutionRuns();loadMarketOverview()},[])
+
+ const runOfflineBenchmark = async()=>{
+  setBenchmarkBusy(true);setBenchmarkError('');setBenchmarkReport(null);
+  try{
+   const r=await fetch(API+'/api/research/benchmark',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cases:[
+    {case_id:'fixture-valid-reference',draft:'Synthetic fixture; factual meaning is not validated.',claims:[{text:'Synthetic claim A',source_refs:['fixture-source-a']}],source_registry:[{source_id:'fixture-source-a'}]},
+    {case_id:'fixture-unknown-reference',draft:'Synthetic fixture with an unknown source reference.',claims:[{text:'Synthetic claim B',source_refs:['unknown-fixture-source']}],source_registry:[{source_id:'fixture-source-a'}]}
+   ]})});
+   const d=await r.json();if(!r.ok)throw new Error(d.detail||'Offline benchmark failed');setBenchmarkReport(d);
+  }catch(e){setBenchmarkError(e instanceof Error?e.message:'Offline benchmark failed')}
+  finally{setBenchmarkBusy(false)}
+ }
  const refreshWorkspaces = async()=>{try{const r=await fetch(API+'/api/workspaces');const d=await r.json();setSavedWorkflows(d.workflows||[])}catch{setSavedWorkflows([])}}
  const refreshExecutionRuns = async()=>{setRunsBusy(true);setRunsError('');try{const r=await fetch(API+'/api/workflows/runs?limit=50');const d=await r.json();if(!r.ok)throw new Error(d.detail||'Execution history unavailable');setExecutionRuns(d.runs||[])}catch(e){setRunsError(e instanceof Error?e.message:'Execution history unavailable')}finally{setRunsBusy(false)}}
  const inspectExecutionRun = async(id:string)=>{try{const r=await fetch(API+'/api/workflows/runs/'+encodeURIComponent(id));const d=await r.json();if(!r.ok)throw new Error(d.detail||'Could not load run');setSelectedRun(d);setResult({...d.result,run_id:d.id,run_record:{id:d.id,status:d.status,parent_run_id:d.parent_run_id}})}catch(e){setRunsError(e instanceof Error?e.message:'Could not load run')}}
@@ -308,6 +323,12 @@ export default function App() {
     <label>CSV CONTENT</label><textarea value={csvText} onChange={e=>setCsvText(e.target.value)} aria-label="Historical OHLCV CSV" rows={6}/>
     <button className="soft-btn research-run" onClick={importHistoricalCSV} disabled={csvBusy||!csvText.trim()||!csvSource.trim()}>{csvBusy?'IMPORTING…':'IMPORT HISTORICAL CSV'}</button>
     {csvMessage&&<p className="research-note">{csvMessage}</p>}
+
+    <div className="side-label">OFFLINE RESEARCH BENCHMARK <span>FIXTURE ONLY</span></div>
+    <small className="research-note">Run a reproducible structural traceability check on two synthetic cases. No live market data or trading.</small>
+    <button className="soft-btn research-run" onClick={runOfflineBenchmark} disabled={benchmarkBusy}>{benchmarkBusy?'RUNNING BENCHMARK…':'RUN OFFLINE BENCHMARK'}</button>
+    {benchmarkError&&<small className="news-error">{benchmarkError}</small>}
+    {benchmarkReport&&<div className="research-results"><b>BENCHMARK {benchmarkReport.benchmark_id}</b><div className="aligned-row"><span>Cases</span><b>{benchmarkReport.case_count}</b></div>{Object.entries(benchmarkReport.aggregate_metrics||{}).map(([key,value]:any)=><div className="aligned-row" key={key}><span>{key.replaceAll('_',' ').toUpperCase()}</span><b>{value.mean===null?'N/A':(value.mean*100).toFixed(1)+'%'}</b></div>)}<small>Structural traceability only—not factual accuracy, agent intelligence, or trading performance.</small><button className="soft-btn" onClick={()=>{const blob=new Blob([JSON.stringify(benchmarkReport,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='market-mind-offline-benchmark.json';a.click();URL.revokeObjectURL(url)}}>DOWNLOAD BENCHMARK JSON</button></div>}
     <div className="side-label">DEEP RESEARCH <span>DESCRIPTIVE</span></div>
     <label>INSTRUMENT</label><input value={researchSymbol} onChange={e=>setResearchSymbol(e.target.value.toUpperCase())} aria-label="Research symbol"/>
     <label>TIMEFRAMES</label><select value={researchIntervals} onChange={e=>setResearchIntervals(e.target.value)} aria-label="Research timeframes"><option value="15m,1h,4h,1d">15m · 1h · 4h · 1d</option><option value="15m,1h">15m · 1h</option><option value="1h,4h,1d">1h · 4h · 1d</option><option value="1h">1h only</option><option value="4h">4h only</option><option value="1d">1d only</option></select>

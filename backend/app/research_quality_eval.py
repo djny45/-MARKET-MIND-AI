@@ -89,8 +89,20 @@ def evaluate_research_draft(
         base_metrics = baseline.get("metrics")
         if not isinstance(base_metrics, dict):
             raise ValueError("baseline must include a metrics object")
+        supported_metrics = ("claim_reference_coverage", "known_source_reference_coverage")
+        recognized_metrics = set(supported_metrics).intersection(base_metrics)
+        if not recognized_metrics:
+            raise ValueError("baseline metrics must include at least one supported metric")
+        for metric_name in recognized_metrics:
+            metric_value = base_metrics[metric_name]
+            if (isinstance(metric_value, bool)
+                    or not isinstance(metric_value, (int, float))
+                    or not 0 <= metric_value <= 1):
+                raise ValueError(
+                    f"baseline metric {metric_name} must be a number between 0 and 1"
+                )
         comparison = {}
-        for key in ("claim_reference_coverage", "known_source_reference_coverage"):
+        for key in supported_metrics:
             current = metrics[key]
             previous = base_metrics.get(key)
             if isinstance(current, (int, float)) and isinstance(previous, (int, float)):

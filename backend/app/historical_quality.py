@@ -48,9 +48,11 @@ def build_historical_quality_diagnostics(history):
     bars = history.get("bars", [])
     interval = history.get("interval")
     expected = INTERVAL_SECONDS.get(interval)
-    parsed = [_timestamp(bar.get("timestamp")) for bar in bars]
+    malformed_bar_indices = [i for i, bar in enumerate(bars) if not isinstance(bar, dict)]
+    safe_bars = [bar if isinstance(bar, dict) else {} for bar in bars]
+    parsed = [_timestamp(bar.get("timestamp")) for bar in safe_bars]
     valid_pairs = [(i, value) for i, value in enumerate(parsed) if value is not None]
-    invalid_timestamps = [{"bar_index": i, "timestamp": bars[i].get("timestamp")}
+    invalid_timestamps = [{"bar_index": i, "timestamp": safe_bars[i].get("timestamp")}
                           for i, value in enumerate(parsed) if value is None]
     seen_timestamps = {}
     duplicate_timestamps = []
@@ -64,8 +66,8 @@ def build_historical_quality_diagnostics(history):
     for (previous_index, previous), (current_index, current) in zip(valid_pairs, valid_pairs[1:]):
         if current < previous:
             out_of_order_timestamps.append({"bar_index": current_index, "previous_bar_index": previous_index,
-                                            "timestamp": bars[current_index].get("timestamp"),
-                                            "previous_timestamp": bars[previous_index].get("timestamp")})
+                                            "timestamp": safe_bars[current_index].get("timestamp"),
+                                            "previous_timestamp": safe_bars[previous_index].get("timestamp")})
     spacing = []
     if expected:
         for (previous_index, previous), (current_index, current) in zip(valid_pairs, valid_pairs[1:]):
@@ -92,8 +94,8 @@ def build_historical_quality_diagnostics(history):
     price_result["flagged_bar_indices"] = [return_indices[i] for i in price_result["flagged_indices"]]
     price_result["flagged_observations"] = [{
         "bar_index": return_indices[i],
-        "timestamp": bars[return_indices[i]].get("timestamp"),
-        "previous_timestamp": bars[return_indices[i] - 1].get("timestamp"),
+        "timestamp": safe_bars[return_indices[i]].get("timestamp"),
+        "previous_timestamp": safe_bars[return_indices[i] - 1].get("timestamp"),
         "previous_close": float(bars[return_indices[i] - 1]["close"]),
         "close": float(bars[return_indices[i]]["close"]),
         "return_pct": round(returns[i] * 100, 6),
@@ -113,13 +115,15 @@ def build_historical_quality_diagnostics(history):
     volume_result["flagged_bar_indices"] = [volume_indices[i] for i in volume_result["flagged_indices"]]
     volume_result["flagged_observations"] = [{
         "bar_index": volume_indices[i],
-        "timestamp": bars[volume_indices[i]].get("timestamp"),
+        "timestamp": safe_bars[volume_indices[i]].get("timestamp"),
         "volume": volumes[i],
         "robust_deviation_mad": round(abs(volumes[i] - volume_result["median"]) / (1.4826 * volume_result["mad"]), 3)
     } for i in volume_result["flagged_indices"]] if volume_result["status"] == "available" else []
     return {
         "interval": interval,
         "bars_checked": len(bars),
+        "malformed_bar_count": len(malformed_bar_indices),
+        "malformed_bar_indices": malformed_bar_indices,
         "timestamp_integrity": {
             "invalid_timestamp_count": len(invalid_timestamps),
             "invalid_timestamps": invalid_timestamps,

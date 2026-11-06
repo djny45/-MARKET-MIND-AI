@@ -36,6 +36,16 @@ def _check_integrity(bundle):
     }
 
 
+def _field_changed(left, right, key):
+    """Distinguish an absent field from a field explicitly set to None."""
+    return (key in left) != (key in right) or left.get(key) != right.get(key)
+
+
+def _integrity_digest(bundle):
+    integrity = bundle.get("integrity")
+    return integrity.get("digest") if isinstance(integrity, dict) else None
+
+
 def compare_research_exports(before, after):
     """Compare export scope and observation records by timestamp and source."""
     if not isinstance(before, dict) or not isinstance(after, dict):
@@ -81,7 +91,7 @@ def compare_research_exports(before, after):
     for key in sorted(old_keys & new_keys):
         fields = sorted(
             field for field in set(old[key]) | set(new[key])
-            if old[key].get(field) != new[key].get(field)
+            if _field_changed(old[key], new[key], field)
         )
         if fields:
             changed.append({"timestamp": key[0], "source": key[1], "fields": fields})
@@ -92,7 +102,7 @@ def compare_research_exports(before, after):
         if left != right:
             if isinstance(left, dict) and isinstance(right, dict):
                 diagnostic_changes[section] = sorted(
-                    key for key in set(left) | set(right) if left.get(key) != right.get(key)
+                    key for key in set(left) | set(right) if _field_changed(left, right, key)
                 )
             else:
                 diagnostic_changes[section] = ["$"]
@@ -115,8 +125,8 @@ def compare_research_exports(before, after):
         ],
         "diagnostic_changed_paths": diagnostic_changes,
         "integrity_digests": {
-            "before": (before.get("integrity") or {}).get("digest"),
-            "after": (after.get("integrity") or {}).get("digest"),
+            "before": _integrity_digest(before),
+            "after": _integrity_digest(after),
         },
         "integrity_validation": {
             "before": _check_integrity(before),

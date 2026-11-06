@@ -9,6 +9,18 @@ class HistoricalQualityTests(unittest.TestCase):
                  "open": 100, "high": 102, "low": 99, "close": 100 + i * 0.1,
                  "volume": 100 + (i % 3)} for i in range(count)]
 
+    def test_history_must_be_mapping(self):
+        for invalid in (None, [], "history"):
+            with self.subTest(invalid=invalid):
+                with self.assertRaisesRegex(ValueError, "history must be a mapping"):
+                    build_historical_quality_diagnostics(invalid)
+
+    def test_bars_must_be_list_or_tuple(self):
+        for invalid in (None, {}, "bars"):
+            with self.subTest(invalid=invalid):
+                with self.assertRaisesRegex(ValueError, "history bars must be a list or tuple"):
+                    build_historical_quality_diagnostics({"bars": invalid})
+
     def test_malformed_bar_rows_are_reported_and_skipped(self):
         bars = self.bars(25)
         bars[7] = "malformed-row"

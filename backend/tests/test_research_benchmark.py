@@ -108,6 +108,16 @@ class ResearchBenchmarkTests(unittest.TestCase):
                 fixture_cases(), baseline={"metrics": {"other_metric": 0.8}}
             )
 
+    def test_rejects_unknown_metric_even_when_supported_metric_is_present(self):
+        with self.assertRaises(ValueError):
+            run_offline_research_benchmark(
+                fixture_cases(),
+                baseline={"metrics": {
+                    "claim_reference_coverage": 0.8,
+                    "claim_referance_coverage": 0.7,
+                }},
+            )
+
     def test_rejects_invalid_regression_threshold(self):
         for threshold in (-0.1, 1.1, True, "0.05"):
             with self.subTest(threshold=threshold):

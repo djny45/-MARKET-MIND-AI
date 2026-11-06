@@ -98,6 +98,60 @@ class ResearchExportCompareTests(unittest.TestCase):
         self.assertEqual(result["integrity_validation"]["before"]["reason"], "integrity_metadata_missing")
         self.assertEqual(result["integrity_validation"]["after"]["reason"], "integrity_metadata_missing")
 
+
+    def test_integrity_validation_detects_provenance_tampering(self):
+        import hashlib
+        import json
+
+        original = bundle([])
+        payload = dict(original)
+        payload.pop("integrity", None)
+        canonical = json.dumps(
+            payload, sort_keys=True, separators=(",", ":"),
+            ensure_ascii=False, allow_nan=False,
+        )
+        original["integrity"] = {
+            "algorithm": "sha256",
+            "digest": hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
+            "scope": "complete evidence bundle excluding this integrity field",
+            "canonicalization": "UTF-8 JSON with sorted keys and compact separators",
+        }
+        altered = json.loads(json.dumps(original))
+        altered["scope"]["source_sha256"] = "f" * 64
+
+        result = compare_research_exports(original, altered)
+        self.assertTrue(result["integrity_validation"]["before"]["valid"])
+        self.assertFalse(result["integrity_validation"]["after"]["valid"])
+        self.assertEqual(
+            result["integrity_validation"]["after"]["reason"], "digest_mismatch"
+        )
+
+    def test_integrity_validation_rejects_malformed_digest_and_metadata(self):
+        before = bundle([])
+        after = bundle([])
+        before["integrity"] = {
+            "algorithm": "sha256",
+            "digest": "not-a-hex-digest",
+            "scope": "complete evidence bundle excluding this integrity field",
+            "canonicalization": "UTF-8 JSON with sorted keys and compact separators",
+        }
+        after["integrity"] = {
+            "algorithm": "sha1",
+            "digest": "a" * 64,
+            "scope": "complete evidence bundle excluding this integrity field",
+            "canonicalization": "UTF-8 JSON with sorted keys and compact separators",
+        }
+
+        result = compare_research_exports(before, after)
+        self.assertEqual(
+            result["integrity_validation"]["before"]["reason"],
+            "invalid_digest_format",
+        )
+        self.assertEqual(
+            result["integrity_validation"]["after"]["reason"],
+            "unsupported_integrity_algorithm",
+        )
+
     def test_rejects_different_symbol_or_interval(self):
         before = bundle([])
         after = bundle([])

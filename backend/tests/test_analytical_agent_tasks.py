@@ -171,6 +171,28 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             agent_task_performance("worker_021", limit=0)
 
+    def test_agent_research_quality_performance_aggregates_saved_evaluations(self):
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, execute_queued_research_task, agent_research_quality_performance,
+        )
+        for idx, draft in enumerate(("Draft with limitation.", "Second draft with uncertainty.")):
+            queued = enqueue_research_task(
+                "worker_023", "quality aggregation " + str(idx),
+                {"draft": draft,
+                 "claims": [{"text": "Claim", "source_refs": ["s1"]},
+                            {"text": "Another claim", "source_refs": []}],
+                 "source_registry": [{"source_id": "s1"}]},
+            )
+            execute_queued_research_task(queued["task_id"])
+        result = agent_research_quality_performance("worker_023")
+        worker = result["agents"]["worker_023"]
+        self.assertEqual(worker["evaluation_count"], 2)
+        self.assertEqual(worker["claim_reference_coverage_mean"], 0.5)
+        self.assertEqual(worker["known_source_reference_coverage_mean"], 0.5)
+        self.assertEqual(result["evaluations_examined"], 2)
+        with self.assertRaises(ValueError):
+            agent_research_quality_performance("worker_023", limit=0)
+
     def test_network_activity_snapshot_includes_recent_audit_events(self):
         from app.analytical_agent_tasks import list_recent_task_activity
         result = submit_research_task("worker_011", "activity audit snapshot")

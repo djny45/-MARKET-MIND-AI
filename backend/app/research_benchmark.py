@@ -52,7 +52,8 @@ def run_offline_research_benchmark(
         })
 
     canonical = json.dumps(
-        {"cases": normalized_cases, "baseline": baseline},
+        {"cases": normalized_cases, "baseline": baseline,
+         "regression_threshold": regression_threshold},
         sort_keys=True, separators=(",", ":"), ensure_ascii=False,
     )
     benchmark_id = hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:24]

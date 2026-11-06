@@ -5,6 +5,7 @@ place orders, connect to brokers, or claim predictive value.
 """
 from __future__ import annotations
 
+from numbers import Real
 from typing import Any
 
 
@@ -45,8 +46,13 @@ def analyze_historical_ohlcv(
         or swing_length < 1
     ):
         raise ValueError("swing_length must be a positive integer")
-    if not np.isfinite(liquidity_range_percent) or not 0 < liquidity_range_percent <= 1:
-        raise ValueError("liquidity_range_percent must be in (0, 1]")
+    if (
+        not isinstance(liquidity_range_percent, Real)
+        or isinstance(liquidity_range_percent, bool)
+        or not np.isfinite(liquidity_range_percent)
+        or not 0 < liquidity_range_percent <= 1
+    ):
+        raise ValueError("liquidity_range_percent must be a finite number in (0, 1]")
 
     frame = ohlc.copy()
     frame.columns = [str(column).strip().lower() for column in frame.columns]

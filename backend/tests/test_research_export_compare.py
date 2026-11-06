@@ -267,10 +267,6 @@ class ResearchExportCompareTests(unittest.TestCase):
                         compare_research_exports(before, after)
 
 
-
-if __name__ == "__main__":
-    unittest.main()
-
     def test_rejects_interval_scope_mismatch(self):
         before = bundle([])
         after = bundle([])
@@ -300,3 +296,7 @@ if __name__ == "__main__":
         after = bundle([], data_quality={"gap_count": 1, "other": True})
         result = compare_research_exports(before, after)
         self.assertIn("data_quality", result["diagnostic_changed_paths"])
+
+
+if __name__ == "__main__":
+    unittest.main()

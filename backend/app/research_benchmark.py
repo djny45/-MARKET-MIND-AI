@@ -115,6 +115,7 @@ def run_offline_research_benchmark(
     if baseline is not None:
         baseline_comparison = {}
         regressions = []
+        skipped_comparisons = []
         for key in metric_keys:
             current = aggregate[key]["mean"]
             previous = baseline_metrics.get(key)
@@ -124,6 +125,7 @@ def run_offline_research_benchmark(
                     "current_mean": current,
                     "baseline_mean": previous,
                     "delta": delta,
+                    "status": "compared",
                 }
                 # A zero threshold means "flag any decrease", not "flag a tie".
                 if delta < 0 and delta <= -regression_threshold:
@@ -134,16 +136,26 @@ def run_offline_research_benchmark(
                         "severity": "regression",
                     })
             else:
+                reason = (
+                    "current_metric_unavailable"
+                    if not isinstance(current, (int, float))
+                    else "baseline_metric_missing"
+                )
                 baseline_comparison[key] = {
                     "current_mean": current,
                     "baseline_mean": previous,
                     "delta": None,
+                    "status": "skipped",
+                    "reason": reason,
                 }
+                skipped_comparisons.append({"metric": key, "reason": reason})
         regression_summary = {
             "status": "regression_detected" if regressions else "no_regression_detected",
             "threshold": regression_threshold,
             "items": regressions,
-            "note": "Flags structural traceability metric drops only; not factual or trading performance.",
+            "skipped_comparison_count": len(skipped_comparisons),
+            "skipped_comparisons": skipped_comparisons,
+            "note": "Flags structural traceability metric drops only; not factual or trading performance. Skipped metrics are not evidence of a pass.",
         }
 
     return {

@@ -27,6 +27,15 @@ class OfflineDatasetTests(unittest.TestCase):
         self.assertEqual(frame["close"].tolist(), [1.5, 2.5])
         self.assertEqual(str(frame["timestamp"].dt.tz), "UTC")
 
+    def test_invalid_utf8_in_csv_body_reports_validation_error(self):
+        from app.offline_dataset import load_ohlcv_csv
+        temp = tempfile.NamedTemporaryFile(suffix=".csv", delete=False)
+        temp.write(b"open,high,low,close\\n1,2,0.5,1.5\\n\\xff")
+        temp.close()
+        self.addCleanup(Path(temp.name).unlink, missing_ok=True)
+        with self.assertRaisesRegex(ValueError, "Could not parse CSV data"):
+            load_ohlcv_csv(temp.name)
+
     def test_rows_with_missing_or_extra_fields_rejected(self):
         from app.offline_dataset import load_ohlcv_csv
         for row in ("1,2,0.5\n", "1,2,0.5,1.5,extra\n"):

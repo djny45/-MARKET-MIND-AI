@@ -57,6 +57,12 @@ def compare_research_exports(before, after):
     new_scope = after.get("scope") or {}
     if not isinstance(old_scope, dict) or not isinstance(new_scope, dict):
         raise ValueError("export_scope_must_be_an_object")
+    for scope in (old_scope, new_scope):
+        if any(
+            not isinstance(scope.get(field), str) or not scope[field].strip()
+            for field in ("symbol", "interval")
+        ):
+            raise ValueError("export_scope_symbol_and_interval_required")
     if (old_scope.get("symbol"), old_scope.get("interval")) != (new_scope.get("symbol"), new_scope.get("interval")):
         raise ValueError("export_scope_mismatch")
     def index(bundle):

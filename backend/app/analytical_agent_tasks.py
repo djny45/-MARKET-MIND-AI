@@ -542,6 +542,60 @@ def agent_research_quality_performance(agent_id: str | None = None, limit: int =
     }
 
 
+def agent_supervisor_recommendations(agent_id: str | None = None, limit: int = 550) -> dict:
+    """Return conservative, reviewable workflow suggestions from persisted metrics only."""
+    task_metrics = agent_task_performance(agent_id=agent_id, limit=limit)
+    quality_metrics = agent_research_quality_performance(agent_id=agent_id, limit=limit)
+    recommendations = []
+    task_agents = task_metrics["agents"]
+    quality_agents = quality_metrics["agents"]
+    agent_ids = sorted(set(task_agents) | set(quality_agents))
+    for worker_id in agent_ids:
+        tasks = task_agents.get(worker_id, {})
+        quality = quality_agents.get(worker_id, {})
+        finished = tasks.get("finished_count", 0)
+        eval_count = quality.get("evaluation_count", 0)
+        failure_rate = tasks.get("failure_rate")
+        known_coverage = quality.get("known_source_reference_coverage_mean")
+        if finished >= 5 and failure_rate is not None and failure_rate >= 0.30:
+            recommendations.append({
+                "agent_id": worker_id,
+                "priority": "review",
+                "reason_code": "repeated_task_failures",
+                "evidence": {"finished_tasks": finished, "failure_rate": failure_rate},
+                "suggested_action": "Inspect recent task failure types and input/provider availability before assigning more tasks.",
+            })
+        if eval_count >= 3 and known_coverage is not None and known_coverage < 0.70:
+            recommendations.append({
+                "agent_id": worker_id,
+                "priority": "review",
+                "reason_code": "low_source_reference_coverage",
+                "evidence": {"evaluations": eval_count, "mean_known_source_reference_coverage": known_coverage},
+                "suggested_action": "Review source registry completeness and claim-to-source mapping in the research workflow.",
+            })
+        if finished >= 5 and failure_rate is not None and failure_rate <= 0.10 and eval_count >= 3 and known_coverage is not None and known_coverage >= 0.90:
+            recommendations.append({
+                "agent_id": worker_id,
+                "priority": "observe",
+                "reason_code": "consistent_structural_traceability",
+                "evidence": {"finished_tasks": finished, "failure_rate": failure_rate,
+                             "evaluations": eval_count, "mean_known_source_reference_coverage": known_coverage},
+                "suggested_action": "Consider this workflow as a candidate for a controlled offline benchmark; do not auto-promote it.",
+            })
+    return {
+        "recommendation_count": len(recommendations),
+        "recommendations": recommendations,
+        "source": "persisted_task_outcomes_and_structural_traceability_metrics",
+        "decision_mode": "advisory_only",
+        "minimum_evidence": {"finished_tasks": 5, "quality_evaluations": 3},
+        "limitations": [
+            "No autonomous task reassignment, agent ranking, code changes, or deployment.",
+            "Task completion and source-reference coverage are proxies, not measures of intelligence or factual correctness.",
+            "Review recommendations against underlying records before acting.",
+        ],
+    }
+
+
 def agent_supervisor_status() -> dict:
     """Return a point-in-time health snapshot of persisted agent task states."""
     with _connect() as db:

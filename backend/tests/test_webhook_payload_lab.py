@@ -34,6 +34,11 @@ class WebhookPayloadLabTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Missing required"):
             validate_payload({"event_id": "x", "source": "sample"})
 
+
+    def test_rejects_non_string_dict_keys_before_json_normalization(self):
+        with self.assertRaisesRegex(ValueError, "keys must be strings"):
+            validate_payload({1: "not-a-string-key", "source": "sample", "message": "hi"})
+
     def test_rejects_non_string_values(self):
         with self.assertRaisesRegex(ValueError, "must be a string"):
             validate_payload(

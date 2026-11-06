@@ -156,5 +156,20 @@ class ResearchExportCompareTests(unittest.TestCase):
             }
         self.assertEqual(compare_research_exports(before, after)["comparison_status"], "observation_keys_incomplete")
 
+    def test_schema_version_mismatch_is_explicitly_incompatible(self):
+        before = bundle([])
+        after = bundle([])
+        before["schema_version"] = "1.0"
+        after["schema_version"] = "1.1"
+        result = compare_research_exports(before, after)
+        self.assertEqual(result["comparison_status"], "schema_incompatible")
+        self.assertEqual(result["schema_compatibility"], {
+            "before": "1.0", "after": "1.1", "compatible": False,
+        })
+
+    def test_missing_schema_versions_are_reported_as_unknown_not_equal(self):
+        result = compare_research_exports(bundle([]), bundle([]))
+        self.assertEqual(result["schema_compatibility"]["compatible"], None)
+
 if __name__ == "__main__":
     unittest.main()

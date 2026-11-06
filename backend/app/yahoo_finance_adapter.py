@@ -70,7 +70,7 @@ class YahooFinanceAdapter:
                                     and math.isfinite(float(adjusted_close_values[i]))
                                     and float(adjusted_close_values[i]) > 0 else None),
                 ))
-        except (KeyError, IndexError, TypeError, ValueError) as exc:
+        except (KeyError, IndexError, TypeError, ValueError, OverflowError, OSError) as exc:
             raise ValueError("Yahoo response did not contain valid OHLCV chart data") from exc
         bars = bars[-limit:]
         if not bars:

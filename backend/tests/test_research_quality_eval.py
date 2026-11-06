@@ -51,6 +51,16 @@ class ResearchQualityEvalTests(unittest.TestCase):
                 baseline={"metrics": {"factual_accuracy": 0.9}},
             )
 
+    def test_rejects_unknown_metric_even_when_supported_metric_is_present(self):
+        with self.assertRaises(ValueError):
+            evaluate_research_draft(
+                draft="Draft.", claims=[], source_registry=[],
+                baseline={"metrics": {
+                    "claim_reference_coverage": 0.8,
+                    "claim_referance_coverage": 0.7,
+                }},
+            )
+
     def test_empty_claim_set_has_null_coverage(self):
         result = evaluate_research_draft(draft="No claims.", claims=[], source_registry=[])
         self.assertIsNone(result["metrics"]["claim_reference_coverage"])

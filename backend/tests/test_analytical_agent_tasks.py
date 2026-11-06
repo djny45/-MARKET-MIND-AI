@@ -352,3 +352,48 @@ if __name__ == "__main__":
     unittest.main()
 
 
+
+
+    def test_cancel_queued_task_is_terminal_and_prevents_dispatch(self):
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, cancel_queued_research_task,
+            execute_queued_research_task, list_task_audit_events,
+        )
+        queued = enqueue_research_task("worker_024", "cancel before execution")
+        cancelled = cancel_queued_research_task(queued["task_id"])
+        self.assertTrue(cancelled["cancelled"])
+        self.assertEqual(cancelled["status"], "cancelled")
+        self.assertFalse(execute_queued_research_task(queued["task_id"]))
+        saved = get_research_task(queued["task_id"])
+        self.assertEqual(saved["status"], "cancelled")
+        self.assertEqual(saved["result"]["reason"], "cancelled_before_execution")
+        self.assertEqual(
+            [event["event_type"] for event in list_task_audit_events(queued["task_id"])["events"]],
+            ["task_queued", "task_cancelled"],
+        )
+
+    def test_cancel_unknown_running_and_terminal_tasks_is_safe(self):
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, cancel_queued_research_task,
+            execute_queued_research_task,
+        )
+        self.assertIsNone(cancel_queued_research_task("missing-task"))
+        queued = enqueue_research_task("worker_025", "cannot cancel after claim")
+        # Simulate the claimed state without running provider inference.
+        import sqlite3
+        with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+            db.execute("UPDATE analytical_agent_tasks SET status='running' WHERE task_id=?",
+                       (queued["task_id"],))
+        running = cancel_queued_research_task(queued["task_id"])
+        self.assertFalse(running["cancelled"])
+        self.assertEqual(running["reason"], "task_not_queued")
+        # A completed task is likewise not cancellable.
+        completed = submit_research_task("worker_026", "already completed")
+        response = cancel_queued_research_task(completed["task_id"])
+        self.assertFalse(response["cancelled"])
+        self.assertEqual(response["status"], "completed")
+
+    def test_cancel_rejects_empty_task_id(self):
+        from app.analytical_agent_tasks import cancel_queued_research_task
+        with self.assertRaises(ValueError):
+            cancel_queued_research_task(" ")

@@ -1,7 +1,12 @@
 """Dependency-light deterministic indicators over chronological numeric observations."""
-from math import sqrt
+from math import sqrt, isfinite
 def _valid(values, minimum=1):
- xs=[float(x) for x in values]
+ try:
+  xs=[float(x) for x in values]
+ except (TypeError, ValueError, OverflowError) as exc:
+  raise ValueError("values must be finite numeric observations") from exc
+ if not all(isfinite(x) for x in xs):
+  raise ValueError("values must be finite numeric observations")
  if len(xs)<minimum: raise ValueError(f"At least {minimum} observations are required.")
  return xs
 def sma(values,period):
@@ -17,7 +22,13 @@ def ema(values,period):
 def returns(values):
  xs=_valid(values,2)
  if any(x==0 for x in xs[:-1]): raise ValueError("zero denominator in price series")
- return [xs[i]/xs[i-1]-1 for i in range(1,len(xs))]
+ out=[]
+ for i in range(1,len(xs)):
+  result=xs[i]/xs[i-1]-1
+  if not isfinite(result):
+   raise ValueError("return is non-finite for the supplied price observations")
+  out.append(result)
+ return out
 def rsi(values,period=14):
  rs=returns(values); p=int(period)
  if p<1: raise ValueError("period must be positive")

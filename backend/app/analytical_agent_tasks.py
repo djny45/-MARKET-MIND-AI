@@ -122,12 +122,12 @@ def enqueue_research_task(agent_id: str, brief: str, data: dict | list | None = 
             "created_at": now, "updated_at": now, "brain_context_sha256": brain["brain_context_sha256"],
             "execution_mode": "process_local_background_task"}
 
-def execute_queued_research_task(task_id: str) -> None:
+def execute_queued_research_task(task_id: str) -> bool:
     """Execute one persisted queued task; safe to call from FastAPI BackgroundTasks."""
     with _connect() as db:
         row = db.execute("SELECT * FROM analytical_agent_tasks WHERE task_id=?", (task_id,)).fetchone()
         if row is None or row["status"] != "queued":
-            return
+            return False
         # Claim atomically so duplicate dispatches cannot execute the same queued row.
         now = datetime.now(timezone.utc).isoformat()
         claimed = db.execute(
@@ -135,7 +135,7 @@ def execute_queued_research_task(task_id: str) -> None:
             (now, task_id),
         )
         if claimed.rowcount != 1:
-            return
+            return False
         _record_event(db, task_id, row["worker_id"], "task_claimed",
                       from_status="queued", to_status="running", occurred_at=now)
         task_input = json.loads(row["input_json"])
@@ -199,6 +199,7 @@ def execute_queued_research_task(task_id: str) -> None:
         _record_event(db, task_id, agent_id, "task_" + status,
                       from_status="running", to_status=status, occurred_at=updated,
                       detail={"error_type": result.get("error_type")} if status == "failed" else {})
+    return True
 
 def recover_interrupted_research_tasks(stale_after_seconds: int = 900) -> dict:
     """Requeue only stale running tasks; this explicit operation never dispatches.
@@ -471,8 +472,9 @@ def dispatch_queued_research_tasks(limit: int = 50, max_concurrency: int = 4) ->
         for future in as_completed(futures):
             task_id = futures[future]
             try:
-                future.result()
-                completed.append(task_id)
+                executed = future.result()
+                if executed:
+                    completed.append(task_id)
             except Exception:
                 # One task failure must not interrupt dispatch of sibling tasks.
                 continue

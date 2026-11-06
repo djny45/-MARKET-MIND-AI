@@ -27,6 +27,15 @@ class OfflineResearchPipelineTests(unittest.TestCase):
         self.assertIn("dataset", result)
         self.assertEqual(result["indicators"], {})
 
+    def test_pipeline_records_sha256_of_exact_source_file(self):
+        import hashlib
+        from app.offline_research_pipeline import run_offline_research
+        path = self.write_csv()
+        result = run_offline_research(path, timestamp_column="timestamp")
+        expected = hashlib.sha256(Path(path).read_bytes()).hexdigest()
+        self.assertEqual(result["source_sha256"], expected)
+        self.assertEqual(len(result["source_sha256"]), 64)
+
     def test_indicator_pipeline_requires_timestamp_column(self):
         from app.offline_research_pipeline import run_offline_research
         with self.assertRaisesRegex(ValueError, "timestamp_column is required"):

@@ -416,6 +416,67 @@ def list_recent_task_activity(limit: int = 500) -> dict:
     }
 
 
+def agent_task_performance(agent_id: str | None = None, limit: int = 550) -> dict:
+    """Summarize persisted task outcomes per worker; metrics are descriptive, not a skill score."""
+    if agent_id is not None:
+        brain_config(agent_id)
+    if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 550:
+        raise ValueError("limit must be between 1 and 550")
+    with _connect() as db:
+        if agent_id is None:
+            rows = db.execute(
+                """SELECT worker_id,status,COUNT(*) AS count
+                   FROM analytical_agent_tasks GROUP BY worker_id,status"""
+            ).fetchall()
+            total = db.execute("SELECT COUNT(*) FROM analytical_agent_tasks").fetchone()[0]
+        else:
+            rows = db.execute(
+                """SELECT worker_id,status,COUNT(*) AS count
+                   FROM analytical_agent_tasks WHERE worker_id=?
+                   GROUP BY worker_id,status""", (agent_id,)
+            ).fetchall()
+            total = db.execute(
+                "SELECT COUNT(*) FROM analytical_agent_tasks WHERE worker_id=?", (agent_id,)
+            ).fetchone()[0]
+        recent = db.execute(
+            """SELECT worker_id,status,COUNT(*) AS count
+               FROM (SELECT worker_id,status FROM analytical_agent_tasks
+                     ORDER BY updated_at DESC LIMIT ?)
+               GROUP BY worker_id,status""", (limit,)
+        ).fetchall() if agent_id is None else db.execute(
+            """SELECT worker_id,status,COUNT(*) AS count
+               FROM (SELECT worker_id,status FROM analytical_agent_tasks
+                     WHERE worker_id=? ORDER BY updated_at DESC LIMIT ?)
+               GROUP BY worker_id,status""", (agent_id, limit)
+        ).fetchall()
+    def summarize(grouped_rows):
+        result = {}
+        for row in grouped_rows:
+            item = result.setdefault(row["worker_id"], {
+                "agent_id": row["worker_id"], "task_count": 0,
+                "queued": 0, "running": 0, "completed": 0, "failed": 0,
+            })
+            item[row["status"]] = row["count"]
+            item["task_count"] += row["count"]
+        for item in result.values():
+            finished = item["completed"] + item["failed"]
+            item["finished_count"] = finished
+            item["completion_rate"] = round(item["completed"] / finished, 4) if finished else None
+            item["failure_rate"] = round(item["failed"] / finished, 4) if finished else None
+        return result
+    all_agents = summarize(rows)
+    recent_agents = summarize(recent)
+    return {
+        "agent_id": agent_id,
+        "task_count": total,
+        "agents": all_agents,
+        "recent_window_limit": limit,
+        "recent_agents": recent_agents,
+        "metric_definition": "completed/(completed+failed); queued/running excluded; descriptive historical task outcomes only",
+        "performance_boundary": "not a capability or intelligence score; no autonomous ranking or live trading",
+    }
+
+
 def agent_supervisor_status() -> dict:
     """Return a point-in-time health snapshot of persisted agent task states."""
     with _connect() as db:

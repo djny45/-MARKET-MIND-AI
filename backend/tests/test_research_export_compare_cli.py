@@ -12,6 +12,7 @@ from compare_research_exports import main
 def export(close):
     return {
         "report_type": "historical_research_evidence",
+        "schema_version": "1.1",
         "scope": {"symbol": "BTCUSD", "interval": "1h"},
         "observations": [{"timestamp": "2026-01-01T00:00:00Z", "source": "csv", "close": close}],
     }

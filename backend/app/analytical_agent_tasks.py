@@ -33,6 +33,11 @@ def _connect():
         updated_at TEXT NOT NULL
     )""")
     db.execute("CREATE INDEX IF NOT EXISTS idx_agent_tasks_agent_time ON analytical_agent_tasks(worker_id,created_at)")
+    db.execute("""CREATE TABLE IF NOT EXISTS analytical_agent_task_retries (
+        original_task_id TEXT PRIMARY KEY,
+        retry_task_id TEXT NOT NULL UNIQUE,
+        requested_at TEXT NOT NULL
+    )""")
     db.execute("""CREATE TABLE IF NOT EXISTS analytical_agent_task_events (
         event_id INTEGER PRIMARY KEY AUTOINCREMENT, task_id TEXT NOT NULL,
         worker_id TEXT NOT NULL, event_type TEXT NOT NULL,
@@ -164,6 +169,9 @@ def retry_failed_research_task(task_id: str) -> dict | None:
     now = datetime.now(timezone.utc).isoformat()
     retry_task_id = str(uuid.uuid4())
     with _connect() as db:
+        # Serialize retry requests so concurrent API calls cannot create multiple
+        # retry tasks for the same original failure.
+        db.execute("BEGIN IMMEDIATE")
         row = db.execute(
             "SELECT worker_id,task_type,status,input_json,brain_context_sha256 "
             "FROM analytical_agent_tasks WHERE task_id=?", (task_id,)
@@ -173,13 +181,14 @@ def retry_failed_research_task(task_id: str) -> dict | None:
         if row["status"] != "failed":
             return {"task_id": task_id, "status": row["status"], "retried": False,
                     "reason": "task_not_failed"}
-        prior = db.execute(
-            "SELECT COUNT(*) FROM analytical_agent_task_events "
-            "WHERE task_id=? AND event_type='task_retry_requested'", (task_id,)
-        ).fetchone()[0]
-        if prior >= 1:
+        existing = db.execute(
+            "SELECT retry_task_id FROM analytical_agent_task_retries WHERE original_task_id=?",
+            (task_id,),
+        ).fetchone()
+        if existing is not None:
             return {"task_id": task_id, "status": "failed", "retried": False,
-                    "reason": "retry_limit_reached", "retry_limit": 1}
+                    "reason": "retry_limit_reached", "retry_limit": 1,
+                    "retry_task_id": existing["retry_task_id"]}
         db.execute(
             """INSERT INTO analytical_agent_tasks
                (task_id,worker_id,task_type,status,input_json,result_json,
@@ -187,6 +196,10 @@ def retry_failed_research_task(task_id: str) -> dict | None:
                VALUES (?,?,?,?,?,?,?,?,?)""",
             (retry_task_id, row["worker_id"], row["task_type"], "queued",
              row["input_json"], "{}", row["brain_context_sha256"], now, now),
+        )
+        db.execute(
+            "INSERT INTO analytical_agent_task_retries (original_task_id,retry_task_id,requested_at) "
+            "VALUES (?,?,?)", (task_id, retry_task_id, now)
         )
         _record_event(db, task_id, row["worker_id"], "task_retry_requested",
                       from_status="failed", to_status="failed", occurred_at=now,

@@ -13,7 +13,7 @@ from .worker_registry import evaluate_registry, registry_manifest
 from .analytical_agent_runtime import runtime_manifest, brain_config, validate_learning_feedback, validate_update_proposal
 from .learning_engine import learning_overview, agent_learning_summary, run_feedback_improvement_cycle
 from .specialist_router import route_research_brief
-from .analytical_agent_tasks import cancel_queued_research_task, submit_research_task, get_research_task, list_research_tasks, enqueue_research_task, execute_queued_research_task, recover_interrupted_research_tasks, list_recent_task_activity, agent_supervisor_status, dispatch_queued_research_tasks, list_task_audit_events, get_task_quality_evaluation
+from .analytical_agent_tasks import retry_failed_research_task, cancel_queued_research_task, submit_research_task, get_research_task, list_research_tasks, enqueue_research_task, execute_queued_research_task, recover_interrupted_research_tasks, list_recent_task_activity, agent_supervisor_status, dispatch_queued_research_tasks, list_task_audit_events, get_task_quality_evaluation
 from .research_orchestrator import orchestrate_research
 from .intelligence_core import intelligence_core_status, synthesize_research, IntelligenceCoreError
 from .synthesis_review import build_synthesis_review
@@ -521,6 +521,17 @@ def analytical_agent_supervisor_dispatch(request: AgentSupervisorDispatchRequest
 def analytical_agent_recover_tasks():
  """Requeue tasks interrupted while running; does not dispatch them."""
  return recover_interrupted_research_tasks()
+
+@app.post("/api/analytical-agent-tasks/{task_id}/retry")
+def analytical_agent_retry_task(task_id: str):
+ """Create one fresh queued retry for a failed task; dispatch remains explicit."""
+ try:
+  result = retry_failed_research_task(task_id)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+ if result is None:
+  raise HTTPException(status_code=404, detail="Analytical-agent task not found")
+ return result
 
 @app.post("/api/analytical-agent-tasks/{task_id}/cancel")
 def analytical_agent_cancel_task(task_id: str):

@@ -75,6 +75,23 @@ class ResearchBenchmarkTests(unittest.TestCase):
         )
 
 
+
+    def test_zero_regression_threshold_does_not_flag_equal_baseline(self):
+        current = run_offline_research_benchmark(fixture_cases())
+        baseline_metrics = {
+            key: value["mean"]
+            for key, value in current["aggregate_metrics"].items()
+        }
+        result = run_offline_research_benchmark(
+            fixture_cases(),
+            baseline={"metrics": baseline_metrics},
+            regression_threshold=0,
+        )
+        self.assertEqual(
+            result["regression_summary"]["status"], "no_regression_detected"
+        )
+        self.assertEqual(result["regression_summary"]["items"], [])
+
     def test_rejects_invalid_baseline_metric_values(self):
         invalid_values = (-0.1, 1.1, True, "0.8")
         for value in invalid_values:

@@ -45,5 +45,30 @@ class ResearchQualityApiTests(unittest.TestCase):
             analytical_agent_task_quality_evaluation("missing-task")
         self.assertEqual(raised.exception.status_code, 404)
 
+
+    def test_offline_benchmark_api_returns_deterministic_metrics(self):
+        from app.main import ResearchBenchmarkRequest, run_research_benchmark
+        request = ResearchBenchmarkRequest(cases=[{
+            "case_id": "api-fixture",
+            "draft": "Synthetic fixture; limitation noted.",
+            "claims": [{"text": "Fixture claim", "source_refs": ["fixture-ref"]}],
+            "source_registry": [{"source_id": "fixture-ref"}],
+        }])
+        first = run_research_benchmark(request)
+        second = run_research_benchmark(request)
+        self.assertEqual(first["benchmark_id"], second["benchmark_id"])
+        self.assertEqual(first["aggregate_metrics"]["known_source_reference_coverage"]["mean"], 1.0)
+        self.assertIn("does not fetch live data", first["limitations"][0])
+
+    def test_offline_benchmark_api_translates_invalid_case_to_400(self):
+        from fastapi import HTTPException
+        from app.main import ResearchBenchmarkRequest, run_research_benchmark
+        request = ResearchBenchmarkRequest(cases=[{
+            "case_id": "bad-fixture", "draft": "", "claims": [], "source_registry": [],
+        }])
+        with self.assertRaises(HTTPException) as raised:
+            run_research_benchmark(request)
+        self.assertEqual(raised.exception.status_code, 400)
+
 if __name__ == "__main__":
     unittest.main()

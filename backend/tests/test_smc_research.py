@@ -83,6 +83,13 @@ class SMCResearchAdapterTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Not enough bars"):
             analyze_historical_ohlcv(self.frame.iloc[:10], swing_length=5)
 
+    def test_liquidity_range_must_be_finite_numeric_not_bool(self):
+        from app.smc_research import analyze_historical_ohlcv
+        for invalid in (None, "0.01", True, float("nan"), float("inf"), 0, -0.1, 1.1):
+            with self.subTest(invalid=invalid):
+                with self.assertRaisesRegex(ValueError, "finite number in \\(0, 1\\]"):
+                    analyze_historical_ohlcv(self.frame, swing_length=5, liquidity_range_percent=invalid)
+
     def test_swing_length_must_be_positive_integer_not_bool(self):
         from app.smc_research import analyze_historical_ohlcv
         for invalid in (0, -1, 2.5, True):

@@ -12,9 +12,9 @@ class IndicatorTests(unittest.TestCase):
    returns([1e-308, 1e308])
  def test_indicators_reject_nonfinite_input(self):
   with self.assertRaisesRegex(ValueError, "finite numeric"):
-   sma([1, float("nan"), 3])
+   sma([1, float("nan"), 3], 2)
  def test_indicators_reject_unconvertible_large_integer(self):
   with self.assertRaisesRegex(ValueError, "finite numeric"):
-   ema([10**10000, 2])
+   ema([10**10000, 2], 2)
  def test_volatility(self): self.assertGreater(realized_volatility([100,101,99,102])["per_observation"],0)
 if __name__=="__main__": unittest.main()

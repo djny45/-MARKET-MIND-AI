@@ -164,7 +164,7 @@ class ResearchBenchmarkTests(unittest.TestCase):
             baseline={"metrics": {"claim_reference_coverage": 0.9}},
         )
         summary = result["regression_summary"]
-        self.assertEqual(summary["status"], "no_regression_detected")
+        self.assertEqual(summary["status"], "comparison_incomplete")
         self.assertEqual(summary["skipped_comparison_count"], 1)
         self.assertEqual(
             summary["skipped_comparisons"][0]["reason"],
@@ -192,6 +192,7 @@ class ResearchBenchmarkTests(unittest.TestCase):
             "current_metric_unavailable",
         )
         self.assertEqual(result["regression_summary"]["skipped_comparison_count"], 2)
+        self.assertEqual(result["regression_summary"]["status"], "comparison_incomplete")
 
     def test_rejects_invalid_baseline_shape(self):
         with self.assertRaises(ValueError):

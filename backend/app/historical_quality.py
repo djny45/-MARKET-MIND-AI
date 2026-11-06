@@ -52,7 +52,7 @@ def build_historical_quality_diagnostics(history):
     safe_bars = [bar if isinstance(bar, dict) else {} for bar in bars]
     parsed = [_timestamp(bar.get("timestamp")) for bar in safe_bars]
     valid_pairs = [(i, value) for i, value in enumerate(parsed) if value is not None]
-    invalid_timestamps = [{"bar_index": i, "timestamp": safe_safe_bars[i].get("timestamp")}
+    invalid_timestamps = [{"bar_index": i, "timestamp": safe_bars[i].get("timestamp")}
                           for i, value in enumerate(parsed) if value is None]
     seen_timestamps = {}
     duplicate_timestamps = []
@@ -66,8 +66,8 @@ def build_historical_quality_diagnostics(history):
     for (previous_index, previous), (current_index, current) in zip(valid_pairs, valid_pairs[1:]):
         if current < previous:
             out_of_order_timestamps.append({"bar_index": current_index, "previous_bar_index": previous_index,
-                                            "timestamp": safe_safe_bars[current_index].get("timestamp"),
-                                            "previous_timestamp": safe_safe_bars[previous_index].get("timestamp")})
+                                            "timestamp": safe_bars[current_index].get("timestamp"),
+                                            "previous_timestamp": safe_bars[previous_index].get("timestamp")})
     spacing = []
     if expected:
         for (previous_index, previous), (current_index, current) in zip(valid_pairs, valid_pairs[1:]):

@@ -30,6 +30,13 @@ class ResearchBenchmarkTests(unittest.TestCase):
         self.assertEqual(first["case_count"], 2)
         self.assertEqual(first["benchmark_type"], "offline_research_traceability")
 
+    def test_threshold_changes_benchmark_fingerprint(self):
+        default = run_offline_research_benchmark(fixture_cases())
+        changed = run_offline_research_benchmark(
+            fixture_cases(), regression_threshold=0.10
+        )
+        self.assertNotEqual(default["benchmark_id"], changed["benchmark_id"])
+
     def test_changed_fixture_changes_benchmark_id_and_baseline_delta(self):
         baseline = run_offline_research_benchmark(fixture_cases())
         cases = fixture_cases()

@@ -28,6 +28,11 @@ def load_ohlcv_csv(path: str | Path, *, timestamp_column: str | None = None) -> 
     except ImportError as exc:
         raise RuntimeError("Install pandas and numpy to use offline CSV research.") from exc
 
+    if timestamp_column is not None and (
+        not isinstance(timestamp_column, str) or not timestamp_column.strip()
+    ):
+        raise ValueError("timestamp_column must be a non-empty string or None")
+
     source = Path(path).expanduser()
     if not source.is_file():
         raise FileNotFoundError(f"CSV file does not exist: {source}")

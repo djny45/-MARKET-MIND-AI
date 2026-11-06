@@ -99,7 +99,7 @@ def compare_source_observations(history):
         "symbol": history.get("symbol"),
         "interval": history.get("interval"),
         "observations_checked": len(bars),
-        "source_count": len({str(bar.get("source") or "unknown") for bar in bars}),
+        "source_count": len({str(bar.get("source") or "unknown") for bar in bars if isinstance(bar, dict)}),
         "shared_timestamp_count": len(comparisons),
         "comparisons": comparisons,
         "invalid_timestamp_count": len(invalid),

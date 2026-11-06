@@ -89,6 +89,11 @@ def run_offline_research_benchmark(
         baseline_metrics = baseline.get("metrics")
         if not isinstance(baseline_metrics, dict):
             raise ValueError("baseline must include a metrics object")
+        unknown_metrics = set(baseline_metrics) - set(metric_keys)
+        if unknown_metrics:
+            raise ValueError(
+                f"baseline contains unsupported metrics: {sorted(unknown_metrics)}"
+            )
         recognized_metrics = set(metric_keys).intersection(baseline_metrics)
         if not recognized_metrics:
             raise ValueError("baseline metrics must include at least one supported metric")

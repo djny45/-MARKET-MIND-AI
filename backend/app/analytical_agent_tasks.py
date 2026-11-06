@@ -157,6 +157,48 @@ def cancel_queued_research_task(task_id: str) -> dict | None:
     return {"task_id": task_id, "worker_id": row["worker_id"],
             "status": "cancelled", "cancelled": True}
 
+def retry_failed_research_task(task_id: str) -> dict | None:
+    """Create one fresh queued retry for a failed task; never rerun in place."""
+    if not isinstance(task_id, str) or not task_id.strip():
+        raise ValueError("task_id must be a non-empty string")
+    now = datetime.now(timezone.utc).isoformat()
+    retry_task_id = str(uuid.uuid4())
+    with _connect() as db:
+        row = db.execute(
+            "SELECT worker_id,task_type,status,input_json,brain_context_sha256 "
+            "FROM analytical_agent_tasks WHERE task_id=?", (task_id,)
+        ).fetchone()
+        if row is None:
+            return None
+        if row["status"] != "failed":
+            return {"task_id": task_id, "status": row["status"], "retried": False,
+                    "reason": "task_not_failed"}
+        prior = db.execute(
+            "SELECT COUNT(*) FROM analytical_agent_task_events "
+            "WHERE task_id=? AND event_type='task_retry_requested'", (task_id,)
+        ).fetchone()[0]
+        if prior >= 1:
+            return {"task_id": task_id, "status": "failed", "retried": False,
+                    "reason": "retry_limit_reached", "retry_limit": 1}
+        db.execute(
+            """INSERT INTO analytical_agent_tasks
+               (task_id,worker_id,task_type,status,input_json,result_json,
+                brain_context_sha256,created_at,updated_at)
+               VALUES (?,?,?,?,?,?,?,?,?)""",
+            (retry_task_id, row["worker_id"], row["task_type"], "queued",
+             row["input_json"], "{}", row["brain_context_sha256"], now, now),
+        )
+        _record_event(db, task_id, row["worker_id"], "task_retry_requested",
+                      from_status="failed", to_status="failed", occurred_at=now,
+                      detail={"retry_task_id": retry_task_id, "retry_limit": 1})
+        _record_event(db, retry_task_id, row["worker_id"], "task_queued",
+                      from_status=None, to_status="queued", occurred_at=now,
+                      detail={"retry_of_task_id": task_id, "retry_attempt": 1})
+    return {"task_id": retry_task_id, "retry_of_task_id": task_id,
+            "worker_id": row["worker_id"], "status": "queued",
+            "retried": True, "retry_attempt": 1, "retry_limit": 1,
+            "execution_mode": "manual_retry_new_task"}
+
 def execute_queued_research_task(task_id: str) -> bool:
     """Execute one persisted queued task; safe to call from FastAPI BackgroundTasks."""
     with _connect() as db:

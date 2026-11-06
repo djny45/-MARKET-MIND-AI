@@ -106,7 +106,22 @@ def compare_research_exports(before, after):
                 )
             else:
                 diagnostic_changes[section] = ["$"]
+    integrity_validation = {
+        "before": _check_integrity(before),
+        "after": _check_integrity(after),
+    }
+    integrity_results = (integrity_validation["before"], integrity_validation["after"])
+    if any(result.get("reason") == "digest_mismatch" for result in integrity_results):
+        comparison_status = "integrity_failed"
+    elif any(not result.get("valid") for result in integrity_results):
+        comparison_status = "integrity_unverified"
+    elif old_invalid or new_invalid:
+        comparison_status = "observation_keys_incomplete"
+    else:
+        comparison_status = "integrity_verified"
+
     return {
+        "comparison_status": comparison_status,
         "different": before != after,
         "scope": old_scope,
         "counts": {
@@ -128,10 +143,7 @@ def compare_research_exports(before, after):
             "before": _integrity_digest(before),
             "after": _integrity_digest(after),
         },
-        "integrity_validation": {
-            "before": _check_integrity(before),
-            "after": _check_integrity(after),
-        },
+        "integrity_validation": integrity_validation,
         "limitations": [
             "Observation keys use exact timestamp strings and source labels.",
             "Duplicate or malformed keys are reported but cannot be matched.",

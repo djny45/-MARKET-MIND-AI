@@ -71,6 +71,7 @@ export default function App() {
  const [qualityReport,setQualityReport] = useState<any>(null)
  const [benchmarkReport,setBenchmarkReport] = useState<any>(null)
  const [benchmarkBaselineFile,setBenchmarkBaselineFile] = useState<File|null>(null)
+ const [benchmarkThreshold,setBenchmarkThreshold] = useState('0.05')
  const [benchmarkBusy,setBenchmarkBusy] = useState(false)
  const [benchmarkError,setBenchmarkError] = useState('')
  const [sourceComparison,setSourceComparison] = useState<any>(null)
@@ -141,7 +142,9 @@ export default function App() {
     if(!metrics||typeof metrics!=='object')throw new Error('Baseline JSON must contain aggregate_metrics or metrics')
     baseline={metrics:Object.fromEntries(Object.entries(metrics).map(([key,value]:any)=>[key,typeof value==='object'&&value!==null?'mean' in value?value.mean:value:value]))}
    }
-   const r=await fetch(API+'/api/research/benchmark',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({baseline,regression_threshold:0.05,cases:[
+   const threshold=Number(benchmarkThreshold)
+   if(!Number.isFinite(threshold)||threshold<0||threshold>1)throw new Error('Regression threshold must be between 0 and 1')
+   const r=await fetch(API+'/api/research/benchmark',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({baseline,regression_threshold:threshold,cases:[
     {case_id:'fixture-valid-reference',draft:'Synthetic fixture; factual meaning is not validated.',claims:[{text:'Synthetic claim A',source_refs:['fixture-source-a']}],source_registry:[{source_id:'fixture-source-a'}]},
     {case_id:'fixture-unknown-reference',draft:'Synthetic fixture with an unknown source reference.',claims:[{text:'Synthetic claim B',source_refs:['unknown-fixture-source']}],source_registry:[{source_id:'fixture-source-a'}]}
    ]})});
@@ -335,6 +338,9 @@ export default function App() {
 
     <div className="side-label">OFFLINE RESEARCH BENCHMARK <span>FIXTURE ONLY</span></div>
     <small className="research-note">Run a reproducible structural traceability check on two synthetic cases. No live market data or trading.</small>
+    <label>REGRESSION THRESHOLD (0–1)</label>
+    <input type="number" min="0" max="1" step="0.01" value={benchmarkThreshold} onChange={e=>setBenchmarkThreshold(e.target.value)} aria-label="Regression threshold"/>
+    <small className="research-note">0.05 = a 5 percentage-point drop. Set 0 to flag any decline.</small>
     <label>OPTIONAL BASELINE REPORT JSON</label>
     <input type="file" accept=".json,application/json" aria-label="Upload previous benchmark JSON" onChange={e=>setBenchmarkBaselineFile(e.target.files?.[0]||null)}/>
     <small className="research-note">{benchmarkBaselineFile?('Baseline selected: '+benchmarkBaselineFile.name):'Upload a previously downloaded benchmark report to compare structural metrics.'}</small>

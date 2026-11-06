@@ -74,7 +74,7 @@ class ResearchMethodologyMarkdownTests(unittest.TestCase):
         bundle["integrity"] = ["malformed", "integrity"]
         report = render_research_methodology_markdown(bundle)
         self.assertIn("- **Symbol:** Not supplied", report)
-        self.assertIn("- **Source metadata:** fallback-source", report)
+        self.assertIn("- **Source metadata:** Not supplied", report)
         self.assertIn("- **Algorithm:** Not supplied", report)
         self.assertIn("- **Digest:** Not supplied", report)
 

@@ -45,6 +45,36 @@ class ResearchBenchmarkTests(unittest.TestCase):
             0.5,
         )
 
+
+    def test_flags_traceability_regression_at_threshold(self):
+        baseline = run_offline_research_benchmark(fixture_cases())
+        cases = fixture_cases()
+        cases[0]["claims"] = [{"text": "Claim A", "source_refs": ["missing"]}]
+        cases[1]["claims"] = [{"text": "Claim B", "source_refs": ["missing"]}]
+        current = run_offline_research_benchmark(
+            cases,
+            baseline={"metrics": {
+                key: value["mean"]
+                for key, value in baseline["aggregate_metrics"].items()
+            }},
+            regression_threshold=0.05,
+        )
+        self.assertEqual(
+            current["regression_summary"]["status"], "regression_detected"
+        )
+        self.assertEqual(
+            current["regression_summary"]["items"][0]["metric"],
+            "known_source_reference_coverage",
+        )
+
+    def test_rejects_invalid_regression_threshold(self):
+        for threshold in (-0.1, 1.1, True, "0.05"):
+            with self.subTest(threshold=threshold):
+                with self.assertRaises(ValueError):
+                    run_offline_research_benchmark(
+                        fixture_cases(), regression_threshold=threshold
+                    )
+
     def test_rejects_empty_oversized_and_duplicate_case_sets(self):
         with self.assertRaises(ValueError):
             run_offline_research_benchmark([])

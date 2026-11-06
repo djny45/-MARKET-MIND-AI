@@ -181,6 +181,20 @@ def retry_failed_research_task(task_id: str) -> dict | None:
         if row["status"] != "failed":
             return {"task_id": task_id, "status": row["status"], "retried": False,
                     "reason": "task_not_failed"}
+        # Do not allow retry-of-retry chains: one retry maximum per task lineage.
+        queued_event_rows = db.execute(
+            "SELECT detail_json FROM analytical_agent_task_events "
+            "WHERE task_id=? AND event_type='task_queued'", (task_id,)
+        ).fetchall()
+        is_retry_task = any(
+            isinstance((detail := json.loads(event["detail_json"])), dict)
+            and detail.get("retry_of_task_id")
+            for event in queued_event_rows
+        )
+        if is_retry_task:
+            return {"task_id": task_id, "status": "failed", "retried": False,
+                    "reason": "retry_limit_reached", "retry_limit": 1,
+                    "retry_task_id": None, "retry_lineage_limit": 1}
         existing = db.execute(
             "SELECT retry_task_id FROM analytical_agent_task_retries WHERE original_task_id=?",
             (task_id,),

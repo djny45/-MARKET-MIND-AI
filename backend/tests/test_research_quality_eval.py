@@ -33,6 +33,39 @@ class ResearchQualityEvalTests(unittest.TestCase):
         )
         self.assertEqual(result["baseline_comparison"]["claim_reference_coverage"]["delta"], 0.5)
 
+    def test_baseline_summary_flags_lower_coverage_as_regression(self):
+        result = evaluate_research_draft(
+            draft="Draft.",
+            claims=[{"text": "Claim 1", "source_refs": []},
+                    {"text": "Claim 2", "source_refs": ["src"]}],
+            source_registry=[{"source_id": "src"}],
+            baseline={"metrics": {
+                "claim_reference_coverage": 1.0,
+                "known_source_reference_coverage": 1.0,
+            }},
+        )
+        summary = result["baseline_comparison_summary"]
+        self.assertEqual(summary["status"], "regression_detected")
+        self.assertEqual(summary["regression_metrics"], [
+            "claim_reference_coverage", "known_source_reference_coverage"
+        ])
+        self.assertEqual(summary["regression_metric_count"], 2)
+
+    def test_complete_baseline_without_regression_is_comparison_complete(self):
+        result = evaluate_research_draft(
+            draft="Draft.",
+            claims=[{"text": "Claim", "source_refs": ["src"]}],
+            source_registry=[{"source_id": "src"}],
+            baseline={"metrics": {
+                "claim_reference_coverage": 0.5,
+                "known_source_reference_coverage": 0.5,
+            }},
+        )
+        summary = result["baseline_comparison_summary"]
+        self.assertEqual(summary["status"], "comparison_complete")
+        self.assertEqual(summary["regression_metric_count"], 0)
+        self.assertEqual(summary["regression_metrics"], [])
+
     def test_rejects_invalid_baseline_metric_values(self):
         for value in (-0.01, 1.01, True, "0.8"):
             with self.subTest(value=value):

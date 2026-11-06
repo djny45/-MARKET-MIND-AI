@@ -11,6 +11,34 @@ from typing import Any
 MAX_DRAFT_CHARS = 20_000
 MAX_CLAIMS = 200
 MAX_SOURCES = 500
+SUPPORTED_BASELINE_METRICS = (
+    "claim_reference_coverage",
+    "known_source_reference_coverage",
+)
+
+
+def _validate_baseline_metrics(baseline: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Validate baseline metrics before inspecting the research draft."""
+    if baseline is None:
+        return None
+    base_metrics = baseline.get("metrics")
+    if not isinstance(base_metrics, dict):
+        raise ValueError("baseline must include a metrics object")
+    unknown_metrics = set(base_metrics) - set(SUPPORTED_BASELINE_METRICS)
+    if unknown_metrics:
+        raise ValueError(
+            f"baseline contains unsupported metrics: {sorted(unknown_metrics)}"
+        )
+    if not base_metrics:
+        raise ValueError("baseline metrics must include at least one supported metric")
+    for metric_name, metric_value in base_metrics.items():
+        if (isinstance(metric_value, bool)
+                or not isinstance(metric_value, (int, float))
+                or not 0 <= metric_value <= 1):
+            raise ValueError(
+                f"baseline metric {metric_name} must be a number between 0 and 1"
+            )
+    return base_metrics
 
 
 def evaluate_research_draft(
@@ -28,6 +56,7 @@ def evaluate_research_draft(
         raise ValueError("source_registry must be a list with at most 500 entries")
     if baseline is not None and not isinstance(baseline, dict):
         raise ValueError("baseline must be an object")
+    base_metrics = _validate_baseline_metrics(baseline)
 
     source_ids = set()
     for source in source_registry:
@@ -86,26 +115,7 @@ def evaluate_research_draft(
 
     comparison = None
     if baseline is not None:
-        base_metrics = baseline.get("metrics")
-        if not isinstance(base_metrics, dict):
-            raise ValueError("baseline must include a metrics object")
-        supported_metrics = ("claim_reference_coverage", "known_source_reference_coverage")
-        unknown_metrics = set(base_metrics) - set(supported_metrics)
-        if unknown_metrics:
-            raise ValueError(
-                f"baseline contains unsupported metrics: {sorted(unknown_metrics)}"
-            )
-        recognized_metrics = set(supported_metrics).intersection(base_metrics)
-        if not recognized_metrics:
-            raise ValueError("baseline metrics must include at least one supported metric")
-        for metric_name in recognized_metrics:
-            metric_value = base_metrics[metric_name]
-            if (isinstance(metric_value, bool)
-                    or not isinstance(metric_value, (int, float))
-                    or not 0 <= metric_value <= 1):
-                raise ValueError(
-                    f"baseline metric {metric_name} must be a number between 0 and 1"
-                )
+        supported_metrics = SUPPORTED_BASELINE_METRICS
         comparison = {}
         for key in supported_metrics:
             current = metrics[key]

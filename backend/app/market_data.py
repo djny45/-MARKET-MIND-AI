@@ -145,6 +145,14 @@ class MarketDataBatch(BaseModel):
             raise ValueError("retrieved_at must include a timezone")
         return value
 
+    @field_validator("warnings")
+    @classmethod
+    def warning_messages_must_be_nonblank(cls, value: list[str]) -> list[str]:
+        normalized = [warning.strip() for warning in value]
+        if any(not warning for warning in normalized):
+            raise ValueError("warnings must not contain blank messages")
+        return normalized
+
 
 class MarketDataAdapter(Protocol):
     """Contract implemented by authorized market-data providers."""

@@ -1,4 +1,5 @@
 import unittest
+import math
 from app.historical_quality import build_historical_quality_diagnostics
 
 
@@ -59,6 +60,18 @@ class HistoricalQualityTests(unittest.TestCase):
         bars[1]["timestamp"] = "2026-01-01T01:00:00+01:00"
         result = build_historical_quality_diagnostics({"interval": "1h", "bars": bars})
         self.assertEqual(result["timestamp_integrity"]["duplicate_timestamp_count"], 1)
+
+    def test_non_finite_close_and_volume_values_are_excluded(self):
+        bars = self.bars(25)
+        bars[5]["close"] = float("nan")
+        bars[6]["volume"] = float("inf")
+        result = build_historical_quality_diagnostics({"interval": "1h", "bars": bars})
+        price_result = result["close_to_close_return_outliers"]
+        volume_result = result["volume_outliers"]
+        self.assertEqual(price_result["sample_count"], 23)
+        self.assertEqual(volume_result["sample_count"], 24)
+        self.assertTrue(all(math.isfinite(item["return_pct"]) for item in price_result["flagged_observations"]))
+        self.assertTrue(all(math.isfinite(item["volume"]) for item in volume_result["flagged_observations"]))
 
     def test_unsupported_interval_does_not_infer_spacing(self):
         result = build_historical_quality_diagnostics({"interval": "weekly", "bars": self.bars(4)})

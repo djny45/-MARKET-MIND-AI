@@ -36,6 +36,12 @@ def _check_integrity(bundle):
     }
 
 
+def _integrity_digest(bundle):
+    """Return a digest only when integrity metadata has the expected shape."""
+    integrity = bundle.get("integrity")
+    return integrity.get("digest") if isinstance(integrity, dict) else None
+
+
 def compare_research_exports(before, after):
     """Compare export scope and observation records by timestamp and source."""
     if not isinstance(before, dict) or not isinstance(after, dict):
@@ -115,8 +121,8 @@ def compare_research_exports(before, after):
         ],
         "diagnostic_changed_paths": diagnostic_changes,
         "integrity_digests": {
-            "before": (before.get("integrity") or {}).get("digest"),
-            "after": (after.get("integrity") or {}).get("digest"),
+            "before": _integrity_digest(before),
+            "after": _integrity_digest(after),
         },
         "integrity_validation": {
             "before": _check_integrity(before),

@@ -59,7 +59,7 @@ def build_historical_quality_diagnostics(history):
     for i, value in valid_pairs:
         if value in seen_timestamps:
             duplicate_timestamps.append({"bar_index": i, "first_bar_index": seen_timestamps[value],
-                                          "timestamp": safe_bars[i].get("timestamp")})
+                                          "timestamp": safe_safe_bars[i].get("timestamp")})
         else:
             seen_timestamps[value] = i
     out_of_order_timestamps = []
@@ -75,8 +75,8 @@ def build_historical_quality_diagnostics(history):
             if delta > expected * 1.5:
                 spacing.append({"from_index": previous_index, "to_index": current_index,
                                 "elapsed_seconds": delta, "expected_interval_seconds": expected,
-                                "from_timestamp": safe_bars[previous_index].get("timestamp"),
-                                "to_timestamp": safe_bars[current_index].get("timestamp"),
+                                "from_timestamp": safe_safe_bars[previous_index].get("timestamp"),
+                                "to_timestamp": safe_safe_bars[current_index].get("timestamp"),
                                 "interval_multiples": round(delta / expected, 3)})
     returns = []
     return_indices = []

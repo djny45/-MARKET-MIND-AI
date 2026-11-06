@@ -30,10 +30,19 @@ _ALLOWED_ARGS: dict[OpenBBAction, tuple[str, ...]] = {
     "help": ("--help",),
 }
 _MAX_OUTPUT_CHARS = 12_000
+_OUTPUT_TRUNCATION_MARKER = "\n… [output truncated]"
 _TIMEOUT_SECONDS = 8
 # One help subprocess per backend worker at a time. This prevents bursts of
 # requests from spawning unbounded child processes in a single worker.
 _HELP_RUN_SEMAPHORE = BoundedSemaphore(1)
+
+
+def _cap_output(output: str) -> str:
+    """Keep CLI output bounded and make truncation visible to the caller."""
+    if len(output) <= _MAX_OUTPUT_CHARS:
+        return output
+    marker = _OUTPUT_TRUNCATION_MARKER
+    return output[: _MAX_OUTPUT_CHARS - len(marker)] + marker
 
 
 def openbb_cli_enabled() -> bool:
@@ -130,6 +139,6 @@ def run_openbb_cli(action: OpenBBAction) -> OpenBBCLIResult:
         available=True,
         action=action,
         exit_code=completed.returncode,
-        output=output[:_MAX_OUTPUT_CHARS],
+        output=_cap_output(output),
         error=None if completed.returncode == 0 else "OpenBB CLI returned a non-zero exit code.",
     )

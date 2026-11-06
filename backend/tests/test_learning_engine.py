@@ -55,6 +55,37 @@ class LearningEngineTests(unittest.TestCase):
 
         self.assertEqual(result["latest_feedback_at"], "2024-02-01T00:00:00+00:00")
 
+    def test_feedback_trend_compares_older_and_newer_scored_windows(self):
+        outcomes = ["not_helpful", "not_helpful", "partially_helpful",
+                    "helpful", "helpful", "helpful"]
+        records = [
+            {"content": {"outcome": outcome}, "created_at": f"2025-01-{day:02d}T00:00:00+00:00"}
+            for day, outcome in enumerate(outcomes, start=1)
+        ]
+        def fake_read_memory(worker_id, memory_type, limit):
+            return {"memory": records if memory_type == "validation_result" else []}
+        with patch("app.learning_engine.read_memory", side_effect=fake_read_memory):
+            result = agent_learning_summary("worker_001")
+        trend = result["feedback_trend"]
+        self.assertEqual(trend["status"], "descriptive_trend_available")
+        self.assertEqual(trend["older_window_count"], 3)
+        self.assertEqual(trend["newer_window_count"], 3)
+        self.assertEqual(trend["older_window_score"], 0.1667)
+        self.assertEqual(trend["newer_window_score"], 1.0)
+        self.assertEqual(trend["score_delta"], 0.8333)
+
+    def test_feedback_trend_requires_minimum_dated_sample(self):
+        records = [
+            {"content": {"outcome": "helpful"}, "created_at": "2025-01-01T00:00:00+00:00"}
+            for _ in range(5)
+        ]
+        def fake_read_memory(worker_id, memory_type, limit):
+            return {"memory": records if memory_type == "validation_result" else []}
+        with patch("app.learning_engine.read_memory", side_effect=fake_read_memory):
+            result = agent_learning_summary("worker_001")
+        self.assertEqual(result["feedback_trend"]["status"], "insufficient_feedback")
+        self.assertIsNone(result["feedback_trend"]["score_delta"])
+
     def test_overview_covers_registered_agents_and_discloses_no_training(self):
         result = learning_overview()
         self.assertEqual(result["agent_count"], 550)

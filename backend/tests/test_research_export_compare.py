@@ -170,6 +170,22 @@ class ResearchExportCompareTests(unittest.TestCase):
     def test_missing_schema_versions_are_reported_as_unknown_not_equal(self):
         result = compare_research_exports(bundle([]), bundle([]))
         self.assertEqual(result["schema_compatibility"]["compatible"], None)
+        self.assertEqual(result["comparison_status"], "schema_unverified")
+
+    def test_integrity_failure_takes_precedence_over_schema_mismatch(self):
+        before = bundle([])
+        after = bundle([])
+        before["schema_version"] = "1.0"
+        after["schema_version"] = "2.0"
+        after["integrity"] = {
+            "algorithm": "sha256",
+            "digest": "0" * 64,
+            "scope": "complete evidence bundle excluding this integrity field",
+            "canonicalization": "UTF-8 JSON with sorted keys and compact separators",
+        }
+        result = compare_research_exports(before, after)
+        self.assertEqual(result["comparison_status"], "integrity_failed")
+        self.assertFalse(result["schema_compatibility"]["compatible"])
 
 if __name__ == "__main__":
     unittest.main()

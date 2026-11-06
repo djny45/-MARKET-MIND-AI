@@ -65,6 +65,13 @@ class ResearchQualityEvalTests(unittest.TestCase):
         result = evaluate_research_draft(draft="No claims.", claims=[], source_registry=[])
         self.assertIsNone(result["metrics"]["claim_reference_coverage"])
 
+    def test_validates_baseline_before_draft(self):
+        with self.assertRaisesRegex(ValueError, "unsupported metrics"):
+            evaluate_research_draft(
+                draft="", claims=[], source_registry=[],
+                baseline={"metrics": {"unknown_metric": 0.8}},
+            )
+
     def test_rejects_invalid_inputs(self):
         with self.assertRaises(ValueError):
             evaluate_research_draft(draft="", claims=[], source_registry=[])

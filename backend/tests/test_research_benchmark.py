@@ -67,6 +67,23 @@ class ResearchBenchmarkTests(unittest.TestCase):
             "known_source_reference_coverage",
         )
 
+
+    def test_rejects_invalid_baseline_metric_values(self):
+        invalid_values = (-0.1, 1.1, True, "0.8")
+        for value in invalid_values:
+            with self.subTest(value=value):
+                with self.assertRaises(ValueError):
+                    run_offline_research_benchmark(
+                        fixture_cases(),
+                        baseline={"metrics": {"claim_reference_coverage": value}},
+                    )
+
+    def test_rejects_baseline_without_supported_metrics(self):
+        with self.assertRaises(ValueError):
+            run_offline_research_benchmark(
+                fixture_cases(), baseline={"metrics": {"other_metric": 0.8}}
+            )
+
     def test_rejects_invalid_regression_threshold(self):
         for threshold in (-0.1, 1.1, True, "0.05"):
             with self.subTest(threshold=threshold):

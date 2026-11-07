@@ -4,7 +4,7 @@ import unittest
 from unittest.mock import patch
 
 from app.worker_memory import append_memory, review_improvement_proposal
-from app.staging_experiments import create_staging_experiment, run_staging_benchmark, list_staging_experiments, summarize_staging_experiments, summarize_repeatability
+from app.staging_experiments import create_staging_experiment, run_staging_benchmark, list_staging_experiments, summarize_staging_experiments, summarize_repeatability, summarize_research_quality_dashboard, summarize_staging_provenance
 
 
 class StagingExperimentTests(unittest.TestCase):
@@ -273,6 +273,29 @@ class StagingExperimentTests(unittest.TestCase):
     def test_provenance_audit_validates_limit(self):
         with self.assertRaises(ValueError):
             summarize_staging_provenance("worker_001", 0)
+
+    def test_research_quality_dashboard_consolidates_gate_provenance_and_repeatability(self):
+        review_improvement_proposal("worker_001", self.proposal["memory_id"], "approved_for_staging", "reviewer")
+        payload = {
+            "baseline_cases": self._benchmark_cases("missing"),
+            "candidate_cases": self._benchmark_cases("known"),
+            "reviewer": "reviewer",
+            "baseline_fixture_metadata": {"dataset_name": "base", "dataset_version": "v1"},
+            "candidate_fixture_metadata": {"dataset_name": "candidate", "dataset_version": "v1"},
+        }
+        for _ in range(3):
+            run_staging_benchmark("worker_001", self.proposal["memory_id"], payload)
+        dashboard = summarize_research_quality_dashboard("worker_001", limit=10)
+        self.assertEqual(dashboard["experiment_count"], 3)
+        self.assertEqual(dashboard["experiments_missing_dataset_name_or_version"], 0)
+        self.assertEqual(dashboard["quality_gate_status_counts"]["eligible_for_human_staging_review"], 3)
+        self.assertEqual(dashboard["repeatability"]["groups_meeting_min_trials"], 1)
+        self.assertIn("does not validate truth", dashboard["interpretation"])
+
+    def test_research_quality_dashboard_rejects_invalid_limit(self):
+        with self.assertRaisesRegex(ValueError, "limit"):
+            summarize_research_quality_dashboard("worker_001", 0)
+
 
 if __name__ == "__main__":
     unittest.main()

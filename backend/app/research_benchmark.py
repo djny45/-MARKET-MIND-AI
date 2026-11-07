@@ -14,6 +14,8 @@ from app.research_quality_eval import evaluate_research_draft
 MAX_CASES = 100
 MAX_CASE_ID_CHARS = 120
 BASELINE_METRICS = ("claim_reference_coverage", "known_source_reference_coverage")
+DEFAULT_QUALITY_CONFIG = {"uncertainty_markers": ["uncertain", "unknown", "limitation", "assumption", "not verified", "cannot conclude", "insufficient data"]}
+MAX_CONFIG_MARKERS = 20
 
 
 def _validate_baseline_metrics(baseline: dict[str, Any] | None) -> dict[str, Any] | None:
@@ -45,6 +47,7 @@ def run_offline_research_benchmark(
     *,
     baseline: dict[str, Any] | None = None,
     regression_threshold: float = 0.05,
+    quality_config: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Evaluate a bounded, deterministic collection of synthetic research cases."""
     if not isinstance(cases, list) or not cases or len(cases) > MAX_CASES:
@@ -52,6 +55,17 @@ def run_offline_research_benchmark(
     if baseline is not None and not isinstance(baseline, dict):
         raise ValueError("baseline must be an object")
     baseline_metrics = _validate_baseline_metrics(baseline)
+    if quality_config is None:
+        normalized_config = {"uncertainty_markers": list(DEFAULT_QUALITY_CONFIG["uncertainty_markers"])}
+    elif not isinstance(quality_config, dict) or set(quality_config) != {"uncertainty_markers"}:
+        raise ValueError("quality_config supports only the uncertainty_markers setting")
+    else:
+        markers = quality_config.get("uncertainty_markers")
+        if (not isinstance(markers, list) or not markers or len(markers) > MAX_CONFIG_MARKERS
+                or any(not isinstance(marker, str) or not marker.strip() or len(marker) > 80
+                       for marker in markers)):
+            raise ValueError("quality_config.uncertainty_markers must contain 1 to 20 non-empty strings up to 80 characters")
+        normalized_config = {"uncertainty_markers": list(dict.fromkeys(marker.strip().lower() for marker in markers))}
     if (isinstance(regression_threshold, bool)
             or not isinstance(regression_threshold, (int, float))
             or not 0 <= regression_threshold <= 1):
@@ -79,7 +93,7 @@ def run_offline_research_benchmark(
 
     canonical = json.dumps(
         {"cases": normalized_cases, "baseline": baseline,
-         "regression_threshold": regression_threshold},
+         "regression_threshold": regression_threshold, "quality_config": normalized_config},
         sort_keys=True, separators=(",", ":"), ensure_ascii=False,
     )
     benchmark_id = hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:24]
@@ -90,6 +104,7 @@ def run_offline_research_benchmark(
             draft=case["draft"],
             claims=case["claims"],
             source_registry=case["source_registry"],
+            uncertainty_markers=tuple(normalized_config["uncertainty_markers"]),
         )
         results.append({
             "case_id": case["case_id"],
@@ -109,6 +124,13 @@ def run_offline_research_benchmark(
             "evaluated_case_count": len(values),
             "unevaluated_case_count": len(results) - len(values),
         }
+
+    uncertainty_values = [result["evaluation"]["metrics"]["uncertainty_marker_coverage"] for result in results]
+    aggregate["uncertainty_marker_coverage"] = {
+        "mean": round(sum(uncertainty_values) / len(uncertainty_values), 4) if uncertainty_values else None,
+        "evaluated_case_count": len(uncertainty_values),
+        "unevaluated_case_count": len(results) - len(uncertainty_values),
+    }
 
     baseline_comparison = None
     regression_summary = None
@@ -166,6 +188,7 @@ def run_offline_research_benchmark(
     return {
         "benchmark_id": benchmark_id,
         "benchmark_type": "offline_research_traceability",
+        "quality_config": normalized_config,
         "case_count": len(results),
         "aggregate_metrics": aggregate,
         "baseline_comparison": baseline_comparison,

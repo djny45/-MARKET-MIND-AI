@@ -13,7 +13,7 @@ from app.research_quality_eval import evaluate_research_draft
 
 MAX_CASES = 100
 MAX_CASE_ID_CHARS = 120
-BASELINE_METRICS = ("claim_reference_coverage", "known_source_reference_coverage")
+BASELINE_METRICS = ("claim_reference_coverage", "known_source_reference_coverage", "uncertainty_marker_coverage")
 DEFAULT_QUALITY_CONFIG = {"uncertainty_markers": ["uncertain", "unknown", "limitation", "assumption", "not verified", "cannot conclude", "insufficient data"]}
 MAX_CONFIG_MARKERS = 20
 BENCHMARK_EVALUATOR_VERSION = "research-traceability-v1"

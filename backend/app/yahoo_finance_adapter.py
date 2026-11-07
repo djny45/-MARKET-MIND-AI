@@ -32,13 +32,15 @@ class YahooFinanceAdapter:
         self.timeout_seconds = timeout_seconds
 
     async def get_bars(self, symbol: str, interval: str = "1d", limit: int = 100) -> MarketDataBatch:
+        if not isinstance(symbol, str):
+            raise ValueError("symbol must be a string containing 1 to 32 characters")
         symbol = symbol.strip().upper()
         if not symbol or len(symbol) > 32:
             raise ValueError("symbol must contain 1 to 32 characters")
-        if interval not in _INTERVALS:
+        if not isinstance(interval, str) or interval not in _INTERVALS:
             raise ValueError("interval must be one of 15m, 1h, 4h, 1d")
-        if not 1 <= limit <= 5000:
-            raise ValueError("limit must be between 1 and 5000")
+        if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 5000:
+            raise ValueError("limit must be an integer between 1 and 5000")
         payload = await asyncio.to_thread(self._fetch_chart, symbol, interval)
         try:
             result = payload["chart"]["result"][0]

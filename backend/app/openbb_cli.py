@@ -151,7 +151,7 @@ def run_openbb_cli(action: OpenBBAction) -> OpenBBCLIResult:
         while process.poll() is None and time.monotonic() < deadline:
             if output_limit_reached.is_set():
                 break
-            time.sleep(0.025
+            time.sleep(0.025)
 
         timed_out = process.poll() is None and not output_limit_reached.is_set()
         if process.poll() is None:

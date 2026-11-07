@@ -71,8 +71,8 @@ def build_research_timeline(history: dict, limit: int = 200) -> dict:
     rsi_values = rsi(closes, 14)
     macd_values = macd(closes)
     swings = find_swing_points(bars)
-    high_by_index = {p["index"]: p for p in swings["confirmed_swing_highs"]}
-    low_by_index = {p["index"]: p for p in swings["confirmed_swing_lows"]}
+    high_by_index = {p["confirmation_index"]: p for p in swings["confirmed_swing_highs"]}
+    low_by_index = {p["confirmation_index"]: p for p in swings["confirmed_swing_lows"]}
     start = max(0, len(bars) - limit)
     events = []
     for index in range(start, len(bars)):
@@ -91,11 +91,27 @@ def build_research_timeline(history: dict, limit: int = 200) -> dict:
         if patterns:
             kinds.append({"type": "candle_geometry", "labels": patterns})
         if index in high_by_index:
-            kinds.append({"type": "confirmed_swing_high", "price": high_by_index[index]["price"],
-                          "confirmation_bars": swings["right_bars"]})
+            swing = high_by_index[index]
+            kinds.append({
+                "type": "confirmed_swing_high",
+                "price": swing["price"],
+                "pivot_index": swing["index"],
+                "pivot_timestamp": swing["timestamp"],
+                "confirmation_index": swing["confirmation_index"],
+                "confirmation_timestamp": swing["confirmation_timestamp"],
+                "confirmation_bars": swings["right_bars"],
+            })
         if index in low_by_index:
-            kinds.append({"type": "confirmed_swing_low", "price": low_by_index[index]["price"],
-                          "confirmation_bars": swings["right_bars"]})
+            swing = low_by_index[index]
+            kinds.append({
+                "type": "confirmed_swing_low",
+                "price": swing["price"],
+                "pivot_index": swing["index"],
+                "pivot_timestamp": swing["timestamp"],
+                "confirmation_index": swing["confirmation_index"],
+                "confirmation_timestamp": swing["confirmation_timestamp"],
+                "confirmation_bars": swings["right_bars"],
+            })
         events.append({
             "index": index, "timestamp": bar.get("timestamp"),
             "open": float(bar["open"]), "high": float(bar["high"]),

@@ -26,11 +26,12 @@ The system remains a **single shared intelligence core**. Worker/profile identit
 - `POST /api/open-source/intake`: creates a review checklist for a candidate source.\n- `POST /api/open-source/crawl-metadata`: fetches bounded GitHub repository metadata and pins the default-branch commit SHA.
 - `backend/app/github_repository_tree.py`: inventories paths and file metadata from the pinned Git tree, classifies source/docs/license/dependency filenames, and reports the commit SHA.
 - `POST /api/open-source/scan-tree`: returns a bounded repository manifest (up to 20,000 entries) without retrieving source contents.
+- `backend/app/github_repository_files.py` and `POST /api/open-source/scan-review-files`: fetch only allowlisted README, license/NOTICE, and dependency-manifest files at the pinned SHA; enforce per-file, aggregate-byte, and file-count limits; attach SHA-256 hashes.
 - Intake currently **does not fetch, clone, execute, copy, install, or merge** third-party code.
 - Unknown or merely declared licenses do not authorize reuse.
 - Unit and API regression tests cover URL validation and default-deny behavior.
 
-The metadata and tree-manifest stages are now implemented. This is still not a source-content crawler: it does not download README/license/dependency file contents, inspect dependency versions or source semantics, or adapt code. A truncated tree is rejected rather than presented as complete.
+The metadata and tree-manifest stages are now implemented. The review-file stage now retrieves small allowlisted README/license/NOTICE/dependency files, with byte and file-count caps and SHA-256 provenance. It still does not retrieve arbitrary source code, inspect dependency versions semantically, build a source-level architecture graph, or adapt code. Retrieved content is untrusted and must not be treated as instructions. A truncated tree is rejected rather than presented as complete.
 
 ## Proposed execution pipeline
 
@@ -75,7 +76,8 @@ The metadata and tree-manifest stages are now implemented. This is still not a s
 - [ ] GitHub API request budget, pagination cap, and durable cache
 - [x] Pinned GitHub tree manifest and basic file-type classification (path metadata only)
 - [x] Dependency-manifest filename inventory (contents not yet inspected)
-- [ ] README/docs content extraction and dependency/version inventory
+- [x] Bounded README/license/NOTICE/dependency manifest content retrieval with hashes
+- [ ] Dependency/version inventory and README/docs semantic extraction
 - [ ] Source provenance records and content hashes
 - [ ] Prompt-injection/untrusted-content isolation
 

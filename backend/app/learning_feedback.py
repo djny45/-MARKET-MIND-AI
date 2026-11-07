@@ -24,8 +24,13 @@ def evaluate_learning_feedback(
         raise ValueError("current_metrics must be an object with 1 to 100 entries")
     if not isinstance(stale_after_days, int) or isinstance(stale_after_days, bool) or not 1 <= stale_after_days <= 3650:
         raise ValueError("stale_after_days must be between 1 and 3650")
-    if (isinstance(tolerance, bool) or not isinstance(tolerance, (int, float))
-            or not math.isfinite(tolerance) or not 0 <= tolerance <= 1e12):
+    if isinstance(tolerance, bool) or not isinstance(tolerance, (int, float)):
+        raise ValueError("tolerance must be a finite number between 0 and 1e12")
+    try:
+        tolerance = float(tolerance)
+    except (OverflowError, ValueError):
+        raise ValueError("tolerance must be a finite number between 0 and 1e12") from None
+    if not math.isfinite(tolerance) or not 0 <= tolerance <= 1e12:
         raise ValueError("tolerance must be a finite number between 0 and 1e12")
 
     normalized = {}

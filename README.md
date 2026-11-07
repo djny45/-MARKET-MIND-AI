@@ -493,3 +493,11 @@ The staging config-evaluation record now includes a deterministic quality gate:
 - `min_improvement` must be finite and in `(0, 1]`.
 
 This is a fixture-based eligibility signal only. **It never auto-approves, merges, deploys, trains, or trades.** Human review remains required, and coverage gains do not establish truth or market performance.
+
+### Staging experiment history summary
+
+A descriptive history endpoint is available:
+
+- `GET /api/workers/{worker_id}/staging-experiments/summary?limit=100`
+
+It summarizes recent stored fixture experiments by proposal, quality-gate status, metric delta ranges/means, and evaluator config patch frequency. It is a descriptive record only: it does not infer statistical significance, causality, market skill, or strategy rankings. The source records remain append-only and reviewer-controlled.

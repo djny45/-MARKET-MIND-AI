@@ -41,7 +41,7 @@ class OfflineDatasetTests(unittest.TestCase):
         for row in ("1,2,0.5\n", "1,2,0.5,1.5,extra\n"):
             with self.subTest(row=row):
                 path = self.write_csv("open,high,low,close\n" + row)
-                with self.assertRaisesRegex(ValueError, "CSV row 2 has"):
+                with self.assertRaisesRegex(ValueError, "CSV row ending at physical line 2 has"):
                     load_ohlcv_csv(path)
 
     def test_blank_interior_csv_row_rejected(self):
@@ -85,7 +85,7 @@ class OfflineDatasetTests(unittest.TestCase):
     def test_invalid_ohlc_rejected(self):
         from app.offline_dataset import load_ohlcv_csv
         path = self.write_csv("open,high,low,close\n1,0,0.5,1.2\n")
-        with self.assertRaisesRegex(ValueError, "high is below"):
+        with self.assertRaisesRegex(ValueError, "strictly positive"):
             load_ohlcv_csv(path)
 
     def test_nonpositive_ohlc_prices_rejected(self):

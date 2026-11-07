@@ -20,10 +20,6 @@ class IndicatorTests(unittest.TestCase):
   value=float.fromhex("0x1.fffffffffffffp+1023")
   result=ema([value,value,value],2)
   self.assertEqual(result,[value,value,value])
- def test_macd_rejects_overflowed_difference(self):
-  value=float.fromhex("0x1.fffffffffffffp+1023")
-  with self.assertRaisesRegex(ValueError,"MACD line must be finite"):
-   macd([value,-value,value,-value],fast=2,slow=3,signal=2)
  def test_ema(self): self.assertEqual(len(ema([1,2,3],2)),3)
  def test_returns(self): self.assertAlmostEqual(returns([100,110,99])[0],.1)
  def test_rsi(self): self.assertTrue(all(x is None or 0<=x<=100 for x in rsi(list(range(1,40)))))

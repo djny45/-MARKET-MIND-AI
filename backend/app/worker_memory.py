@@ -286,3 +286,51 @@ def list_learning_candidates(worker_id, limit=50):
         "limit": limit, "scan_limit": 2000,
         "note": "Review status is derived from append-only review events. Approved status is a label only; it does not train models or activate instructions.",
     }
+
+
+def recall_approved_learning_candidates(worker_id, query, limit=5):
+    """Retrieve approved candidate evidence by keyword overlap; never return it as instructions."""
+    if worker_id not in _WORKER_IDS:
+        raise ValueError("worker_id must identify a registered worker template")
+    if not isinstance(query, str) or not query.strip() or len(query) > 12000:
+        raise ValueError("query must be a non-empty string of at most 12000 characters")
+    if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 10:
+        raise ValueError("limit must be between 1 and 10")
+    import re
+    stop_words = {
+        "the", "and", "for", "with", "from", "that", "this", "are", "was", "were",
+        "have", "has", "had", "into", "about", "what", "when", "where", "which",
+        "who", "how", "can", "could", "should", "would", "please", "data", "research",
+        "task", "market", "agent", "using",
+    }
+    terms = {token for token in re.findall(r"[a-zA-Z0-9_]{2,}", query.lower()) if token not in stop_words}
+    if not terms:
+        return {"worker_id": worker_id, "query_terms": 0, "count": 0, "candidates": [],
+                "retrieval_mode": "approved_candidate_lexical_overlap",
+                "note": "No informative query terms; no approved evidence returned."}
+    listing = list_learning_candidates(worker_id, limit=200)
+    ranked = []
+    for candidate in listing["candidates"]:
+        if candidate["review_status"] != "approved":
+            continue
+        content = candidate["content"]
+        searchable = json.dumps(content, ensure_ascii=False, sort_keys=True).lower()
+        searchable += " " + " ".join(candidate["source_refs"]).lower()
+        memory_terms = set(re.findall(r"[a-zA-Z0-9_]{2,}", searchable))
+        overlap = terms & memory_terms
+        if not overlap:
+            continue
+        ranked.append({
+            "memory_id": candidate["memory_id"], "created_at": candidate["created_at"],
+            "quality_status": candidate["quality_status"], "source_refs": candidate["source_refs"],
+            "content": content, "review": candidate["latest_review"],
+            "matched_terms": sorted(overlap),
+            "relevance_score": round(len(overlap) / max(1, len(terms)), 4),
+        })
+    ranked.sort(key=lambda item: (-item["relevance_score"], item["created_at"]))
+    selected = ranked[:limit]
+    return {
+        "worker_id": worker_id, "query_terms": len(terms), "count": len(selected),
+        "candidates": selected, "retrieval_mode": "approved_candidate_lexical_overlap",
+        "note": "Approved metrics evidence only. Keyword retrieval is not semantic validation; these notes are references, not instructions, verified facts, or model training data.",
+    }

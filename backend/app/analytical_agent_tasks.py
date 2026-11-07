@@ -122,8 +122,8 @@ def enqueue_research_task(agent_id: str, brief: str, data: dict | list | None = 
             "created_at": now, "updated_at": now, "brain_context_sha256": brain["brain_context_sha256"],
             "execution_mode": "process_local_background_task"}
 
-def execute_queued_research_task(task_id: str) -> None:
-    """Execute one persisted queued task; safe to call from FastAPI BackgroundTasks."""
+def execute_queued_research_task(task_id: str) -> bool:
+    """Execute a queued task; return True if claimed and finalized, False if already claimed or absent."""
     with _connect() as db:
         row = db.execute("SELECT * FROM analytical_agent_tasks WHERE task_id=?", (task_id,)).fetchone()
         if row is None or row["status"] != "queued":

@@ -221,12 +221,12 @@ def evaluate_next_day_return_forecast(
     baseline_predictions = [0.0] * len(test_y)
     # Fit the constant-mean baseline on the same pre-test history only.
     pretest_targets = targets[:validation_end]
-try:
-                mean_return = math.fsum(pretest_targets) / len(pretest_targets)
-            except (OverflowError, ValueError):
-                raise ValueError("pretest mean return must be finite") from None
-            if not math.isfinite(mean_return):
-                raise ValueError("pretest mean return must be finite")
+    try:
+        mean_return = math.fsum(pretest_targets) / len(pretest_targets)
+    except (OverflowError, ValueError):
+        raise ValueError("pretest mean return must be finite") from None
+    if not math.isfinite(mean_return):
+        raise ValueError("pretest mean return must be finite")
     mean_baseline_predictions = [mean_return] * len(test_y)
 
     model_metrics = _metrics(test_y, model_predictions)

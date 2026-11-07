@@ -308,6 +308,23 @@ class StagingExperimentTests(unittest.TestCase):
         self.assertEqual(coverage["positive_count"] + coverage["negative_count"] + coverage["zero_count"], 1)
         self.assertIn("mean_delta", coverage)
 
+    def test_dashboard_includes_fixture_overlap_flags(self):
+        review_improvement_proposal("worker_001", self.proposal["memory_id"], "approved_for_staging", "reviewer")
+        cases = self._benchmark_cases("missing")
+        cases[1]["draft"] = cases[0]["draft"]
+        cases[1]["claims"] = list(cases[0]["claims"])
+        cases[1]["source_registry"] = list(cases[0]["source_registry"])
+        payload = {
+            "baseline_cases": self._benchmark_cases("missing"),
+            "candidate_cases": cases,
+            "reviewer": "reviewer",
+        }
+        run_staging_benchmark("worker_001", self.proposal["memory_id"], payload)
+        dashboard = summarize_research_quality_dashboard("worker_001")
+        self.assertGreaterEqual(dashboard["fixture_overlap_flagged_pair_total"], 1)
+        self.assertEqual(dashboard["experiments"][0]["fixture_overlap_flagged_pair_count"],
+                         dashboard["fixture_overlap_flagged_pair_total"])
+
     def test_research_quality_dashboard_rejects_invalid_limit(self):
         with self.assertRaisesRegex(ValueError, "limit"):
             summarize_research_quality_dashboard("worker_001", 0)

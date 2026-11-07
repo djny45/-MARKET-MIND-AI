@@ -211,3 +211,45 @@ def load_skill(slug: str):
         "requires_external_tools": requires_external_tools,
         "broker_execution": False,
     }
+
+
+QLIB_RESEARCH_PROTOCOL = {
+    "protocol_id": "qlib-historical-evaluation-v1",
+    "skill_id": "qlib-research",
+    "mode": "advisory_checklist",
+    "steps": [
+        "Define research question, target, horizon, dataset, and experiment version.",
+        "Check data provenance, timestamps, missing values, duplicates, universe assumptions, and corporate actions.",
+        "Use chronological train/validation/test splits; fit preprocessing on training data only.",
+        "Check look-ahead leakage, publication delays, rolling-window overlap, and survivorship bias.",
+        "Compare a simple baseline with the candidate; report sample counts, coverage, uncertainty, and time-window stability.",
+        "Document retrospective transaction-cost and slippage assumptions; do not present simulation as live performance.",
+        "Record inputs, configuration, dataset identifiers, code revision, metrics, warnings, and random seeds.",
+        "Require tests, independent review, and rollback planning before adopting changes.",
+    ],
+    "required_outputs": [
+        "Experiment ID and version",
+        "Dataset source, retrieval time, status, and date range",
+        "Split boundaries and leakage checks",
+        "Baseline and candidate metrics with sample counts",
+        "Robustness checks and uncertainty",
+        "Limitations and reviewer decision",
+        "Reproduction command or procedure",
+    ],
+    "research_only": True,
+    "broker_execution": False,
+    "autonomous_model_update": False,
+    "enforcement": "advisory_only_not_automatically_applied_to_node_execution",
+}
+
+
+def build_skill_protocol(slug: str) -> dict | None:
+    """Return a fixed, allowlisted advisory protocol for supported research skills."""
+    if slug == "qlib-research":
+        # Return a fresh object so callers cannot mutate the module-level template.
+        return {
+            **QLIB_RESEARCH_PROTOCOL,
+            "steps": list(QLIB_RESEARCH_PROTOCOL["steps"]),
+            "required_outputs": list(QLIB_RESEARCH_PROTOCOL["required_outputs"]),
+        }
+    return None

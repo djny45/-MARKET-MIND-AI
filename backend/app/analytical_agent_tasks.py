@@ -383,7 +383,15 @@ def list_task_audit_events(
     events = []
     for row in reversed(rows):
         event = dict(row)
-        event["detail"] = json.loads(event.pop("detail_json"))
+        detail_decode_error = False
+        try:
+            detail = json.loads(event.pop("detail_json"))
+        except (json.JSONDecodeError, TypeError):
+            # Keep audit history available even if one persisted detail blob is damaged.
+            detail = None
+            detail_decode_error = True
+        event["detail"] = detail
+        event["detail_decode_error"] = detail_decode_error
         events.append(event)
     next_cursor = rows[-1]["event_id"] if len(rows) == limit else None
     return {

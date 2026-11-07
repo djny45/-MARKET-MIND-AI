@@ -199,6 +199,22 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertEqual(snapshot["stale_running_task_count"], 1)
         self.assertIn("stale_running_tasks_present", snapshot["attention_reasons"])
 
+    def test_recovery_api_accepts_configurable_grace_period(self):
+        import sqlite3
+        from app.analytical_agent_tasks import enqueue_research_task, recover_interrupted_research_tasks
+
+        task = enqueue_research_task("worker_004", "recovery grace period")
+        with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+            db.execute(
+                "UPDATE analytical_agent_tasks SET status='running',updated_at=? WHERE task_id=?",
+                ("2000-01-01T00:00:00+00:00", task["task_id"]),
+            )
+
+        recovered = recover_interrupted_research_tasks(stale_after_seconds=60)
+        self.assertEqual(recovered["stale_after_seconds"], 60)
+        self.assertEqual(recovered["requeued_interrupted_count"], 1)
+        self.assertIn(task["task_id"], recovered["queued_task_ids"])
+
     def test_supervisor_health_rejects_invalid_stale_threshold(self):
         from app.analytical_agent_tasks import agent_supervisor_status
 

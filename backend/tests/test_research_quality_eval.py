@@ -85,6 +85,8 @@ class ResearchQualityEvalTests(unittest.TestCase):
         )
         metrics = result["metrics"]
         self.assertEqual(metrics["source_registry_entries_missing_provenance_count"], 1)
+        self.assertEqual(metrics["source_registry_entries_complete_provenance_count"], 1)
+        self.assertEqual(metrics["source_registry_provenance_completeness"], 0.5)
         self.assertEqual(
             metrics["source_registry_missing_provenance_by_field"],
             {"title": 0, "url": 0, "source_type": 0, "observed_at": 1},
@@ -149,6 +151,8 @@ class ResearchQualityEvalTests(unittest.TestCase):
             }],
         )
         self.assertEqual(result["metrics"]["claims_with_complete_source_provenance_refs"], 1)
+        self.assertEqual(result["metrics"]["source_registry_entries_complete_provenance_count"], 1)
+        self.assertEqual(result["metrics"]["source_registry_provenance_completeness"], 1.0)
 
     def test_empty_claim_set_has_null_coverage(self):
         result = evaluate_research_draft(draft="No claims.", claims=[], source_registry=[])

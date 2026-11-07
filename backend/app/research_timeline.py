@@ -60,7 +60,7 @@ def _validate_ohlcv_bars(bars):
 
 def build_research_timeline(history: dict, limit: int = 200) -> dict:
     bars = history.get("bars", [])
-    if not isinstance(limit, int) or limit < 1 or limit > 1000:
+    if not isinstance(limit, int) or isinstance(limit, bool) or limit < 1 or limit > 1000:
         raise ValueError("limit must be between 1 and 1000")
     if not bars:
         return {"symbol": history.get("symbol"), "interval": history.get("interval"),

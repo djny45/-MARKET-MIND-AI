@@ -92,6 +92,9 @@ def get_task_quality_evaluation(task_id: str) -> dict | None:
     evaluation_decode_error = False
     try:
         evaluation = json.loads(row["evaluation_json"])
+        if not isinstance(evaluation, dict):
+            evaluation = None
+            evaluation_decode_error = True
     except (json.JSONDecodeError, TypeError):
         # Preserve task-linked quality status if the stored evaluation is damaged.
         evaluation = None

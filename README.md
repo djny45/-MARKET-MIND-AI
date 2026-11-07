@@ -466,6 +466,12 @@ This route is still offline and fixture-only. It does not fetch market data or e
 
 The benchmark now also returns `fixture_overlap`, a lexical audit over draft and claim text plus source-ID reuse. It reports pairwise token Jaccard similarity (threshold 0.5) and shared source references/registry IDs. Treat these as review flags only: common wording may trigger them, and paraphrases may be missed. This is not semantic analysis and cannot establish leakage or independence.
 
+### Benchmark fixture provenance
+
+Each offline traceability benchmark result now includes an evaluator version (`research-traceability-v1`), `fixture_origin: caller_supplied`, and optional bounded `fixture_metadata` fields: `dataset_name`, `dataset_version`, `source_description`, `prepared_by`, and `collection_date` (each up to 160 characters). Staging benchmark requests may provide separate `baseline_fixture_metadata` and `candidate_fixture_metadata`; these are stored with the respective benchmark run.
+
+Provenance metadata is **caller-declared, not verified**. Unknown fields and oversized/non-string values are rejected. Metadata is deliberately excluded from `benchmark_id`, which fingerprints fixture inputs and evaluator configuration; changing a label does not create a new benchmark fingerprint. Do not put secrets, personal data, or sensitive URLs in metadata. The evaluator version is a manual compatibility label and does not prove code provenance or independent validation.
+
 The benchmark also emits `fixture_diversity`: it hashes each case's draft, claims, and source registry and flags exact-content duplicates across different case IDs. This helps prevent duplicated examples from being mistaken for a diverse fixture set. It does not detect paraphrases or semantic overlap and does not establish independent evidence.
 
 The offline staging benchmark now also pairs baseline and candidate fixtures by exact `case_id`, stores per-case deltas for both traceability coverage metrics, and flags case-level decreases. Mismatched case sets are rejected instead of comparing unrelated samples. These are structural regression diagnostics only; they do not assess truth, predictive ability, or trading performance.

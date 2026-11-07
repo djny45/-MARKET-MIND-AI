@@ -268,3 +268,106 @@ def run_feedback_improvement_cycle(worker_id: str, limit: int = 50, min_feedback
             "and issue tags only. It does not train weights, alter strategy, or deploy changes."
         ),
     }
+
+_STAGING_CHECKS_BY_CATEGORY = {
+    "data_provenance": [
+        "Confirm baseline and candidate dataset/source IDs and versions.",
+        "Compare provenance coverage and unknown-source counts on paired fixtures.",
+        "Reject promotion if source identity is missing or declared provenance differs unexpectedly.",
+    ],
+    "timestamp_leakage": [
+        "Confirm chronological ordering and timezone-aware timestamps.",
+        "Check feature/label timestamps and prevent future information from entering inputs.",
+        "Evaluate on a strictly later held-out time window; document any embargo.",
+    ],
+    "missing_data": [
+        "Compare missingness and sample coverage for baseline and candidate.",
+        "Include missing, null, and incomplete fixture cases.",
+        "Reject promotion if coverage regresses beyond the reviewer-approved threshold.",
+    ],
+    "uncertainty": [
+        "Report sample size and metric variability across chronological windows.",
+        "Compare candidate and baseline across at least three independent fixture windows when available.",
+        "Do not interpret small metric changes as meaningful without adequate sample size.",
+    ],
+    "reproducibility": [
+        "Record dataset, fixture, evaluator, and config versions.",
+        "Repeat the same candidate/baseline experiment at least three times.",
+        "Check that repeated runs preserve expected outputs and gate decisions.",
+    ],
+    "output_clarity": [
+        "Check separation of evidence, computed metrics, assumptions, and unknowns.",
+        "Use paired cases that include missing citations and unsupported claims.",
+        "Ensure the candidate does not reduce any protected quality metric.",
+    ],
+    "other": [
+        "Translate the reviewer example into a narrow, testable acceptance criterion.",
+        "Create paired baseline/candidate fixtures that reproduce the reported issue.",
+        "Add a held-out fixture that checks for regressions outside the reported issue.",
+    ],
+}
+
+
+def build_feedback_staging_plan(worker_id: str, proposal_memory_id: str) -> dict[str, Any]:
+    """Build a review-gated experiment checklist for a feedback proposal.
+
+    This produces a plan only. It does not execute experiments, edit code,
+    train models, or deploy changes.
+    """
+    from .worker_memory import list_improvement_proposals
+
+    if not isinstance(proposal_memory_id, str) or not proposal_memory_id.strip():
+        raise ValueError("proposal_memory_id must be a non-empty string")
+    proposal_memory_id = proposal_memory_id.strip()
+    listing = list_improvement_proposals(worker_id, limit=200)
+    selected = next(
+        (item for item in listing["proposals"] if item["memory_id"] == proposal_memory_id),
+        None,
+    )
+    if selected is None:
+        raise ValueError("proposal_memory_id was not found for this worker")
+    if selected.get("review_status") != "approved_for_staging":
+        raise ValueError("proposal must have latest review approved_for_staging before planning")
+
+    proposal = selected.get("proposal", {})
+    category = proposal.get("dominant_issue_category", "other")
+    if not isinstance(category, str) or category not in _STAGING_CHECKS_BY_CATEGORY:
+        category = "other"
+    checks = list(_STAGING_CHECKS_BY_CATEGORY[category])
+    return {
+        "worker_id": worker_id,
+        "proposal_memory_id": proposal_memory_id,
+        "proposal_title": proposal.get("title", "Untitled research-quality proposal"),
+        "issue_category": category,
+        "review_status": selected["review_status"],
+        "staging_plan_version": "feedback-staging-plan-v1",
+        "required_checks": checks,
+        "experiment_design": {
+            "comparison": "paired_baseline_candidate",
+            "fixtures": "offline_and_caller_supplied",
+            "minimum_repeat_runs": 3,
+            "held_out_evaluation": True,
+            "record_dataset_and_evaluator_versions": True,
+            "require_reviewed_thresholds": True,
+        },
+        "promotion_gate": {
+            "requires_no_protected_metric_regression": True,
+            "requires_provenance_review": True,
+            "requires_repeatability_review": True,
+            "requires_human_decision": True,
+            "auto_promote": False,
+            "auto_apply": False,
+            "model_training": False,
+            "deployment": False,
+        },
+        "next_api_endpoint": (
+            f"/api/workers/{worker_id}/improvement-proposals/"
+            f"{proposal_memory_id}/staging-benchmark"
+        ),
+        "limitations": [
+            "This checklist is generated from a reviewer-tagged category, not independently verified root cause.",
+            "A staging approval authorizes evaluation only; it does not authorize code changes, training, or deployment.",
+            "Benchmark results remain dependent on caller-supplied fixtures and labels.",
+        ],
+    }
+

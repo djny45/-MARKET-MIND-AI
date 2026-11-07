@@ -166,6 +166,30 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertEqual(snapshot["status_counts"]["queued"], 1)
         self.assertEqual(snapshot["task_count"], 1)
 
+    def test_supervisor_health_flags_stale_running_tasks(self):
+        import sqlite3
+        from app.analytical_agent_tasks import enqueue_research_task, agent_supervisor_status
+
+        task = enqueue_research_task("worker_004", "stale running task health")
+        with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+            db.execute(
+                "UPDATE analytical_agent_tasks SET status='running',updated_at=? WHERE task_id=?",
+                ("2000-01-01T00:00:00+00:00", task["task_id"]),
+            )
+
+        snapshot = agent_supervisor_status(stale_after_seconds=60)
+        self.assertEqual(snapshot["status"], "attention_required")
+        self.assertEqual(snapshot["stale_running_task_count"], 1)
+        self.assertIn("stale_running_tasks_present", snapshot["attention_reasons"])
+
+    def test_supervisor_health_rejects_invalid_stale_threshold(self):
+        from app.analytical_agent_tasks import agent_supervisor_status
+
+        for invalid in (True, 0, -1, 1.5, "60"):
+            with self.subTest(invalid=invalid):
+                with self.assertRaises(ValueError):
+                    agent_supervisor_status(invalid)
+
     def test_supervisor_health_exposes_actionable_counts_and_reasons(self):
         from app.analytical_agent_tasks import enqueue_research_task, agent_supervisor_status
 

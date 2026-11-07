@@ -98,6 +98,25 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertIsNone(saved["evaluation"])
         self.assertTrue(saved["evaluation_decode_error"])
 
+    def test_quality_evaluation_rejects_valid_non_object_json(self):
+        import sqlite3
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, get_task_quality_evaluation, _persist_quality_evaluation,
+        )
+
+        queued = enqueue_research_task("worker_004", "quality evaluation JSON shape")
+        _persist_quality_evaluation(queued["task_id"], "worker_004", {"score": 0.8})
+        with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+            db.execute(
+                "UPDATE research_quality_evaluations SET evaluation_json=? WHERE task_id=?",
+                ("[]", queued["task_id"]),
+            )
+
+        saved = get_task_quality_evaluation(queued["task_id"])
+        self.assertEqual(saved["status"], "persisted")
+        self.assertIsNone(saved["evaluation"])
+        self.assertTrue(saved["evaluation_decode_error"])
+
     def test_task_is_persisted_and_scoped_to_worker(self):
         result = submit_research_task("worker_001", "Review this supplied dataset", {"prices": [10, 11, 12]})
         self.assertEqual(result["status"], "completed")

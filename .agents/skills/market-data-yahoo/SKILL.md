@@ -17,7 +17,7 @@ Use MARKET-MIND-AI's `YahooFinanceAdapter` from `backend/app/yahoo_finance_adapt
 ## Limitations
 - Best-effort Yahoo Finance chart endpoint; availability, throttling, terms, and response formats may change.
 - This is not an official guaranteed API or a real-time feed.
-- `4h` currently requests hourly bars and does not aggregate them; avoid presenting them as 4-hour candles.
+- `4h` requests Yahoo hourly history and aggregates only groups of four consecutive hourly candles within a continuous session segment. Groups are anchored to the first hourly timestamp (not UTC midnight); gaps split segments, and incomplete groups are discarded. This is a research approximation of session-aligned 4h bars, not Yahoo-native 4h data.
 - Do not use the adapter as broker execution data, nor infer guaranteed prices or returns.
 - Never hide provider errors or freshness warnings.
 

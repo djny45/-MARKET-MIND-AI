@@ -230,3 +230,17 @@ Implemented on the open PR branch:
 Limitations:
 - This scans paths and Git object metadata only. It does not fetch README, license, NOTICE, dependency or source file contents; dependency versions and source architecture are not yet analyzed.
 - No repository code is copied, installed or executed. Tests are committed but not run in this environment; current-head CI is unverified.
+
+
+## Allowlisted repository review-file retrieval — 2026-11-08
+
+Implemented on the open PR branch:
+- Added a pinned-SHA file retrieval stage for allowlisted README, license/NOTICE and dependency-manifest names only.
+- Enforced a 64 KB per-file cap, 256 KB aggregate cap, 12-file cap, and bounded GitHub API responses.
+- Added SHA-256 hashes and repository blob SHAs to retrieved text records; skips non-UTF-8 files.
+- Added `POST /api/open-source/scan-review-files` and regression tests for content decoding, path matching, allowlist enforcement, size limits and API error handling.
+
+Limitations:
+- This does not retrieve arbitrary source files, install dependencies, execute repository code, or automatically approve licenses.
+- README, license, NOTICE and manifest text is untrusted. License/NOTICE review and dependency vulnerability/compatibility analysis remain manual/pending.
+- Tests are committed but not executed in this environment; current-head CI remains unverified.

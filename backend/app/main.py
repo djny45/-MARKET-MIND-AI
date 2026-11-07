@@ -513,9 +513,12 @@ def analytical_agent_supervisor_dispatch(request: AgentSupervisorDispatchRequest
 
 
 @app.post("/api/analytical-agent-tasks/recover")
-def analytical_agent_recover_tasks():
+def analytical_agent_recover_tasks(stale_after_seconds: int = 900):
  """Requeue tasks interrupted while running; does not dispatch them."""
- return recover_interrupted_research_tasks()
+ try:
+  return recover_interrupted_research_tasks(stale_after_seconds)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 @app.get("/api/analytical-agent-tasks/{task_id}")
 def analytical_agent_task_detail(task_id: str):

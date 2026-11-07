@@ -208,7 +208,9 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
 
 
     def test_recovery_requeues_stale_running_tasks_and_preserves_queued(self):
-        from app.analytical_agent_tasks import enqueue_research_task, recover_interrupted_research_tasks
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, recover_interrupted_research_tasks, list_task_audit_events,
+        )
         from datetime import datetime, timedelta, timezone
         queued = enqueue_research_task("worker_005", "recover me")
         import sqlite3
@@ -222,6 +224,12 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertEqual(recovery["requeued_interrupted_count"], 1)
         self.assertEqual(recovery["recovery_mode"], "manual_stale_requeue_no_dispatch")
         self.assertEqual(get_research_task(queued["task_id"])["status"], "queued")
+        requeued_events = [
+            event for event in list_task_audit_events(queued["task_id"])["events"]
+            if event["event_type"] == "task_requeued"
+        ]
+        self.assertEqual(len(requeued_events), 1)
+        self.assertEqual(requeued_events[0]["detail"]["reason"], "stale_recovery")
 
     def test_concurrent_dispatchers_execute_a_queued_task_once(self):
         from concurrent.futures import ThreadPoolExecutor

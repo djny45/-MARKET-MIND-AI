@@ -32,7 +32,7 @@ class OpenBBCLITests(unittest.TestCase):
     def test_disabled_by_default_gate_does_not_spawn_cli(self, _which):
         with patch("app.openbb_cli.subprocess.Popen") as popen:
             result = run_openbb_cli("help")
-        self.assertFalse(result.available)
+        self.assertTrue(result.available)
         self.assertIn("disabled", result.error)
         popen.assert_not_called()
 
@@ -57,14 +57,21 @@ class OpenBBCLITests(unittest.TestCase):
         self.assertEqual(kwargs["stdin"], __import__("subprocess").DEVNULL)
 
     @patch.dict(os.environ, {"OPENBB_CLI_ENABLED": "true"})
-    @patch("app.openbb_cli.importlib.metadata.version", return_value="5.0.1")
-    @patch("app.openbb_cli.shutil.which", return_value="/usr/bin/openbb")
-    def test_version_uses_package_metadata_not_unsupported_flag(self, _which, version):
+    @patch("app.openbb_cli.Path.is_file", return_value=True)
+    @patch("app.openbb_cli.subprocess.run")
+    @patch("app.openbb_cli.shutil.which", return_value="/opt/openbb-venv/bin/openbb")
+    def test_version_uses_cli_environment_python(self, _which, run, _is_file):
+        run.return_value = __import__("subprocess").CompletedProcess(
+            args=[], returncode=0, stdout="5.0.1\\n", stderr=""
+        )
         result = run_openbb_cli("version")
         self.assertTrue(result.available)
         self.assertEqual(result.exit_code, 0)
         self.assertEqual(result.output, "OpenBB CLI version 5.0.1")
-        version.assert_called_once_with("openbb-cli")
+        args, kwargs = run.call_args
+        self.assertEqual(args[0][0], "/opt/openbb-venv/bin/python")
+        self.assertIn("openbb-cli", args[0][2])
+        self.assertFalse(kwargs["shell"])
 
     @patch.dict(os.environ, {"OPENBB_CLI_ENABLED": "true"})
     @patch("app.openbb_cli.subprocess.Popen")
@@ -82,12 +89,16 @@ class OpenBBCLITests(unittest.TestCase):
         self.assertTrue(openbb_cli_enabled())
 
     @patch.dict(os.environ, {"OPENBB_CLI_ENABLED": "true"})
-    @patch("app.openbb_cli.importlib.metadata.version", side_effect=__import__("importlib").metadata.PackageNotFoundError)
-    @patch("app.openbb_cli.shutil.which", return_value="/usr/bin/openbb")
-    def test_version_handles_missing_distribution_metadata(self, _which, _version):
+    @patch("app.openbb_cli.Path.is_file", return_value=True)
+    @patch("app.openbb_cli.subprocess.run")
+    @patch("app.openbb_cli.shutil.which", return_value="/opt/openbb-venv/bin/openbb")
+    def test_version_handles_missing_distribution_metadata(self, _which, run, _is_file):
+        run.return_value = __import__("subprocess").CompletedProcess(
+            args=[], returncode=1, stdout="PackageNotFoundError\\n", stderr=""
+        )
         result = run_openbb_cli("version")
         self.assertTrue(result.available)
-        self.assertIsNone(result.exit_code)
+        self.assertEqual(result.exit_code, 1)
         self.assertIn("metadata was not found", result.error)
 
     @patch.dict(os.environ, {"OPENBB_CLI_ENABLED": "true"})

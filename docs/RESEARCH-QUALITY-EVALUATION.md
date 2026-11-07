@@ -33,6 +33,5 @@ From the repository root:
 PYTHONPATH=backend python -m unittest backend.tests.test_research_quality_eval -v
 ```
 
-The tests include duplicate-ID normalization and reporting. They have not been
-executed as part of this change; run them locally or through CI before relying
-on the update.
+The tests include duplicate-ID normalization and reporting. Run the command
+above to verify the evaluator in your environment.

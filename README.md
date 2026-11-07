@@ -444,3 +444,15 @@ Generated improvement proposals can now be reviewed through append-only records:
 - `GET /api/analytical-agent-tasks/{task_id}` — retrieves the stored input, status, result, and brain-context digest.
 
 Tasks are isolated by worker ID and retain the worker context hash. The first implementation is **bounded and synchronous**: it does not yet provide cloud workspaces, background scheduling, or 550 always-on autonomous processes. If the shared Ollama core is not configured, the result explicitly reports that synthesis is unavailable rather than fabricating analysis. Tasks use supplied data only; live market retrieval, broker execution, and paper trading are excluded.
+
+
+## Human-reviewed staging experiment records
+
+Improvement proposals can now be followed by metrics-only staging experiment records:
+
+- `POST /api/workers/{worker_id}/improvement-proposals/{proposal_memory_id}/staging-experiments` — append a baseline/candidate comparison.
+- `GET /api/workers/{worker_id}/staging-experiments` — list recent experiment records.
+
+The POST endpoint requires the proposal's **latest** review to be `approved_for_staging`; a later `rejected` or `needs_revision` review revokes that gate. Inputs are reviewer-supplied benchmark identifiers and numeric metrics, stored as append-only worker memory. Metric direction is deliberately not assumed (higher is not always better), so non-identical comparisons remain `inconclusive`; identical metrics are labeled `no_material_change`.
+
+This is a **recording and governance layer**, not a benchmark execution engine. It does not run proposal code, alter production settings, modify prompts or model weights, deploy, or trade. The metrics are unverified unless independently evaluated. See `backend/app/staging_experiments.py` and `backend/tests/test_staging_experiments.py`.

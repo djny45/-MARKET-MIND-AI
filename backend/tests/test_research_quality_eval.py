@@ -114,6 +114,42 @@ class ResearchQualityEvalTests(unittest.TestCase):
         self.assertEqual(metrics["claims_with_complete_source_provenance_refs"], 0)
         self.assertEqual(metrics["incomplete_source_provenance_ids"], ["src-x"])
 
+    def test_flags_malformed_url_and_timestamp_without_claiming_source_validation(self):
+        result = evaluate_research_draft(
+            draft="URL and timestamp format checks are structural.",
+            claims=[{"text": "Claim", "source_refs": ["bad-url", "bad-time", "good"]}],
+            source_registry=[
+                {"source_id": "bad-url", "title": "A", "url": "ftp://example.org/a",
+                 "source_type": "paper", "observed_at": "2026-11-07T10:00:00Z"},
+                {"source_id": "bad-time", "title": "B", "url": "https://example.org/b",
+                 "source_type": "web", "observed_at": "yesterday"},
+                {"source_id": "good", "title": "C", "url": "https://example.org/c",
+                 "source_type": "web", "observed_at": "2026-11-07T10:00:00+00:00"},
+            ],
+        )
+        metrics = result["metrics"]
+        self.assertEqual(
+            metrics["source_registry_invalid_provenance_by_field"],
+            {"url": 1, "observed_at": 1},
+        )
+        self.assertEqual(
+            metrics["incomplete_source_provenance_ids"],
+            ["bad-time", "bad-url"],
+        )
+        self.assertIn("format only", result["interpretation"])
+
+    def test_accepts_iso_timestamp_with_timezone_and_http_url(self):
+        result = evaluate_research_draft(
+            draft="Valid formats.",
+            claims=[{"text": "Claim", "source_refs": ["src"]}],
+            source_registry=[{
+                "source_id": "src", "title": "Source",
+                "url": "https://example.org/path",
+                "source_type": "web", "observed_at": "2026-11-07T10:00:00+05:30",
+            }],
+        )
+        self.assertEqual(result["metrics"]["claims_with_complete_source_provenance_refs"], 1)
+
     def test_empty_claim_set_has_null_coverage(self):
         result = evaluate_research_draft(draft="No claims.", claims=[], source_registry=[])
         self.assertIsNone(result["metrics"]["claim_reference_coverage"])

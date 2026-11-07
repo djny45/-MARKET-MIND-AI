@@ -271,6 +271,13 @@ class StagingBenchmarkRequest(BaseModel):
  reviewer: str = Field(min_length=1, max_length=120)
  notes: str = Field(default="", max_length=2000)
 
+class StagingConfigPatchRequest(BaseModel):
+ baseline_cases: list[dict[str, Any]] = Field(min_length=1, max_length=100)
+ candidate_cases: list[dict[str, Any]] = Field(min_length=1, max_length=100)
+ config_patch: dict[str, Any]
+ reviewer: str = Field(min_length=1, max_length=120)
+ notes: str = Field(default="", max_length=2000)
+
 class AgentResearchMessageRequest(BaseModel):
  agent_id: str = Field(min_length=1, max_length=96)
  market_group: Literal["india", "us", "crypto", "forex"]
@@ -566,6 +573,17 @@ def run_worker_staging_benchmark(worker_id: str, proposal_memory_id: str, reques
  """Run the built-in deterministic benchmark on two caller-supplied fixture sets."""
  try:
   return run_staging_benchmark(worker_id, proposal_memory_id, request.model_dump())
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/workers/{worker_id}/improvement-proposals/{proposal_memory_id}/staging-config-evaluation")
+def run_worker_staging_config_evaluation(worker_id: str, proposal_memory_id: str, request: StagingConfigPatchRequest):
+ """Evaluate a structured, whitelisted evaluator config change against paired offline fixtures."""
+ try:
+  payload = request.model_dump()
+  payload["config_patch"] = request.config_patch
+  return run_staging_benchmark(worker_id, proposal_memory_id, payload)
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 

@@ -166,6 +166,16 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertEqual(snapshot["status_counts"]["queued"], 1)
         self.assertEqual(snapshot["task_count"], 1)
 
+    def test_supervisor_health_exposes_actionable_counts_and_reasons(self):
+        from app.analytical_agent_tasks import enqueue_research_task, agent_supervisor_status
+
+        enqueue_research_task("worker_004", "supervisor health counters")
+        snapshot = agent_supervisor_status()
+        self.assertEqual(snapshot["queued_task_count"], 1)
+        self.assertEqual(snapshot["running_task_count"], 0)
+        self.assertEqual(snapshot["failed_task_count"], 0)
+        self.assertEqual(snapshot["attention_reasons"], [])
+
     def test_supervisor_health_flags_failed_and_unknown_task_states(self):
         import sqlite3
         from app.analytical_agent_tasks import (

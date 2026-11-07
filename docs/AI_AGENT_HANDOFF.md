@@ -28,7 +28,7 @@ Research modules should return a structured record with these fields when applic
 - `status`: `completed`, `partial`, `failed`, or `not_run`.
 - `source`: provider, imported file, or fixture identifier.
 - `retrieved_at`: timezone-aware timestamp for data retrieval.
-- `data_status`: `historical`, `delayed`, `synthetic`, `manual`, or `unknown`.
+- `data_status`: `live`, `delayed`, `historical`, or `synthetic` (the current `DataStatus` enum). User-imported/manual provenance belongs in the source field, not this status. Market-event records use their own status vocabulary: `historical`, `delayed`, `end_of_day`, `reference`, or `synthetic`.
 - `method`: indicator, analysis method, and version where available.
 - `findings`: concise evidence-linked observations.
 - `warnings`: missing data, stale data, assumptions, and other limitations.
@@ -52,11 +52,11 @@ Distinguish user-entered levels from indicator-derived values and agent interpre
 
 ## Agent task lifecycle
 
-Use explicit states where supported:
+Use the task states currently persisted by the runtime:
 
-`queued → running → completed | partial | failed | cancelled`
+`queued → running → completed | failed`
 
-A task should expose its ID, timestamps, input summary, worker/profile, status, output reference, and sanitized error. Retries must not create duplicate persisted results accidentally. Background-task status must not be presented as durable distributed execution unless persistence and recovery actually exist.
+`partial` may describe output completeness, but it is not a persisted task lifecycle state; `cancelled` is not currently supported. A task should expose its ID, timestamps, input summary, worker/profile, status, output reference, and sanitized error. Retries must not create duplicate persisted results accidentally. Background-task status must not be presented as durable distributed execution unless persistence and recovery actually exist.
 
 ## Integration checklist
 

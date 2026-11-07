@@ -9,6 +9,7 @@ from .workflow import NODE_TYPES, execute_workflow
 from .workers import list_workers
 from .worker_runtime import worker_runtime_status
 from .worker_memory import append_memory, read_memory, recall_memory, review_learning_candidate, list_learning_candidates, recall_approved_learning_candidates, review_improvement_proposal, list_improvement_proposals
+from .staging_experiments import create_staging_experiment, list_staging_experiments
 from .learning_feedback import evaluate_learning_feedback
 from .worker_registry import evaluate_registry, registry_manifest
 from .analytical_agent_runtime import runtime_manifest, brain_config, validate_learning_feedback, validate_update_proposal
@@ -256,6 +257,13 @@ class ImprovementProposalReviewRequest(BaseModel):
  decision: Literal["approved_for_staging", "rejected", "needs_revision"]
  reviewer: str = Field(min_length=1, max_length=120)
  rationale: str = Field(default="", max_length=2000)
+
+class StagingExperimentRequest(BaseModel):
+ benchmark_id: str = Field(min_length=1, max_length=120)
+ baseline_metrics: dict[str, float] = Field(min_length=1, max_length=10)
+ candidate_metrics: dict[str, float] = Field(min_length=1, max_length=10)
+ reviewer: str = Field(min_length=1, max_length=120)
+ notes: str = Field(default="", max_length=2000)
 
 class AgentResearchMessageRequest(BaseModel):
  agent_id: str = Field(min_length=1, max_length=96)
@@ -534,6 +542,24 @@ def review_worker_improvement_proposal(
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+
+
+
+@app.post("/api/workers/{worker_id}/improvement-proposals/{proposal_memory_id}/staging-experiments")
+def create_worker_staging_experiment(worker_id: str, proposal_memory_id: str, request: StagingExperimentRequest):
+ """Record a human-run, metrics-only staging comparison for an approved proposal."""
+ try:
+  return create_staging_experiment(worker_id, proposal_memory_id, request.model_dump())
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/workers/{worker_id}/staging-experiments")
+def get_worker_staging_experiments(worker_id: str, limit: int = 50):
+ try:
+  return list_staging_experiments(worker_id, limit)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 @app.get("/api/workers/{worker_id}/learning-candidates/approved-context")
 def recall_worker_approved_learning_candidates(worker_id: str, query: str, limit: int = 5):

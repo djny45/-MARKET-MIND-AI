@@ -1,4 +1,3 @@
-import math
 import unittest
 
 from app.research_quality_eval import evaluate_research_draft

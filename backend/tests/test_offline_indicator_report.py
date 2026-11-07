@@ -76,6 +76,33 @@ class OfflineIndicatorReportTests(unittest.TestCase):
         )
 
     @patch.object(exporter, "run_offline_research")
+    def test_timestamp_objects_are_serialized_with_isoformat(self, run_pipeline):
+        from datetime import datetime, timezone
+
+        class TimestampDataset:
+            columns = ["timestamp"]
+
+            def __getitem__(self, key):
+                if key == "timestamp":
+                    return [
+                        datetime(2024, 1, 1, 0, 0, tzinfo=timezone.utc),
+                        None,
+                    ]
+                raise KeyError(key)
+
+        run_pipeline.return_value = {
+            "row_count": 2,
+            "columns": TimestampDataset.columns,
+            "dataset": TimestampDataset(),
+            "indicators": {},
+        }
+
+        report = exporter.build_report("sample.csv", timestamp_column="timestamp")
+
+        self.assertEqual(report["timestamps"], ["2024-01-01T00:00:00+00:00", None])
+
+
+    @patch.object(exporter, "run_offline_research")
     def test_report_without_talib_has_empty_indicator_map(self, run_pipeline):
         run_pipeline.return_value = {
             "row_count": 1,

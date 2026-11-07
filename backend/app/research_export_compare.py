@@ -143,7 +143,7 @@ def compare_research_exports(before, after):
         "changed": changed,
         "provenance_changed_fields": [
             field for field in diagnostic_changes.get("scope", [])
-            if field in {"source", "sources", "status", "retrieved_at"}
+            if field in {"source", "sources", "source_sha256", "status", "retrieved_at"}
         ],
         "diagnostic_changed_paths": diagnostic_changes,
         "integrity_digests": {

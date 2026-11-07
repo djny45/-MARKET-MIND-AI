@@ -135,3 +135,15 @@ Latest PR-branch changes:
 Verification:
 - GitHub workflow lookup returned no runs for the latest adapter/indicator commits.
 - No local test execution was available; these changes remain unverified until backend CI or a local test run completes.
+
+
+## Historical forecasting solver audit — 2026-11-07
+
+- Added shape and alignment checks for ridge training inputs.
+- Rejects boolean, non-finite, and oversized numeric inputs for features, targets, alpha, and linear-system values.
+- Added finite coefficient checks after Gaussian elimination.
+- Added regression tests for malformed matrices, non-finite values, invalid alpha, ragged feature rows, and huge Python integers.
+
+Verification:
+- GitHub Actions workflow lookup returned no runs for these latest commits.
+- Tests are not locally executed; the changes remain unverified pending CI.

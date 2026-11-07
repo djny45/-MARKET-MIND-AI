@@ -1934,6 +1934,8 @@ def export_worker_staging_audit(worker_id: str, limit: int = 100):
  This is an export of existing records and summaries only; it does not rerun
  benchmarks, validate declared provenance, train, deploy, or trade.
  """
+ if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 200:
+  raise HTTPException(status_code=400, detail="limit must be between 1 and 200")
  try:
   from .staging_experiments import list_staging_experiments
   bundle = {

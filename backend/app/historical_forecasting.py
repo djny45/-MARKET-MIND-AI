@@ -130,7 +130,10 @@ def _metrics(actual: list[float], predicted: list[float]) -> dict[str, float]:
             if not finite:
                 raise ValueError(f"{name}[{index}] must be finite")
 
-    errors = [prediction - target for target, prediction in zip(actual, predicted)]
+    try:
+        errors = [prediction - target for target, prediction in zip(actual, predicted)]
+    except (OverflowError, TypeError):
+        raise ValueError("forecast errors must be finite") from None
     try:
         errors_finite = all(math.isfinite(error) for error in errors)
     except (OverflowError, TypeError):
@@ -376,7 +379,13 @@ def evaluate_walk_forward_return_forecast(
         ordered = sorted(values)
         middle = len(ordered) // 2
         median = ordered[middle] if len(ordered) % 2 else (ordered[middle - 1] + ordered[middle]) / 2
-        return {"mean": sum(values) / len(values), "median": median, "window_count": len(values)}
+        try:
+            mean = math.fsum(values) / len(values)
+        except (OverflowError, ValueError):
+            raise ValueError("aggregate forecast metrics must be finite") from None
+        if not math.isfinite(mean) or not math.isfinite(median):
+            raise ValueError("aggregate forecast metrics must be finite")
+        return {"mean": mean, "median": median, "window_count": len(values)}
 
     return {
         "task": "walk_forward_next_day_log_return_forecast",

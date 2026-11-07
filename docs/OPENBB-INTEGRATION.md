@@ -13,8 +13,10 @@ from the MARKET-MIND-AI root:
 bash scripts/import-openbb.sh
 ```
 
-It uses Git subtree to add the upstream `develop` branch at `vendor/openbb`,
-refuses to overwrite an existing destination, and creates a local commit.
+It uses Git subtree to add upstream OpenBB at the reviewed immutable commit
+`78020ee4b864ab50b8c1f56373877c2b4e7fb623` under `vendor/openbb`, refuses to
+overwrite an existing destination, and creates a local commit. Update the pinned
+SHA only after reviewing the upstream change.
 Review OpenBB's Apache-2.0 license and notices after importing. Keep upstream
 changes isolated under `vendor/openbb`; do not overwrite MARKET-MIND-AI files.
 
@@ -66,15 +68,15 @@ the MARKET-MIND-AI web API does not proxy an interactive REPL.
 
 `backend/app/openbb_cli.py` supports only the informational actions `help`
 and `version`. Help invokes the executable without a shell, applies an
-8-second timeout, and caps output at 12,000 characters. If the combined stdout/stderr exceeds that limit, the adapter appends `… [output truncated]` so callers can distinguish complete output from a clipped response. Version is read from the installed
-`openbb-cli` package metadata because OpenBB CLI v5 does not document a
-`--version` flag. It does not accept raw command strings or arbitrary arguments.
+8-second timeout, and caps output at 12,000 characters. If the combined stdout/stderr exceeds that limit, the adapter appends `… [output truncated]` so callers can distinguish complete output from a clipped response. Version is read from the `openbb-cli` package metadata using the Python
+interpreter beside the resolved executable, because OpenBB CLI v5 does not
+document a `--version` flag. It does not accept raw command strings or arbitrary arguments.
 
 **Execution is disabled by default.** For trusted local development, explicitly
 set the environment variable:
 
 ```bash
-OPENBB_CLI_ENABLED=true
+export OPENBB_CLI_ENABLED=true
 ```
 
 The status endpoint reports both whether the CLI is installed and whether

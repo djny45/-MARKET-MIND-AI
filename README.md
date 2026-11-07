@@ -456,3 +456,10 @@ Improvement proposals can now be followed by metrics-only staging experiment rec
 The POST endpoint requires the proposal's **latest** review to be `approved_for_staging`; a later `rejected` or `needs_revision` review revokes that gate. Inputs are reviewer-supplied benchmark identifiers and numeric metrics, stored as append-only worker memory. Metric direction is deliberately not assumed (higher is not always better), so non-identical comparisons remain `inconclusive`; identical metrics are labeled `no_material_change`.
 
 This is a **recording and governance layer**, not a benchmark execution engine. It does not run proposal code, alter production settings, modify prompts or model weights, deploy, or trade. The metrics are unverified unless independently evaluated. See `backend/app/staging_experiments.py` and `backend/tests/test_staging_experiments.py`.
+
+
+A reproducible fixture-based route is also available:
+
+- `POST /api/workers/{worker_id}/improvement-proposals/{proposal_memory_id}/staging-benchmark` — run the existing deterministic traceability benchmark against separate baseline and candidate fixture sets, then persist both benchmark fingerprints and aggregate metrics.
+
+This route is still offline and fixture-only. It does not fetch market data or execute proposal code. The benchmark measures source-reference structure only; it is not a truth, forecasting, or trading-performance test.

@@ -9,7 +9,7 @@ from .workflow import NODE_TYPES, execute_workflow
 from .workers import list_workers
 from .worker_runtime import worker_runtime_status
 from .worker_memory import append_memory, read_memory, recall_memory, review_learning_candidate, list_learning_candidates, recall_approved_learning_candidates, review_improvement_proposal, list_improvement_proposals
-from .staging_experiments import create_staging_experiment, run_staging_benchmark, list_staging_experiments, summarize_staging_experiments, summarize_repeatability, summarize_staging_provenance
+from .staging_experiments import create_staging_experiment, run_staging_benchmark, list_staging_experiments, summarize_staging_experiments, summarize_repeatability, summarize_staging_provenance, summarize_research_quality_dashboard
 from .learning_feedback import evaluate_learning_feedback
 from .worker_registry import evaluate_registry, registry_manifest
 from .analytical_agent_runtime import runtime_manifest, brain_config, validate_learning_feedback, validate_update_proposal
@@ -613,6 +613,15 @@ def get_worker_staging_provenance(worker_id: str, limit: int = 100):
   return summarize_staging_provenance(worker_id, limit)
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+@app.get("/api/workers/{worker_id}/research-quality-dashboard")
+def get_research_quality_dashboard(worker_id: str, limit: int = 100):
+ """Consolidate offline staging experiment diagnostics for human review."""
+ try:
+  return summarize_research_quality_dashboard(worker_id, limit)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
 
 @app.get("/api/workers/{worker_id}/staging-experiments/summary")
 def get_worker_staging_experiment_summary(worker_id: str, limit: int = 100):

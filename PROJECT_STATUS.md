@@ -48,6 +48,16 @@ Important limitation:
 - Repository license text still requires review; an SPDX label alone is not authorization.
 - Current-head CI and tests are unverified until a workflow run reports results.
 
+## GitHub metadata crawler increment — 2026-11-08
+
+Implemented on the open PR branch:
+- Added a bounded, metadata-only GitHub REST crawler with a fixed API host, validated repository URL, disabled redirects, response-size limit, and commit SHA validation.
+- Added `POST /api/open-source/crawl-metadata` to retrieve repository metadata and pin the default-branch commit.
+- Added crawler unit tests and API contract tests for URL rejection, redirects, oversized responses, invalid SHAs, and upstream failure handling.
+- Updated the self-evolution architecture milestones.
+
+Limitations: this is not yet a full source crawler. Repository tree enumeration, README/dependency file retrieval, license/NOTICE text capture, caching/rate-limit backoff, and static reverse-engineering are still pending. Tests are committed but not run in this environment; current-head CI is not yet verified.
+
 ## Remaining release work
 
 | Workstream | State | Release gate |

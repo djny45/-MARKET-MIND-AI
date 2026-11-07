@@ -181,3 +181,15 @@ Verification:
 Verification:
 - No local test execution available in this environment.
 - GitHub Actions status will be checked for the latest commits; do not treat the code as verified until CI runs.
+
+
+## Yahoo historical adapter integrity audit — 2026-11-07
+
+- Yahoo's requested 4h interval now aggregates only complete, UTC-aligned four-hour groups from hourly bars; incomplete groups are discarded instead of being mislabeled as 4h candles.
+- The adapter rejects duplicate or out-of-order retained timestamps, protecting downstream chronological research from accidental time leakage.
+- Four-hour aggregate volume uses finite-checked `math.fsum`; overflow is normalized to a clear validation error.
+- Added regression coverage for aggregation fields, incomplete groups, and timestamp ordering.
+
+Verification:
+- Tests were authored/updated but not executed locally.
+- GitHub Actions status is checked after these commits; absent runs mean this remains unverified.

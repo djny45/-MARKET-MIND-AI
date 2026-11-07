@@ -483,9 +483,9 @@ if __name__ == "__main__":
 
     def test_startup_recovery_can_be_disabled_by_environment(self):
         from app import main
-        with patch.dict(os.environ, {"MARKET_MIND_STARTUP_RECOVERY": "false"}), \\
-             patch("app.main.recover_interrupted_research_tasks") as recover:
-            result = main.recover_stale_tasks_on_startup()
+        with patch.dict(os.environ, {"MARKET_MIND_STARTUP_RECOVERY": "false"}):
+            with patch("app.main.recover_interrupted_research_tasks") as recover:
+                result = main.recover_stale_tasks_on_startup()
         recover.assert_not_called()
         self.assertEqual(result["status"], "disabled")
 

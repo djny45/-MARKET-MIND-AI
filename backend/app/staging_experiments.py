@@ -5,6 +5,8 @@ code, run benchmarks, modify the agent, train models, deploy, or trade.
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import math
 from typing import Any
 
@@ -84,6 +86,13 @@ def create_staging_experiment(worker_id: str, proposal_memory_id: str, payload: 
                          "unverified")
 
 
+
+
+def _paired_case_id_fingerprint(cases: list[dict[str, Any]]) -> str:
+    """Return a stable digest of normalized paired case IDs for audit records."""
+    case_ids = sorted(case["case_id"].strip() for case in cases)
+    canonical = json.dumps(case_ids, separators=(",", ":"), ensure_ascii=True)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 def _validate_paired_case_ids(baseline_cases: Any, candidate_cases: Any) -> None:
@@ -219,6 +228,11 @@ def run_staging_benchmark(worker_id: str, proposal_memory_id: str, payload: dict
             "candidate_benchmark_id": candidate_result["benchmark_id"],
             "baseline_case_count": baseline_result["case_count"],
             "candidate_case_count": candidate_result["case_count"],
+            "paired_case_id_sha256": _paired_case_id_fingerprint(baseline_cases),
+            "paired_case_id_fingerprint_note": (
+                "Digest covers normalized case IDs only; benchmark IDs separately fingerprint "
+                "the evaluator inputs/configuration. Neither digest verifies dataset provenance."
+            ),
             "baseline_fixture_overlap": {
                 "pair_count_flagged": baseline_result["fixture_overlap"]["pair_count_flagged"],
                 "threshold": baseline_result["fixture_overlap"]["threshold"],

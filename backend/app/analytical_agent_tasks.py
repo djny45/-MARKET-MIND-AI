@@ -620,7 +620,7 @@ def dispatch_queued_research_tasks(limit: int = 50, max_concurrency: int = 4) ->
         "task_status_counts": task_status_counts,
         "failed_task_count": failed_task_count,
         "max_concurrency": min(max_concurrency, len(task_ids)),
-        "status": "completed",
+        "status": "completed_with_failures" if failed_task_count else "completed",
         "task_ids": task_ids,
         "dispatch_mode": "bounded_process_local_queue_snapshot",
         "note": "Dispatch finished; task_status_counts reports each task's persisted outcome. Tasks are persisted in SQLite, but dispatch is explicit and process-local, not a continuously running distributed supervisor.",

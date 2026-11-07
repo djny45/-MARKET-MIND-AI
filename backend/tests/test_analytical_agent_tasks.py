@@ -358,6 +358,20 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertEqual(events[0]["to_status"], "running")
         self.assertEqual(events[-1]["to_status"], result["status"])
 
+    def test_manual_dispatch_reports_pending_tasks_when_not_claimed(self):
+        from app.analytical_agent_tasks import enqueue_research_task, dispatch_queued_research_tasks
+
+        queued = enqueue_research_task("worker_010", "dispatch pending outcome")
+        with patch("app.analytical_agent_tasks.execute_queued_research_task", return_value=False):
+            result = dispatch_queued_research_tasks(limit=1, max_concurrency=1)
+
+        self.assertEqual(result["selected"], 1)
+        self.assertEqual(result["dispatched"], 0)
+        self.assertEqual(result["pending_task_count"], 1)
+        self.assertEqual(result["task_status_counts"]["queued"], 1)
+        self.assertEqual(result["status"], "completed_with_pending")
+        self.assertEqual(queued["status"], "queued")
+
     def test_manual_dispatch_reports_failed_task_outcomes(self):
         import sqlite3
         from app.analytical_agent_tasks import enqueue_research_task, dispatch_queued_research_tasks

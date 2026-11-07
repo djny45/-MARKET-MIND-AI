@@ -32,10 +32,15 @@ def evaluate_learning_feedback(
     for name, value in current_metrics.items():
         if not isinstance(name, str) or not name.strip() or len(name) > 64:
             raise ValueError("metric names must be non-empty strings of at most 64 characters")
-        if (isinstance(value, bool) or not isinstance(value, (int, float))
-                or not math.isfinite(value)):
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
             raise ValueError(f"metric {name} must be a finite number")
-        normalized[name] = float(value)
+        try:
+            numeric_value = float(value)
+        except (OverflowError, ValueError):
+            raise ValueError(f"metric {name} must be a finite number") from None
+        if not math.isfinite(numeric_value):
+            raise ValueError(f"metric {name} must be a finite number")
+        normalized[name] = numeric_value
 
     listing = list_learning_candidates(worker_id, limit=200)
     now = datetime.now(timezone.utc)
@@ -50,10 +55,14 @@ def evaluate_learning_feedback(
         matched = []
         for name, current in normalized.items():
             previous = metrics.get(name)
-            if (isinstance(previous, bool) or not isinstance(previous, (int, float))
-                    or not math.isfinite(previous)):
+            if isinstance(previous, bool) or not isinstance(previous, (int, float)):
                 continue
-            previous = float(previous)
+            try:
+                previous = float(previous)
+            except (OverflowError, ValueError):
+                continue
+            if not math.isfinite(previous):
+                continue
             delta = current - previous
             matched.append({
                 "metric": name,

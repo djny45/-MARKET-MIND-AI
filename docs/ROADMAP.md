@@ -50,7 +50,7 @@ This roadmap is a plan, not a claim that features already exist. Mark an item co
 Current boundary: worker routing invokes existing deterministic Python handlers. The 550 profiles are not independent models. Optional Ollama is a single shared, loopback-only summarization provider and is disabled by default; autonomous self-learning and brokerage execution remain disabled.
 - [x] Add per-agent brain-context specifications for all 550 worker identities, including distinct specialization, memory namespace, context hash, and shared-core provider topology.
 - [x] Add evaluated-feedback capture per worker and governed self-update proposals; updates remain pending review and require tests/rollback, with no autonomous model-weight training.
-- [ ] Implement actual agent task execution with shared-core inference, isolated per-agent context, source retrieval and task lifecycle persistence.
+- [x] Implement bounded research-task execution with shared-core synthesis, per-agent context/memory, SQLite lifecycle persistence, quality-evaluation traceability, audit events, explicit dispatch, stale-task recovery, and supervisor reporting.\n- [ ] Add source retrieval with provenance-aware evidence grounding; current tasks use supplied data only.
 - [ ] Implement autonomous research scheduling and cloud workspaces (currently not implemented).
 - [ ] Implement evaluated learning loop with benchmark datasets, quality metrics, regression gates, and reviewed promotion of approved agent configuration changes.
 - [ ] Build visual node-based research workflows.
@@ -80,7 +80,7 @@ A module is considered implemented only when it has:
 
 ## Analytical agent swarm milestone (2026-11-02)
 
-Implemented the first per-agent brain and governed learning lifecycle scaffold. Every registered worker now has a distinct role prompt/context, specialty metadata, memory namespace and context hash while sharing one inference provider. Feedback can be recorded as worker-scoped validation memory. Agent configuration updates are proposals only, remain pending review, and are not automatically applied. This is not yet 550 continuously running autonomous cloud agents: independent task execution, cloud workspaces, scheduled research and a benchmark-driven learning/promotion loop remain future milestones. Paper trading and brokerage execution remain excluded.
+Implemented the first per-agent brain and governed learning lifecycle scaffold. Every registered worker now has a distinct role prompt/context, specialty metadata, memory namespace and context hash while sharing one inference provider. Feedback can be recorded as worker-scoped validation memory. Agent configuration updates are proposals only, remain pending review, and are not automatically applied. This is not yet 550 continuously running autonomous cloud agents: bounded task execution exists, while cloud workspaces, scheduled research and a benchmark-driven learning/promotion loop remain future milestones. Paper trading and brokerage execution remain excluded.
 
 
 - [x] Add guarded research report assembly that joins dataset metadata, chronological split checks, and classification metrics; no raw-data inspection or predictive-performance claim is made.

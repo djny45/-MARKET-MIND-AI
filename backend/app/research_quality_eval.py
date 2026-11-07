@@ -63,6 +63,7 @@ def evaluate_research_draft(
     duplicate_source_ids = set()
     source_entries_without_id = 0
     entries_missing_provenance = 0
+    entries_complete_provenance = 0
     missing_provenance_by_field = {field: 0 for field in PROVENANCE_FIELDS}
     invalid_provenance_by_field = {"url": 0, "observed_at": 0}
     for source in source_registry:
@@ -83,6 +84,8 @@ def evaluate_research_draft(
             invalid_fields.append("observed_at")
         for field in invalid_fields:
             invalid_provenance_by_field[field] += 1
+        if not missing_fields and not invalid_fields:
+            entries_complete_provenance += 1
 
         source_id = source.get("source_id")
         if not isinstance(source_id, str) or not source_id.strip():
@@ -173,6 +176,11 @@ def evaluate_research_draft(
         "source_registry_count": len(source_ids),
         "source_registry_entries_without_id_count": source_entries_without_id,
         "source_registry_entries_missing_provenance_count": entries_missing_provenance,
+        "source_registry_entries_complete_provenance_count": entries_complete_provenance,
+        "source_registry_provenance_completeness": (
+            round(entries_complete_provenance / len(source_registry), 4)
+            if source_registry else None
+        ),
         "source_registry_missing_provenance_by_field": missing_provenance_by_field,
         "source_registry_invalid_provenance_by_field": invalid_provenance_by_field,
         "duplicate_source_id_count": len(duplicate_source_ids),

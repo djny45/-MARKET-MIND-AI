@@ -47,7 +47,8 @@ def _stable_field_sort_key(field):
 def _integrity_digest(bundle):
     """Return a digest only when integrity metadata has the expected shape."""
     integrity = bundle.get("integrity")
-    return integrity.get("digest") if isinstance(integrity, dict) else None
+    digest = integrity.get("digest") if isinstance(integrity, dict) else None
+    return digest if isinstance(digest, str) else None
 
 
 def compare_research_exports(before, after):

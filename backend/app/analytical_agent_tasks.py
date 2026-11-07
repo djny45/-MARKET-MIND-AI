@@ -199,8 +199,6 @@ def execute_queued_research_task(task_id: str) -> bool:
                     }
             else:
                 evaluation_status = "structured_claims_present_but_no_draft"
-        if evaluation is not None:
-            _persist_quality_evaluation(task_id, agent_id, evaluation)
         result = {"agent_id": agent_id, "brain_context_sha256": row["brain_context_sha256"],
                   "brief": task_input["brief"], "input_data_received": task_input["data"] is not None,
                   "shared_core_result": synthesis,
@@ -225,6 +223,19 @@ def execute_queued_research_task(task_id: str) -> bool:
         _record_event(db, task_id, agent_id, "task_" + status,
                       from_status="running", to_status=status, occurred_at=updated,
                       detail={"error_type": result.get("error_type")} if status == "failed" else {})
+        # Persist optional evaluation only after this executor wins the lease,
+        # in the same transaction as finalization and its audit event.
+        if evaluation is not None:
+            db.execute(
+                """INSERT INTO research_quality_evaluations
+                   (task_id,worker_id,evaluation_json,created_at)
+                   VALUES (?,?,?,?)
+                   ON CONFLICT(task_id) DO UPDATE SET
+                     worker_id=excluded.worker_id,
+                     evaluation_json=excluded.evaluation_json,
+                     created_at=excluded.created_at""",
+                (task_id, agent_id, _json(evaluation), updated),
+            )
     return True
 
 

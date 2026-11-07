@@ -52,6 +52,11 @@ Do not relabel synthetic fixtures as real market data. Do not silently fill miss
 - Avoid rebuilding the chart, worker registry, skill catalog, agent network, or existing workflow editor.
 - Keep research-only functionality: no brokerage credential capture, live order placement, order routing, modification, or cancellation.
 
+
+## Access-control boundary
+
+The current research-task, dispatch, recovery, and review routes are not protected by authentication or per-user authorization. Treat them as trusted-local development interfaces only; do not expose them to the public internet. Before any public deployment, add authentication, authorization, rate limits, and independent security review. The existing SQLite persistence does not imply user isolation.
+
 ## Smoke-test checklist for an integrating agent
 
 1. Backend starts and OpenAPI loads.

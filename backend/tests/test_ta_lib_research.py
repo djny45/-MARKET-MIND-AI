@@ -38,8 +38,32 @@ class TALibResearchTests(unittest.TestCase):
         from app.ta_lib_research import analyze_historical_ohlcv
         bad = self.frame.copy()
         bad.columns = ["Open", " open ", "Low", "Close"]
-        with self.assertRaisesRegex(ValueError, "Duplicate columns after case/whitespace normalization"):
+        with self.assertRaisesRegex(ValueError, "Duplicate required OHLC columns after case/whitespace normalization"):
             analyze_historical_ohlcv(bad)
+
+    def test_duplicate_unused_columns_are_ignored(self):
+        import sys
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        import numpy as np
+        from app.ta_lib_research import analyze_historical_ohlcv
+
+        bad = self.frame.copy()
+        bad["volume_a"] = [100.0] * len(bad)
+        bad["volume_b"] = [200.0] * len(bad)
+        bad.columns = ["open", "high", "low", "close", "volume", "volume"]
+        zeros = lambda values, **kwargs: np.zeros_like(values, dtype=float)
+        fake_talib = SimpleNamespace(
+            RSI=zeros,
+            MACD=lambda values, **kwargs: (zeros(values), zeros(values), zeros(values)),
+            BBANDS=lambda values, **kwargs: (zeros(values), zeros(values), zeros(values)),
+            ATR=lambda high, low, close, **kwargs: zeros(close),
+            SMA=zeros,
+            EMA=zeros,
+        )
+        with patch.dict(sys.modules, {"talib": fake_talib}):
+            result = analyze_historical_ohlcv(bad)
+        self.assertIn("rsi", result)
 
     def test_nonfinite_ohlc_rejected(self):
         from app.ta_lib_research import analyze_historical_ohlcv

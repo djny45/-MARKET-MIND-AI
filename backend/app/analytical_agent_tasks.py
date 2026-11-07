@@ -33,6 +33,10 @@ def _connect():
         updated_at TEXT NOT NULL
     )""")
     db.execute("CREATE INDEX IF NOT EXISTS idx_agent_tasks_agent_time ON analytical_agent_tasks(worker_id,created_at)")
+    # Backward-compatible schema migration for persisted task execution telemetry.
+    task_columns = {row["name"] for row in db.execute("PRAGMA table_info(analytical_agent_tasks)")}
+    if "execution_attempts" not in task_columns:
+        db.execute("ALTER TABLE analytical_agent_tasks ADD COLUMN execution_attempts INTEGER NOT NULL DEFAULT 0")
     db.execute("""CREATE TABLE IF NOT EXISTS analytical_agent_task_retries (
         original_task_id TEXT PRIMARY KEY,
         retry_task_id TEXT NOT NULL UNIQUE,
@@ -235,7 +239,8 @@ def execute_queued_research_task(task_id: str) -> bool:
         # Claim atomically so duplicate dispatches cannot execute the same queued row.
         now = datetime.now(timezone.utc).isoformat()
         claimed = db.execute(
-            "UPDATE analytical_agent_tasks SET status='running',updated_at=? WHERE task_id=? AND status='queued'",
+            "UPDATE analytical_agent_tasks SET status='running',updated_at=?,"
+            "execution_attempts=execution_attempts+1 WHERE task_id=? AND status='queued'",
             (now, task_id),
         )
         if claimed.rowcount != 1:
@@ -469,6 +474,7 @@ def get_research_task(task_id: str) -> dict | None:
     return {
         "task_id": row["task_id"], "agent_id": row["worker_id"], "worker_id": row["worker_id"],
         "task_type": row["task_type"], "status": row["status"],
+        "execution_attempts": row["execution_attempts"],
         "input": json.loads(row["input_json"]), "result": json.loads(row["result_json"]),
         "brain_context_sha256": row["brain_context_sha256"],
         "created_at": row["created_at"], "updated_at": row["updated_at"],

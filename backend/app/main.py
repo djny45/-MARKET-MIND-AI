@@ -19,6 +19,7 @@ from .intelligence_core import intelligence_core_status, synthesize_research, In
 from .synthesis_review import build_synthesis_review
 from .research_quality_eval import evaluate_research_draft
 from .skill_catalog import list_skills, load_skill
+from .open_source_intake import build_open_source_intake
 from .landing_page_builder import build_landing_page
 from .markets import market_catalog
 from .instruments import search_instruments
@@ -78,6 +79,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(agent_council_router)
+
+class OpenSourceIntakeRequest(BaseModel):
+ repository_url: str = Field(min_length=1, max_length=2048)
+ license_id: str | None = Field(default=None, max_length=128)
+
 
 class SaveWorkflowRequest(BaseModel):
  title: str = Field(min_length=1,max_length=120)
@@ -734,6 +740,17 @@ def workers(department: str | None = None, limit: int = 550):
  items=list_workers()
  if department: items=[w for w in items if w["department"]==department]
  return {"count":len(items[:max(1,min(limit,550))]),"workers":items[:max(1,min(limit,550))]}
+
+
+@app.post("/api/open-source/intake")
+def open_source_intake(request: OpenSourceIntakeRequest):
+ """Create a review-only GitHub source intake plan; never clone or execute code."""
+ try:
+  return build_open_source_intake(
+   request.repository_url, license_id=request.license_id
+  )
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.get("/api/skills")

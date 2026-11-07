@@ -248,7 +248,7 @@ class WorkerMemoryCandidateReviewRequest(BaseModel):
  rationale: str = Field(default="", max_length=2000)
 
 class WorkerLearningFeedbackRequest(BaseModel):
- current_metrics: dict[str, float] = Field(min_length=1, max_length=100)
+ current_metrics: dict[str, Any] = Field(min_length=1, max_length=100)
  stale_after_days: int = Field(default=30, ge=1, le=3650)
  tolerance: float = Field(default=0.0001, ge=0, le=1e12)
 

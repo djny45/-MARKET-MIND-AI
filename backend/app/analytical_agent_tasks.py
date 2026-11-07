@@ -138,10 +138,13 @@ def execute_queued_research_task(task_id: str) -> None:
             return
         _record_event(db, task_id, row["worker_id"], "task_claimed",
                       from_status="queued", to_status="running", occurred_at=now)
-        task_input = json.loads(row["input_json"])
         agent_id = row["worker_id"]
-        brain = brain_config(agent_id)
     try:
+        # Decode persisted input and load the worker context inside the guarded
+        # execution block. A corrupt row or runtime-context failure must not
+        # leave a task permanently marked as running.
+        task_input = json.loads(row["input_json"])
+        brain = brain_config(agent_id)
         # Memory retrieval and payload construction are part of execution too:
         # failures here must not strand a claimed task in "running".
         payload = {

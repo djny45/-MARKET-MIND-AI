@@ -10,6 +10,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from datetime import datetime
+import math
 
 MAX_DRAFT_CHARS = 20_000
 MAX_CLAIMS = 200
@@ -202,7 +203,19 @@ def evaluate_research_draft(
         for key in ("claim_reference_coverage", "known_source_reference_coverage"):
             current = metrics[key]
             previous = base_metrics.get(key)
-            if isinstance(current, (int, float)) and isinstance(previous, (int, float)):
+            # bool is an int subclass in Python; reject it explicitly. Also avoid
+            # propagating NaN/Infinity into API metrics or JSON serialization.
+            current_is_finite_number = (
+                isinstance(current, (int, float))
+                and not isinstance(current, bool)
+                and math.isfinite(current)
+            )
+            previous_is_finite_number = (
+                isinstance(previous, (int, float))
+                and not isinstance(previous, bool)
+                and math.isfinite(previous)
+            )
+            if current_is_finite_number and previous_is_finite_number:
                 comparison[key] = {
                     "current": current,
                     "baseline": previous,

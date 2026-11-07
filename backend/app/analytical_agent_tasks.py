@@ -230,6 +230,32 @@ def retry_failed_research_task(task_id: str) -> dict | None:
             "retried": True, "retry_attempt": 1, "retry_limit": 1,
             "execution_mode": "manual_retry_new_task"}
 
+def _persist_research_learning_candidate(task_id: str, worker_id: str, evaluation: dict) -> dict:
+    """Store deterministic evaluation metrics as a reviewable memory note, not model training."""
+    metrics = evaluation.get("metrics") if isinstance(evaluation, dict) else None
+    if not isinstance(metrics, dict):
+        return {"status": "skipped", "reason": "evaluation_metrics_missing"}
+    try:
+        from .worker_memory import append_memory
+        memory = append_memory(
+            worker_id,
+            "validation_result",
+            {
+                "record_type": "research_quality_learning_candidate",
+                "task_id": task_id,
+                "evaluation_type": evaluation.get("evaluation_type", "deterministic_research_traceability_check"),
+                "metrics": metrics,
+                "learning_boundary": "metrics_only_no_claim_truth_or_strategy_learning",
+                "review_required": True,
+            },
+            source_refs=[f"research_task:{task_id}"],
+            quality_status="partial",
+        )
+        return {"status": "persisted_review_candidate", "memory_id": memory["memory_id"]}
+    except Exception as exc:
+        # Memory is an optional sidecar: it must not invalidate a completed task.
+        return {"status": "not_persisted", "error_type": type(exc).__name__}
+
 def classify_research_task_failure(error: Exception) -> dict:
     """Classify likely transient failures for operator review; never auto-retry."""
     error_type = type(error).__name__
@@ -309,9 +335,13 @@ def execute_queued_research_task(task_id: str) -> bool:
                     }
             else:
                 evaluation_status = "structured_claims_present_but_no_draft"
+        learning_candidate = {"status": "not_created"}
         if evaluation is not None:
             _persist_quality_evaluation(task_id, agent_id, evaluation)
+            if evaluation.get("status") != "invalid_input":
+                learning_candidate = _persist_research_learning_candidate(task_id, agent_id, evaluation)
         result = {"agent_id": agent_id, "brain_context_sha256": row["brain_context_sha256"],
+                  "research_learning_candidate": learning_candidate,
                   "brief": task_input["brief"], "input_data_received": task_input["data"] is not None,
                   "shared_core_result": synthesis,
                   "research_quality_evaluation": evaluation,

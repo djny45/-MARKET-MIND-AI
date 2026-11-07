@@ -1,5 +1,5 @@
 """Regression tests for pinned metadata-only GitHub tree scanning."""
-import json
+import unittest
 
 import httpx
 
@@ -60,14 +60,14 @@ class RepositoryTreeScannerTests(unittest.TestCase):
     def test_scan_tree_rejects_truncated_manifest(self):
         client = _client({"sha": "tree-sha", "truncated": True, "tree": []})
         try:
-            with unittest.TestCase().assertRaisesRegex(GitHubCrawlerError, "truncated"):
+            with self.assertRaisesRegex(GitHubCrawlerError, "truncated"):
                 scan_repository_tree("https://github.com/acme/demo", client=client)
         finally:
             client.close()
 
 
     def test_scan_tree_rejects_non_github_repository_url(self):
-        with unittest.TestCase().assertRaises(ValueError):
+        with self.assertRaises(ValueError):
             scan_repository_tree("https://github.com.evil.example/acme/demo")
 
 

@@ -166,6 +166,23 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertEqual(snapshot["status_counts"]["queued"], 1)
         self.assertEqual(snapshot["task_count"], 1)
 
+    def test_supervisor_health_does_not_flag_recent_running_tasks(self):
+        import sqlite3
+        from datetime import datetime, timezone
+        from app.analytical_agent_tasks import enqueue_research_task, agent_supervisor_status
+
+        task = enqueue_research_task("worker_004", "recent running task health")
+        recent_timestamp = datetime.now(timezone.utc).isoformat()
+        with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+            db.execute(
+                "UPDATE analytical_agent_tasks SET status='running',updated_at=? WHERE task_id=?",
+                (recent_timestamp, task["task_id"]),
+            )
+
+        snapshot = agent_supervisor_status(stale_after_seconds=60)
+        self.assertEqual(snapshot["stale_running_task_count"], 0)
+        self.assertNotIn("stale_running_tasks_present", snapshot["attention_reasons"])
+
     def test_supervisor_health_flags_stale_running_tasks(self):
         import sqlite3
         from app.analytical_agent_tasks import enqueue_research_task, agent_supervisor_status

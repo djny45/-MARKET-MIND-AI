@@ -13,7 +13,7 @@ from .staging_experiments import create_staging_experiment, run_staging_benchmar
 from .learning_feedback import evaluate_learning_feedback
 from .worker_registry import evaluate_registry, registry_manifest
 from .analytical_agent_runtime import runtime_manifest, brain_config, validate_learning_feedback, validate_update_proposal
-from .learning_engine import learning_overview, agent_learning_summary, run_feedback_improvement_cycle
+from .learning_engine import learning_overview, agent_learning_summary, run_feedback_improvement_cycle, build_feedback_staging_plan
 from .specialist_router import route_research_brief
 from .analytical_agent_tasks import retry_failed_research_task, cancel_queued_research_task, submit_research_task, get_research_task, list_research_tasks, enqueue_research_task, execute_queued_research_task, recover_interrupted_research_tasks, list_recent_task_activity, agent_supervisor_status, dispatch_queued_research_tasks, list_task_audit_events, get_task_quality_evaluation
 from .research_orchestrator import orchestrate_research
@@ -530,6 +530,15 @@ def evaluate_worker_learning_feedback(worker_id: str, request: WorkerLearningFee
    stale_after_days=request.stale_after_days,
    tolerance=request.tolerance,
   )
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/workers/{worker_id}/improvement-proposals/{proposal_memory_id}/staging-plan")
+def get_feedback_staging_plan(worker_id: str, proposal_memory_id: str):
+ """Build a review-gated experiment checklist; does not run or promote changes."""
+ try:
+  return build_feedback_staging_plan(worker_id, proposal_memory_id)
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 

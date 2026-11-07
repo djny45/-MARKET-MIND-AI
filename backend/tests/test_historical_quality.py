@@ -1,6 +1,6 @@
 import unittest
 import math
-from app.historical_quality import build_historical_quality_diagnostics, _median, _mad_flags
+from app.historical_quality import build_historical_quality_diagnostics, _median, _mad_flags, _safe_round
 
 
 class HistoricalQualityTests(unittest.TestCase):
@@ -102,6 +102,11 @@ class HistoricalQualityTests(unittest.TestCase):
         result = build_historical_quality_diagnostics({"interval": "1h", "bars": bars})
         self.assertEqual(result["close_to_close_return_outliers"]["sample_count"], 23)
         self.assertTrue(all(math.isfinite(value) for value in result["close_to_close_return_outliers"].get("flagged_observations", []) for value in [value["return_pct"]]))
+
+    def test_safe_round_rejects_nonfinite_derived_metrics(self):
+        self.assertIsNone(_safe_round(1e308 * 100, 6))
+        self.assertIsNone(_safe_round(float("inf"), 3))
+        self.assertEqual(_safe_round(1.23456789, 4), 1.2346)
 
     def test_median_of_extreme_finite_values_does_not_overflow(self):
         self.assertEqual(_median([1e308, 1e308]), 1e308)

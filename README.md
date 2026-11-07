@@ -465,3 +465,7 @@ A reproducible fixture-based route is also available:
 This route is still offline and fixture-only. It does not fetch market data or execute proposal code. The benchmark measures source-reference structure only; it is not a truth, forecasting, or trading-performance test.
 
 The offline staging benchmark now also pairs baseline and candidate fixtures by exact `case_id`, stores per-case deltas for both traceability coverage metrics, and flags case-level decreases. Mismatched case sets are rejected instead of comparing unrelated samples. These are structural regression diagnostics only; they do not assess truth, predictive ability, or trading performance.
+
+### Whitelisted offline evaluator configuration
+
+The fixture benchmark accepts an optional `quality_config` object with exactly one supported setting: `uncertainty_markers` (1–20 non-empty strings, each up to 80 characters). Unsupported keys are rejected. The normalized config is included in the benchmark fingerprint and returned with the result. The benchmark additionally reports `uncertainty_marker_coverage`, the share of fixture drafts containing at least one configured marker. This is a narrow text-checklist metric and can be gamed by wording; it is not a measure of genuine uncertainty calibration, factual quality, or predictive skill. This config does not change model weights, prompts, strategies, live data, production settings, or trading.

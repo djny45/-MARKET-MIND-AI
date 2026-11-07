@@ -184,6 +184,27 @@ class StagingExperimentTests(unittest.TestCase):
             summarize_staging_experiments("worker_001", 0)
 
 
+    def test_quality_gate_blocks_case_regression_even_when_aggregate_improves(self):
+        review_improvement_proposal("worker_001", self.proposal["memory_id"],
+                                    "approved_for_staging", "reviewer")
+        # Fixture A regresses from a cited source to no citation; fixture B improves.
+        baseline = [
+            {"case_id": "case-a", "draft": "Evidence A", "claims": [{"text": "A", "source_refs": ["known"]}], "source_registry": [{"source_id": "known"}]},
+            {"case_id": "case-b", "draft": "Evidence B", "claims": [{"text": "B", "source_refs": ["missing"]}], "source_registry": [{"source_id": "known"}]},
+        ]
+        candidate = [
+            {"case_id": "case-a", "draft": "Evidence A", "claims": [{"text": "A", "source_refs": ["missing"]}], "source_registry": [{"source_id": "known"}]},
+            {"case_id": "case-b", "draft": "Evidence B", "claims": [{"text": "B", "source_refs": ["known"]}], "source_registry": [{"source_id": "known"}]},
+        ]
+        result = run_staging_benchmark("worker_001", self.proposal["memory_id"], {
+            "baseline_cases": baseline, "candidate_cases": candidate, "reviewer": "reviewer",
+        })
+        runs = result["content"]["benchmark_runs"]
+        self.assertEqual(runs["quality_gate"]["status"], "blocked_regression")
+        self.assertGreaterEqual(runs["quality_gate"]["aggregate_deltas"]["claim_reference_coverage"], 0)
+        self.assertGreater(runs["paired_case_summary"]["regression_count"], 0)
+
+
     def test_quality_gate_blocks_regression_and_validates_threshold(self):
         review_improvement_proposal("worker_001", self.proposal["memory_id"],
                                     "approved_for_staging", "reviewer")

@@ -38,7 +38,7 @@ class TALibResearchTests(unittest.TestCase):
         from app.ta_lib_research import analyze_historical_ohlcv
         bad = self.frame.copy()
         bad.columns = ["Open", " open ", "Low", "Close"]
-        with self.assertRaisesRegex(ValueError, "Duplicate required OHLC columns after case/whitespace normalization"):
+        with self.assertRaisesRegex(ValueError, "Duplicate required OHLC/timestamp columns after case/whitespace normalization"):
             analyze_historical_ohlcv(bad)
 
     def test_duplicate_unused_columns_are_ignored(self):

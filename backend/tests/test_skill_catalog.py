@@ -7,7 +7,7 @@ class SkillCatalogTests(unittest.TestCase):
     def test_catalog_contains_only_allowlisted_research_skills(self):
         skills = list_skills()
         by_id = {skill["id"]: skill for skill in skills}
-        self.assertEqual(len(skills), 319)
+        self.assertEqual(len(skills), 320)
         self.assertNotIn("trader-broker", by_id)
         self.assertTrue(all(
             skill["mode"] == "research_and_paper_only"
@@ -91,6 +91,18 @@ class SkillCatalogTests(unittest.TestCase):
         self.assertIn("Qlib", loaded["content"])
         self.assertFalse(loaded["broker_execution"])
 
+
+
+    def test_qlib_research_skill_is_allowlisted_with_upstream_provenance(self):
+        skills = {skill["id"]: skill for skill in list_skills()}
+        skill = skills["qlib-research"]
+        self.assertTrue(skill["available"])
+        self.assertEqual(skill["mode"], "research_evaluation_only")
+        self.assertEqual(skill["upstream"], "https://github.com/microsoft/qlib")
+        self.assertTrue(skill["license_review_required_before_code_import"])
+        loaded = load_skill("qlib-research")
+        self.assertIn("chronological train/validation/test", loaded["content"])
+        self.assertFalse(loaded["broker_execution"])
 
     def test_300_skill_pack_is_discoverable_and_loads_one_skill_at_a_time(self):
         skills = {skill["id"]: skill for skill in list_skills()}

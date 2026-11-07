@@ -154,6 +154,29 @@ class ResearchQualityEvalTests(unittest.TestCase):
         self.assertEqual(result["metrics"]["source_registry_entries_complete_provenance_count"], 1)
         self.assertEqual(result["metrics"]["source_registry_provenance_completeness"], 1.0)
 
+    def test_empty_source_registry_has_null_provenance_completeness(self):
+        result = evaluate_research_draft(
+            draft="No source registry.", claims=[], source_registry=[]
+        )
+        metrics = result["metrics"]
+        self.assertIsNone(metrics["source_registry_provenance_completeness"])
+        self.assertEqual(metrics["source_registry_entries_invalid_provenance_count"], 0)
+
+    def test_invalid_provenance_entry_count_is_distinct_from_missing_fields(self):
+        result = evaluate_research_draft(
+            draft="Malformed URL is present but invalid.",
+            claims=[],
+            source_registry=[{
+                "source_id": "invalid", "title": "Source",
+                "url": "https://example.org:bad/path",
+                "source_type": "web", "observed_at": "2026-11-07T10:00:00Z",
+            }],
+        )
+        metrics = result["metrics"]
+        self.assertEqual(metrics["source_registry_entries_missing_provenance_count"], 0)
+        self.assertEqual(metrics["source_registry_entries_invalid_provenance_count"], 1)
+        self.assertEqual(metrics["source_registry_entries_complete_provenance_count"], 0)
+
     def test_empty_claim_set_has_null_coverage(self):
         result = evaluate_research_draft(draft="No claims.", claims=[], source_registry=[])
         self.assertIsNone(result["metrics"]["claim_reference_coverage"])

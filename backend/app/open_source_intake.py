@@ -12,7 +12,7 @@ from urllib.parse import urlparse
 _ALLOWED_LICENSES = {
     "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC", "MIT", "MPL-2.0",
 }
-_GITHUB_REPO = re.compile(r"^https://github\\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+?)(?:\\.git)?/?$")
+_GITHUB_REPO = re.compile(r"^https://github\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+?)(?:\.git)?/?$")
 _COMMIT = re.compile(r"^[0-9a-fA-F]{40}$")
 _MAX_CONTENT_BYTES = 50_000
 _MAX_PATH = 500
@@ -54,7 +54,7 @@ def build_source_candidate(
         raise ValueError("commit_sha must be a full 40-character Git commit SHA")
 
     file_path = _required_text(file_path, "file_path", _MAX_PATH)
-    if file_path.startswith("/") or "\\\\" in file_path or any(
+    if file_path.startswith("/") or "\\" in file_path or any(
         part in {"", ".", ".."} for part in file_path.split("/")
     ):
         raise ValueError("file_path must be a safe repository-relative path")
@@ -72,7 +72,7 @@ def build_source_candidate(
     content_bytes = content.encode("utf-8")
     if len(content_bytes) > _MAX_CONTENT_BYTES:
         raise ValueError("content exceeds the 50000-byte intake limit")
-    if "\\x00" in content:
+    if "\x00" in content:
         raise ValueError("content must be plain text, not binary data")
 
     digest = hashlib.sha256(content_bytes).hexdigest()

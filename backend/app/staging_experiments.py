@@ -9,6 +9,7 @@ import math
 from typing import Any
 
 from .worker_memory import append_memory, read_memory, list_improvement_proposals
+from .research_benchmark import run_offline_research_benchmark
 
 _ALLOWED_OUTCOMES = {"candidate_better", "candidate_worse", "no_material_change", "inconclusive"}
 
@@ -77,6 +78,47 @@ def create_staging_experiment(worker_id: str, proposal_memory_id: str, payload: 
                          [f"improvement_proposal:{proposal_memory_id}", f"benchmark:{benchmark_id.strip()}"],
                          "unverified")
 
+
+
+def run_staging_benchmark(worker_id: str, proposal_memory_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+    """Run deterministic offline fixtures as baseline/candidate and persist their metrics."""
+    if not isinstance(payload, dict):
+        raise ValueError("payload must be an object")
+    baseline_cases = payload.get("baseline_cases")
+    candidate_cases = payload.get("candidate_cases")
+    reviewer = payload.get("reviewer")
+    notes = payload.get("notes", "")
+    if not isinstance(reviewer, str) or not reviewer.strip() or len(reviewer) > 120:
+        raise ValueError("reviewer must be a non-empty string up to 120 characters")
+    if not isinstance(notes, str) or len(notes) > 2000:
+        raise ValueError("notes must be a string up to 2000 characters")
+    baseline_result = run_offline_research_benchmark(baseline_cases)
+    candidate_result = run_offline_research_benchmark(candidate_cases)
+    metric_names = ("claim_reference_coverage", "known_source_reference_coverage")
+    baseline_metrics = {name: baseline_result["aggregate_metrics"][name]["mean"]
+                        for name in metric_names}
+    candidate_metrics = {name: candidate_result["aggregate_metrics"][name]["mean"]
+                         for name in metric_names}
+    if any(value is None for value in (*baseline_metrics.values(), *candidate_metrics.values())):
+        raise ValueError("all baseline and candidate metrics must be available; provide cases with measurable claims")
+    combined_id = f"baseline:{baseline_result['benchmark_id']}|candidate:{candidate_result['benchmark_id']}"
+    saved = create_staging_experiment(worker_id, proposal_memory_id, {
+        "benchmark_id": combined_id,
+        "reviewer": reviewer,
+        "baseline_metrics": baseline_metrics,
+        "candidate_metrics": candidate_metrics,
+        "notes": notes,
+    })
+    # Preserve reproducibility metadata on the saved record.
+    saved["content"]["benchmark_runs"] = {
+        "baseline_benchmark_id": baseline_result["benchmark_id"],
+        "candidate_benchmark_id": candidate_result["benchmark_id"],
+        "baseline_case_count": baseline_result["case_count"],
+        "candidate_case_count": candidate_result["case_count"],
+        "benchmark_type": "offline_research_traceability",
+        "metric_names": list(metric_names),
+    }
+    return saved
 
 def list_staging_experiments(worker_id: str, limit: int = 50) -> dict[str, Any]:
     if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 200:

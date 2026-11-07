@@ -139,6 +139,12 @@ def build_offline_evidence_bundle(
 
     bars = []
     for row in frame.to_dict(orient="records"):
+        # CSV blanks in optional metadata columns become pandas NaN. Convert
+        # missing scalar values to JSON null before strict evidence export.
+        row = {
+            key: (None if pd.isna(value) else value)
+            for key, value in row.items()
+        }
         timestamp = row.pop(timestamp_column)
         if hasattr(timestamp, "isoformat"):
             timestamp = timestamp.isoformat()

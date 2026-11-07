@@ -195,6 +195,54 @@ def run_staging_benchmark(worker_id: str, proposal_memory_id: str, payload: dict
     })
     return saved
 
+def summarize_staging_experiments(worker_id: str, limit: int = 100) -> dict[str, Any]:
+    """Summarize recent append-only experiments without ranking strategies or implying significance."""
+    if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 200:
+        raise ValueError("limit must be between 1 and 200")
+    records = read_memory(worker_id, "validation_result", limit=200)["memory"]
+    experiments = [item for item in records
+                   if isinstance(item.get("content"), dict)
+                   and item["content"].get("record_type") == "staging_experiment_result"][:limit]
+    gate_counts: dict[str, int] = {}
+    proposal_counts: dict[str, int] = {}
+    metric_deltas: dict[str, list[float]] = {}
+    configs: dict[str, int] = {}
+    for item in experiments:
+        content = item["content"]
+        proposal_id = content.get("proposal_memory_id", "unknown")
+        proposal_counts[proposal_id] = proposal_counts.get(proposal_id, 0) + 1
+        runs = content.get("benchmark_runs", {})
+        gate = runs.get("quality_gate", {}) if isinstance(runs, dict) else {}
+        gate_status = gate.get("status", "not_available")
+        gate_counts[gate_status] = gate_counts.get(gate_status, 0) + 1
+        for name, delta in gate.get("aggregate_deltas", {}).items():
+            if isinstance(delta, (int, float)) and not isinstance(delta, bool) and math.isfinite(delta):
+                metric_deltas.setdefault(name, []).append(float(delta))
+        patch = runs.get("config_patch") if isinstance(runs, dict) else None
+        if isinstance(patch, dict):
+            config_key = str(sorted(patch.items()))
+            configs[config_key] = configs.get(config_key, 0) + 1
+    metric_summary = {
+        name: {
+            "observations": len(values),
+            "mean_delta": round(sum(values) / len(values), 4),
+            "min_delta": round(min(values), 4),
+            "max_delta": round(max(values), 4),
+        }
+        for name, values in metric_deltas.items() if values
+    }
+    return {
+        "worker_id": worker_id,
+        "experiment_count": len(experiments),
+        "proposal_experiment_counts": proposal_counts,
+        "quality_gate_status_counts": gate_counts,
+        "metric_delta_summary": metric_summary,
+        "config_patch_frequency": configs,
+        "interpretation": "Descriptive summaries of recent fixture runs only. No statistical significance, causal attribution, market skill, or strategy ranking is inferred.",
+        "limit": limit,
+    }
+
+
 def list_staging_experiments(worker_id: str, limit: int = 50) -> dict[str, Any]:
     if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 200:
         raise ValueError("limit must be between 1 and 200")

@@ -92,8 +92,9 @@ Implemented on the open PR branch:
 - Restricted the API adapter to informational CLI actions; this is not a public shell or an unrestricted interactive terminal.
 
 CI:
-- Latest PR head: `a629ad95a3a6bbb3745a09ed161d910e6b7e7687`
-- Quality checks (Version 3.4): passed.
+- Latest PR head at this status update: `38144db795a01b9a54bda1513f2b08896cbdfd0e`
+- The earlier Version 3.4 quality-check pass applies to an older commit, not this head.
+- No workflow run was returned for the current head during this audit; current-head CI is therefore unverified.
 - PR #4 remains open and unmerged.
 
 Not yet completed:

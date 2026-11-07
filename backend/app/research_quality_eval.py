@@ -31,6 +31,7 @@ def evaluate_research_draft(
         raise ValueError("baseline must be an object")
 
     source_ids = set()
+    source_provenance_complete = {}
     duplicate_source_ids = set()
     source_entries_without_id = 0
     entries_missing_provenance = 0
@@ -54,11 +55,21 @@ def evaluate_research_draft(
         normalized_id = source_id.strip()
         if normalized_id in source_ids:
             duplicate_source_ids.add(normalized_id)
+            # Duplicate IDs are ambiguous: treat the ID as provenance-incomplete
+            # if any registry entry carrying it lacks required fields.
+            source_provenance_complete[normalized_id] = (
+                source_provenance_complete[normalized_id] and not missing_fields
+            )
+        else:
+            source_provenance_complete[normalized_id] = not missing_fields
         source_ids.add(normalized_id)
 
     total = len(claims)
     claims_with_refs = 0
     claims_with_known_refs = 0
+    claims_with_complete_provenance_refs = 0
+    claims_with_incomplete_provenance_refs = 0
+    incomplete_provenance_refs = set()
     unknown_refs = set()
     reviewed = []
     for claim in claims:
@@ -72,16 +83,34 @@ def evaluate_research_draft(
             raise ValueError("source_refs must be a list of at most 30 strings")
         refs = sorted({x.strip() for x in refs if x.strip()})
         missing = sorted(set(refs) - source_ids)
+        incomplete = sorted(
+            ref for ref in set(refs) & source_ids
+            if not source_provenance_complete.get(ref, False)
+        )
         if refs:
             claims_with_refs += 1
         if refs and not missing:
             claims_with_known_refs += 1
+        if refs and not missing and not incomplete:
+            claims_with_complete_provenance_refs += 1
+        if refs and incomplete:
+            claims_with_incomplete_provenance_refs += 1
         unknown_refs.update(missing)
+        incomplete_provenance_refs.update(incomplete)
+        if not refs:
+            reference_status = "missing"
+        elif missing:
+            reference_status = "unknown_ids"
+        elif incomplete:
+            reference_status = "registry_match_incomplete_provenance"
+        else:
+            reference_status = "registry_match_complete_provenance"
         reviewed.append({
             "claim": text.strip(),
             "source_refs": refs,
-            "reference_status": "missing" if not refs else ("unknown_ids" if missing else "registry_match"),
+            "reference_status": reference_status,
             "unknown_source_ids": missing,
+            "incomplete_provenance_source_ids": incomplete,
         })
 
     draft_lower = draft.lower()
@@ -95,6 +124,10 @@ def evaluate_research_draft(
         "claim_count": total,
         "claims_with_source_refs": claims_with_refs,
         "claims_with_known_source_refs": claims_with_known_refs,
+        "claims_with_complete_source_provenance_refs": claims_with_complete_provenance_refs,
+        "claims_with_incomplete_source_provenance_refs": claims_with_incomplete_provenance_refs,
+        "incomplete_source_provenance_id_count": len(incomplete_provenance_refs),
+        "incomplete_source_provenance_ids": sorted(incomplete_provenance_refs),
         "claim_reference_coverage": round(claims_with_refs / denominator, 4) if total else None,
         "known_source_reference_coverage": round(claims_with_known_refs / denominator, 4) if total else None,
         "unknown_source_id_count": len(unknown_refs),

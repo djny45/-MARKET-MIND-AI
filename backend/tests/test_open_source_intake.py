@@ -64,7 +64,7 @@ class OpenSourceIntakeTests(unittest.TestCase):
                 self.candidate(license_spdx=license_id)
 
     def test_rejects_empty_binary_and_oversized_content(self):
-        for content in ("", "   ", "a" * 50_001, "binary\\x00payload"):
+        for content in ("", "   ", "a" * 50_001, "binary\x00payload"):
             with self.subTest(content_length=len(content)), self.assertRaises(ValueError):
                 self.candidate(content=content)
 

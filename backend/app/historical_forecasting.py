@@ -221,7 +221,12 @@ def evaluate_next_day_return_forecast(
     baseline_predictions = [0.0] * len(test_y)
     # Fit the constant-mean baseline on the same pre-test history only.
     pretest_targets = targets[:validation_end]
-    mean_return = sum(pretest_targets) / len(pretest_targets)
+try:
+                mean_return = math.fsum(pretest_targets) / len(pretest_targets)
+            except (OverflowError, ValueError):
+                raise ValueError("pretest mean return must be finite") from None
+            if not math.isfinite(mean_return):
+                raise ValueError("pretest mean return must be finite")
     mean_baseline_predictions = [mean_return] * len(test_y)
 
     model_metrics = _metrics(test_y, model_predictions)
@@ -372,7 +377,12 @@ def evaluate_walk_forward_return_forecast(
         test_y = targets[start:start + test_window]
         model_predictions = _predict(coefficients, test_x)
         zero_predictions = [0.0] * len(test_y)
-        mean_return = sum(history_y) / len(history_y)
+try:
+                    mean_return = math.fsum(history_y) / len(history_y)
+                except (OverflowError, ValueError):
+                    raise ValueError("pretest mean return must be finite") from None
+                if not math.isfinite(mean_return):
+                    raise ValueError("pretest mean return must be finite")
         mean_predictions = [mean_return] * len(test_y)
 
         model_metrics = _metrics(test_y, model_predictions)
@@ -502,7 +512,12 @@ def evaluate_walk_forward_forecast(
         test_y = targets[cursor:cursor + test_window_size]
         model_metrics = _metrics(test_y, _predict(coefficients, test_x))
         zero_metrics = _metrics(test_y, [0.0] * len(test_y))
-        mean_return = sum(pretest_y) / len(pretest_y)
+try:
+                    mean_return = math.fsum(pretest_y) / len(pretest_y)
+                except (OverflowError, ValueError):
+                    raise ValueError("pretest mean return must be finite") from None
+                if not math.isfinite(mean_return):
+                    raise ValueError("pretest mean return must be finite")
         mean_metrics = _metrics(test_y, [mean_return] * len(test_y))
         windows.append({
             "window_number": len(windows) + 1,
@@ -522,7 +537,13 @@ def evaluate_walk_forward_forecast(
         cursor += step_size
 
     def average_metric(rows: list[dict], key: str) -> float:
-        return sum(row[key] for row in rows) / len(rows)
+        try:
+            value = math.fsum(row[key] for row in rows) / len(rows)
+        except (OverflowError, ValueError):
+            raise ValueError("aggregate forecast metrics must be finite") from None
+        if not math.isfinite(value):
+            raise ValueError("aggregate forecast metrics must be finite")
+        return value
 
     aggregate_model = {
         key: average_metric([row["model"] for row in windows], key)

@@ -297,6 +297,61 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertEqual(saved["status"], "completed")
         self.assertEqual(saved["result"]["shared_core_result"]["summary"], "new execution")
 
+    def test_stale_execution_cannot_overwrite_quality_evaluation(self):
+        from concurrent.futures import ThreadPoolExecutor
+        from threading import Event
+        import sqlite3
+        from datetime import datetime, timedelta, timezone
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, execute_queued_research_task, get_task_quality_evaluation,
+        )
+
+        queued = enqueue_research_task(
+            "worker_023", "lease quality evaluation race",
+            {"claims": [{"text": "Claim", "source_refs": ["s1"]}],
+             "source_registry": [{"source_id": "s1"}]},
+        )
+        first_started = Event()
+        release_first = Event()
+        synth_calls = 0
+        eval_calls = 0
+
+        def controlled_synthesis(payload):
+            nonlocal synth_calls
+            synth_calls += 1
+            if synth_calls == 1:
+                first_started.set()
+                self.assertTrue(release_first.wait(timeout=5))
+                return {"status": "completed", "summary": "old draft"}
+            return {"status": "completed", "summary": "new draft"}
+
+        def controlled_evaluation(**kwargs):
+            nonlocal eval_calls
+            eval_calls += 1
+            return {"evaluation_type": "test", "draft_marker": kwargs["draft"]}
+
+        with patch("app.analytical_agent_tasks.synthesize_research",
+                   side_effect=controlled_synthesis), patch(
+                       "app.analytical_agent_tasks.evaluate_research_draft",
+                       side_effect=controlled_evaluation):
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                old_run = pool.submit(execute_queued_research_task, queued["task_id"])
+                self.assertTrue(first_started.wait(timeout=5))
+                stale = (datetime.now(timezone.utc) - timedelta(seconds=1200)).isoformat()
+                with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+                    db.execute(
+                        "UPDATE analytical_agent_tasks SET status='queued',updated_at=? WHERE task_id=?",
+                        (stale, queued["task_id"]),
+                    )
+                self.assertTrue(execute_queued_research_task(queued["task_id"]))
+                release_first.set()
+                self.assertFalse(old_run.result(timeout=5))
+
+        evaluation = get_task_quality_evaluation(queued["task_id"])
+        self.assertEqual(evaluation["status"], "persisted")
+        self.assertEqual(evaluation["evaluation"]["draft_marker"], "new draft")
+        self.assertEqual(eval_calls, 2)
+
     def test_duplicate_dispatch_only_claims_once(self):
         from app.analytical_agent_tasks import enqueue_research_task, execute_queued_research_task
         queued = enqueue_research_task("worker_006", "single claim")

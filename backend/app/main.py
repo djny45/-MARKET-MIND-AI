@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from .workflow import NODE_TYPES, execute_workflow
 from .workers import list_workers
 from .worker_runtime import worker_runtime_status
-from .worker_memory import append_memory, read_memory, recall_memory, review_learning_candidate, list_learning_candidates, recall_approved_learning_candidates
+from .worker_memory import append_memory, read_memory, recall_memory, review_learning_candidate, list_learning_candidates, recall_approved_learning_candidates, review_improvement_proposal, list_improvement_proposals
 from .learning_feedback import evaluate_learning_feedback
 from .worker_registry import evaluate_registry, registry_manifest
 from .analytical_agent_runtime import runtime_manifest, brain_config, validate_learning_feedback, validate_update_proposal
@@ -251,6 +251,11 @@ class WorkerLearningFeedbackRequest(BaseModel):
  current_metrics: dict[str, Any] = Field(min_length=1, max_length=100)
  stale_after_days: int = Field(default=30, ge=1, le=3650)
  tolerance: float = Field(default=0.0001, ge=0, le=1e12)
+
+class ImprovementProposalReviewRequest(BaseModel):
+ decision: Literal["approved_for_staging", "rejected", "needs_revision"]
+ reviewer: str = Field(min_length=1, max_length=120)
+ rationale: str = Field(default="", max_length=2000)
 
 class AgentResearchMessageRequest(BaseModel):
  agent_id: str = Field(min_length=1, max_length=96)
@@ -503,6 +508,28 @@ def evaluate_worker_learning_feedback(worker_id: str, request: WorkerLearningFee
    worker_id, request.current_metrics,
    stale_after_days=request.stale_after_days,
    tolerance=request.tolerance,
+  )
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/workers/{worker_id}/improvement-proposals")
+def get_worker_improvement_proposals(worker_id: str, limit: int = 50):
+ """List generated research improvement proposals and append-only review state."""
+ try:
+  return list_improvement_proposals(worker_id, limit)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/workers/{worker_id}/improvement-proposals/{proposal_memory_id}/review")
+def review_worker_improvement_proposal(
+ worker_id: str, proposal_memory_id: str, request: ImprovementProposalReviewRequest,
+):
+ """Record a staging-only human review; never changes code or deploys."""
+ try:
+  return review_improvement_proposal(
+   worker_id, proposal_memory_id, request.decision, request.reviewer, request.rationale,
   )
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc

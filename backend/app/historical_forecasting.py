@@ -392,6 +392,11 @@ def evaluate_walk_forward_forecast(
     if not isinstance(step_size, int) or isinstance(step_size, bool) or step_size < 1:
         raise ValueError("step_size must be a positive integer")
 
+    if step_size < test_window_size:
+        raise ValueError(
+            "step_size must be >= test_window_size to prevent overlapping test windows"
+        )
+
     returns = _log_returns(adjusted_closes)
     features, targets = [], []
     for target_index in range(lookback, len(returns)):
@@ -483,7 +488,7 @@ def evaluate_walk_forward_forecast(
         "research_only": True,
         "limitations": [
             "Window metrics are arithmetic means of per-window metrics, not pooled observation metrics.",
-            "Overlapping windows can occur when step_size is smaller than test_window_size.",
+            "Test windows are non-overlapping; expanding pre-test histories still reuse prior observations.",
             "Indices identify return samples, not dates; calendar timestamps are not included.",
             "A small single-symbol synthetic or historical run does not establish generalization or tradable edge.",
             "No transaction costs, slippage, taxes, portfolio outcomes, or investment advice.",

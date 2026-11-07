@@ -278,6 +278,20 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertEqual(events[-1]["event_type"], "task_failed")
         self.assertEqual(events[-1]["to_status"], "failed")
 
+
+    def test_sync_memory_retrieval_failure_marks_task_failed(self):
+        from app.analytical_agent_tasks import list_task_audit_events
+        with patch("app.analytical_agent_tasks.recall_memory", side_effect=RuntimeError("memory unavailable")):
+            result = submit_research_task("worker_020", "sync memory failure")
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(result["result"]["error"], "Research task failed safely.")
+        self.assertEqual(result["result"]["error_type"], "RuntimeError")
+        saved = get_research_task(result["task_id"])
+        self.assertEqual(saved["status"], "failed")
+        events = list_task_audit_events(result["task_id"])["events"]
+        self.assertEqual(events[-1]["event_type"], "task_failed")
+        self.assertEqual(events[-1]["to_status"], "failed")
+
     def test_memory_retrieval_failure_marks_claimed_task_failed(self):
         from app.analytical_agent_tasks import (
             enqueue_research_task, execute_queued_research_task, list_task_audit_events,

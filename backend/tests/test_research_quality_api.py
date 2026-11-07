@@ -184,5 +184,27 @@ class ResearchQualityApiTests(unittest.TestCase):
                 self.assertEqual(raised.exception.detail, "limit must be between 1 and 200")
 
 
+    def test_audit_integrity_verifier_detects_tampering(self):
+        from app.audit_integrity import build_integrity_metadata, verify_integrity_metadata
+
+        bundle = {"worker_id": "worker_1", "records": [{"count": 2}]}
+        bundle["integrity"] = build_integrity_metadata(bundle)
+        self.assertTrue(verify_integrity_metadata(bundle)["valid"])
+
+        bundle["records"][0]["count"] = 3
+        result = verify_integrity_metadata(bundle)
+        self.assertFalse(result["valid"])
+        self.assertEqual(result["reason"], "digest_mismatch")
+        self.assertEqual(result["authentication"], "not_provided")
+
+    def test_audit_integrity_verifier_reports_missing_metadata(self):
+        from app.audit_integrity import verify_integrity_metadata
+
+        self.assertEqual(
+            verify_integrity_metadata({"data": "fixture"})["reason"],
+            "integrity_metadata_missing",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

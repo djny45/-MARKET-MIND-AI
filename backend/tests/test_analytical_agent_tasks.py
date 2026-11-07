@@ -254,6 +254,22 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertIn("entries must be objects", result["research_quality_evaluation"]["error"])
         self.assertEqual(result["shared_core_result"]["status"], "not_configured")
 
+
+    def test_memory_retrieval_failure_marks_claimed_task_failed(self):
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, execute_queued_research_task, list_task_audit_events,
+        )
+        queued = enqueue_research_task("worker_018", "memory retrieval failure test")
+        with patch("app.analytical_agent_tasks.recall_memory", side_effect=RuntimeError("memory unavailable")):
+            execute_queued_research_task(queued["task_id"])
+        saved = get_research_task(queued["task_id"])
+        self.assertEqual(saved["status"], "failed")
+        self.assertEqual(saved["result"]["error"], "Research task failed safely.")
+        self.assertEqual(saved["result"]["error_type"], "RuntimeError")
+        events = list_task_audit_events(queued["task_id"])["events"]
+        self.assertEqual(events[-1]["event_type"], "task_failed")
+        self.assertEqual(events[-1]["to_status"], "failed")
+
 if __name__ == "__main__":
     unittest.main()
 

@@ -62,7 +62,7 @@ class OpenBBCLITests(unittest.TestCase):
     @patch("app.openbb_cli.shutil.which", return_value="/opt/openbb-venv/bin/openbb")
     def test_version_uses_cli_environment_python(self, _which, run, _is_file):
         run.return_value = __import__("subprocess").CompletedProcess(
-            args=[], returncode=0, stdout="5.0.1\\n", stderr=""
+            args=[], returncode=0, stdout="5.0.1\n", stderr=""
         )
         result = run_openbb_cli("version")
         self.assertTrue(result.available)
@@ -94,7 +94,7 @@ class OpenBBCLITests(unittest.TestCase):
     @patch("app.openbb_cli.shutil.which", return_value="/opt/openbb-venv/bin/openbb")
     def test_version_handles_missing_distribution_metadata(self, _which, run, _is_file):
         run.return_value = __import__("subprocess").CompletedProcess(
-            args=[], returncode=1, stdout="PackageNotFoundError\\n", stderr=""
+            args=[], returncode=1, stdout="PackageNotFoundError\n", stderr=""
         )
         result = run_openbb_cli("version")
         self.assertTrue(result.available)

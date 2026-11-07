@@ -120,6 +120,7 @@ def test_timeline_rejects_non_finite_ohlcv_values():
 def test_timeline_rejects_inconsistent_ohlc_and_negative_volume():
     import pytest
     bars = sample_bars()
+    bars[0]["low"] = bars[0]["close"] - 2
     bars[0]["high"] = bars[0]["close"] - 1
     with pytest.raises(ValueError, match="high must be >= open and close"):
         build_research_timeline({"bars": bars})

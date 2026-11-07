@@ -185,6 +185,15 @@ class HistoricalForecastingTests(unittest.TestCase):
                 step_size=10,
             )
 
+    def test_legacy_walk_forward_rejects_overlapping_test_windows(self):
+        with self.assertRaisesRegex(ValueError, "step_size must be >= test_window_size"):
+            evaluate_walk_forward_forecast(
+                self.synthetic_closes(500),
+                min_train_samples=100,
+                test_window_size=20,
+                step_size=10,
+            )
+
     def test_walk_forward_rejects_invalid_parameters_and_short_history(self):
         from app.historical_forecasting import evaluate_walk_forward_return_forecast
 

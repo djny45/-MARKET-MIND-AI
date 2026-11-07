@@ -23,6 +23,7 @@ from .synthesis_review import build_synthesis_review
 from .research_quality_eval import evaluate_research_draft
 from .research_benchmark import run_offline_research_benchmark
 from .skill_catalog import list_skills, load_skill, build_skill_protocol
+from .open_source_intake import build_source_candidate
 from .landing_page_builder import build_landing_page
 from .markets import market_catalog
 from .instruments import search_instruments
@@ -179,6 +180,14 @@ class AgentLearningFeedbackRequest(BaseModel):
  summary: str = Field(min_length=1, max_length=4000)
  outcome: Literal["helpful", "partially_helpful", "not_helpful", "unverified"]
  metrics: dict[str, Any] = Field(default_factory=dict)
+
+class OpenSourceIntakeRequest(BaseModel):
+ repository_url: str = Field(min_length=1, max_length=300)
+ commit_sha: str = Field(min_length=1, max_length=40)
+ file_path: str = Field(min_length=1, max_length=500)
+ license_spdx: str = Field(min_length=1, max_length=50)
+ content: str = Field(min_length=1, max_length=10000)
+ source_kind: Literal["documentation", "source_excerpt", "research_note"] = "documentation"
 
 class AgentProposalReviewRequest(BaseModel):
  reviewer: str = Field(min_length=1, max_length=120)
@@ -681,6 +690,25 @@ def review_worker_learning_candidate(worker_id: str, memory_id: str, request: Wo
   )
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+@app.post("/api/workers/{worker_id}/open-source-candidates")
+def register_open_source_candidate(worker_id: str, request: OpenSourceIntakeRequest):
+ """Store a pinned, license-allowlisted source snapshot as pending review.
+
+ Source content is data only: no execution, automatic copying, or promotion.
+ """
+ try:
+  candidate = build_source_candidate(**request.model_dump())
+  memory_record = append_memory(
+   worker_id, "validation_result",
+   {"record_type": "open_source_learning_candidate", **candidate},
+   [f"open_source:{candidate['repository_url']}@{candidate['commit_sha']}:{candidate['file_path']}"],
+   "unverified",
+  )
+  return {"candidate": candidate, "memory_record": memory_record}
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
 
 @app.get("/api/workers/{worker_id}/memory/recall")
 def recall_worker_memory(worker_id: str, query: str, limit: int = 5):

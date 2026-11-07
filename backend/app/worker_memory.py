@@ -200,7 +200,7 @@ def review_learning_candidate(worker_id, memory_id, decision, reviewer, rational
         raise ValueError("worker_id must identify a registered worker template")
     if not isinstance(memory_id, str) or not memory_id.strip() or len(memory_id) > 64:
         raise ValueError("memory_id must be a non-empty identifier of at most 64 characters")
-    if decision not in _REVIEW_DECISIONS:
+    if not isinstance(decision, str) or decision not in _REVIEW_DECISIONS:
         raise ValueError("decision must be approved, rejected, or needs_revision")
     if not isinstance(reviewer, str) or not reviewer.strip() or len(reviewer) > 120:
         raise ValueError("reviewer must be a non-empty string of at most 120 characters")

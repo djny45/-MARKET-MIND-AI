@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from app.worker_memory import append_memory, read_memory, recall_memory, review_learning_candidate
+from app.worker_memory import append_memory, read_memory, recall_memory, review_learning_candidate, list_learning_candidates
 
 
 class WorkerMemoryTests(unittest.TestCase):
@@ -99,6 +99,29 @@ class WorkerMemoryTests(unittest.TestCase):
             review_learning_candidate("worker_001", ordinary["memory_id"], "approved", "operator")
         with self.assertRaises(ValueError):
             review_learning_candidate("worker_001", candidate["memory_id"], "promote", "operator")
+
+
+    def test_candidate_listing_exposes_latest_review_and_history(self):
+        candidate = append_memory(
+            "worker_001", "validation_result",
+            {"record_type": "research_quality_learning_candidate", "task_id": "task-list"},
+            ["research_task:task-list"], "partial",
+        )
+        review_learning_candidate("worker_001", candidate["memory_id"], "needs_revision", "reviewer-a", "Need clearer metrics")
+        review_learning_candidate("worker_001", candidate["memory_id"], "approved", "reviewer-b", "Rechecked")
+        listing = list_learning_candidates("worker_001")
+        self.assertEqual(listing["count"], 1)
+        item = listing["candidates"][0]
+        self.assertEqual(item["memory_id"], candidate["memory_id"])
+        self.assertEqual(item["review_status"], "approved")
+        self.assertEqual(len(item["review_history"]), 2)
+        self.assertEqual(item["latest_review"]["reviewer"], "reviewer-b")
+
+    def test_candidate_listing_validates_worker_and_limit(self):
+        with self.assertRaises(ValueError):
+            list_learning_candidates("worker_999")
+        with self.assertRaises(ValueError):
+            list_learning_candidates("worker_001", limit=0)
 
     def test_rejects_unknown_worker_and_invalid_memory_type(self):
         with self.assertRaises(ValueError):

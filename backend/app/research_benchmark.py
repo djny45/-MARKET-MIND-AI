@@ -16,6 +16,27 @@ MAX_CASE_ID_CHARS = 120
 BASELINE_METRICS = ("claim_reference_coverage", "known_source_reference_coverage")
 DEFAULT_QUALITY_CONFIG = {"uncertainty_markers": ["uncertain", "unknown", "limitation", "assumption", "not verified", "cannot conclude", "insufficient data"]}
 MAX_CONFIG_MARKERS = 20
+BENCHMARK_EVALUATOR_VERSION = "research-traceability-v1"
+FIXTURE_METADATA_FIELDS = {"dataset_name", "dataset_version", "source_description", "prepared_by", "collection_date"}
+MAX_FIXTURE_METADATA_VALUE_CHARS = 160
+
+
+def _validate_fixture_metadata(metadata: dict[str, Any] | None) -> dict[str, str]:
+    """Normalize bounded caller-declared provenance; values are not independently verified."""
+    if metadata is None:
+        return {}
+    if not isinstance(metadata, dict):
+        raise ValueError("fixture_metadata must be an object")
+    unknown = set(metadata) - FIXTURE_METADATA_FIELDS
+    if unknown:
+        raise ValueError(f"fixture_metadata contains unsupported fields: {sorted(unknown)}")
+    normalized = {}
+    for key, value in metadata.items():
+        if not isinstance(value, str) or len(value.strip()) > MAX_FIXTURE_METADATA_VALUE_CHARS:
+            raise ValueError(f"fixture_metadata.{key} must be a string up to {MAX_FIXTURE_METADATA_VALUE_CHARS} characters")
+        if value.strip():
+            normalized[key] = value.strip()
+    return normalized
 
 
 def _validate_baseline_metrics(baseline: dict[str, Any] | None) -> dict[str, Any] | None:
@@ -48,6 +69,7 @@ def run_offline_research_benchmark(
     baseline: dict[str, Any] | None = None,
     regression_threshold: float = 0.05,
     quality_config: dict[str, Any] | None = None,
+    fixture_metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Evaluate a bounded, deterministic collection of synthetic research cases."""
     if not isinstance(cases, list) or not cases or len(cases) > MAX_CASES:
@@ -55,6 +77,7 @@ def run_offline_research_benchmark(
     if baseline is not None and not isinstance(baseline, dict):
         raise ValueError("baseline must be an object")
     baseline_metrics = _validate_baseline_metrics(baseline)
+    normalized_fixture_metadata = _validate_fixture_metadata(fixture_metadata)
     if quality_config is None:
         normalized_config = {"uncertainty_markers": list(DEFAULT_QUALITY_CONFIG["uncertainty_markers"])}
     elif not isinstance(quality_config, dict) or set(quality_config) != {"uncertainty_markers"}:
@@ -253,6 +276,10 @@ def run_offline_research_benchmark(
     return {
         "benchmark_id": benchmark_id,
         "benchmark_type": "offline_research_traceability",
+        "evaluator_version": BENCHMARK_EVALUATOR_VERSION,
+        "fixture_origin": "caller_supplied",
+        "fixture_metadata": normalized_fixture_metadata,
+        "provenance_note": "Fixture provenance is caller-declared and not independently verified. Metadata is excluded from benchmark_id; the ID fingerprints benchmark inputs/configuration, not provenance claims.",
         "quality_config": normalized_config,
         "case_count": len(results),
         "fixture_overlap": fixture_overlap,

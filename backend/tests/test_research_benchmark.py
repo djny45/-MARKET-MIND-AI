@@ -235,6 +235,26 @@ class ResearchBenchmarkTests(unittest.TestCase):
         self.assertEqual(result["fixture_diversity"]["exact_duplicate_case_count"], 0)
 
 
+    def test_fixture_overlap_flags_shared_sources_and_high_lexical_overlap(self):
+        cases = fixture_cases()
+        cases[1]["draft"] = "Synthetic example with an explicit limitation."
+        cases[1]["claims"] = [{
+            "text": "Fixture claim A", "source_refs": ["fixture-source"]
+        }]
+        cases[1]["source_registry"] = [{"source_id": "fixture-source"}]
+        result = run_offline_research_benchmark(cases)
+        overlap = result["fixture_overlap"]
+        self.assertEqual(overlap["pair_count_flagged"], 1)
+        pair = overlap["flagged_pairs"][0]
+        self.assertIn("shared_source_refs", pair["flags"])
+        self.assertIn("high_lexical_overlap", pair["flags"])
+        self.assertIn("does not establish", overlap["limitations"])
+
+    def test_fixture_overlap_does_not_flag_unrelated_cases(self):
+        result = run_offline_research_benchmark(fixture_cases())
+        self.assertEqual(result["fixture_overlap"]["pair_count_flagged"], 0)
+
+
     def test_rejects_invalid_baseline_shape(self):
         with self.assertRaises(ValueError):
             run_offline_research_benchmark(fixture_cases(), baseline={"bad": "shape"})

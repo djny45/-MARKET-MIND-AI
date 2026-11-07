@@ -357,7 +357,12 @@ def evaluate_walk_forward_return_forecast(
         for alpha in candidates:
             coefficients = _fit_ridge(train_x, train_y, alpha)
             predictions = _predict(coefficients, val_x)
-            mae = sum(abs(actual - predicted) for actual, predicted in zip(val_y, predictions)) / len(val_y)
+            try:
+                mae = math.fsum(abs(actual - predicted) for actual, predicted in zip(val_y, predictions)) / len(val_y)
+            except (OverflowError, ValueError):
+                raise ValueError("validation forecast error must be finite") from None
+            if not math.isfinite(mae):
+                raise ValueError("validation forecast error must be finite")
             validation_scores.append((mae, alpha))
         selected_alpha = min(validation_scores)[1]
 
@@ -483,7 +488,12 @@ def evaluate_walk_forward_forecast(
         for alpha in candidates:
             coefficients = _fit_ridge(train_x, train_y, alpha)
             predictions = _predict(coefficients, val_x)
-            score = sum(abs(a - p) for a, p in zip(val_y, predictions)) / len(val_y)
+            try:
+                score = math.fsum(abs(a - p) for a, p in zip(val_y, predictions)) / len(val_y)
+            except (OverflowError, ValueError):
+                raise ValueError("validation forecast error must be finite") from None
+            if not math.isfinite(score):
+                raise ValueError("validation forecast error must be finite")
             validation_scores.append((score, alpha))
         selected_alpha = min(validation_scores)[1]
 

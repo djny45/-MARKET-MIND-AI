@@ -38,49 +38,11 @@ def analyze_historical_ohlcv(
             "backend/requirements-smc-research.txt first."
         ) from exc
 
-    if not isinstance(ohlc, pd.DataFrame):
-        raise TypeError("ohlc must be a pandas DataFrame")
-    if (
-        not isinstance(swing_length, int)
-        or isinstance(swing_length, bool)
-        or swing_length < 1
-    ):
-        raise ValueError("swing_length must be a positive integer")
-    if isinstance(liquidity_range_percent, bool) or not isinstance(liquidity_range_percent, Real):
-        raise ValueError("liquidity_range_percent must be a finite number in (0, 1]")
-    try:
-        liquidity_range_percent = float(liquidity_range_percent)
-    except (OverflowError, TypeError, ValueError) as exc:
-        raise ValueError("liquidity_range_percent must be a finite number in (0, 1]") from exc
-    if not np.isfinite(liquidity_range_percent) or not 0 < liquidity_range_percent <= 1:
-        raise ValueError("liquidity_range_percent must be a finite number in (0, 1]")
+    from app.ohlcv_validation import normalize_and_validate_ohlc
 
-    frame = ohlc.copy()
-    frame.columns = [str(column).strip().lower() for column in frame.columns]
-    if frame.columns.duplicated().any():
-        duplicates = sorted(set(frame.columns[frame.columns.duplicated(keep=False)]))
-        raise ValueError(f"Duplicate columns after case/whitespace normalization: {duplicates}")
-    # If a conventional timestamp column is supplied, enforce unique UTC instants
-    # in chronological order before calculating row-aligned annotations.
-    timestamp_columns = [c for c in ("timestamp", "datetime", "date", "time") if c in frame.columns]
-    if len(timestamp_columns) > 1:
-        raise ValueError("Multiple recognized timestamp columns are ambiguous")
-    if timestamp_columns:
-        timestamp_values = frame[timestamp_columns[0]]
-        try:
-            parsed_timestamps = pd.to_datetime(timestamp_values, utc=True, errors="raise")
-        except (TypeError, ValueError, OverflowError) as exc:
-            raise ValueError("Timestamp column must contain valid datetime values") from exc
-        if parsed_timestamps.isna().any():
-            raise ValueError("Timestamp column cannot contain missing values")
-        if parsed_timestamps.duplicated().any():
-            raise ValueError("Timestamp column cannot contain duplicate instants")
-        if not parsed_timestamps.is_monotonic_increasing:
-            raise ValueError("Timestamp column must be sorted chronologically")
-    required = {"open", "high", "low", "close"}
-    missing = required.difference(frame.columns)
-    if missing:
-        raise ValueError(f"Missing required OHLC columns: {sorted(missing)}")
+    frame = normalize_and_validate_ohlc(
+        ohlc, duplicate_extra_columns=("volume",)
+    )
     if len(frame) < max(5, swing_length * 2 + 1):
         raise ValueError("Not enough bars for the requested swing_length")
 

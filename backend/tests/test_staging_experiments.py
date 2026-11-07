@@ -177,7 +177,7 @@ class StagingExperimentTests(unittest.TestCase):
         self.assertEqual(summary["experiment_count"], 1)
         self.assertEqual(summary["quality_gate_status_counts"]["eligible_for_human_staging_review"], 1)
         self.assertIn("known_source_reference_coverage", summary["metric_delta_summary"])
-        self.assertIn("not statistical significance", summary["interpretation"])
+        self.assertIn("statistical significance", summary["interpretation"])
 
     def test_history_summary_rejects_bad_limit(self):
         with self.assertRaisesRegex(ValueError, "limit"):

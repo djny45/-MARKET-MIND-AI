@@ -10,7 +10,8 @@ import os
 import shutil
 import subprocess
 from dataclasses import dataclass
-from threading import BoundedSemaphore
+from threading import BoundedSemaphore, Event, Thread
+import time
 from typing import Literal
 
 
@@ -103,25 +104,37 @@ def run_openbb_cli(action: OpenBBAction) -> OpenBBCLIResult:
             error="OpenBB CLI is busy; retry after the current informational command finishes.",
         )
 
+    process = None
+    captured = bytearray()
+    output_limit_reached = Event()
+    reader_done = Event()
+
+    def _read_bounded_output() -> None:
+        try:
+            assert process is not None and process.stdout is not None
+            while True:
+                chunk = process.stdout.read(1024)
+                if not chunk:
+                    break
+                remaining = _MAX_OUTPUT_CHARS + 1 - len(captured)
+                if remaining > 0:
+                    captured.extend(chunk[:remaining])
+                if len(chunk) > remaining or len(captured) > _MAX_OUTPUT_CHARS:
+                    output_limit_reached.set()
+                    process.terminate()
+                    break
+        finally:
+            reader_done.set()
+
     try:
         try:
-            completed = subprocess.run(
+            process = subprocess.Popen(
                 [executable, *_ALLOWED_ARGS[action]],
-                capture_output=True,
-                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
                 stdin=subprocess.DEVNULL,
-                timeout=_TIMEOUT_SECONDS,
-                check=False,
                 shell=False,
                 cwd=None,
-            )
-        except subprocess.TimeoutExpired:
-            return OpenBBCLIResult(
-                available=True,
-                action=action,
-                exit_code=None,
-                output="",
-                error=f"OpenBB CLI timed out after {_TIMEOUT_SECONDS} seconds.",
             )
         except OSError as exc:
             return OpenBBCLIResult(
@@ -131,14 +144,49 @@ def run_openbb_cli(action: OpenBBAction) -> OpenBBCLIResult:
                 output="",
                 error=f"Could not start OpenBB CLI: {exc.__class__.__name__}",
             )
+
+        reader = Thread(target=_read_bounded_output, daemon=True)
+        reader.start()
+        deadline = time.monotonic() + _TIMEOUT_SECONDS
+        while process.poll() is None and time.monotonic() < deadline:
+            if output_limit_reached.is_set():
+                break
+            time.sleep(0.025
+
+        timed_out = process.poll() is None and not output_limit_reached.is_set()
+        if process.poll() is None:
+            process.terminate()
+        try:
+            process.wait(timeout=1)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait()
+        reader.join(timeout=1)
+
+        output = captured.decode("utf-8", errors="replace").strip()
+        if output_limit_reached.is_set():
+            output = _cap_output(output)
+            return OpenBBCLIResult(
+                available=True,
+                action=action,
+                exit_code=process.returncode,
+                output=output,
+                error="OpenBB CLI output exceeded the configured limit; process terminated.",
+            )
+        if timed_out:
+            return OpenBBCLIResult(
+                available=True,
+                action=action,
+                exit_code=None,
+                output=output,
+                error=f"OpenBB CLI timed out after {_TIMEOUT_SECONDS} seconds.",
+            )
+        return OpenBBCLIResult(
+            available=True,
+            action=action,
+            exit_code=process.returncode,
+            output=_cap_output(output),
+            error=None if process.returncode == 0 else "OpenBB CLI returned a non-zero exit code.",
+        )
     finally:
         _HELP_RUN_SEMAPHORE.release()
-
-    output = (completed.stdout + completed.stderr).strip()
-    return OpenBBCLIResult(
-        available=True,
-        action=action,
-        exit_code=completed.returncode,
-        output=_cap_output(output),
-        error=None if completed.returncode == 0 else "OpenBB CLI returned a non-zero exit code.",
-    )

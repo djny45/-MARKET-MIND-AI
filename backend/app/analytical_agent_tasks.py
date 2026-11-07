@@ -255,20 +255,17 @@ def recover_interrupted_research_tasks(stale_after_seconds: int = 900) -> dict:
         now_dt.timestamp() - stale_after_seconds, timezone.utc
     ).isoformat()
     with _connect() as db:
-        stale = db.execute(
-            "SELECT task_id FROM analytical_agent_tasks WHERE status='running' AND updated_at < ?",
-            (cutoff,),
-        ).fetchall()
-        db.execute(
+        # Capture only rows actually transitioned. A separate SELECT followed by
+        # UPDATE can report a stale task as requeued even if another executor
+        # finalizes it between those statements.
+        requeued = db.execute(
             "UPDATE analytical_agent_tasks SET status='queued',updated_at=? "
-            "WHERE status='running' AND updated_at < ?",
+            "WHERE status='running' AND updated_at < ? "
+            "RETURNING task_id,worker_id",
             (now, cutoff),
-        )
-        for task in stale:
-            task_row = db.execute(
-                "SELECT worker_id FROM analytical_agent_tasks WHERE task_id=?", (task["task_id"],)
-            ).fetchone()
-            _record_event(db, task["task_id"], task_row["worker_id"], "task_requeued",
+        ).fetchall()
+        for task in requeued:
+            _record_event(db, task["task_id"], task["worker_id"], "task_requeued",
                           from_status="running", to_status="queued", occurred_at=now,
                           detail={"reason": "stale_recovery", "stale_after_seconds": stale_after_seconds})
         still_running = db.execute(
@@ -278,7 +275,7 @@ def recover_interrupted_research_tasks(stale_after_seconds: int = 900) -> dict:
             "SELECT task_id FROM analytical_agent_tasks WHERE status='queued' ORDER BY created_at"
         ).fetchall()
     return {
-        "requeued_interrupted_count": len(stale),
+        "requeued_interrupted_count": len(requeued),
         "queued_task_ids": [row["task_id"] for row in queued],
         "still_running_count": still_running,
         "stale_after_seconds": stale_after_seconds,

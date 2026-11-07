@@ -35,6 +35,16 @@ def analyze_historical_ohlcv(
             "backend/requirements-ta-lib-research.txt first."
         ) from exc
 
+    periods = (rsi_period, fast_period, slow_period, signal_period, atr_period, bbands_period)
+    if any(not isinstance(period, Integral) or isinstance(period, bool) for period in periods):
+        raise ValueError("Indicator periods must be integers >= 2")
+    periods = tuple(int(period) for period in periods)
+    rsi_period, fast_period, slow_period, signal_period, atr_period, bbands_period = periods
+    if min(periods) < 2:
+        raise ValueError("Indicator periods must be integers >= 2")
+    if fast_period >= slow_period:
+        raise ValueError("fast_period must be less than slow_period")
+
     from app.ohlcv_validation import normalize_and_validate_ohlc
 
     frame = normalize_and_validate_ohlc(ohlc)

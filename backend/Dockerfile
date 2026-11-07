@@ -12,6 +12,7 @@ RUN pip install --no-cache-dir -r requirements.txt \
     && chown -R appuser:appuser /app /data
 
 COPY app ./app
+COPY backup_database.py restore_database.py ./
 USER appuser
 EXPOSE 8000
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

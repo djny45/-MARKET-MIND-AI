@@ -35,6 +35,23 @@ class WorkflowSkillIntegrationTests(unittest.TestCase):
         self.assertNotIn("### 003.", result["skill_context"][0]["content"])
         self.assertFalse(result["skill_context"][0]["broker_execution"])
 
+    def test_workflow_loads_qlib_research_skill_as_advisory_context(self):
+        request = WorkflowRequest(
+            nodes=[{"id": "input", "type": "market_input", "data": {"values": [100, 101, 99, 102]}}],
+            edges=[],
+            inputs={},
+            skill_ids=["qlib-research"],
+        )
+        result = run_workflow(request)
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual(result["skill_context_mode"], "research_and_paper_only")
+        self.assertEqual([item["id"] for item in result["skill_context"]], ["qlib-research"])
+        skill = result["skill_context"][0]
+        self.assertIn("chronological train/validation/test", skill["content"])
+        self.assertEqual(skill["mode"], "research_evaluation_only")
+        self.assertFalse(skill["broker_execution"])
+        self.assertTrue(skill["content"].strip())
+
     def test_workflow_rejects_broker_or_unknown_skill(self):
         request = WorkflowRequest(
             nodes=[{"id": "input", "type": "market_input", "data": {"values": [10, 11]}}],

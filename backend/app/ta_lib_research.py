@@ -35,62 +35,9 @@ def analyze_historical_ohlcv(
             "backend/requirements-ta-lib-research.txt first."
         ) from exc
 
-    if not isinstance(ohlc, pd.DataFrame):
-        raise TypeError("ohlc must be a pandas DataFrame")
-    periods = (rsi_period, fast_period, slow_period, signal_period, atr_period, bbands_period)
-    if any(not isinstance(period, Integral) or isinstance(period, bool) for period in periods):
-        raise ValueError("Indicator periods must be integers >= 2")
-    periods = tuple(int(period) for period in periods)
-    rsi_period, fast_period, slow_period, signal_period, atr_period, bbands_period = periods
-    if min(periods) < 2:
-        raise ValueError("Indicator periods must be integers >= 2")
-    if fast_period >= slow_period:
-        raise ValueError("fast_period must be less than slow_period")
+    from app.ohlcv_validation import normalize_and_validate_ohlc
 
-    frame = ohlc.copy()
-    frame.columns = [str(c).strip().lower() for c in frame.columns]
-    required = {"open", "high", "low", "close"}
-    duplicate_columns = set(frame.columns[frame.columns.duplicated(keep=False)])
-    relevant_duplicates = sorted(duplicate_columns.intersection(required))
-    if relevant_duplicates:
-        raise ValueError(
-            "Duplicate required OHLC columns after case/whitespace normalization: "
-            f"{relevant_duplicates}"
-        )
-    # If a conventional timestamp column is supplied, enforce unique UTC instants
-    # in chronological order before calculating row-aligned annotations.
-    timestamp_columns = [c for c in ("timestamp", "datetime", "date", "time") if c in frame.columns]
-    if len(timestamp_columns) > 1:
-        raise ValueError("Multiple recognized timestamp columns are ambiguous")
-    if timestamp_columns:
-        timestamp_values = frame[timestamp_columns[0]]
-        try:
-            parsed_timestamps = pd.to_datetime(timestamp_values, utc=True, errors="raise")
-        except (TypeError, ValueError, OverflowError) as exc:
-            raise ValueError("Timestamp column must contain valid datetime values") from exc
-        if parsed_timestamps.isna().any():
-            raise ValueError("Timestamp column cannot contain missing values")
-        if parsed_timestamps.duplicated().any():
-            raise ValueError("Timestamp column cannot contain duplicate instants")
-        if not parsed_timestamps.is_monotonic_increasing:
-            raise ValueError("Timestamp column must be sorted chronologically")
-    required = {"open", "high", "low", "close"}
-    missing = required.difference(frame.columns)
-    if missing:
-        raise ValueError(f"Missing required OHLC columns: {sorted(missing)}")
-
-    for column in required:
-        frame[column] = pd.to_numeric(frame[column], errors="raise")
-    values = frame[["open", "high", "low", "close"]].to_numpy(dtype=float)
-    if not np.isfinite(values).all():
-        raise ValueError("OHLC data contains NaN or infinite values")
-    if (values <= 0).any():
-        raise ValueError("OHLC prices must be strictly positive")
-    if (frame["high"] < frame[["open", "close", "low"]].max(axis=1)).any():
-        raise ValueError("OHLC integrity error: high is below an OHLC component")
-    if (frame["low"] > frame[["open", "close", "high"]].min(axis=1)).any():
-        raise ValueError("OHLC integrity error: low is above an OHLC component")
-
+    frame = normalize_and_validate_ohlc(ohlc)
     # Load TA-Lib only after input validation. This lets the adapter's
     # validation path remain testable when optional indicator binaries are
     # unavailable; calculations still require the TA-Lib package.

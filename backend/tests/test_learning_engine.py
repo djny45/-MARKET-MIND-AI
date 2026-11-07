@@ -138,5 +138,52 @@ class LearningEngineTests(unittest.TestCase):
                 learning_overview(limit)
 
 
+
+    def test_feedback_cycle_aggregates_issue_categories_into_targeted_proposal(self):
+        categories = [
+            "data_provenance", "data_provenance", "data_provenance",
+            "missing_data", "data_provenance",
+        ]
+        for index, category in enumerate(categories):
+            append_memory(
+                "worker_001", "validation_result",
+                {
+                    "outcome": "not_helpful" if index < 4 else "partially_helpful",
+                    "summary": f"Feedback example {index}: improve evidence checks",
+                    "issue_category": category,
+                },
+                source_refs=[f"feedback:category-{index}"],
+                quality_status="unverified",
+            )
+
+        result = run_feedback_improvement_cycle("worker_001")
+        self.assertEqual(result["cycle_status"], "proposal_created_pending_review")
+        proposal = result["proposal"]
+        self.assertEqual(proposal["dominant_issue_category"], "data_provenance")
+        self.assertEqual(proposal["issue_category_counts"]["data_provenance"], 4)
+        self.assertEqual(proposal["issue_category_counts"]["missing_data"], 1)
+        self.assertEqual(proposal["weak_or_partial_feedback_count"], 5)
+        self.assertIn("source identity", proposal["proposed_change"])
+        self.assertEqual(len(proposal["evidence_refs"]), 5)
+        self.assertFalse(proposal["auto_apply"])
+        self.assertFalse(result["model_training"])
+
+    def test_unknown_feedback_issue_category_is_grouped_as_other(self):
+        for index in range(5):
+            append_memory(
+                "worker_001", "validation_result",
+                {
+                    "outcome": "not_helpful",
+                    "summary": f"Unclassified reviewer note {index}",
+                    "issue_category": "free-form-untrusted-category",
+                },
+                source_refs=[f"feedback:unknown-category-{index}"],
+                quality_status="unverified",
+            )
+        result = run_feedback_improvement_cycle("worker_001")
+        self.assertEqual(result["proposal"]["dominant_issue_category"], "other")
+        self.assertEqual(result["proposal"]["issue_category_counts"], {"other": 5})
+        self.assertIn("held-out feedback", result["proposal"]["proposed_change"])
+
 if __name__ == "__main__":
     unittest.main()

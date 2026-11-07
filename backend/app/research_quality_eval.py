@@ -202,7 +202,7 @@ def evaluate_research_draft(
         "baseline_comparison": comparison,
         "interpretation": (
             "Structural traceability only. URL and timestamp checks validate format only; " 
-            "provenance field presence is not source validation. "
+            "Provenance field presence is not source validation. "
             "This does not verify source authenticity, claim entailment, factual correctness, "
             "forecast accuracy, or investment value."
         ),

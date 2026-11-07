@@ -259,6 +259,26 @@ class ResearchBenchmarkTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             run_offline_research_benchmark(fixture_cases(), baseline={"bad": "shape"})
 
+    def test_benchmark_returns_bounded_caller_declared_provenance(self):
+        metadata = {"dataset_name": "demo-fixtures", "dataset_version": "v2", "prepared_by": "review team"}
+        result = run_offline_research_benchmark(fixture_cases(), fixture_metadata=metadata)
+        self.assertEqual(result["evaluator_version"], "research-traceability-v1")
+        self.assertEqual(result["fixture_origin"], "caller_supplied")
+        self.assertEqual(result["fixture_metadata"], metadata)
+        self.assertIn("not independently verified", result["provenance_note"])
+
+    def test_fixture_metadata_is_optional_and_does_not_change_benchmark_fingerprint(self):
+        plain = run_offline_research_benchmark(fixture_cases())
+        tagged = run_offline_research_benchmark(fixture_cases(), fixture_metadata={"dataset_name": "my set"})
+        self.assertEqual(plain["benchmark_id"], tagged["benchmark_id"])
+        self.assertEqual(plain["fixture_metadata"], {})
+
+    def test_rejects_unknown_or_oversized_fixture_metadata(self):
+        with self.assertRaises(ValueError):
+            run_offline_research_benchmark(fixture_cases(), fixture_metadata={"private_url": "https://example.com"})
+        with self.assertRaises(ValueError):
+            run_offline_research_benchmark(fixture_cases(), fixture_metadata={"dataset_name": "x" * 161})
+
 
 if __name__ == "__main__":
     unittest.main()

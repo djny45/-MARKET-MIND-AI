@@ -153,7 +153,11 @@ class YahooFinanceAdapterTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_rejects_invalid_symbol_interval_and_limit(self):
         adapter = YahooFinanceAdapter()
-        for args in [("", "1d", 5), ("AAPL", "5m", 5), ("AAPL", "1d", 0), ("AAPL", "1d", 5001)]:
+        for args in [
+            ("", "1d", 5), ("AAPL", "5m", 5), ("AAPL", "1d", 0),
+            ("AAPL", "1d", 5001), (123, "1d", 5), ("AAPL", [], 5),
+            ("AAPL", "1d", True),
+        ]:
             with self.subTest(args=args), self.assertRaises(ValueError):
                 await adapter.get_bars(*args)
 

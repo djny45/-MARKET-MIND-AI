@@ -52,7 +52,7 @@ def _solve_linear_system(matrix: list[list[float]], vector: list[float]) -> list
             if isinstance(value, bool) or not _finite_number(value):
                 raise ValueError(f"matrix[{row_index}][{col_index}] must be finite numeric")
     for index, value in enumerate(vector):
-        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        if not _finite_number(value):
             raise ValueError(f"vector[{index}] must be finite numeric")
     augmented = [row[:] + [vector[i]] for i, row in enumerate(matrix)]
     for col in range(n):
@@ -86,10 +86,10 @@ def _fit_ridge(features: list[list[float]], targets: list[float], alpha: float) 
         raise ValueError("ridge alpha must be finite and positive")
     for row_index, row in enumerate(features):
         for column_index, value in enumerate(row):
-            if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+            if not _finite_number(value):
                 raise ValueError(f"features[{row_index}][{column_index}] must be finite numeric")
     for index, value in enumerate(targets):
-        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        if not _finite_number(value):
             raise ValueError(f"targets[{index}] must be finite numeric")
     # Add an intercept; do not penalize the intercept term.
     design = [[1.0] + row for row in features]

@@ -15,6 +15,8 @@ A visual research environment where specialist analytical workers connect as reu
 ---
 
 ## Deployment policy: Vercel-free
+For a GitHub Pages frontend-only deployment, see [Vercel-free GitHub Pages guide](docs/GITHUB-PAGES-DEPLOYMENT.md). Pages does not host the FastAPI backend or SQLite; the backend must remain separately hosted and secured.
+
 
 MARKET-MIND-AI does not require or target Vercel. For a complete frontend + FastAPI stack, use the repository's private Docker deployment guide: [Private Docker deployment](docs/PRODUCTION-DEPLOYMENT.md). The supported baseline is self-hosted Docker Compose (or a manually managed host with equivalent network and security controls). GitHub Pages can serve static frontend assets only; it cannot host the FastAPI service or SQLite database. Keep the API private behind authentication and TLS before enabling remote access. Do not commit secrets or expose the research API publicly.
 

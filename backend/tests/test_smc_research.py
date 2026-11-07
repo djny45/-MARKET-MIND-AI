@@ -66,7 +66,7 @@ class SMCResearchAdapterTests(unittest.TestCase):
         from app.smc_research import analyze_historical_ohlcv
         bad = self.frame.copy()
         bad.columns = [" Open ", "open", "low", "close", "volume"]
-        with self.assertRaisesRegex(ValueError, "Duplicate columns after case/whitespace normalization"):
+        with self.assertRaisesRegex(ValueError, "Duplicate required OHLC/timestamp columns after case/whitespace normalization"):
             analyze_historical_ohlcv(bad, swing_length=5)
 
     def test_nan_ohlc_rejected(self):

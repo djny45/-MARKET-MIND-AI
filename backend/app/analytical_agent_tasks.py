@@ -517,8 +517,8 @@ def list_recent_task_activity(limit: int = 500) -> dict:
 def agent_supervisor_status(stale_after_seconds: int = 900) -> dict:
     """Return a point-in-time health snapshot of persisted agent task states."""
     if (isinstance(stale_after_seconds, bool) or not isinstance(stale_after_seconds, int)
-            or stale_after_seconds < 1):
-        raise ValueError("stale_after_seconds must be a positive integer")
+            or stale_after_seconds < 1 or stale_after_seconds > 315_360_000):
+        raise ValueError("stale_after_seconds must be an integer between 1 and 315360000")
     now_dt = datetime.now(timezone.utc)
     cutoff = datetime.fromtimestamp(
         now_dt.timestamp() - stale_after_seconds, timezone.utc

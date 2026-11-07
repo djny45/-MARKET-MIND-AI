@@ -39,10 +39,10 @@ class OfflineResearchPipelineTests(unittest.TestCase):
         def mutate_original_after_snapshot(snapshot, **kwargs):
             frame = original_loader(snapshot, **kwargs)
             Path(path).write_text(
-                "timestamp,open,high,low,close\\n"
-                "2024-01-01T00:00:00Z,10,12,9,11\\n"
-                "2024-01-02T00:00:00Z,11,13,10,12\\n"
-                "2024-01-03T00:00:00Z,12,14,11,13\\n",
+                "timestamp,open,high,low,close\n"
+                "2024-01-01T00:00:00Z,10,12,9,11\n"
+                "2024-01-02T00:00:00Z,11,13,10,12\n"
+                "2024-01-03T00:00:00Z,12,14,11,13\n",
                 encoding="utf-8",
             )
             return frame
@@ -86,10 +86,10 @@ class OfflineResearchPipelineTests(unittest.TestCase):
         path = self.write_csv()
         result = run_offline_research(path, timestamp_column="timestamp")
         Path(path).write_text(
-            "timestamp,open,high,low,close\\n"
-            "2024-01-01T00:00:00Z,10,12,9,11\\n"
-            "2024-01-02T00:00:00Z,11,13,10,12\\n"
-            "2024-01-03T00:00:00Z,12,14,11,13\\n",
+            "timestamp,open,high,low,close\n"
+            "2024-01-01T00:00:00Z,10,12,9,11\n"
+            "2024-01-02T00:00:00Z,11,13,10,12\n"
+            "2024-01-03T00:00:00Z,12,14,11,13\n",
             encoding="utf-8",
         )
         with self.assertRaisesRegex(ValueError, "changed after research"):

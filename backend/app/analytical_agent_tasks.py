@@ -33,6 +33,10 @@ def _connect():
     path.parent.mkdir(parents=True, exist_ok=True)
     db = sqlite3.connect(path, timeout=10)
     try:
+        # SQLite disables foreign-key enforcement by default for each connection.
+        # Enable it before any transaction so task-linked quality evaluations
+        # cannot be persisted without their parent task.
+        db.execute("PRAGMA foreign_keys = ON")
         db.row_factory = sqlite3.Row
         db.execute("""CREATE TABLE IF NOT EXISTS analytical_agent_tasks (
             task_id TEXT PRIMARY KEY, worker_id TEXT NOT NULL, task_type TEXT NOT NULL,

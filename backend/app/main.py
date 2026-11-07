@@ -5,6 +5,7 @@ from typing import Any, Literal
 import hashlib
 import json
 from datetime import datetime, timezone
+from contextlib import asynccontextmanager
 from .workflow import NODE_TYPES, execute_workflow
 from .workers import list_workers
 from .worker_runtime import worker_runtime_status
@@ -65,8 +66,19 @@ import os
 import uuid
 from fastapi.responses import Response
 
-app = FastAPI(title="MARKET-MIND-AI API", version="0.2.0",
- description="Multi-market, evidence-first research pipeline. No brokerage execution.")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+ """Run guarded task recovery once when the API process starts."""
+ recover_stale_tasks_on_startup()
+ yield
+
+
+app = FastAPI(
+ title="MARKET-MIND-AI API",
+ version="0.2.0",
+ description="Multi-market, evidence-first research pipeline. No brokerage execution.",
+ lifespan=lifespan,
+)
 # Keep browser origins explicit using a comma-separated allowlist.
 _frontend_origins = [
     origin.strip().rstrip("/")
@@ -101,7 +113,6 @@ def recover_stale_tasks_on_startup():
  return app.state.task_startup_recovery
 
 
-app.add_event_handler("startup", recover_stale_tasks_on_startup)
 
 class SaveWorkflowRequest(BaseModel):
  title: str = Field(min_length=1,max_length=120)

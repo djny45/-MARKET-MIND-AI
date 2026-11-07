@@ -85,7 +85,7 @@ class RepositoryReviewFilesTests(unittest.TestCase):
             "path": "README.md", "encoding": "base64",
             "content": base64.b64encode(b"x" * (MAX_FILE_BYTES + 1)).decode("ascii"),
         }
-        with unittest.TestCase().assertRaisesRegex(GitHubCrawlerError, "per-file size"):
+        with self.assertRaisesRegex(GitHubCrawlerError, "per-file size"):
             _decode_contents(payload, expected_path="README.md")
 
 

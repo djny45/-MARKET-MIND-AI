@@ -92,6 +92,8 @@ class LearningFeedbackTests(unittest.TestCase):
             evaluate_learning_feedback("worker_001", {"sample_count": 1}, stale_after_days=0)
         with self.assertRaises(ValueError):
             evaluate_learning_feedback("worker_001", {"sample_count": 1}, tolerance=float("inf"))
+        with self.assertRaises(ValueError):
+            evaluate_learning_feedback("worker_001", {"sample_count": 1}, tolerance=10 ** 1000)
 
 
 if __name__ == "__main__":

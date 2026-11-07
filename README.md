@@ -435,6 +435,12 @@ Each of the 550 registered analytical workers can now submit a bounded research 
 
 The feedback improvement cycle now groups reviewer-provided issue tags (for example, provenance, timestamp leakage, missing data, uncertainty, reproducibility, and output clarity) and drafts a targeted, evidence-linked proposal for the most frequent issue. Unknown tags are grouped as `other`; the cycle does not infer labels from free text. Each proposal records the sample counts, category distribution, bounded feedback references, a held-out evaluation plan, and a stable fingerprint for idempotency. This is a more focused proposal generator—not autonomous learning: it does not update model weights, apply prompts/configuration, alter financial strategies, or deploy code.
 
+A review-gated staging-plan endpoint now turns an approved feedback proposal into a category-specific checklist before any benchmark is run:
+- `GET /api/workers/{worker_id}/improvement-proposals/{proposal_memory_id}/staging-plan`
+- The latest proposal review must be `approved_for_staging`; otherwise the endpoint rejects the request.
+- Plans specify paired baseline/candidate fixtures, held-out evaluation, at least three repeat runs, provenance and regression checks, and a human promotion decision.
+- This endpoint only generates the plan. It does not execute the benchmark, modify code, train models, or deploy.
+
 Generated improvement proposals can now be reviewed through append-only records:
 - `GET /api/workers/{worker_id}/improvement-proposals?limit=50` — list proposals and latest review state.
 - `POST /api/workers/{worker_id}/improvement-proposals/{proposal_memory_id}/review` — append a decision: `approved_for_staging`, `rejected`, or `needs_revision`, plus reviewer and rationale.

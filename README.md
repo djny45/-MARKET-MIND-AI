@@ -474,6 +474,8 @@ This route is still offline and fixture-only. It does not fetch market data or e
 
 The benchmark now also returns `fixture_overlap`, a lexical audit over draft and claim text plus source-ID reuse. It reports pairwise token Jaccard similarity (threshold 0.5) and shared source references/registry IDs. Treat these as review flags only: common wording may trigger them, and paraphrases may be missed. This is not semantic analysis and cannot establish leakage or independence.
 
+Each staging run now stores `paired_case_id_sha256`, a stable SHA-256 digest of the normalized paired fixture IDs, plus a note describing its scope. This digest helps audit which IDs were compared, but it does not fingerprint fixture contents or verify dataset provenance; the baseline/candidate benchmark IDs fingerprint their evaluator inputs and configuration.
+
 The stored staging-run provenance can be inspected through `GET /api/workers/{worker_id}/staging-experiments/provenance?limit=100`. It reports baseline/candidate metadata, evaluator version, and counts missing fixture metadata, dataset names, or versions. Legacy experiment records without provenance fields are reported as missing/legacy rather than silently treated as complete. This is an audit of declared labels only, not source verification.
 
 ### Benchmark fixture provenance

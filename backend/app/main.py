@@ -186,7 +186,7 @@ class OpenSourceIntakeRequest(BaseModel):
  commit_sha: str = Field(min_length=1, max_length=40)
  file_path: str = Field(min_length=1, max_length=500)
  license_spdx: str = Field(min_length=1, max_length=50)
- content: str = Field(min_length=1, max_length=10000)
+ content: str = Field(min_length=1, max_length=8000)
  source_kind: Literal["documentation", "source_excerpt", "research_note"] = "documentation"
 
 class AgentProposalReviewRequest(BaseModel):

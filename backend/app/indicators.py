@@ -12,7 +12,14 @@ def _valid(values, minimum=1):
 def sma(values,period):
  xs=_valid(values); p=int(period)
  if p<1: raise ValueError("period must be positive")
- return [sum(x/len(window) for x in window) for i in range(len(xs)) for window in [xs[max(0,i-p+1):i+1]]]
+ out=[]
+ for i in range(len(xs)):
+  window=xs[max(0,i-p+1):i+1]
+  scale=max(abs(x) for x in window)
+  mean=0.0 if scale==0 else scale*(sum(x/scale for x in window)/len(window))
+  if not isfinite(mean): raise ValueError("moving average must be finite")
+  out.append(mean)
+ return out
 def ema(values,period):
  xs=_valid(values); p=int(period)
  if p<1: raise ValueError("period must be positive")
@@ -48,15 +55,42 @@ def bollinger(values,period=20,deviations=2):
  if p<1: raise ValueError("period must be positive")
  mid=sma(xs,p); upper=[]; lower=[]
  for i,m in enumerate(mid):
-  w=xs[max(0,i-p+1):i+1]; sd=sqrt(sum((x-m)**2 for x in w)/len(w))
-  upper.append(m+deviations*sd); lower.append(m-deviations*sd)
+  w=xs[max(0,i-p+1):i+1]
+  scale=max(abs(x) for x in w)
+  if scale==0:
+   sd=0.0
+  else:
+   normalized_mean=m/scale
+   normalized_sd=sqrt(sum((x/scale-normalized_mean)**2 for x in w)/len(w))
+   sd=scale*normalized_sd
+  up=m+deviations*sd; lo=m-deviations*sd
+  if not all(isfinite(value) for value in (sd,up,lo)):
+   raise ValueError("Bollinger bands must be finite")
+  upper.append(up); lower.append(lo)
  return {"middle":mid,"upper":upper,"lower":lower}
 def realized_volatility(prices,annualization=None):
  rs=returns(prices)
  if len(rs)<2: raise ValueError("At least two returns are required.")
- mean=sum(rs)/len(rs); var=sum((x-mean)**2 for x in rs)/(len(rs)-1)
- out={"per_observation":sqrt(var),"observations":len(rs)}
+ scale=max(abs(x) for x in rs)
+ if scale==0:
+  volatility=0.0
+ else:
+  normalized=[x/scale for x in rs]
+  mean=sum(normalized)/len(normalized)
+  variance=sum((x-mean)**2 for x in normalized)/(len(normalized)-1)
+  volatility=scale*sqrt(variance)
+ if not isfinite(volatility):
+  raise ValueError("volatility must be finite")
+ out={"per_observation":volatility,"observations":len(rs)}
  if annualization is not None:
-  if annualization<=0: raise ValueError("annualization must be positive")
-  out["annualized"]=sqrt(var*annualization)
+  try:
+   annualization=float(annualization)
+  except (TypeError,ValueError,OverflowError) as exc:
+   raise ValueError("annualization must be finite and positive") from exc
+  if not isfinite(annualization) or annualization<=0:
+   raise ValueError("annualization must be finite and positive")
+  annualized=volatility*sqrt(annualization)
+  if not isfinite(annualized):
+   raise ValueError("annualized volatility must be finite")
+  out["annualized"]=annualized
  return out

@@ -63,6 +63,22 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertTrue(saved["result_decode_error"])
         self.assertFalse(saved["input_decode_error"])
 
+    def test_audit_history_survives_corrupt_event_detail(self):
+        import sqlite3
+        from app.analytical_agent_tasks import enqueue_research_task, list_task_audit_events
+
+        queued = enqueue_research_task("worker_004", "corrupt audit detail inspection")
+        with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+            db.execute(
+                "UPDATE analytical_agent_task_events SET detail_json=? WHERE task_id=?",
+                ("{broken-json", queued["task_id"]),
+            )
+
+        audit = list_task_audit_events(queued["task_id"])
+        self.assertEqual(audit["count"], 1)
+        self.assertIsNone(audit["events"][0]["detail"])
+        self.assertTrue(audit["events"][0]["detail_decode_error"])
+
     def test_task_is_persisted_and_scoped_to_worker(self):
         result = submit_research_task("worker_001", "Review this supplied dataset", {"prices": [10, 11, 12]})
         self.assertEqual(result["status"], "completed")

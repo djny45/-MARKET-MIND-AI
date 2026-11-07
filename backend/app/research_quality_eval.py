@@ -47,6 +47,7 @@ def evaluate_research_draft(
     claims: list[dict[str, Any]],
     source_registry: list[dict[str, Any]],
     baseline: dict[str, Any] | None = None,
+    uncertainty_markers: tuple[str, ...] = ("uncertain", "unknown", "limitation", "assumption", "not verified", "cannot conclude", "insufficient data"),
 ) -> dict[str, Any]:
     # Validate baseline first so invalid benchmark configuration is reported
     # consistently, even when the draft or claim payload is malformed.
@@ -96,12 +97,14 @@ def evaluate_research_draft(
             "unknown_source_ids": missing,
         })
 
+    if (not isinstance(uncertainty_markers, (tuple, list)) or not uncertainty_markers
+            or len(uncertainty_markers) > 20
+            or any(not isinstance(marker, str) or not marker.strip() or len(marker) > 80
+                   for marker in uncertainty_markers)):
+        raise ValueError("uncertainty_markers must contain 1 to 20 non-empty strings up to 80 characters")
+    normalized_markers = tuple(dict.fromkeys(marker.strip().lower() for marker in uncertainty_markers))
     draft_lower = draft.lower()
-    uncertainty_markers = [
-        marker for marker in ("uncertain", "unknown", "limitation", "assumption",
-                              "not verified", "cannot conclude", "insufficient data")
-        if marker in draft_lower
-    ]
+    matched_uncertainty_markers = [marker for marker in normalized_markers if marker in draft_lower]
     denominator = total or 1
     metrics = {
         "claim_count": total,
@@ -111,8 +114,9 @@ def evaluate_research_draft(
         "known_source_reference_coverage": round(claims_with_known_refs / denominator, 4) if total else None,
         "unknown_source_id_count": len(unknown_refs),
         "source_registry_count": len(source_ids),
-        "uncertainty_marker_count": len(uncertainty_markers),
-        "uncertainty_markers": uncertainty_markers,
+        "uncertainty_marker_count": len(matched_uncertainty_markers),
+        "uncertainty_markers": matched_uncertainty_markers,
+        "uncertainty_marker_coverage": (1.0 if matched_uncertainty_markers else 0.0),
     }
 
     comparison = None

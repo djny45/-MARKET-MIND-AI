@@ -538,3 +538,8 @@ Use `GET /api/workers/{worker_id}/research-quality-dashboard?limit=100` to combi
 - exact-fixture repeatability groups (minimum 3 trials)
 
 The dashboard is a convenience view over existing append-only experiment records; it does not run new evaluations. Dataset labels remain caller-declared, repeatability groups may reuse identical fixtures, and regression flags refer only to structural traceability metrics. This endpoint does not establish factual accuracy, source authenticity, independent evidence, market forecasting skill, or trading performance. The dashboard is descriptive and does not automatically approve, train, deploy, or trade.
+
+
+### Verify staging audit export integrity
+
+The staging audit JSON export includes a SHA-256 digest over the canonical bundle fields before the `integrity` object is added. To verify it, remove `integrity`, serialize the remaining JSON using UTF-8, sorted keys, and separators `(",", ":")`, then compute SHA-256. This detects accidental modification; it is **not** a digital signature, source authentication, or proof that the data is true. Exporting is read-only and does not train, deploy, fetch live market data, or trade.

@@ -118,6 +118,23 @@ class ResearchQualityEvalTests(unittest.TestCase):
         self.assertEqual(result["claims"][0]["reference_status"], "registry_match")
         self.assertEqual(result["claims"][0]["provenance_status"], "complete")
 
+    def test_normalizes_explicit_numeric_observed_at(self):
+        result = evaluate_research_draft(
+            draft="Numeric explicit observation timestamps are normalized.",
+            claims=[{"text": "Claim", "source_refs": ["epoch-source"]}],
+            source_registry=[{
+                "source_id": "epoch-source", "title": "Source",
+                "url": "https://example.org/source", "source_type": "web",
+                "observed_at": 1704067200,
+            }],
+        )
+        self.assertEqual(
+            result["metrics"]["source_registry_entries_complete_provenance_count"], 1
+        )
+        self.assertEqual(
+            result["claims"][0]["provenance_status"], "complete"
+        )
+
     def test_url_with_whitespace_in_path_is_invalid(self):
         result = evaluate_research_draft(
             draft="Malformed URL whitespace should be rejected.",

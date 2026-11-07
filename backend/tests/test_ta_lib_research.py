@@ -16,6 +16,19 @@ class TALibResearchTests(unittest.TestCase):
             "Close": [10.2 + i * 0.1 for i in range(100)],
         })
 
+    def test_timestamp_column_must_be_unique_and_chronological(self):
+        import pandas as pd
+        from app.ta_lib_research import analyze_historical_ohlcv
+        bad = self.frame.copy()
+        bad["timestamp"] = pd.date_range("2024-01-01", periods=len(bad), freq="h")
+        bad.loc[5, "timestamp"] = bad.loc[4, "timestamp"]
+        with self.assertRaisesRegex(ValueError, "duplicate instants"):
+            analyze_historical_ohlcv(bad)
+        bad = self.frame.copy()
+        bad["timestamp"] = pd.date_range("2024-01-01", periods=len(bad), freq="h")[::-1]
+        with self.assertRaisesRegex(ValueError, "sorted chronologically"):
+            analyze_historical_ohlcv(bad)
+
     def test_missing_column_rejected(self):
         from app.ta_lib_research import analyze_historical_ohlcv
         with self.assertRaisesRegex(ValueError, "Missing required OHLC"):

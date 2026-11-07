@@ -403,11 +403,18 @@ def get_research_task(task_id: str) -> dict | None:
         # Keep task status/result inspectable even when persisted input is corrupt.
         task_input = None
         input_decode_error = True
+    result_decode_error = False
+    try:
+        task_result = json.loads(row["result_json"])
+    except (json.JSONDecodeError, TypeError):
+        # Preserve task lifecycle visibility when a persisted result is damaged.
+        task_result = None
+        result_decode_error = True
     return {
         "task_id": row["task_id"], "agent_id": row["worker_id"], "worker_id": row["worker_id"],
         "task_type": row["task_type"], "status": row["status"],
         "input": task_input, "input_decode_error": input_decode_error,
-        "result": json.loads(row["result_json"]),
+        "result": task_result, "result_decode_error": result_decode_error,
         "brain_context_sha256": row["brain_context_sha256"],
         "created_at": row["created_at"], "updated_at": row["updated_at"],
     }

@@ -493,12 +493,23 @@ def dispatch_queued_research_tasks(limit: int = 50, max_concurrency: int = 4) ->
                               from_status=task["status"], to_status=task["status"],
                               occurred_at=finished_at,
                               detail={"dispatch_id": dispatch_id})
+    with _connect() as db:
+        placeholders = ",".join("?" for _ in task_ids)
+        status_rows = db.execute(
+            f"SELECT status, COUNT(*) AS count FROM analytical_agent_tasks "
+            f"WHERE task_id IN ({placeholders}) GROUP BY status",
+            task_ids,
+        ).fetchall()
+    task_status_counts = {row["status"]: row["count"] for row in status_rows}
+    failed_task_count = task_status_counts.get("failed", 0)
     return {
         "selected": len(task_ids),
         "dispatched": len(completed),
+        "task_status_counts": task_status_counts,
+        "failed_task_count": failed_task_count,
         "max_concurrency": min(max_concurrency, len(task_ids)),
         "status": "completed",
         "task_ids": task_ids,
         "dispatch_mode": "bounded_process_local_queue_snapshot",
-        "note": "Tasks are persisted in SQLite; dispatch is explicit and process-local, not a continuously running distributed supervisor.",
+        "note": "Dispatch finished; task_status_counts reports each task's persisted outcome. Tasks are persisted in SQLite, but dispatch is explicit and process-local, not a continuously running distributed supervisor.",
     }

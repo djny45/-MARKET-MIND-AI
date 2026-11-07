@@ -184,6 +184,20 @@ class VerifyResearchExportTests(unittest.TestCase):
         self.assertEqual(verify_bundle(bundle)["reason"], "invalid_digest_format")
         self.assertEqual(verify_bundle([])["reason"], "top_level_json_must_be_an_object")
 
+    def test_rejects_non_finite_values_during_canonicalization(self):
+        bundle = signed_bundle()
+        bundle["observations"][0]["close"] = float("nan")
+        result = verify_bundle(bundle)
+        self.assertFalse(result["valid"])
+        self.assertEqual(result["reason"], "bundle_cannot_be_canonicalized")
+
+    def test_accepts_uppercase_hex_digest(self):
+        bundle = signed_bundle()
+        bundle["integrity"]["digest"] = bundle["integrity"]["digest"].upper()
+        result = verify_bundle(bundle)
+        self.assertTrue(result["valid"])
+        self.assertEqual(result["reason"], "digest_matches")
+
 
 if __name__ == "__main__":
     unittest.main()

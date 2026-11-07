@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 from app.analytical_agent_tasks import (
     agent_supervisor_status,
+    agent_task_performance,
     classify_research_task_failure,
     dispatch_queued_research_tasks,
     enqueue_research_task,
@@ -114,6 +115,16 @@ class AgentSupervisorTests(unittest.TestCase):
             recover_interrupted_research_tasks(stale_after_seconds=0)
         with self.assertRaises(ValueError):
             recover_interrupted_research_tasks(stale_after_seconds=True)
+
+    def test_task_performance_includes_attempt_and_failure_class_metrics(self):
+        queued = enqueue_research_task("worker_008", "metrics failure")
+        with patch("app.analytical_agent_tasks.synthesize_research", side_effect=TimeoutError("request timed out")):
+            execute_queued_research_task(queued["task_id"])
+        metrics = agent_task_performance("worker_008")
+        worker = metrics["agents"]["worker_008"]
+        self.assertEqual(worker["execution_attempts_total"], 1)
+        self.assertEqual(worker["average_execution_attempts_per_task"], 1.0)
+        self.assertEqual(worker["failure_class_counts"]["transient_candidate"], 1)
 
     def test_failure_classifier_marks_network_timeout_as_transient_candidate(self):
         result = classify_research_task_failure(TimeoutError("provider request timed out"))

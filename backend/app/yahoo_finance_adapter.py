@@ -73,34 +73,40 @@ class YahooFinanceAdapter:
         except (KeyError, IndexError, TypeError, ValueError, OverflowError, OSError) as exc:
             raise ValueError("Yahoo response did not contain valid OHLCV chart data") from exc
         if interval == "4h":
-            # Yahoo exposes hourly bars for this range. Aggregate only complete,
-            # UTC-aligned four-hour buckets; never label hourly bars as 4h.
-            grouped = {}
-            for bar in bars:
-                bucket = int(bar.timestamp.timestamp()) // 14400
-                grouped.setdefault(bucket, []).append(bar)
+            # Yahoo provides hourly candles, not native 4h candles. Aggregate
+            # four consecutive hourly bars, anchored to the first bar in each
+            # contiguous session segment. Do not require UTC midnight alignment:
+            # exchange sessions commonly begin at non-UTC-hour boundaries.
+            # Gaps split segments; trailing groups with fewer than four bars
+            # are discarded rather than mislabeled as complete 4h candles.
             aggregated = []
-            for bucket in sorted(grouped):
-                group = grouped[bucket]
-                timestamps = [int(bar.timestamp.timestamp()) for bar in group]
-                bucket_start = bucket * 14400
-                if timestamps != [bucket_start + offset * 3600 for offset in range(4)]:
-                    continue
-                try:
-                    aggregated_volume = math.fsum(bar.volume for bar in group)
-                except (OverflowError, ValueError):
-                    raise ValueError("aggregated four-hour volume must be finite") from None
-                if not math.isfinite(aggregated_volume):
-                    raise ValueError("aggregated four-hour volume must be finite")
-                aggregated.append(OHLCVBar(
-                    timestamp=group[0].timestamp,
-                    open=group[0].open,
-                    high=max(bar.high for bar in group),
-                    low=min(bar.low for bar in group),
-                    close=group[-1].close,
-                    volume=aggregated_volume,
-                    adjusted_close=group[-1].adjusted_close,
-                ))
+            segment = []
+
+            def flush_segment(hourly_bars):
+                for offset in range(0, len(hourly_bars) - 3, 4):
+                    group = hourly_bars[offset:offset + 4]
+                    try:
+                        aggregated_volume = math.fsum(bar.volume for bar in group)
+                    except (OverflowError, ValueError):
+                        raise ValueError("aggregated four-hour volume must be finite") from None
+                    if not math.isfinite(aggregated_volume):
+                        raise ValueError("aggregated four-hour volume must be finite")
+                    aggregated.append(OHLCVBar(
+                        timestamp=group[0].timestamp,
+                        open=group[0].open,
+                        high=max(bar.high for bar in group),
+                        low=min(bar.low for bar in group),
+                        close=group[-1].close,
+                        volume=aggregated_volume,
+                        adjusted_close=group[-1].adjusted_close,
+                    ))
+
+            for bar in bars:
+                if segment and (bar.timestamp - segment[-1].timestamp).total_seconds() != 3600:
+                    flush_segment(segment)
+                    segment = []
+                segment.append(bar)
+            flush_segment(segment)
             bars = aggregated
         timestamps = [bar.timestamp for bar in bars]
         if any(current <= previous for previous, current in zip(timestamps, timestamps[1:])):
@@ -118,7 +124,7 @@ class YahooFinanceAdapter:
             warnings=[
                 "Best-effort Yahoo Finance chart data; provider availability and licensing may change.",
                 "Historical research data only; not guaranteed real-time or suitable for execution.",
-                "4h bars are aggregated from complete UTC-aligned hourly bars; incomplete buckets are discarded.",
+                "4h bars are aggregated from four consecutive hourly bars within each continuous session segment; incomplete groups are discarded.",
             ] if interval == "4h" else [
                 "Best-effort Yahoo Finance chart data; provider availability and licensing may change.",
                 "Historical research data only; not guaranteed real-time or suitable for execution.",

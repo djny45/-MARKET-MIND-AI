@@ -136,7 +136,7 @@ class AgentSupervisorTests(unittest.TestCase):
         self.assertEqual(candidate["status"], "persisted_review_candidate")
         memories = read_memory("worker_009", memory_type="validation_result")
         self.assertEqual(memories["count"], 1)
-        note = memories["items"][0]["content"]
+        note = memories["memory"][0]["content"]
         self.assertEqual(note["record_type"], "research_quality_learning_candidate")
         self.assertTrue(note["review_required"])
         self.assertEqual(note["learning_boundary"], "metrics_only_no_claim_truth_or_strategy_learning")

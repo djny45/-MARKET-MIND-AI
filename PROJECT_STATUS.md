@@ -216,3 +216,17 @@ Verification:
 Verification:
 - Tests were authored/updated but not executed locally.
 - GitHub Actions status is checked after these commits; absent runs mean this remains unverified.
+
+
+## GitHub repository tree scanner increment — 2026-11-08
+
+Implemented on the open PR branch:
+- Added a pinned GitHub tree scanner that fetches the recursive Git tree for the commit SHA returned by the metadata crawler.
+- Added basic path classification for source-language files, README/docs, license/NOTICE filenames, GitHub configuration and dependency-manifest filenames.
+- Added `POST /api/open-source/scan-tree`, returning a bounded manifest (maximum 20,000 entries) and explicit scanner policy.
+- Rejects truncated tree responses instead of reporting an incomplete repository inventory as complete; submodules are recorded as references only.
+- Added unit and API tests for classification, commit pinning, URL rejection, truncation, entry limits and upstream errors.
+
+Limitations:
+- This scans paths and Git object metadata only. It does not fetch README, license, NOTICE, dependency or source file contents; dependency versions and source architecture are not yet analyzed.
+- No repository code is copied, installed or executed. Tests are committed but not run in this environment; current-head CI is unverified.

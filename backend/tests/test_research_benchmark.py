@@ -15,7 +15,7 @@ def fixture_cases():
             "case_id": "synthetic-missing-reference",
             "draft": "Synthetic example; source not verified.",
             "claims": [{"text": "Fixture claim B", "source_refs": ["unknown-source"]}],
-            "source_registry": [{"source_id": "fixture-source"}],
+            "source_registry": [{"source_id": "other-fixture-source"}],
         },
     ]
 

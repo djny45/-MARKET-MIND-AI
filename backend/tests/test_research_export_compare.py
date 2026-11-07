@@ -75,6 +75,24 @@ class ResearchExportCompareTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "export_scope_must_be_an_object"):
             compare_research_exports(before, after)
 
+    def test_exposes_observation_level_provenance_changes(self):
+        before = bundle([{
+            "timestamp": "2026-01-01T00:00:00Z", "source": "alpha",
+            "status": "historical", "retrieved_at": "2026-01-02T00:00:00Z",
+            "close": 10,
+        }])
+        after = bundle([{
+            "timestamp": "2026-01-01T00:00:00Z", "source": "alpha",
+            "status": "delayed", "retrieved_at": "2026-01-03T00:00:00Z",
+            "close": 10,
+        }])
+        result = compare_research_exports(before, after)
+        self.assertEqual(result["observation_provenance_changes"], [{
+            "timestamp": "2026-01-01T00:00:00Z",
+            "source": "alpha",
+            "fields": ["retrieved_at", "status"],
+        }])
+
     def test_reports_per_observation_provenance_changes(self):
         before = bundle([{"timestamp": "2026-01-01T00:00:00Z", "source": "alpha",
                           "status": "historical", "retrieved_at": "2026-01-02T00:00:00Z"}])

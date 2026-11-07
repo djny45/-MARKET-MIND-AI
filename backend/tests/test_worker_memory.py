@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from app.worker_memory import append_memory, read_memory, recall_memory, review_learning_candidate, list_learning_candidates
+from app.worker_memory import append_memory, read_memory, recall_memory, review_learning_candidate, list_learning_candidates, recall_approved_learning_candidates
 
 
 class WorkerMemoryTests(unittest.TestCase):
@@ -122,6 +122,38 @@ class WorkerMemoryTests(unittest.TestCase):
             list_learning_candidates("worker_999")
         with self.assertRaises(ValueError):
             list_learning_candidates("worker_001", limit=0)
+
+
+    def test_approved_candidate_recall_excludes_pending_and_rejected(self):
+        pending = append_memory(
+            "worker_001", "validation_result",
+            {"record_type": "research_quality_learning_candidate", "topic": "RSI indicator calibration"},
+            ["research_task:rsi-pending"], "partial",
+        )
+        rejected = append_memory(
+            "worker_001", "validation_result",
+            {"record_type": "research_quality_learning_candidate", "topic": "RSI signal threshold"},
+            ["research_task:rsi-rejected"], "partial",
+        )
+        approved = append_memory(
+            "worker_001", "validation_result",
+            {"record_type": "research_quality_learning_candidate", "topic": "RSI indicator historical validation"},
+            ["research_task:rsi-approved"], "partial",
+        )
+        review_learning_candidate("worker_001", rejected["memory_id"], "rejected", "reviewer")
+        review_learning_candidate("worker_001", approved["memory_id"], "approved", "reviewer")
+        result = recall_approved_learning_candidates("worker_001", "RSI indicator historical")
+        self.assertEqual(result["retrieval_mode"], "approved_candidate_lexical_overlap")
+        self.assertEqual(result["count"], 1)
+        self.assertEqual(result["candidates"][0]["memory_id"], approved["memory_id"])
+        self.assertNotIn(pending["memory_id"], [item["memory_id"] for item in result["candidates"]])
+        self.assertNotIn(rejected["memory_id"], [item["memory_id"] for item in result["candidates"]])
+
+    def test_approved_candidate_recall_validates_query_and_limit(self):
+        with self.assertRaises(ValueError):
+            recall_approved_learning_candidates("worker_001", "")
+        with self.assertRaises(ValueError):
+            recall_approved_learning_candidates("worker_001", "RSI", limit=0)
 
     def test_rejects_unknown_worker_and_invalid_memory_type(self):
         with self.assertRaises(ValueError):

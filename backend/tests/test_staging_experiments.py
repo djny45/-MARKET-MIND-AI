@@ -150,5 +150,39 @@ class StagingExperimentTests(unittest.TestCase):
             })
 
 
+    def test_quality_gate_marks_gain_for_human_review_not_auto_approval(self):
+        review_improvement_proposal("worker_001", self.proposal["memory_id"],
+                                    "approved_for_staging", "reviewer")
+        baseline = self._benchmark_cases("missing")
+        candidate = self._benchmark_cases("known")
+        result = run_staging_benchmark("worker_001", self.proposal["memory_id"], {
+            "baseline_cases": baseline,
+            "candidate_cases": candidate,
+            "reviewer": "reviewer",
+            "min_improvement": 0.01,
+        })
+        gate = result["content"]["benchmark_runs"]["quality_gate"]
+        self.assertEqual(gate["status"], "eligible_for_human_staging_review")
+        self.assertFalse(gate["automatic_approval"])
+
+    def test_quality_gate_blocks_regression_and_validates_threshold(self):
+        review_improvement_proposal("worker_001", self.proposal["memory_id"],
+                                    "approved_for_staging", "reviewer")
+        result = run_staging_benchmark("worker_001", self.proposal["memory_id"], {
+            "baseline_cases": self._benchmark_cases("known"),
+            "candidate_cases": self._benchmark_cases("missing"),
+            "reviewer": "reviewer",
+        })
+        gate = result["content"]["benchmark_runs"]["quality_gate"]
+        self.assertEqual(gate["status"], "blocked_regression")
+        with self.assertRaisesRegex(ValueError, "min_improvement"):
+            run_staging_benchmark("worker_001", self.proposal["memory_id"], {
+                "baseline_cases": self._benchmark_cases(),
+                "candidate_cases": self._benchmark_cases(),
+                "reviewer": "reviewer",
+                "min_improvement": 0,
+            })
+
+
 if __name__ == "__main__":
     unittest.main()

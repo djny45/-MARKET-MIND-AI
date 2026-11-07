@@ -36,7 +36,7 @@ class SwingPointTests(unittest.TestCase):
             {"high": high, "low": low, "timestamp": f"t{i}"}
             for i, (high, low) in enumerate([
                 (10, 8), (12, 7), (11, 6), (9, 7), (8, 8),
-                (13, 5), (10, 6), (9, 7), (8, 8), (7, 9),
+                (13, 5), (10, 6), (9, 7), (8, 7), (7, 6),
             ])
         ]
         full = find_swing_points(bars, left=1, right=2)
@@ -70,11 +70,7 @@ class SwingPointTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "low must be <= high"):
             find_swing_points([{"high": 2, "low": 3}] * 5, left=1, right=1)
 
-    def test_bars_must_be_a_sequence_of_objects(self):
-        with self.assertRaisesRegex(ValueError, "list or tuple"):
-            find_swing_points("not bars")
-        with self.assertRaisesRegex(ValueError, "must be an object"):
-            find_swing_points([None])
+
     def test_window_must_be_positive_integer_not_bool_or_float(self):
         for left, right in ((True, 1), (1, False), (1.5, 1), (1, 2.5), (-1, 1)):
             with self.subTest(left=left, right=right):

@@ -93,6 +93,16 @@ class YahooFinanceAdapterTests(unittest.IsolatedAsyncioTestCase):
             with self.assertRaisesRegex(ValueError, "valid OHLCV chart data"):
                 await adapter.get_bars("AAPL", "1d", 10)
 
+    async def test_rejects_duplicate_or_out_of_order_chart_timestamps(self):
+        for timestamps in ([1767225600, 1767225600], [1767312000, 1767225600]):
+            payload = chart_payload()
+            payload["chart"]["result"][0]["timestamp"] = timestamps
+            adapter = YahooFinanceAdapter()
+            with patch.object(adapter, "_fetch_chart", return_value=payload):
+                with self.subTest(timestamps=timestamps):
+                    with self.assertRaisesRegex(ValueError, "unique and chronological"):
+                        await adapter.get_bars("AAPL", "1d", 10)
+
     async def test_rejects_invalid_symbol_interval_and_limit(self):
         adapter = YahooFinanceAdapter()
         for args in [("", "1d", 5), ("AAPL", "5m", 5), ("AAPL", "1d", 0), ("AAPL", "1d", 5001)]:

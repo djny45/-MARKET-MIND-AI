@@ -24,6 +24,7 @@ from .github_repository_crawler import fetch_repository_metadata, GitHubCrawlerE
 from .github_repository_tree import scan_repository_tree
 from .github_repository_files import fetch_review_files
 from .repository_review_report import build_repository_review_report
+from .repository_compatibility import build_compatibility_report
 from .landing_page_builder import build_landing_page
 from .markets import market_catalog
 from .instruments import search_instruments
@@ -87,6 +88,11 @@ app.include_router(agent_council_router)
 class OpenSourceIntakeRequest(BaseModel):
  repository_url: str = Field(min_length=1, max_length=2048)
  license_id: str | None = Field(default=None, max_length=128)
+
+
+class RepositoryCompatibilityRequest(BaseModel):
+ candidate_report: dict[str, Any]
+ project_dependencies: list[dict[str, str]] = Field(default_factory=list, max_length=2000)
 
 
 class SaveWorkflowRequest(BaseModel):
@@ -777,6 +783,15 @@ def scan_open_source_review_files(request: OpenSourceIntakeRequest):
   raise HTTPException(status_code=400, detail=str(exc)) from exc
  except GitHubCrawlerError as exc:
   raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@app.post("/api/open-source/compatibility-report")
+def open_source_compatibility_report(request: RepositoryCompatibilityRequest):
+ """Compare dependency names against the project inventory; never resolve/install/execute."""
+ try:
+  return build_compatibility_report(request.candidate_report, request.project_dependencies)
+ except (TypeError, ValueError) as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.post("/api/open-source/review-report")

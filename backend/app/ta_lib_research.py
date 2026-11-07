@@ -47,16 +47,6 @@ def analyze_historical_ohlcv(
 
     from app.ohlcv_validation import normalize_and_validate_ohlc
 
-    periods = (rsi_period, fast_period, slow_period, signal_period, atr_period, bbands_period)
-    if any(not isinstance(period, Integral) or isinstance(period, bool) for period in periods):
-        raise ValueError("Indicator periods must be integers >= 2")
-    periods = tuple(int(period) for period in periods)
-    rsi_period, fast_period, slow_period, signal_period, atr_period, bbands_period = periods
-    if min(periods) < 2:
-        raise ValueError("Indicator periods must be integers >= 2")
-    if fast_period >= slow_period:
-        raise ValueError("fast_period must be less than slow_period")
-
     frame = normalize_and_validate_ohlc(ohlc)
     # Load TA-Lib only after input validation. This lets the adapter's
     # validation path remain testable when optional indicator binaries are

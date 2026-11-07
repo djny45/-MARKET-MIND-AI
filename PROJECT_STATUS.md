@@ -35,6 +35,19 @@ Implemented areas:
 - Workflow run [41234313802](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/41234313802) passed all four jobs after adding explicit assertions for loopback-only web binding, unpublished API port, dropped capabilities, `no-new-privileges`, non-root Nginx, and browser security headers.
 - These CI checks validate the stack in GitHub Actions. They do not replace a host-specific deployment, restore drill, penetration test, or external security review.
 
+## Open-source self-evolution intake — 2026-11-08
+
+Implemented on the open PR branch:
+- Added a guarded GitHub repository URL normalizer and open-source intake plan builder.
+- Added `POST /api/open-source/intake` to create an auditable review checklist for a candidate repository.
+- Added unit and API tests for URL validation, request bounds, license review gates, and default-deny reuse/execution/merge behavior.
+- Added [Self-Evolving Architecture](docs/SELF-EVOLUTION-ARCHITECTURE.md) with milestones for crawling, reverse-engineering, skill learning, self-building, adaptation, and rollback.
+
+Important limitation:
+- This increment is **intake planning only**. It does not crawl/fetch GitHub, clone repositories, copy code, execute third-party scripts, learn model weights, or autonomously merge changes.
+- Repository license text still requires review; an SPDX label alone is not authorization.
+- Current-head CI and tests are unverified until a workflow run reports results.
+
 ## Remaining release work
 
 | Workstream | State | Release gate |

@@ -23,6 +23,18 @@ def _median(values):
     return ordered[middle] if len(ordered) % 2 else (ordered[middle - 1] / 2) + (ordered[middle] / 2)
 
 
+def _safe_round(value, digits):
+    """Round finite diagnostics without leaking NaN/Infinity into JSON exports."""
+    try:
+        numeric = float(value)
+        if not math.isfinite(numeric):
+            return None
+        rounded = round(numeric, digits)
+        return rounded if math.isfinite(rounded) else None
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+
 def _mad_flags(values, minimum=20, threshold=6.0):
     if len(values) < minimum:
         return {"status": "insufficient_history", "sample_count": len(values), "threshold_mad": threshold, "flagged_indices": []}
@@ -105,8 +117,8 @@ def build_historical_quality_diagnostics(history):
         "previous_timestamp": safe_bars[return_indices[i] - 1].get("timestamp"),
         "previous_close": float(bars[return_indices[i] - 1]["close"]),
         "close": float(bars[return_indices[i]]["close"]),
-        "return_pct": round(returns[i] * 100, 6),
-        "robust_deviation_mad": round(abs(returns[i] - price_result["median"]) / (1.4826 * price_result["mad"]), 3)
+        "return_pct": _safe_round(returns[i] * 100, 6),
+        "robust_deviation_mad": _safe_round(abs(returns[i] - price_result["median"]) / (1.4826 * price_result["mad"]), 3)
     } for i in price_result["flagged_indices"]] if price_result["status"] == "available" else []
     volumes = []
     volume_indices = []
@@ -124,7 +136,7 @@ def build_historical_quality_diagnostics(history):
         "bar_index": volume_indices[i],
         "timestamp": safe_bars[volume_indices[i]].get("timestamp"),
         "volume": volumes[i],
-        "robust_deviation_mad": round(abs(volumes[i] - volume_result["median"]) / (1.4826 * volume_result["mad"]), 3)
+        "robust_deviation_mad": _safe_round(abs(volumes[i] - volume_result["median"]) / (1.4826 * volume_result["mad"]), 3)
     } for i in volume_result["flagged_indices"]] if volume_result["status"] == "available" else []
     return {
         "interval": interval,

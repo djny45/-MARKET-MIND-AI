@@ -96,10 +96,43 @@ class ResearchQualityEvalTests(unittest.TestCase):
         self.assertEqual(metrics["claims_with_complete_source_provenance_refs"], 0)
         self.assertEqual(metrics["claims_with_incomplete_source_provenance_refs"], 1)
         self.assertEqual(metrics["incomplete_source_provenance_ids"], ["src-b"])
-        self.assertEqual(
-            result["claims"][0]["reference_status"],
-            "registry_match_incomplete_provenance",
+        self.assertEqual(result["claims"][0]["reference_status"], "registry_match")
+        self.assertEqual(result["claims"][0]["provenance_status"], "incomplete")
+
+    def test_normalizes_canonical_news_social_provenance_records(self):
+        result = evaluate_research_draft(
+            draft="Public feed metadata is normalized for provenance checks.",
+            claims=[{"text": "News claim", "source_refs": ["rss-item-1"]}],
+            source_registry=[{
+                "id": "rss-item-1",
+                "source": "Example News Publisher",
+                "channel": "news",
+                "title": "Headline",
+                "url": "https://example.org/news",
+                "published_at": "2026-11-07T10:00:00Z",
+                "retrieved_at": 1794045600.0,
+            }],
         )
+        metrics = result["metrics"]
+        self.assertEqual(metrics["source_registry_entries_complete_provenance_count"], 1)
+        self.assertEqual(metrics["claims_with_complete_source_provenance_refs"], 1)
+        self.assertEqual(result["claims"][0]["reference_status"], "registry_match")
+        self.assertEqual(result["claims"][0]["provenance_status"], "complete")
+
+    def test_url_with_whitespace_in_path_is_invalid(self):
+        result = evaluate_research_draft(
+            draft="Malformed URL whitespace should be rejected.",
+            claims=[{"text": "Claim", "source_refs": ["bad-url"]}],
+            source_registry=[{
+                "source_id": "bad-url", "title": "Source",
+                "url": "https://example.org/path with space",
+                "source_type": "web", "observed_at": "2026-11-07T10:00:00Z",
+            }],
+        )
+        self.assertEqual(
+            result["metrics"]["source_registry_invalid_provenance_by_field"]["url"], 1
+        )
+        self.assertEqual(result["claims"][0]["provenance_status"], "incomplete")
 
     def test_duplicate_source_ids_are_provenance_incomplete_if_any_entry_is_incomplete(self):
         result = evaluate_research_draft(
@@ -215,7 +248,7 @@ class ResearchQualityEvalTests(unittest.TestCase):
 
 
     def test_baseline_comparison_rejects_bool_and_non_finite_numbers(self):
-        for invalid_baseline in (True, float("nan"), float("inf"), float("-inf"), "0.5"):
+        for invalid_baseline in (True, float("nan"), float("inf"), float("-inf"), "0.5", 10 ** 5000):
             with self.subTest(baseline=invalid_baseline):
                 result = evaluate_research_draft(
                     draft="Baseline values must be finite numeric metrics.",
@@ -228,10 +261,7 @@ class ResearchQualityEvalTests(unittest.TestCase):
                 )
                 comparison = result["baseline_comparison"]
                 self.assertIsNone(comparison["claim_reference_coverage"]["delta"])
-                if isinstance(invalid_baseline, float) and math.isnan(invalid_baseline):
-                    self.assertTrue(math.isnan(comparison["claim_reference_coverage"]["baseline"]))
-                else:
-                    self.assertEqual(comparison["claim_reference_coverage"]["baseline"], invalid_baseline)
+                self.assertIsNone(comparison["claim_reference_coverage"]["baseline"])
                 self.assertEqual(comparison["known_source_reference_coverage"]["delta"], 0.5)
 
 

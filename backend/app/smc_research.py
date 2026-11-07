@@ -46,12 +46,13 @@ def analyze_historical_ohlcv(
         or swing_length < 1
     ):
         raise ValueError("swing_length must be a positive integer")
-    if (
-        not isinstance(liquidity_range_percent, Real)
-        or isinstance(liquidity_range_percent, bool)
-        or not np.isfinite(liquidity_range_percent)
-        or not 0 < liquidity_range_percent <= 1
-    ):
+    if isinstance(liquidity_range_percent, bool) or not isinstance(liquidity_range_percent, Real):
+        raise ValueError("liquidity_range_percent must be a finite number in (0, 1]")
+    try:
+        liquidity_range_percent = float(liquidity_range_percent)
+    except (OverflowError, TypeError, ValueError) as exc:
+        raise ValueError("liquidity_range_percent must be a finite number in (0, 1]") from exc
+    if not np.isfinite(liquidity_range_percent) or not 0 < liquidity_range_percent <= 1:
         raise ValueError("liquidity_range_percent must be a finite number in (0, 1]")
 
     frame = ohlc.copy()

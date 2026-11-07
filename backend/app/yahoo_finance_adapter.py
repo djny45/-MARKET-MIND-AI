@@ -86,18 +86,26 @@ class YahooFinanceAdapter:
                 bucket_start = bucket * 14400
                 if timestamps != [bucket_start + offset * 3600 for offset in range(4)]:
                     continue
+                try:
+                    aggregated_volume = math.fsum(bar.volume for bar in group)
+                except (OverflowError, ValueError):
+                    raise ValueError("aggregated four-hour volume must be finite") from None
+                if not math.isfinite(aggregated_volume):
+                    raise ValueError("aggregated four-hour volume must be finite")
                 aggregated.append(OHLCVBar(
                     timestamp=group[0].timestamp,
                     open=group[0].open,
                     high=max(bar.high for bar in group),
                     low=min(bar.low for bar in group),
                     close=group[-1].close,
-                    volume=math.fsum(bar.volume for bar in group),
+                    volume=aggregated_volume,
                     adjusted_close=group[-1].adjusted_close,
                 ))
             bars = aggregated
-        bars = bars[-limit:]
-        if not bars:
+        timestamps = [bar.timestamp for bar in bars]
+        if any(current <= previous for previous, current in zip(timestamps, timestamps[1:])):
+            raise ValueError("Yahoo chart timestamps must be unique and chronological")
+        if interval == "4h":
             raise ValueError(f"No OHLCV bars returned for {symbol}; verify symbol and provider availability")
         return MarketDataBatch(
             symbol=symbol,

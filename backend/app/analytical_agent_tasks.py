@@ -154,6 +154,8 @@ def execute_queued_research_task(task_id: str) -> bool:
         _record_event(db, task_id, row["worker_id"], "task_claimed",
                       from_status="queued", to_status="running", occurred_at=now)
         agent_id = row["worker_id"]
+    # Initialize before guarded execution so failure paths can finalize safely.
+    evaluation = None
     try:
         # Decode persisted input and load the worker context inside the guarded
         # execution block. A corrupt row or runtime-context failure must not

@@ -79,6 +79,7 @@ class SMCResearchAdapterTests(unittest.TestCase):
     def test_non_numeric_ohlc_rejected(self):
         from app.smc_research import analyze_historical_ohlcv
         bad = self.frame.copy()
+        bad["close"] = bad["close"].astype(object)
         bad.loc[3, "close"] = "not-a-price"
         with self.assertRaises((ValueError, TypeError)):
             analyze_historical_ohlcv(bad, swing_length=5)

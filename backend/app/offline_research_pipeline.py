@@ -34,14 +34,12 @@ def run_offline_research(
         )
 
     source_file = Path(csv_path).expanduser().resolve()
-    source_sha256 = hashlib.sha256(source_file.read_bytes()).hexdigest()
-    frame = load_ohlcv_csv(source_file, timestamp_column=timestamp_column)
-    # Hash and parsed rows must describe the same file snapshot. Detect a
-    # concurrent edit while the loader is reading instead of exporting
-    # mismatched provenance.
-    loaded_source_sha256 = hashlib.sha256(source_file.read_bytes()).hexdigest()
-    if loaded_source_sha256 != source_sha256:
-        raise ValueError("source CSV changed while it was being loaded; retry research")
+    # Read once, hash these exact bytes, and parse the same immutable snapshot.
+    # Re-reading the path before/after parsing can miss a transient edit or
+    # associate a digest with rows from a different file version.
+    source_snapshot = source_file.read_bytes()
+    source_sha256 = hashlib.sha256(source_snapshot).hexdigest()
+    frame = load_ohlcv_csv(source_snapshot, timestamp_column=timestamp_column)
     result: dict[str, Any] = {
         "source_path": str(source_file),
         "source_sha256": source_sha256,

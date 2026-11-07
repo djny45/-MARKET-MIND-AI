@@ -27,15 +27,17 @@ class OfflineResearchPipelineTests(unittest.TestCase):
         self.assertIn("dataset", result)
         self.assertEqual(result["indicators"], {})
 
-    def test_pipeline_rejects_source_changed_during_csv_loading(self):
+    def test_pipeline_hashes_and_parses_one_snapshot_if_source_changes_during_load(self):
+        import hashlib
         from unittest.mock import patch
         from app.offline_research_pipeline import run_offline_research
         path = self.write_csv()
+        original_bytes = Path(path).read_bytes()
         from app import offline_research_pipeline
         original_loader = offline_research_pipeline.load_ohlcv_csv
 
-        def mutate_after_load(*args, **kwargs):
-            frame = original_loader(*args, **kwargs)
+        def mutate_original_after_snapshot(snapshot, **kwargs):
+            frame = original_loader(snapshot, **kwargs)
             Path(path).write_text(
                 "timestamp,open,high,low,close\\n"
                 "2024-01-01T00:00:00Z,10,12,9,11\\n"
@@ -45,9 +47,13 @@ class OfflineResearchPipelineTests(unittest.TestCase):
             )
             return frame
 
-        with patch("app.offline_research_pipeline.load_ohlcv_csv", side_effect=mutate_after_load):
-            with self.assertRaisesRegex(ValueError, "changed while it was being loaded"):
-                run_offline_research(path, timestamp_column="timestamp")
+        with patch("app.offline_research_pipeline.load_ohlcv_csv", side_effect=mutate_original_after_snapshot):
+            result = run_offline_research(path, timestamp_column="timestamp")
+        self.assertEqual(result["row_count"], 2)
+        self.assertEqual(result["source_sha256"], hashlib.sha256(original_bytes).hexdigest())
+        with self.assertRaisesRegex(ValueError, "changed after research"):
+            from app.offline_research_pipeline import build_offline_evidence_bundle
+            build_offline_evidence_bundle(result, symbol="BTCUSD", interval="1d")
 
     def test_pipeline_records_sha256_of_exact_source_file(self):
         import hashlib

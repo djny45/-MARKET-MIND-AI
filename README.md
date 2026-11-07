@@ -487,7 +487,7 @@ This endpoint does **not** translate proposal prose into settings, execute code 
 
 The staging config-evaluation record now includes a deterministic quality gate:
 
-- Any aggregate decrease in the two traceability coverage metrics → `blocked_regression`.
+- Any aggregate decrease **or any paired case-level decrease** in the two traceability coverage metrics → `blocked_regression`. A positive aggregate cannot mask a regression on an individual fixture.
 - No metric decrease and at least one aggregate increase meeting `min_improvement` (default `0.01`) → `eligible_for_human_staging_review`.
 - Otherwise → `no_meaningful_improvement`.
 - `min_improvement` must be finite and in `(0, 1]`.

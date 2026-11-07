@@ -147,3 +147,14 @@ Verification:
 Verification:
 - GitHub Actions workflow lookup returned no runs for these latest commits.
 - Tests are not locally executed; the changes remain unverified pending CI.
+
+
+## Forecast metric and walk-forward edge-case audit — 2026-11-07
+
+- Forecast metric subtraction now normalizes overflow to a clear validation error.
+- Walk-forward aggregation uses stable summation and rejects non-finite aggregate metrics.
+- Added regression tests for extreme subtraction and overlapping walk-forward test windows.
+
+Verification:
+- GitHub Actions lookup returned no runs for the latest forecasting commits.
+- No local tests were executed; verification remains pending.

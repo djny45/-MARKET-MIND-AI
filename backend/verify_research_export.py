@@ -2,6 +2,7 @@
 
 import argparse
 import hashlib
+import hmac
 import json
 import sys
 from datetime import datetime, timezone
@@ -39,7 +40,7 @@ def verify_bundle(bundle):
     except (TypeError, ValueError):
         return {"valid": False, "reason": "bundle_cannot_be_canonicalized"}
     actual = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
-    valid = actual == expected.lower()
+    valid = hmac.compare_digest(actual, expected.lower())
     return {
         "valid": valid,
         "reason": "digest_matches" if valid else "digest_mismatch",

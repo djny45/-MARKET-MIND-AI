@@ -11,6 +11,7 @@ from typing import Any
 MAX_DRAFT_CHARS = 20_000
 MAX_CLAIMS = 200
 MAX_SOURCES = 500
+PROVENANCE_FIELDS = ("title", "url", "source_type", "observed_at")
 
 
 def evaluate_research_draft(
@@ -32,18 +33,28 @@ def evaluate_research_draft(
     source_ids = set()
     duplicate_source_ids = set()
     source_entries_without_id = 0
+    entries_missing_provenance = 0
+    missing_provenance_by_field = {field: 0 for field in PROVENANCE_FIELDS}
     for source in source_registry:
         if not isinstance(source, dict):
             raise ValueError("source_registry entries must be objects")
+        missing_fields = [
+            field for field in PROVENANCE_FIELDS
+            if not isinstance(source.get(field), str) or not source[field].strip()
+        ]
+        if missing_fields:
+            entries_missing_provenance += 1
+            for field in missing_fields:
+                missing_provenance_by_field[field] += 1
+
         source_id = source.get("source_id")
         if not isinstance(source_id, str) or not source_id.strip():
             source_entries_without_id += 1
             continue
-        if isinstance(source_id, str) and source_id.strip():
-            normalized_id = source_id.strip()
-            if normalized_id in source_ids:
-                duplicate_source_ids.add(normalized_id)
-            source_ids.add(normalized_id)
+        normalized_id = source_id.strip()
+        if normalized_id in source_ids:
+            duplicate_source_ids.add(normalized_id)
+        source_ids.add(normalized_id)
 
     total = len(claims)
     claims_with_refs = 0
@@ -89,6 +100,8 @@ def evaluate_research_draft(
         "unknown_source_id_count": len(unknown_refs),
         "source_registry_count": len(source_ids),
         "source_registry_entries_without_id_count": source_entries_without_id,
+        "source_registry_entries_missing_provenance_count": entries_missing_provenance,
+        "source_registry_missing_provenance_by_field": missing_provenance_by_field,
         "duplicate_source_id_count": len(duplicate_source_ids),
         "duplicate_source_ids": sorted(duplicate_source_ids),
         "uncertainty_marker_count": len(uncertainty_markers),
@@ -119,7 +132,8 @@ def evaluate_research_draft(
         "claims": reviewed,
         "baseline_comparison": comparison,
         "interpretation": (
-            "Structural traceability only. This does not verify source authenticity, "
-            "claim entailment, factual correctness, forecast accuracy, or investment value."
+            "Structural traceability only. Provenance field presence is not source validation. "
+            "This does not verify source authenticity, claim entailment, factual correctness, "
+            "forecast accuracy, or investment value."
         ),
     }

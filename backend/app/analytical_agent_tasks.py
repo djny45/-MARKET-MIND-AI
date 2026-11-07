@@ -140,11 +140,15 @@ def execute_queued_research_task(task_id: str) -> bool:
         if row is None or row["status"] != "queued":
             return False
         # Claim atomically so duplicate dispatches cannot execute the same queued row.
-        now = datetime.now(timezone.utc).isoformat()
+        # The claim timestamp doubles as a lease token. Recovery may requeue
+        # stale work and a newer dispatcher may claim it before this run ends.
+        # Finalization must match this exact claim, not merely status='running'.
+        claim_token = datetime.now(timezone.utc).isoformat()
         claimed = db.execute(
             "UPDATE analytical_agent_tasks SET status='running',updated_at=? WHERE task_id=? AND status='queued'",
-            (now, task_id),
+            (claim_token, task_id),
         )
+        now = claim_token
         if claimed.rowcount != 1:
             return False
         _record_event(db, task_id, row["worker_id"], "task_claimed",
@@ -210,8 +214,14 @@ def execute_queued_research_task(task_id: str) -> bool:
         status = "failed"
     updated = datetime.now(timezone.utc).isoformat()
     with _connect() as db:
-        db.execute("UPDATE analytical_agent_tasks SET status=?,result_json=?,updated_at=? WHERE task_id=?",
-                   (status, _json(result), updated, task_id))
+        finalized = db.execute(
+            "UPDATE analytical_agent_tasks SET status=?,result_json=?,updated_at=? "
+            "WHERE task_id=? AND status='running' AND updated_at=?",
+            (status, _json(result), updated, task_id, claim_token),
+        )
+        if finalized.rowcount != 1:
+            # A recovery/re-dispatch superseded this execution's lease.
+            return False
         _record_event(db, task_id, agent_id, "task_" + status,
                       from_status="running", to_status=status, occurred_at=updated,
                       detail={"error_type": result.get("error_type")} if status == "failed" else {})

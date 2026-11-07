@@ -151,10 +151,10 @@ class SMCResearchAdapterTests(unittest.TestCase):
         frame = self.frame.drop(columns=["volume"])
         with patch.object(smc, "fvg", return_value=self.pd.DataFrame(index=range(len(frame)))), \
              patch.object(smc, "swing_highs_lows", return_value=self.pd.DataFrame(index=range(len(frame)))), \
-             patch.object(smc, "bos_choch"), \
+             patch.object(smc, "bos_choch", return_value=self.pd.DataFrame(index=range(len(frame)))), \
              patch.object(smc, "ob") as order_blocks, \
-             patch.object(smc, "liquidity"), \
-             patch.object(smc, "retracements"):
+             patch.object(smc, "liquidity", return_value=self.pd.DataFrame(index=range(len(frame)))), \
+             patch.object(smc, "retracements", return_value=self.pd.DataFrame(index=range(len(frame)))):
             result = analyze_historical_ohlcv(frame, swing_length=5)
 
         order_blocks.assert_not_called()
@@ -186,10 +186,10 @@ class SMCResearchAdapterTests(unittest.TestCase):
 
         with patch.object(smc, "fvg", return_value=self.pd.DataFrame(index=range(len(self.frame)))), \
              patch.object(smc, "swing_highs_lows", return_value=self.pd.DataFrame(index=range(len(self.frame)))), \
-             patch.object(smc, "bos_choch"), \
-             patch.object(smc, "ob"), \
-             patch.object(smc, "liquidity"), \
-             patch.object(smc, "retracements"):
+             patch.object(smc, "bos_choch", return_value=self.pd.DataFrame(index=range(len(self.frame)))), \
+             patch.object(smc, "ob", return_value=self.pd.DataFrame(index=range(len(self.frame)))), \
+             patch.object(smc, "liquidity", return_value=self.pd.DataFrame(index=range(len(self.frame)))), \
+             patch.object(smc, "retracements", return_value=self.pd.DataFrame(index=range(len(self.frame)))):
             result = analyze_historical_ohlcv(self.frame, swing_length=7)
 
         metadata = result["research_metadata"]

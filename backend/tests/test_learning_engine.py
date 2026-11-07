@@ -3,8 +3,8 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from app.learning_engine import agent_learning_summary, learning_overview, run_feedback_improvement_cycle
-from app.worker_memory import append_memory
+from app.learning_engine import agent_learning_summary, learning_overview, run_feedback_improvement_cycle, build_feedback_staging_plan
+from app.worker_memory import append_memory, review_improvement_proposal
 
 
 class LearningEngineTests(unittest.TestCase):
@@ -184,6 +184,38 @@ class LearningEngineTests(unittest.TestCase):
         self.assertEqual(result["proposal"]["dominant_issue_category"], "other")
         self.assertEqual(result["proposal"]["issue_category_counts"], {"other": 5})
         self.assertIn("held-out feedback", result["proposal"]["proposed_change"])
+
+
+    def test_feedback_staging_plan_requires_latest_review_approval(self):
+        for index in range(5):
+            append_memory(
+                "worker_001", "validation_result",
+                {"outcome": "not_helpful", "summary": f"Provenance gap {index}",
+                 "issue_category": "data_provenance"},
+                quality_status="unverified",
+            )
+        result = run_feedback_improvement_cycle("worker_001")
+        proposal_id = result["proposal_memory_id"]
+
+        with self.assertRaisesRegex(ValueError, "approved_for_staging"):
+            build_feedback_staging_plan("worker_001", proposal_id)
+
+        review_improvement_proposal(
+            "worker_001", proposal_id, "approved_for_staging", "reviewer",
+            "Approve isolated fixture evaluation only",
+        )
+        plan = build_feedback_staging_plan("worker_001", proposal_id)
+        self.assertEqual(plan["issue_category"], "data_provenance")
+        self.assertEqual(plan["review_status"], "approved_for_staging")
+        self.assertEqual(plan["experiment_design"]["minimum_repeat_runs"], 3)
+        self.assertTrue(plan["promotion_gate"]["requires_human_decision"])
+        self.assertFalse(plan["promotion_gate"]["auto_promote"])
+        self.assertFalse(plan["promotion_gate"]["model_training"])
+        self.assertIn("/staging-benchmark", plan["next_api_endpoint"])
+
+    def test_feedback_staging_plan_rejects_unknown_proposal(self):
+        with self.assertRaisesRegex(ValueError, "not found"):
+            build_feedback_staging_plan("worker_001", "missing-proposal-id")
 
 if __name__ == "__main__":
     unittest.main()

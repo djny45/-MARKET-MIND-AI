@@ -83,6 +83,23 @@ class AgentSupervisorTests(unittest.TestCase):
         self.assertEqual(result["still_running_count"], 1)
         self.assertEqual(get_research_task(queued["task_id"])["status"], "running")
 
+    def test_concurrent_recovery_records_only_one_requeue_event(self):
+        from app.analytical_agent_tasks import list_task_audit_events
+        queued = enqueue_research_task("worker_006", "concurrent recovery")
+        import sqlite3
+        with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+            db.execute(
+                "UPDATE analytical_agent_tasks SET status='running',updated_at=? WHERE task_id=?",
+                ("2000-01-01T00:00:00+00:00", queued["task_id"]),
+            )
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results = list(pool.map(lambda _: recover_interrupted_research_tasks(), range(2)))
+        self.assertEqual(sum(item["requeued_interrupted_count"] for item in results), 1)
+        events = list_task_audit_events(queued["task_id"])["events"]
+        requeued = [event for event in events if event["event_type"] == "task_requeued"]
+        self.assertEqual(len(requeued), 1)
+        self.assertEqual(get_research_task(queued["task_id"])["status"], "queued")
+
     def test_recovery_grace_period_must_be_positive_integer(self):
         with self.assertRaises(ValueError):
             recover_interrupted_research_tasks(stale_after_seconds=0)

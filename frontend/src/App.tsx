@@ -9,7 +9,7 @@ import AgentNetwork from './AgentNetwork'
 import AgentPositionMonitor from './AgentPositionMonitor'
 import LearningLab from './LearningLab'
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+const API = (import.meta.env.VITE_API_URL ?? 'http://localhost:8000').replace(/\\/$/, '')
 type NodeData = { label: string; subtitle?: string; category?: string; period?: number; values?: number[]; result?: unknown }
 const initialNodes: Node<NodeData>[] = [
  {id:'feed',type:'market',position:{x:40,y:210},data:{label:'Market Data Feed',subtitle:'Input · OHLC / close series',category:'data'}},

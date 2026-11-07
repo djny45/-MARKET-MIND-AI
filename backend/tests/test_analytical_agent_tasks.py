@@ -156,6 +156,16 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             list_recent_task_activity(limit=True)
 
+    def test_supervisor_health_is_healthy_for_known_nonfailed_states(self):
+        from app.analytical_agent_tasks import enqueue_research_task, agent_supervisor_status
+
+        enqueue_research_task("worker_004", "supervisor healthy snapshot")
+        snapshot = agent_supervisor_status()
+        self.assertEqual(snapshot["status"], "healthy")
+        self.assertEqual(snapshot["unknown_status_count"], 0)
+        self.assertEqual(snapshot["status_counts"]["queued"], 1)
+        self.assertEqual(snapshot["task_count"], 1)
+
     def test_supervisor_health_flags_failed_and_unknown_task_states(self):
         import sqlite3
         from app.analytical_agent_tasks import (

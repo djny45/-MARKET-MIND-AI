@@ -66,6 +66,13 @@ class LearningFeedbackTests(unittest.TestCase):
         self.assertEqual(result["status"], "no_material_metric_differences")
         self.assertTrue(result["comparisons"][0]["stale_reference"])
 
+    def test_latest_review_decision_controls_eligibility(self):
+        candidate = self._candidate("worker_001", {"sample_count": 10})
+        worker_memory.review_learning_candidate("worker_001", candidate["memory_id"], "approved", "reviewer-a")
+        worker_memory.review_learning_candidate("worker_001", candidate["memory_id"], "rejected", "reviewer-b")
+        result = evaluate_learning_feedback("worker_001", {"sample_count": 99})
+        self.assertEqual(result["status"], "no_comparable_approved_evidence")
+
     def test_feedback_reports_no_comparable_evidence(self):
         candidate = self._candidate("worker_001", {"sample_count": 10})
         result = evaluate_learning_feedback("worker_001", {"other_metric": 1})
@@ -79,6 +86,8 @@ class LearningFeedbackTests(unittest.TestCase):
             evaluate_learning_feedback("worker_001", {})
         with self.assertRaises(ValueError):
             evaluate_learning_feedback("worker_001", {"sample_count": float("nan")})
+        with self.assertRaises(ValueError):
+            evaluate_learning_feedback("worker_001", {"sample_count": 10 ** 1000})
         with self.assertRaises(ValueError):
             evaluate_learning_feedback("worker_001", {"sample_count": 1}, stale_after_days=0)
         with self.assertRaises(ValueError):

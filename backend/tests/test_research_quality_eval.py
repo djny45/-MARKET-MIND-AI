@@ -213,5 +213,24 @@ class ResearchQualityEvalTests(unittest.TestCase):
             )
 
 
+    def test_baseline_comparison_rejects_bool_and_non_finite_numbers(self):
+        for invalid_baseline in (True, float("nan"), float("inf"), float("-inf"), "0.5"):
+            with self.subTest(baseline=invalid_baseline):
+                result = evaluate_research_draft(
+                    draft="Baseline values must be finite numeric metrics.",
+                    claims=[{"text": "Claim", "source_refs": ["src"]}],
+                    source_registry=[{"source_id": "src"}],
+                    baseline={"metrics": {
+                        "claim_reference_coverage": invalid_baseline,
+                        "known_source_reference_coverage": 0.5,
+                    }},
+                )
+                comparison = result["baseline_comparison"]
+                self.assertIsNone(comparison["claim_reference_coverage"]["delta"])
+                self.assertEqual(comparison["claim_reference_coverage"]["baseline"], invalid_baseline)
+                self.assertEqual(comparison["known_source_reference_coverage"]["delta"], 0.5)
+
+
+
 if __name__ == "__main__":
     unittest.main()

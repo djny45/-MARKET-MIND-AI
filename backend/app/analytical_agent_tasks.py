@@ -619,13 +619,21 @@ def dispatch_queued_research_tasks(limit: int = 50, max_concurrency: int = 4) ->
         ).fetchall()
     task_status_counts = {row["status"]: row["count"] for row in status_rows}
     failed_task_count = task_status_counts.get("failed", 0)
+    pending_task_count = task_status_counts.get("queued", 0) + task_status_counts.get("running", 0)
+    if failed_task_count:
+        dispatch_status = "completed_with_failures"
+    elif pending_task_count:
+        dispatch_status = "completed_with_pending"
+    else:
+        dispatch_status = "completed"
     return {
         "selected": len(task_ids),
         "dispatched": len(completed),
         "task_status_counts": task_status_counts,
         "failed_task_count": failed_task_count,
+        "pending_task_count": pending_task_count,
         "max_concurrency": min(max_concurrency, len(task_ids)),
-        "status": "completed_with_failures" if failed_task_count else "completed",
+        "status": dispatch_status,
         "task_ids": task_ids,
         "dispatch_mode": "bounded_process_local_queue_snapshot",
         "note": "Dispatch finished; task_status_counts reports each task's persisted outcome. Tasks are persisted in SQLite, but dispatch is explicit and process-local, not a continuously running distributed supervisor.",

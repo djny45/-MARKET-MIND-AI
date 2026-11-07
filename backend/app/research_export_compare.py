@@ -91,6 +91,8 @@ def compare_research_exports(before, after):
     added = sorted(new_keys - old_keys)
     removed = sorted(old_keys - new_keys)
     changed = []
+    observation_provenance_changes = []
+    provenance_fields = {"source", "sources", "status", "retrieved_at", "provider", "provenance"}
     for key in sorted(old_keys & new_keys):
         fields = sorted(
             field for field in set(old[key]) | set(new[key])
@@ -98,6 +100,13 @@ def compare_research_exports(before, after):
         )
         if fields:
             changed.append({"timestamp": key[0], "source": key[1], "fields": fields})
+            changed_provenance = sorted(set(fields) & provenance_fields)
+            if changed_provenance:
+                observation_provenance_changes.append({
+                    "timestamp": key[0],
+                    "source": key[1],
+                    "fields": changed_provenance,
+                })
     diagnostic_changes = {}
     for section in ("scope", "data_quality", "source_comparison", "timeline", "deep_research"):
         left = before.get(section)
@@ -146,6 +155,7 @@ def compare_research_exports(before, after):
         "added": [{"timestamp": key[0], "source": key[1]} for key in added],
         "removed": [{"timestamp": key[0], "source": key[1]} for key in removed],
         "changed": changed,
+        "observation_provenance_changes": observation_provenance_changes,
         "provenance_changed_fields": [
             field for field in diagnostic_changes.get("scope", [])
             if field in {"source", "sources", "status", "retrieved_at"}

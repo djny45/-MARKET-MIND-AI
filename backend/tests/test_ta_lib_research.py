@@ -75,7 +75,7 @@ class TALibResearchTests(unittest.TestCase):
     def test_bad_high_low_rejected(self):
         from app.ta_lib_research import analyze_historical_ohlcv
         bad = self.frame.copy()
-        bad.loc[2, "High"] = 0
+        bad.loc[2, "High"] = 10.0
         with self.assertRaisesRegex(ValueError, "high is below"):
             analyze_historical_ohlcv(bad)
 

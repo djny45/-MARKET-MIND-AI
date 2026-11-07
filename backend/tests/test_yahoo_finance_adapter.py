@@ -36,6 +36,54 @@ class YahooFinanceAdapterTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(batch.bars[0].adjusted_close, 102.7)
         self.assertTrue(batch.warnings)
 
+    async def test_four_hour_interval_supports_non_utc_hour_session_anchor(self):
+        payload = chart_payload()
+        result = payload["chart"]["result"][0]
+        start = 1767227400  # UTC half-hour boundary; typical exchange session offset
+        result["timestamp"] = [start + hour * 3600 for hour in range(4)]
+        quote = result["indicators"]["quote"][0]
+        quote["open"] = [100, 101, 102, 103]
+        quote["high"] = [102, 104, 103, 105]
+        quote["low"] = [99, 100, 101, 102]
+        quote["close"] = [101, 102, 102.5, 104]
+        quote["volume"] = [10, 20, 30, 40]
+
+        adapter = YahooFinanceAdapter()
+        with patch.object(adapter, "_fetch_chart", return_value=payload):
+            batch = await adapter.get_bars("AAPL", "4h", 10)
+
+        self.assertEqual(len(batch.bars), 1)
+        self.assertEqual(batch.bars[0].timestamp.timestamp(), start)
+        self.assertEqual(batch.bars[0].volume, 100)
+
+    async def test_four_hour_interval_splits_hourly_bars_at_session_gap(self):
+        payload = chart_payload()
+        result = payload["chart"]["result"][0]
+        start = 1767225600
+        result["timestamp"] = (
+            [start + hour * 3600 for hour in range(3)]
+            + [start + 6 * 3600 + hour * 3600 for hour in range(4)]
+        )
+        quote = result["indicators"]["quote"][0]
+        for key, values in {
+            "open": [100, 101, 102, 103, 104, 105, 106],
+            "high": [102, 103, 104, 105, 106, 107, 108],
+            "low": [99, 100, 101, 102, 103, 104, 105],
+            "close": [101, 102, 103, 104, 105, 106, 107],
+            "volume": [10, 20, 30, 40, 50, 60, 70],
+        }.items():
+            quote[key] = values
+
+        adapter = YahooFinanceAdapter()
+        with patch.object(adapter, "_fetch_chart", return_value=payload):
+            batch = await adapter.get_bars("AAPL", "4h", 10)
+
+        # The first three-hour fragment is incomplete; only the four-hour
+        # contiguous segment after the gap becomes a valid aggregate.
+        self.assertEqual(len(batch.bars), 1)
+        self.assertEqual(batch.bars[0].timestamp.timestamp(), start + 6 * 3600)
+        self.assertEqual(batch.bars[0].volume, 220)
+
     async def test_four_hour_interval_aggregates_complete_hourly_bars(self):
         payload = chart_payload()
         result = payload["chart"]["result"][0]

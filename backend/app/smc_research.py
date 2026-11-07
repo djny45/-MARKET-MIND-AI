@@ -5,7 +5,7 @@ place orders, connect to brokers, or claim predictive value.
 """
 from __future__ import annotations
 
-from numbers import Real
+from numbers import Integral, Real
 from typing import Any
 
 

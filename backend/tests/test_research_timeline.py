@@ -81,6 +81,22 @@ def test_timeline_rejects_duplicate_or_unsorted_timestamps():
     with pytest.raises(ValueError, match="sorted chronologically"):
         build_research_timeline({"bars": bars})
 
+def test_timeline_rejects_equivalent_instants_with_different_offsets():
+    import pytest
+    bars = sample_bars()
+    bars[1]["timestamp"] = "2026-01-01T01:00:00+01:00"
+    with pytest.raises(ValueError, match="timestamps must be unique"):
+        build_research_timeline({"bars": bars})
+
+
+def test_timeline_rejects_partially_missing_timestamps():
+    import pytest
+    bars = sample_bars()
+    bars[2].pop("timestamp")
+    with pytest.raises(ValueError, match="present on every bar or none"):
+        build_research_timeline({"bars": bars})
+
+
 def test_timeline_rejects_naive_timestamps():
     import pytest
     bars = sample_bars()

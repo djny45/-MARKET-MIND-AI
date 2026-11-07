@@ -38,16 +38,18 @@ def _validate_ohlcv_bars(bars):
         if any(value is None for value in timestamps):
             raise ValueError("timestamps must be present on every bar or none")
         try:
-            from datetime import datetime
+            from datetime import datetime, timezone
             parsed = []
             for index, value in enumerate(timestamps):
                 if not isinstance(value, str) or not value.strip():
                     raise ValueError(f"bars[{index}].timestamp must be a non-empty string")
-                normalized = value.strip().replace("Z", "+00:00")
+                normalized = value.strip()
+                if normalized.endswith("Z"):
+                    normalized = normalized[:-1] + "+00:00"
                 instant = datetime.fromisoformat(normalized)
                 if instant.tzinfo is None:
                     raise ValueError(f"bars[{index}].timestamp must include timezone")
-                parsed.append(instant.astimezone(__import__("datetime").timezone.utc))
+                parsed.append(instant.astimezone(timezone.utc))
         except (TypeError, ValueError, OverflowError) as exc:
             raise ValueError("timestamps must be valid timezone-aware ISO datetimes") from exc
         if len(set(parsed)) != len(parsed):

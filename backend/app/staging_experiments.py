@@ -244,6 +244,72 @@ def summarize_staging_experiments(worker_id: str, limit: int = 100) -> dict[str,
     }
 
 
+def summarize_repeatability(worker_id: str, limit: int = 200, min_trials: int = 3) -> dict[str, Any]:
+    """Report repeated identical fixture/config comparisons; descriptive, not inferential."""
+    if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 200:
+        raise ValueError("limit must be between 1 and 200")
+    if not isinstance(min_trials, int) or isinstance(min_trials, bool) or not 2 <= min_trials <= 20:
+        raise ValueError("min_trials must be between 2 and 20")
+    records = read_memory(worker_id, "validation_result", limit=200)["memory"]
+    experiments = [item for item in records
+                   if isinstance(item.get("content"), dict)
+                   and item["content"].get("record_type") == "staging_experiment_result"][:limit]
+    groups: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
+    for item in experiments:
+        content = item["content"]
+        runs = content.get("benchmark_runs")
+        if not isinstance(runs, dict):
+            continue
+        baseline_id = runs.get("baseline_benchmark_id")
+        candidate_id = runs.get("candidate_benchmark_id")
+        patch = runs.get("config_patch", {})
+        if not isinstance(baseline_id, str) or not isinstance(candidate_id, str) or not isinstance(patch, dict):
+            continue
+        # Same proposal, exact baseline/candidate fixture fingerprints, and config.
+        key = (str(content.get("proposal_memory_id", "")),
+               baseline_id + "|" + candidate_id,
+               repr(sorted(patch.items())))
+        gate = runs.get("quality_gate", {})
+        groups.setdefault(key, []).append({
+            "gate_status": gate.get("status", "not_available") if isinstance(gate, dict) else "not_available",
+            "deltas": gate.get("aggregate_deltas", {}) if isinstance(gate, dict) else {},
+            "record_id": item.get("memory_id"),
+        })
+    repeated = []
+    insufficient = 0
+    for (proposal_id, fingerprint_pair, config_repr), trials in groups.items():
+        if len(trials) < min_trials:
+            insufficient += 1
+            continue
+        statuses: dict[str, int] = {}
+        metric_signs: dict[str, dict[str, int]] = {}
+        for trial in trials:
+            status = trial["gate_status"]
+            statuses[status] = statuses.get(status, 0) + 1
+            for metric, delta in trial["deltas"].items():
+                if isinstance(delta, (int, float)) and not isinstance(delta, bool) and math.isfinite(delta):
+                    sign = "positive" if delta > 0 else "negative" if delta < 0 else "zero"
+                    metric_signs.setdefault(metric, {"positive": 0, "negative": 0, "zero": 0})[sign] += 1
+        repeated.append({
+            "proposal_memory_id": proposal_id,
+            "benchmark_fingerprint_pair": fingerprint_pair,
+            "config_patch_key": config_repr,
+            "trial_count": len(trials),
+            "gate_status_counts": statuses,
+            "metric_delta_sign_counts": metric_signs,
+            "consistency_label": "uniform_gate_status" if len(statuses) == 1 else "mixed_gate_status",
+        })
+    return {
+        "worker_id": worker_id,
+        "groups_meeting_min_trials": len(repeated),
+        "groups_below_min_trials": insufficient,
+        "min_trials": min_trials,
+        "repeatability_groups": repeated,
+        "interpretation": "Exact fixture/config repeats only. Status/sign consistency is descriptive; it is not statistical significance, independent-data validation, causality, or evidence of market/trading performance.",
+        "limit": limit,
+    }
+
+
 def list_staging_experiments(worker_id: str, limit: int = 50) -> dict[str, Any]:
     if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 200:
         raise ValueError("limit must be between 1 and 200")

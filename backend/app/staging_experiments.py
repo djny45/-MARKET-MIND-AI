@@ -192,6 +192,16 @@ def run_staging_benchmark(worker_id: str, proposal_memory_id: str, payload: dict
             "candidate_benchmark_id": candidate_result["benchmark_id"],
             "baseline_case_count": baseline_result["case_count"],
             "candidate_case_count": candidate_result["case_count"],
+            "baseline_fixture_overlap": {
+                "pair_count_flagged": baseline_result["fixture_overlap"]["pair_count_flagged"],
+                "threshold": baseline_result["fixture_overlap"]["threshold"],
+                "method": baseline_result["fixture_overlap"]["method"],
+            },
+            "candidate_fixture_overlap": {
+                "pair_count_flagged": candidate_result["fixture_overlap"]["pair_count_flagged"],
+                "threshold": candidate_result["fixture_overlap"]["threshold"],
+                "method": candidate_result["fixture_overlap"]["method"],
+            },
             "benchmark_type": "offline_research_traceability",
             "evaluator_version": baseline_result["evaluator_version"],
             "baseline_provenance": {
@@ -427,6 +437,8 @@ def summarize_research_quality_dashboard(worker_id: str, limit: int = 100) -> di
     }
     regression_experiment_count = 0
     paired_regression_total = 0
+    overlap_flagged_pairs_total = 0
+    experiments_with_overlap_flags = 0
     dashboard_records = []
     for item in experiments:
         content = item["content"]
@@ -462,6 +474,18 @@ def summarize_research_quality_dashboard(worker_id: str, limit: int = 100) -> di
         for key, present in checks.items():
             if not present:
                 provenance_missing[key] += 1
+        baseline_overlap = runs.get("baseline_fixture_overlap", {})
+        candidate_overlap = runs.get("candidate_fixture_overlap", {})
+        baseline_overlap = baseline_overlap if isinstance(baseline_overlap, dict) else {}
+        candidate_overlap = candidate_overlap if isinstance(candidate_overlap, dict) else {}
+        overlap_pair_count = 0
+        for overlap in (baseline_overlap, candidate_overlap):
+            count = overlap.get("pair_count_flagged", 0)
+            if isinstance(count, int) and not isinstance(count, bool) and count >= 0:
+                overlap_pair_count += count
+        overlap_flagged_pairs_total += overlap_pair_count
+        if overlap_pair_count:
+            experiments_with_overlap_flags += 1
         aggregate_deltas = gate.get("aggregate_deltas", {})
         aggregate_deltas = aggregate_deltas if isinstance(aggregate_deltas, dict) else {}
         for metric_name, delta in aggregate_deltas.items():
@@ -476,6 +500,7 @@ def summarize_research_quality_dashboard(worker_id: str, limit: int = 100) -> di
             "aggregate_deltas": gate.get("aggregate_deltas", {}),
             "paired_case_count": paired.get("paired_case_count", 0),
             "paired_regression_count": regression_count,
+            "fixture_overlap_flagged_pair_count": overlap_pair_count,
             "evaluator_version": runs.get("evaluator_version"),
             "baseline_dataset": base_meta.get("dataset_name"),
             "candidate_dataset": candidate_meta.get("dataset_name"),
@@ -501,6 +526,8 @@ def summarize_research_quality_dashboard(worker_id: str, limit: int = 100) -> di
         "quality_gate_status_counts": gate_counts,
         "experiments_with_paired_regressions": regression_experiment_count,
         "paired_regression_total": paired_regression_total,
+        "experiments_with_fixture_overlap_flags": experiments_with_overlap_flags,
+        "fixture_overlap_flagged_pair_total": overlap_flagged_pairs_total,
         "aggregate_delta_summary": delta_summary,
         "provenance_missing_counts": provenance_missing,
         "repeatability": {

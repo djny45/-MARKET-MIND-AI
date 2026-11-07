@@ -5,13 +5,13 @@ interactive REPL over HTTP. Install OpenBB CLI separately (see docs/OPENBB-INTEG
 """
 from __future__ import annotations
 
-import importlib.metadata
 import os
 import shutil
 import subprocess
 from dataclasses import dataclass
 from threading import BoundedSemaphore, Event, Thread
 import time
+from pathlib import Path
 from typing import Literal
 
 
@@ -58,7 +58,7 @@ def run_openbb_cli(action: OpenBBAction) -> OpenBBCLIResult:
 
     if not openbb_cli_enabled():
         return OpenBBCLIResult(
-            available=False,
+            available=shutil.which("openbb") is not None,
             action=action,
             exit_code=None,
             output="",
@@ -75,24 +75,56 @@ def run_openbb_cli(action: OpenBBAction) -> OpenBBCLIResult:
             error="OpenBB CLI is not installed. See docs/OPENBB-INTEGRATION.md.",
         )
 
-    # OpenBB CLI v5 does not document a --version flag. Read the installed
-    # distribution metadata instead of invoking an unsupported command.
+    # OpenBB CLI v5 does not document a --version flag. Query package
+    # metadata with the Python interpreter beside the resolved executable,
+    # which keeps the lookup inside the CLI's dedicated virtual environment.
     if action == "version":
-        try:
-            version = importlib.metadata.version("openbb-cli")
-        except importlib.metadata.PackageNotFoundError:
+        python_name = "python.exe" if os.name == "nt" else "python"
+        python_executable = Path(executable).resolve().parent / python_name
+        if not python_executable.is_file():
             return OpenBBCLIResult(
                 available=True,
                 action=action,
                 exit_code=None,
                 output="",
-                error="The openbb executable exists, but openbb-cli package metadata was not found.",
+                error="Could not locate the Python interpreter beside the OpenBB executable.",
+            )
+        version_code = (
+            "import importlib.metadata as m; "
+            "print(m.version('openbb-cli'))"
+        )
+        try:
+            completed = subprocess.run(
+                [str(python_executable), "-c", version_code],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                stdin=subprocess.DEVNULL,
+                shell=False,
+                timeout=5,
+                text=True,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            return OpenBBCLIResult(
+                available=True,
+                action=action,
+                exit_code=None,
+                output="",
+                error=f"Could not read OpenBB CLI metadata: {exc.__class__.__name__}",
+            )
+        output = _cap_output(completed.stdout.strip())
+        if completed.returncode != 0:
+            return OpenBBCLIResult(
+                available=True,
+                action=action,
+                exit_code=completed.returncode,
+                output=output,
+                error="OpenBB CLI package metadata was not found in its Python environment.",
             )
         return OpenBBCLIResult(
             available=True,
             action=action,
             exit_code=0,
-            output=f"OpenBB CLI version {version}",
+            output=f"OpenBB CLI version {output}",
         )
 
     if not _HELP_RUN_SEMAPHORE.acquire(blocking=False):

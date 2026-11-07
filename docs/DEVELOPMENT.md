@@ -3,14 +3,16 @@
 ## Requirements
 - Docker and Docker Compose, or Python 3.11+ and Node.js 20+.
 
-## Start with Docker Compose
+## Start with Docker Compose (Vercel-free)
 From the repository root:
 
 ```bash
-docker compose up --build
+docker compose up --build -d
 ```
 
-Open the terminal at http://localhost:5173 and API documentation at http://localhost:8000/docs.
+Open the terminal at http://127.0.0.1:8080. The frontend Nginx proxy forwards `/api/` to the backend on the private Compose network. The API is not published on the host. See [private Docker deployment](PRODUCTION-DEPLOYMENT.md) for the security boundary, health checks, and operational notes.
+
+For local source development without Docker, continue with the backend and frontend commands below; the Vite dev server is available at http://localhost:5173 and the API at http://localhost:8000/docs.
 
 ## Run services without Docker
 

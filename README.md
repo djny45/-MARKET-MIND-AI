@@ -532,7 +532,7 @@ This is a descriptive consistency check, not statistical significance or indepen
 ### Consolidated research-quality dashboard
 
 Use `GET /api/workers/{worker_id}/research-quality-dashboard?limit=100` to combine recent offline staging diagnostics in one response:
-- quality-gate status counts and per-experiment aggregate deltas
+- quality-gate status counts, per-experiment aggregate deltas, and per-metric mean/min/max plus positive/negative/zero counts
 - paired case-level regression flags
 - missing declared dataset names/versions and the detailed provenance gap counts
 - exact-fixture repeatability groups (minimum 3 trials)

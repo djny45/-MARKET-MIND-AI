@@ -230,6 +230,27 @@ def retry_failed_research_task(task_id: str) -> dict | None:
             "retried": True, "retry_attempt": 1, "retry_limit": 1,
             "execution_mode": "manual_retry_new_task"}
 
+def classify_research_task_failure(error: Exception) -> dict:
+    """Classify likely transient failures for operator review; never auto-retry."""
+    error_type = type(error).__name__
+    message = str(error).lower()
+    transient_types = {
+        "TimeoutError", "ConnectionError", "TemporaryError", "RateLimitError",
+        "ServiceUnavailableError", "HTTPError",
+    }
+    transient_markers = ("timeout", "timed out", "temporarily unavailable",
+                         "rate limit", "connection reset", "connection refused",
+                         "service unavailable", "429", "502", "503", "504")
+    likely_transient = error_type in transient_types or any(
+        marker in message for marker in transient_markers
+    )
+    return {
+        "failure_class": "transient_candidate" if likely_transient else "non_transient_candidate",
+        "error_type": error_type,
+        "retry_recommendation": "operator_review" if likely_transient else "inspect_before_retry",
+        "automatic_retry": False,
+    }
+
 def execute_queued_research_task(task_id: str) -> bool:
     """Execute one persisted queued task; safe to call from FastAPI BackgroundTasks."""
     with _connect() as db:
@@ -299,7 +320,8 @@ def execute_queued_research_task(task_id: str) -> bool:
                   "research_boundary": "supplied_data_only_no_live_market_fetch"}
         status = "completed"
     except Exception as exc:
-        result = {"error": "Research task failed safely.", "error_type": type(exc).__name__}
+        failure = classify_research_task_failure(exc)
+        result = {"error": "Research task failed safely.", **failure}
         status = "failed"
     updated = datetime.now(timezone.utc).isoformat()
     with _connect() as db:

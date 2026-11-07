@@ -90,6 +90,14 @@ def build_offline_evidence_bundle(
         or any(char not in "0123456789abcdefABCDEF" for char in source_sha256)
     ):
         raise ValueError("research_result must include a valid source_sha256")
+    # Verify the original source still matches the recorded digest at export
+    # time. The DataFrame can remain unchanged while its source CSV is edited.
+    try:
+        current_source_sha256 = hashlib.sha256(Path(source_path).read_bytes()).hexdigest()
+    except OSError as exc:
+        raise ValueError("source CSV is unavailable at evidence export time") from exc
+    if current_source_sha256 != source_sha256.lower():
+        raise ValueError("source CSV changed after research; rerun before exporting evidence")
     frame = research_result.get("dataset")
     if frame is None or not hasattr(frame, "to_dict"):
         raise ValueError("research_result must contain a pandas dataset")

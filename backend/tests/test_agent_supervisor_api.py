@@ -27,6 +27,24 @@ class AgentSupervisorRouteTests(unittest.TestCase):
         self.assertFalse(result["continuous_daemon"])
         self.assertFalse(result["distributed_queue"])
 
+    def test_status_route_accepts_stale_threshold_and_rejects_invalid_values(self):
+        import sqlite3
+        from app.analytical_agent_tasks import enqueue_research_task
+        from app.main import analytical_agent_supervisor_status
+        from fastapi import HTTPException
+
+        task = enqueue_research_task("worker_004", "supervisor route stale threshold")
+        with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+            db.execute(
+                "UPDATE analytical_agent_tasks SET status='running',updated_at=? WHERE task_id=?",
+                ("2000-01-01T00:00:00+00:00", task["task_id"]),
+            )
+        result = analytical_agent_supervisor_status(stale_after_seconds=60)
+        self.assertEqual(result["stale_running_task_count"], 1)
+        with self.assertRaises(HTTPException) as caught:
+            analytical_agent_supervisor_status(stale_after_seconds=0)
+        self.assertEqual(caught.exception.status_code, 400)
+
     def test_dispatch_route_rejects_out_of_range_limits(self):
         from app.main import AgentSupervisorDispatchRequest
 

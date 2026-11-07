@@ -139,6 +139,8 @@ def run_staging_benchmark(worker_id: str, proposal_memory_id: str, payload: dict
         raise ValueError("reviewer must be a non-empty string up to 120 characters")
     if not isinstance(notes, str) or len(notes) > 2000:
         raise ValueError("notes must be a string up to 2000 characters")
+    # Reject malformed or unpaired fixture IDs before any evaluator work.
+    _validate_paired_case_ids(baseline_cases, candidate_cases)
     # Baseline uses the default evaluator. Candidate uses only the explicit
     # whitelisted config patch; no proposal text is parsed.
     baseline_result = run_offline_research_benchmark(

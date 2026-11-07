@@ -4,7 +4,7 @@ import unittest
 from unittest.mock import patch
 
 from app.worker_memory import append_memory, review_improvement_proposal
-from app.staging_experiments import create_staging_experiment, list_staging_experiments
+from app.staging_experiments import create_staging_experiment, run_staging_benchmark, list_staging_experiments
 
 
 class StagingExperimentTests(unittest.TestCase):
@@ -54,6 +54,38 @@ class StagingExperimentTests(unittest.TestCase):
         bad["candidate_metrics"] = {"coverage": float("nan")}
         with self.assertRaisesRegex(ValueError, "finite"):
             create_staging_experiment("worker_001", self.proposal["memory_id"], bad)
+
+
+    def _benchmark_cases(self, source_id="known"):
+        return [{
+            "case_id": "fixture-one",
+            "draft": "Synthetic evidence note.",
+            "claims": [{"text": "Fixture claim", "source_refs": [source_id]}],
+            "source_registry": [{"source_id": "known"}],
+        }]
+
+    def test_runs_fixture_benchmark_and_persists_reproducibility_ids(self):
+        review_improvement_proposal("worker_001", self.proposal["memory_id"],
+                                    "approved_for_staging", "reviewer")
+        result = run_staging_benchmark("worker_001", self.proposal["memory_id"], {
+            "baseline_cases": self._benchmark_cases("missing"),
+            "candidate_cases": self._benchmark_cases("known"),
+            "reviewer": "reviewer", "notes": "offline fixture test",
+        })
+        content = result["content"]
+        self.assertEqual(content["record_type"], "staging_experiment_result")
+        self.assertEqual(content["outcome"], "inconclusive")
+        self.assertIn("baseline_benchmark_id", content["benchmark_runs"])
+        saved = list_staging_experiments("worker_001")["experiments"][0]
+        self.assertIn("candidate_benchmark_id", saved["content"]["benchmark_runs"])
+
+    def test_fixture_benchmark_still_requires_approved_proposal(self):
+        with self.assertRaisesRegex(ValueError, "approved_for_staging"):
+            run_staging_benchmark("worker_001", self.proposal["memory_id"], {
+                "baseline_cases": self._benchmark_cases(),
+                "candidate_cases": self._benchmark_cases(),
+                "reviewer": "reviewer",
+            })
 
     def test_identical_metrics_are_no_material_change(self):
         review_improvement_proposal("worker_001", self.proposal["memory_id"],

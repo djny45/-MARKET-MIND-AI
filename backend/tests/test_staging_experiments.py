@@ -245,6 +245,34 @@ class StagingExperimentTests(unittest.TestCase):
                 "min_improvement": 0,
             })
 
+    def test_provenance_audit_reports_missing_and_declared_metadata(self):
+        review_improvement_proposal("worker_001", self.proposal["memory_id"], "approved_for_staging", "reviewer")
+        run_staging_benchmark("worker_001", self.proposal["memory_id"], {
+            "baseline_cases": self._benchmark_cases(), "candidate_cases": self._benchmark_cases(),
+            "reviewer": "reviewer",
+            "baseline_fixture_metadata": {"dataset_name": "baseline-set", "dataset_version": "1"},
+            "candidate_fixture_metadata": {"dataset_name": "candidate-set", "dataset_version": "2"},
+        })
+        report = summarize_staging_provenance("worker_001")
+        self.assertEqual(report["record_count"], 1)
+        record = report["records"][0]
+        self.assertEqual(record["baseline"]["fixture_metadata"]["dataset_name"], "baseline-set")
+        self.assertEqual(record["candidate"]["fixture_metadata"]["dataset_version"], "2")
+        self.assertEqual(report["missing_provenance_counts"]["baseline_dataset_name_missing"], 0)
+
+    def test_provenance_audit_handles_legacy_records(self):
+        review_improvement_proposal("worker_001", self.proposal["memory_id"], "approved_for_staging", "reviewer")
+        run_staging_benchmark("worker_001", self.proposal["memory_id"], {
+            "baseline_cases": self._benchmark_cases(), "candidate_cases": self._benchmark_cases(),
+            "reviewer": "reviewer",
+        })
+        report = summarize_staging_provenance("worker_001")
+        self.assertEqual(report["missing_provenance_counts"]["baseline_fixture_metadata_missing"], 1)
+        self.assertEqual(report["missing_provenance_counts"]["candidate_dataset_version_missing"], 1)
+
+    def test_provenance_audit_validates_limit(self):
+        with self.assertRaises(ValueError):
+            summarize_staging_provenance("worker_001", 0)
 
 if __name__ == "__main__":
     unittest.main()

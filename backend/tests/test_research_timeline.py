@@ -39,10 +39,14 @@ def test_invalid_limit_rejected():
 
 
 def test_timeline_indicator_context_respects_warmup_periods():
+    from datetime import datetime, timedelta
+
     bars = []
+    start = datetime(2026, 2, 1, tzinfo=__import__("datetime").timezone.utc)
     for i in range(35):
         close = 100 + i * 0.7 + (i % 3) * 0.2
-        bars.append({"timestamp": f"2026-02-{i+1:02d}T00:00:00Z",
+        timestamp = (start + timedelta(days=i)).isoformat().replace("+00:00", "Z")
+        bars.append({"timestamp": timestamp,
                      "open": close - 0.1, "high": close + 0.5,
                      "low": close - 0.5, "close": close,
                      "volume": 1000, "source": "fixture", "status": "synthetic"})

@@ -482,3 +482,14 @@ A narrow config-evaluation endpoint now connects an already-approved proposal to
 - The append-only record stores the normalized config patch, both benchmark fingerprints, and paired metric diagnostics.
 
 This endpoint does **not** translate proposal prose into settings, execute code from a proposal, or apply configuration to the running agent. The uncertainty-marker metric is a shallow text indicator, not real uncertainty calibration or model learning. This remains offline research evaluation only—no live market data, model-weight updates, deployment, or trades.
+
+### Staging quality gate (review aid, not approval)
+
+The staging config-evaluation record now includes a deterministic quality gate:
+
+- Any aggregate decrease in the two traceability coverage metrics → `blocked_regression`.
+- No metric decrease and at least one aggregate increase meeting `min_improvement` (default `0.01`) → `eligible_for_human_staging_review`.
+- Otherwise → `no_meaningful_improvement`.
+- `min_improvement` must be finite and in `(0, 1]`.
+
+This is a fixture-based eligibility signal only. **It never auto-approves, merges, deploys, trains, or trades.** Human review remains required, and coverage gains do not establish truth or market performance.

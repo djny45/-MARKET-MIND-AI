@@ -85,6 +85,31 @@ def create_staging_experiment(worker_id: str, proposal_memory_id: str, payload: 
 
 
 
+
+def _validate_paired_case_ids(baseline_cases: Any, candidate_cases: Any) -> None:
+    """Reject malformed, duplicate, or unpaired fixture IDs before evaluator work."""
+    def collect(cases: Any, label: str) -> set[str]:
+        if not isinstance(cases, list) or not cases or len(cases) > 100:
+            raise ValueError(f"{label} must contain 1 to 100 cases")
+        ids: set[str] = set()
+        for case in cases:
+            if not isinstance(case, dict):
+                raise ValueError(f"{label} entries must be objects")
+            case_id = case.get("case_id")
+            if (not isinstance(case_id, str) or not case_id.strip()
+                    or len(case_id.strip()) > 120):
+                raise ValueError(f"{label} case_id must contain 1 to 120 characters")
+            normalized = case_id.strip()
+            if normalized in ids:
+                raise ValueError(f"{label} case_id values must be unique")
+            ids.add(normalized)
+        return ids
+
+    baseline_ids = collect(baseline_cases, "baseline_cases")
+    candidate_ids = collect(candidate_cases, "candidate_cases")
+    if baseline_ids != candidate_ids:
+        raise ValueError("baseline and candidate must use the same case_id values for paired comparison")
+
 def run_staging_benchmark(worker_id: str, proposal_memory_id: str, payload: dict[str, Any]) -> dict[str, Any]:
     """Run paired offline fixtures; optionally evaluate a whitelisted config patch.
 

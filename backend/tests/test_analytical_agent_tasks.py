@@ -117,6 +117,24 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertIsNone(saved["evaluation"])
         self.assertTrue(saved["evaluation_decode_error"])
 
+    def test_task_inspection_rejects_valid_non_object_json_shapes(self):
+        import sqlite3
+        from app.analytical_agent_tasks import enqueue_research_task
+
+        queued = enqueue_research_task("worker_004", "task JSON shape inspection")
+        with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+            db.execute(
+                "UPDATE analytical_agent_tasks SET input_json=?,result_json=? WHERE task_id=?",
+                ("[]", "null", queued["task_id"]),
+            )
+
+        saved = get_research_task(queued["task_id"])
+        self.assertEqual(saved["status"], "queued")
+        self.assertIsNone(saved["input"])
+        self.assertTrue(saved["input_decode_error"])
+        self.assertIsNone(saved["result"])
+        self.assertTrue(saved["result_decode_error"])
+
     def test_task_is_persisted_and_scoped_to_worker(self):
         result = submit_research_task("worker_001", "Review this supplied dataset", {"prices": [10, 11, 12]})
         self.assertEqual(result["status"], "completed")

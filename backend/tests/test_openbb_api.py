@@ -9,7 +9,7 @@ client = TestClient(app)
 
 
 def test_openbb_status_reports_installation_and_gate():
-    with patch("app.main.shutil.which", return_value="/usr/bin/openbb", create=True), \
+    with patch("shutil.which", return_value="/usr/bin/openbb"), \
          patch("app.main.openbb_cli_enabled", return_value=False):
         response = client.get("/api/openbb/status")
 

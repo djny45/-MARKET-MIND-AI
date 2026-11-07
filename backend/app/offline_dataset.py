@@ -6,6 +6,7 @@ TradingView/exchanges/brokers, generate trade signals, or place orders.
 from __future__ import annotations
 
 from pathlib import Path
+from io import BytesIO, TextIOWrapper
 import csv
 import re
 from typing import Any
@@ -14,7 +15,7 @@ REQUIRED_COLUMNS = ("open", "high", "low", "close")
 OPTIONAL_COLUMNS = ("volume",)
 
 
-def load_ohlcv_csv(path: str | Path, *, timestamp_column: str | None = None) -> Any:
+def load_ohlcv_csv(path: str | Path | bytes | bytearray, *, timestamp_column: str | None = None) -> Any:
     """Load and validate a local OHLCV CSV into a pandas DataFrame.
 
     Column names are normalized to lowercase. If a timestamp column is
@@ -33,13 +34,19 @@ def load_ohlcv_csv(path: str | Path, *, timestamp_column: str | None = None) -> 
     ):
         raise ValueError("timestamp_column must be a non-empty string or None")
 
-    source = Path(path).expanduser()
-    if not source.is_file():
+    source_bytes = bytes(path) if isinstance(path, (bytes, bytearray)) else None
+    source = None if source_bytes is not None else Path(path).expanduser()
+    if source is not None and not source.is_file():
         raise FileNotFoundError(f"CSV file does not exist: {source}")
     # Inspect the literal header before pandas renames blank fields to
-    # generated names such as "Unnamed: 4".
+    # generated names such as "Unnamed: 4". Bytes input lets callers parse
+    # the exact immutable snapshot whose digest they recorded.
     try:
-        with source.open("r", encoding="utf-8-sig", newline="") as handle:
+        if source_bytes is not None:
+            handle_context = TextIOWrapper(BytesIO(source_bytes), encoding="utf-8-sig", newline="")
+        else:
+            handle_context = source.open("r", encoding="utf-8-sig", newline="")
+        with handle_context as handle:
             reader = csv.reader(handle)
             header = next(reader, None)
             if header is not None:
@@ -51,7 +58,9 @@ def load_ohlcv_csv(path: str | Path, *, timestamp_column: str | None = None) -> 
                             f"CSV row {row_number} has {len(row)} fields; "
                             f"expected {len(header)}"
                         )
-    except (OSError, UnicodeError, csv.Error) as exc:
+    except UnicodeError as exc:
+        raise ValueError(f"Could not parse CSV data: {exc}") from exc
+    except (OSError, csv.Error) as exc:
         raise ValueError(f"Could not read CSV: {exc}") from exc
     if not header or all(not str(name).strip() for name in header):
         raise ValueError("CSV must include a non-empty header row")
@@ -62,7 +71,10 @@ def load_ohlcv_csv(path: str | Path, *, timestamp_column: str | None = None) -> 
         raise ValueError("CSV contains duplicate columns after normalization")
 
     try:
-        frame = pd.read_csv(source)
+        if source_bytes is not None:
+            frame = pd.read_csv(BytesIO(source_bytes), encoding="utf-8-sig")
+        else:
+            frame = pd.read_csv(source)
     except (UnicodeError, OSError, pd.errors.ParserError) as exc:
         raise ValueError(f"Could not parse CSV data: {exc}") from exc
     if frame.empty:

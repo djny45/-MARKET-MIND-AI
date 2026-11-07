@@ -196,6 +196,32 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertEqual(recovery["recovery_mode"], "manual_stale_requeue_no_dispatch")
         self.assertEqual(get_research_task(queued["task_id"])["status"], "queued")
 
+    def test_concurrent_dispatchers_execute_a_queued_task_once(self):
+        from concurrent.futures import ThreadPoolExecutor
+        from threading import Lock
+        from app.analytical_agent_tasks import enqueue_research_task, dispatch_queued_research_tasks
+
+        queued = enqueue_research_task("worker_021", "concurrent dispatcher claim")
+        call_lock = Lock()
+        calls = 0
+
+        def counted_synthesis(payload):
+            nonlocal calls
+            with call_lock:
+                calls += 1
+            return {"status": "not_configured"}
+
+        with patch("app.analytical_agent_tasks.synthesize_research", side_effect=counted_synthesis):
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                results = list(pool.map(
+                    lambda _: dispatch_queued_research_tasks(limit=1, max_concurrency=1),
+                    range(2),
+                ))
+
+        self.assertEqual(sum(result["dispatched"] for result in results), 1)
+        self.assertEqual(calls, 1)
+        self.assertEqual(get_research_task(queued["task_id"])["status"], "completed")
+
     def test_duplicate_dispatch_only_claims_once(self):
         from app.analytical_agent_tasks import enqueue_research_task, execute_queued_research_task
         queued = enqueue_research_task("worker_006", "single claim")

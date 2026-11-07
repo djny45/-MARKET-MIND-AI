@@ -52,6 +52,23 @@ def analyze_historical_ohlcv(
     if frame.columns.duplicated().any():
         duplicates = sorted(set(frame.columns[frame.columns.duplicated(keep=False)]))
         raise ValueError(f"Duplicate columns after case/whitespace normalization: {duplicates}")
+    # If a conventional timestamp column is supplied, enforce unique UTC instants
+    # in chronological order before calculating row-aligned annotations.
+    timestamp_columns = [c for c in ("timestamp", "datetime", "date", "time") if c in frame.columns]
+    if len(timestamp_columns) > 1:
+        raise ValueError("Multiple recognized timestamp columns are ambiguous")
+    if timestamp_columns:
+        timestamp_values = frame[timestamp_columns[0]]
+        try:
+            parsed_timestamps = pd.to_datetime(timestamp_values, utc=True, errors="raise")
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise ValueError("Timestamp column must contain valid datetime values") from exc
+        if parsed_timestamps.isna().any():
+            raise ValueError("Timestamp column cannot contain missing values")
+        if parsed_timestamps.duplicated().any():
+            raise ValueError("Timestamp column cannot contain duplicate instants")
+        if not parsed_timestamps.is_monotonic_increasing:
+            raise ValueError("Timestamp column must be sorted chronologically")
     required = {"open", "high", "low", "close"}
     missing = required.difference(frame.columns)
     if missing:

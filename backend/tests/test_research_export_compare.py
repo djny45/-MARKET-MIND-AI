@@ -39,6 +39,21 @@ class ResearchExportCompareTests(unittest.TestCase):
         self.assertEqual(result["diagnostic_changed_paths"]["data_quality"], ["gap_count"])
         self.assertEqual(result["provenance_changed_fields"], ["source"])
 
+    def test_source_sha256_change_is_reported_as_provenance(self):
+        before = bundle([])
+        after = bundle([])
+        before["scope"]["source_sha256"] = "a" * 64
+        after["scope"]["source_sha256"] = "b" * 64
+        result = compare_research_exports(before, after)
+        self.assertIn("source_sha256", result["provenance_changed_fields"])
+
+    def test_integrity_digest_summary_omits_non_string_digest(self):
+        before = bundle([], integrity={"digest": 123})
+        after = bundle([], integrity={"digest": None})
+        result = compare_research_exports(before, after)
+        self.assertIsNone(result["integrity_digests"]["before"])
+        self.assertIsNone(result["integrity_digests"]["after"])
+
     def test_duplicate_and_malformed_keys_are_counted(self):
         row = {"timestamp": "2026-01-01T00:00:00Z", "source": "alpha", "close": 10}
         before = bundle([row, row, {"close": 11}])

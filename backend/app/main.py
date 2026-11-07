@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from .workflow import NODE_TYPES, execute_workflow
 from .workers import list_workers
 from .worker_runtime import worker_runtime_status
-from .worker_memory import append_memory, read_memory, recall_memory
+from .worker_memory import append_memory, read_memory, recall_memory, review_learning_candidate
 from .worker_registry import evaluate_registry, registry_manifest
 from .analytical_agent_runtime import runtime_manifest, brain_config, validate_learning_feedback, validate_update_proposal
 from .learning_engine import learning_overview, agent_learning_summary, run_feedback_improvement_cycle
@@ -239,6 +239,12 @@ class WorkerMemoryRequest(BaseModel):
  source_refs: list[str] = Field(default_factory=list, max_length=20)
  quality_status: Literal["verified_by_importer", "partial", "unverified", "synthetic"] = "unverified"
 
+
+
+class WorkerMemoryCandidateReviewRequest(BaseModel):
+ decision: Literal["approved", "rejected", "needs_revision"]
+ reviewer: str = Field(min_length=1, max_length=120)
+ rationale: str = Field(default="", max_length=2000)
 
 class AgentResearchMessageRequest(BaseModel):
  agent_id: str = Field(min_length=1, max_length=96)
@@ -479,6 +485,21 @@ def get_worker_memory(worker_id: str, memory_type: str | None = None, limit: int
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+
+
+@app.post("/api/workers/{worker_id}/memory/{memory_id}/review")
+def review_worker_learning_candidate(worker_id: str, memory_id: str, request: WorkerMemoryCandidateReviewRequest):
+ """Append an operator review event for a metrics-only research learning candidate.
+
+ This labels a candidate for human/operator workflow only; it does not train a model,
+ alter strategy, or automatically inject approved content into agent instructions.
+ """
+ try:
+  return review_learning_candidate(
+   worker_id, memory_id, request.decision, request.reviewer, request.rationale,
+  )
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 @app.get("/api/workers/{worker_id}/memory/recall")
 def recall_worker_memory(worker_id: str, query: str, limit: int = 5):

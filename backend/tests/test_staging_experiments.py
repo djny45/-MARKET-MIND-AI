@@ -292,6 +292,22 @@ class StagingExperimentTests(unittest.TestCase):
         self.assertEqual(dashboard["repeatability"]["groups_meeting_min_trials"], 1)
         self.assertIn("does not validate truth", dashboard["interpretation"])
 
+    def test_dashboard_summarizes_aggregate_delta_distribution(self):
+        review_improvement_proposal("worker_001", self.proposal["memory_id"], "approved_for_staging", "reviewer")
+        payload = {
+            "baseline_cases": self._benchmark_cases("missing"),
+            "candidate_cases": self._benchmark_cases("known"),
+            "reviewer": "reviewer",
+            "baseline_fixture_metadata": {"dataset_name": "base", "dataset_version": "v1"},
+            "candidate_fixture_metadata": {"dataset_name": "candidate", "dataset_version": "v1"},
+        }
+        run_staging_benchmark("worker_001", self.proposal["memory_id"], payload)
+        dashboard = summarize_research_quality_dashboard("worker_001")
+        coverage = dashboard["aggregate_delta_summary"]["claim_reference_coverage"]
+        self.assertEqual(coverage["observations"], 1)
+        self.assertEqual(coverage["positive_count"] + coverage["negative_count"] + coverage["zero_count"], 1)
+        self.assertIn("mean_delta", coverage)
+
     def test_research_quality_dashboard_rejects_invalid_limit(self):
         with self.assertRaisesRegex(ValueError, "limit"):
             summarize_research_quality_dashboard("worker_001", 0)

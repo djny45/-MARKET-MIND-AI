@@ -98,6 +98,22 @@ def build_offline_evidence_bundle(
         if len(timestamp_columns) != 1:
             raise ValueError("dataset must contain exactly one recognized timestamp column")
         timestamp_column = timestamp_columns[0]
+    # Revalidate ordering at the export boundary because callers can pass
+    # a modified DataFrame instead of the untouched loader result.
+    import pandas as pd
+    try:
+        normalized_timestamps = pd.to_datetime(
+            frame[timestamp_column], utc=True, errors="raise"
+        )
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ValueError("dataset timestamps must be valid datetime values") from exc
+    if normalized_timestamps.isna().any():
+        raise ValueError("dataset timestamps cannot be missing")
+    if normalized_timestamps.duplicated().any():
+        raise ValueError("dataset timestamps cannot contain duplicates")
+    if not normalized_timestamps.is_monotonic_increasing:
+        raise ValueError("dataset timestamps must be sorted chronologically")
+
     # Evidence bars reserve these fields for normalized timestamps and
     # source provenance. Reject collisions rather than silently overwriting
     # user-supplied CSV values during export.

@@ -1,5 +1,6 @@
 """Robust historical observation diagnostics; no inferred prices or trade signals."""
 from datetime import datetime
+from collections.abc import Mapping
 import math
 
 INTERVAL_SECONDS = {"15m": 900, "1h": 3600, "4h": 14400, "1d": 86400}
@@ -58,7 +59,7 @@ def _mad_flags(values, minimum=20, threshold=6.0):
 
 def build_historical_quality_diagnostics(history):
     """Return diagnostics for a mapping containing a list/tuple of OHLCV rows."""
-    if not isinstance(history, dict):
+    if not isinstance(history, Mapping):
         raise ValueError("history must be a mapping")
     bars = history.get("bars", [])
     if not isinstance(bars, (list, tuple)):

@@ -106,6 +106,8 @@ def run_staging_benchmark(worker_id: str, proposal_memory_id: str, payload: dict
     reviewer = payload.get("reviewer")
     notes = payload.get("notes", "")
     config_patch = payload.get("config_patch")
+    baseline_fixture_metadata = payload.get("baseline_fixture_metadata")
+    candidate_fixture_metadata = payload.get("candidate_fixture_metadata")
     if config_patch is not None and not isinstance(config_patch, dict):
         raise ValueError("config_patch must be a structured object")
     if not isinstance(reviewer, str) or not reviewer.strip() or len(reviewer) > 120:
@@ -114,8 +116,13 @@ def run_staging_benchmark(worker_id: str, proposal_memory_id: str, payload: dict
         raise ValueError("notes must be a string up to 2000 characters")
     # Baseline uses the default evaluator. Candidate uses only the explicit
     # whitelisted config patch; no proposal text is parsed.
-    baseline_result = run_offline_research_benchmark(baseline_cases)
-    candidate_result = run_offline_research_benchmark(candidate_cases, quality_config=config_patch)
+    baseline_result = run_offline_research_benchmark(
+        baseline_cases, fixture_metadata=baseline_fixture_metadata
+    )
+    candidate_result = run_offline_research_benchmark(
+        candidate_cases, quality_config=config_patch,
+        fixture_metadata=candidate_fixture_metadata,
+    )
     metric_names = ("claim_reference_coverage", "known_source_reference_coverage")
     baseline_metrics = {name: baseline_result["aggregate_metrics"][name]["mean"]
                         for name in metric_names}
@@ -186,6 +193,17 @@ def run_staging_benchmark(worker_id: str, proposal_memory_id: str, payload: dict
             "baseline_case_count": baseline_result["case_count"],
             "candidate_case_count": candidate_result["case_count"],
             "benchmark_type": "offline_research_traceability",
+            "evaluator_version": baseline_result["evaluator_version"],
+            "baseline_provenance": {
+                "fixture_origin": baseline_result["fixture_origin"],
+                "fixture_metadata": baseline_result["fixture_metadata"],
+                "provenance_note": baseline_result["provenance_note"],
+            },
+            "candidate_provenance": {
+                "fixture_origin": candidate_result["fixture_origin"],
+                "fixture_metadata": candidate_result["fixture_metadata"],
+                "provenance_note": candidate_result["provenance_note"],
+            },
             "config_patch": candidate_result["quality_config"],
             "config_patch_mode": "whitelisted_evaluator_config_only",
             "quality_gate": quality_gate,

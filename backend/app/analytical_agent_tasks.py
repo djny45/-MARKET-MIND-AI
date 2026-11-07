@@ -45,6 +45,7 @@ def _connect():
             updated_at TEXT NOT NULL
         )""")
         db.execute("CREATE INDEX IF NOT EXISTS idx_agent_tasks_agent_time ON analytical_agent_tasks(worker_id,created_at)")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_agent_tasks_status_updated ON analytical_agent_tasks(status,updated_at)")
         db.execute("""CREATE TABLE IF NOT EXISTS analytical_agent_task_events (
             event_id INTEGER PRIMARY KEY AUTOINCREMENT, task_id TEXT NOT NULL,
             worker_id TEXT NOT NULL, event_type TEXT NOT NULL,
@@ -578,7 +579,9 @@ def dispatch_queued_research_tasks(limit: int = 50, max_concurrency: int = 4) ->
     if not task_ids:
         return {"selected": 0, "dispatched": 0, "task_status_counts": {},
                 "failed_task_count": 0, "max_concurrency": max_concurrency,
-                "status": "idle", "task_ids": []}
+                "status": "idle", "task_ids": [],
+                "dispatch_mode": "bounded_process_local_queue_snapshot",
+                "note": "No queued tasks were available in the selected snapshot."}
     dispatch_id = str(uuid.uuid4())
     selected_at = datetime.now(timezone.utc).isoformat()
     with _connect() as db:
@@ -592,6 +595,7 @@ def dispatch_queued_research_tasks(limit: int = 50, max_concurrency: int = 4) ->
                               detail={"dispatch_id": dispatch_id, "max_concurrency": max_concurrency})
     completed = []
     dispatch_error_task_ids = []
+    dispatch_audit_write_failure_task_ids = []
     with ThreadPoolExecutor(max_workers=min(max_concurrency, len(task_ids)),
                             thread_name_prefix="market-mind-supervisor") as pool:
         futures = {pool.submit(execute_queued_research_task, task_id): task_id for task_id in task_ids}
@@ -604,18 +608,23 @@ def dispatch_queued_research_tasks(limit: int = 50, max_concurrency: int = 4) ->
             except Exception as exc:
                 # Preserve sibling dispatch progress while exposing infrastructure errors.
                 dispatch_error_task_ids.append(task_id)
-                with _connect() as db:
-                    task = db.execute(
-                        "SELECT worker_id,status FROM analytical_agent_tasks WHERE task_id=?",
-                        (task_id,),
-                    ).fetchone()
-                    if task is not None:
-                        _record_event(
-                            db, task_id, task["worker_id"], "task_dispatch_error",
-                            from_status=task["status"], to_status=task["status"],
-                            detail={"dispatch_id": dispatch_id,
-                                    "error_type": type(exc).__name__},
-                        )
+                # Audit persistence is best-effort here: an audit-storage
+                # failure must not abort collection of sibling future results.
+                try:
+                    with _connect() as db:
+                        task = db.execute(
+                            "SELECT worker_id,status FROM analytical_agent_tasks WHERE task_id=?",
+                            (task_id,),
+                        ).fetchone()
+                        if task is not None:
+                            _record_event(
+                                db, task_id, task["worker_id"], "task_dispatch_error",
+                                from_status=task["status"], to_status=task["status"],
+                                detail={"dispatch_id": dispatch_id,
+                                        "error_type": type(exc).__name__},
+                            )
+                except Exception:
+                    dispatch_audit_write_failure_task_ids.append(task_id)
     finished_at = datetime.now(timezone.utc).isoformat()
     with _connect() as db:
         for task_id in completed:
@@ -654,6 +663,8 @@ def dispatch_queued_research_tasks(limit: int = 50, max_concurrency: int = 4) ->
         "pending_task_count": pending_task_count,
         "dispatch_error_count": dispatch_error_count,
         "dispatch_error_task_ids": dispatch_error_task_ids,
+        "dispatch_audit_write_failure_count": len(dispatch_audit_write_failure_task_ids),
+        "dispatch_audit_write_failure_task_ids": dispatch_audit_write_failure_task_ids,
         "max_concurrency": min(max_concurrency, len(task_ids)),
         "status": dispatch_status,
         "task_ids": task_ids,

@@ -33,6 +33,9 @@ def _connect():
     path.parent.mkdir(parents=True, exist_ok=True)
     db = sqlite3.connect(path, timeout=10)
     try:
+        # SQLite disables foreign-key enforcement per connection by default.
+        # Enable it so task-linked evaluation rows cannot become orphaned.
+        db.execute("PRAGMA foreign_keys = ON")
         # SQLite disables foreign-key enforcement by default for each connection.
         # Enable it before any transaction so task-linked quality evaluations
         # cannot be persisted without their parent task.

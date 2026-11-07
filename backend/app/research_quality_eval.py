@@ -7,11 +7,35 @@ It is intentionally a transparent checklist-style evaluator.
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import urlsplit
+
+from datetime import datetime
 
 MAX_DRAFT_CHARS = 20_000
 MAX_CLAIMS = 200
 MAX_SOURCES = 500
 PROVENANCE_FIELDS = ("title", "url", "source_type", "observed_at")
+
+
+def _valid_source_url(value: Any) -> bool:
+    if not isinstance(value, str) or not value.strip():
+        return False
+    try:
+        parsed = urlsplit(value.strip())
+        return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
+    except ValueError:
+        return False
+
+
+def _valid_observed_at(value: Any) -> bool:
+    if not isinstance(value, str) or not value.strip():
+        return False
+    candidate = value.strip()
+    try:
+        datetime.fromisoformat(candidate.replace("Z", "+00:00"))
+        return True
+    except ValueError:
+        return False
 
 
 def evaluate_research_draft(
@@ -36,6 +60,7 @@ def evaluate_research_draft(
     source_entries_without_id = 0
     entries_missing_provenance = 0
     missing_provenance_by_field = {field: 0 for field in PROVENANCE_FIELDS}
+    invalid_provenance_by_field = {"url": 0, "observed_at": 0}
     for source in source_registry:
         if not isinstance(source, dict):
             raise ValueError("source_registry entries must be objects")
@@ -47,6 +72,13 @@ def evaluate_research_draft(
             entries_missing_provenance += 1
             for field in missing_fields:
                 missing_provenance_by_field[field] += 1
+        invalid_fields = []
+        if "url" not in missing_fields and not _valid_source_url(source.get("url")):
+            invalid_fields.append("url")
+        if "observed_at" not in missing_fields and not _valid_observed_at(source.get("observed_at")):
+            invalid_fields.append("observed_at")
+        for field in invalid_fields:
+            invalid_provenance_by_field[field] += 1
 
         source_id = source.get("source_id")
         if not isinstance(source_id, str) or not source_id.strip():
@@ -58,10 +90,13 @@ def evaluate_research_draft(
             # Duplicate IDs are ambiguous: treat the ID as provenance-incomplete
             # if any registry entry carrying it lacks required fields.
             source_provenance_complete[normalized_id] = (
-                source_provenance_complete[normalized_id] and not missing_fields
+                source_provenance_complete[normalized_id]
+                and not missing_fields and not invalid_fields
             )
         else:
-            source_provenance_complete[normalized_id] = not missing_fields
+            source_provenance_complete[normalized_id] = (
+                not missing_fields and not invalid_fields
+            )
         source_ids.add(normalized_id)
 
     total = len(claims)
@@ -135,6 +170,7 @@ def evaluate_research_draft(
         "source_registry_entries_without_id_count": source_entries_without_id,
         "source_registry_entries_missing_provenance_count": entries_missing_provenance,
         "source_registry_missing_provenance_by_field": missing_provenance_by_field,
+        "source_registry_invalid_provenance_by_field": invalid_provenance_by_field,
         "duplicate_source_id_count": len(duplicate_source_ids),
         "duplicate_source_ids": sorted(duplicate_source_ids),
         "uncertainty_marker_count": len(uncertainty_markers),
@@ -165,7 +201,8 @@ def evaluate_research_draft(
         "claims": reviewed,
         "baseline_comparison": comparison,
         "interpretation": (
-            "Structural traceability only. Provenance field presence is not source validation. "
+            "Structural traceability only. URL and timestamp checks validate format only; " 
+            "provenance field presence is not source validation. "
             "This does not verify source authenticity, claim entailment, factual correctness, "
             "forecast accuracy, or investment value."
         ),

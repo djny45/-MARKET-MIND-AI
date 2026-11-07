@@ -243,6 +243,13 @@ class HistoricalForecastingTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, message):
                     _fit_ridge(features, targets, alpha)
 
+    def test_ridge_prediction_rejects_mismatched_width_and_nonfinite_output(self):
+        from app.historical_forecasting import _predict
+        with self.assertRaisesRegex(ValueError, "feature width must match coefficient count"):
+            _predict([0.0, 1.0], [[1.0, 2.0]])
+        with self.assertRaisesRegex(ValueError, "forecast predictions must be finite"):
+            _predict([0.0, 1e308, 1e308], [[1.0, 1.0]])
+
     def test_ridge_solver_rejects_malformed_or_nonfinite_system(self):
         from app.historical_forecasting import _solve_linear_system
         for matrix, vector, message in (

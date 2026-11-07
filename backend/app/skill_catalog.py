@@ -10,6 +10,7 @@ STAGESHOW_SKILL_ROOT = REPO_ROOT / ".agents" / "skills" / "stageshow"
 MARKET_DATA_SKILL_ROOT = REPO_ROOT / ".agents" / "skills" / "market-data-yahoo"
 STOOQ_SKILL_ROOT = REPO_ROOT / ".agents" / "skills" / "market-data-stooq"
 QUANT_RESEARCH_SKILL_ROOT = REPO_ROOT / ".agents" / "skills" / "quant-research-evaluation"
+QLIB_SKILL_ROOT = REPO_ROOT / ".agents" / "skills" / "qlib-research"
 SOCIAL_RESEARCH_SKILL_ROOT = REPO_ROOT / ".agents" / "skills" / "social-research"
 
 SKILL_DESCRIPTIONS = {
@@ -46,6 +47,10 @@ SOCIAL_RESEARCH_SKILL_DESCRIPTIONS = {
 
 QUANT_RESEARCH_SKILL_DESCRIPTIONS = {
     "quant-research-evaluation": "Chronological evaluation, leakage checks, reproducibility and evidence-first research QA; informed by Qlib concepts.",
+}
+
+QLIB_SKILL_DESCRIPTIONS = {
+    "qlib-research": "Qlib-inspired experiment design, chronological evaluation, and reproducible quantitative research; no copied Qlib implementation code.",
 }
 
 UI_SKILL_DESCRIPTIONS = {
@@ -121,6 +126,19 @@ def list_skills():
         }
         for slug, description in QUANT_RESEARCH_SKILL_DESCRIPTIONS.items()
     ]
+    qlib_research = [
+        {
+            "id": slug,
+            "description": description,
+            "path": ".agents/skills/qlib-research/SKILL.md",
+            "available": (QLIB_SKILL_ROOT / "SKILL.md").is_file(),
+            "mode": "research_evaluation_only",
+            "requires_external_tools": False,
+            "upstream": "https://github.com/microsoft/qlib",
+            "license_review_required_before_code_import": True,
+        }
+        for slug, description in QLIB_SKILL_DESCRIPTIONS.items()
+    ]
     social_research = [
         {
             "id": slug,
@@ -132,7 +150,7 @@ def list_skills():
         }
         for slug, description in SOCIAL_RESEARCH_SKILL_DESCRIPTIONS.items()
     ]
-    return trading + engineering + ui_design + market_data + stooq_data + quant_research + social_research + list_pack_skills()
+    return trading + engineering + ui_design + market_data + stooq_data + quant_research + qlib_research + social_research + list_pack_skills()
 
 
 def load_skill(slug: str):
@@ -174,10 +192,15 @@ def load_skill(slug: str):
         description = QUANT_RESEARCH_SKILL_DESCRIPTIONS[slug]
         mode = "research_evaluation_only"
         requires_external_tools = False
+    elif slug in QLIB_SKILL_DESCRIPTIONS:
+        root = QLIB_SKILL_ROOT
+        description = QLIB_SKILL_DESCRIPTIONS[slug]
+        mode = "research_evaluation_only"
+        requires_external_tools = False
     else:
         raise KeyError(slug)
 
-    path = root / "SKILL.md" if slug in UI_SKILL_DESCRIPTIONS or slug in MARKET_DATA_SKILL_DESCRIPTIONS or slug in STOOQ_SKILL_DESCRIPTIONS or slug in QUANT_RESEARCH_SKILL_DESCRIPTIONS or slug in SOCIAL_RESEARCH_SKILL_DESCRIPTIONS else root / slug / "SKILL.md"
+    path = root / "SKILL.md" if slug in UI_SKILL_DESCRIPTIONS or slug in MARKET_DATA_SKILL_DESCRIPTIONS or slug in STOOQ_SKILL_DESCRIPTIONS or slug in QUANT_RESEARCH_SKILL_DESCRIPTIONS or slug in SOCIAL_RESEARCH_SKILL_DESCRIPTIONS or slug in QLIB_SKILL_DESCRIPTIONS else root / slug / "SKILL.md"
     if not path.is_file():
         raise FileNotFoundError(slug)
     return {

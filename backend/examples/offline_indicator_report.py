@@ -47,7 +47,7 @@ def build_report(csv_path: str | Path, *, timestamp_column: str | None = None,
         "file": Path(csv_path).name,
         "row_count": int(result["row_count"]),
         "columns": list(result["columns"]),
-        "timestamp_column": timestamp_column,
+        "timestamp_column": timestamp_column.strip().lower() if timestamp_column else None,
         "indicator_source": "TA-Lib" if include_ta_lib else "none",
         "indicators": {},
         "limitations": [

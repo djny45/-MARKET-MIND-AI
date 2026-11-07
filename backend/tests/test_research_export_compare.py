@@ -269,17 +269,19 @@ class ResearchExportCompareTests(unittest.TestCase):
         self.assertEqual(result["counts"]["unchanged"], 1)
 
 
-    def test_rejects_missing_or_blank_symbol_and_interval(self):
-        for field in ("symbol", "interval"):
-            for invalid_value in (None, "", "   "):
-                before = bundle([])
-                after = bundle([])
-                before["scope"][field] = invalid_value
-                with self.subTest(field=field, value=invalid_value):
-                    with self.assertRaisesRegex(
-                        ValueError, "export_scope_symbol_and_interval_required"
-                    ):
-                        compare_research_exports(before, after)
+    def test_rejects_missing_or_blank_symbol_and_interval_on_either_input(self):
+        for side in ("before", "after"):
+            for field in ("symbol", "interval"):
+                for invalid_value in (None, "", "   "):
+                    before = bundle([])
+                    after = bundle([])
+                    target = before if side == "before" else after
+                    target["scope"][field] = invalid_value
+                    with self.subTest(side=side, field=field, value=invalid_value):
+                        with self.assertRaisesRegex(
+                            ValueError, "export_scope_symbol_and_interval_required"
+                        ):
+                            compare_research_exports(before, after)
 
 
     def test_rejects_interval_scope_mismatch(self):

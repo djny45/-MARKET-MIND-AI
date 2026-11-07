@@ -1,3 +1,4 @@
+import math
 import unittest
 
 from app.research_quality_eval import evaluate_research_draft
@@ -227,7 +228,10 @@ class ResearchQualityEvalTests(unittest.TestCase):
                 )
                 comparison = result["baseline_comparison"]
                 self.assertIsNone(comparison["claim_reference_coverage"]["delta"])
-                self.assertEqual(comparison["claim_reference_coverage"]["baseline"], invalid_baseline)
+                if isinstance(invalid_baseline, float) and math.isnan(invalid_baseline):
+                    self.assertTrue(math.isnan(comparison["claim_reference_coverage"]["baseline"]))
+                else:
+                    self.assertEqual(comparison["claim_reference_coverage"]["baseline"], invalid_baseline)
                 self.assertEqual(comparison["known_source_reference_coverage"]["delta"], 0.5)
 
 

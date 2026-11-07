@@ -149,7 +149,7 @@ class SMCResearchAdapterTests(unittest.TestCase):
         from app.smc_research import analyze_historical_ohlcv
         from app.vendor.smartmoneyconcepts import smc
         frame = self.frame.drop(columns=["volume"])
-        with patch.object(smc, "fvg"), \
+        with patch.object(smc, "fvg", return_value=self.pd.DataFrame(index=range(len(frame)))), \
              patch.object(smc, "swing_highs_lows", return_value=self.pd.DataFrame(index=range(len(frame)))), \
              patch.object(smc, "bos_choch"), \
              patch.object(smc, "ob") as order_blocks, \
@@ -184,7 +184,7 @@ class SMCResearchAdapterTests(unittest.TestCase):
         from app.smc_research import analyze_historical_ohlcv
         from app.vendor.smartmoneyconcepts import smc
 
-        with patch.object(smc, "fvg"), \
+        with patch.object(smc, "fvg", return_value=self.pd.DataFrame(index=range(len(self.frame)))), \
              patch.object(smc, "swing_highs_lows", return_value=self.pd.DataFrame(index=range(len(self.frame)))), \
              patch.object(smc, "bos_choch"), \
              patch.object(smc, "ob"), \

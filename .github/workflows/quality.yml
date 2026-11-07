@@ -245,7 +245,19 @@ jobs:
           done
           python -c "import json; assert json.load(open('/tmp/api-ready.json'))['status'] == 'ready'"
           curl --fail --silent http://127.0.0.1:8080/ | grep -q 'MARKET-MIND-AI Terminal'
-          test -z "$(docker compose port backend 8000)"
+          python - <<'PY'
+          import json
+          import subprocess
+
+          backend = subprocess.check_output(
+              ["docker", "compose", "ps", "-q", "backend"], text=True
+          ).strip()
+          bindings = json.loads(subprocess.check_output([
+              "docker", "inspect", backend, "--format",
+              "{{json .HostConfig.PortBindings}}",
+          ], text=True))
+          assert not any(bindings.values()), f"Backend unexpectedly publishes host ports: {bindings}"
+          PY
           echo "Compose integration smoke test passed"
 
       - name: Show container diagnostics on failure

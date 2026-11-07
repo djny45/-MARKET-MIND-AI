@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from app.worker_memory import append_memory, read_memory, recall_memory, review_learning_candidate, list_learning_candidates, recall_approved_learning_candidates
+from app.worker_memory import append_memory, read_memory, recall_memory, review_learning_candidate, list_learning_candidates, recall_approved_learning_candidates, review_improvement_proposal, list_improvement_proposals
 
 
 class WorkerMemoryTests(unittest.TestCase):
@@ -154,6 +154,43 @@ class WorkerMemoryTests(unittest.TestCase):
             recall_approved_learning_candidates("worker_001", "")
         with self.assertRaises(ValueError):
             recall_approved_learning_candidates("worker_001", "RSI", limit=0)
+
+
+    def test_improvement_proposal_review_is_append_only_and_latest_decision_wins(self):
+        proposal = append_memory(
+            "worker_001", "method_note",
+            {"update_proposal": {"title": "Add timestamp validation", "status": "pending_review"}},
+            ["feedback:sample-1"], "unverified",
+        )
+        first = review_improvement_proposal(
+            "worker_001", proposal["memory_id"], "approved_for_staging", "reviewer-a", "Try in isolated tests",
+        )
+        second = review_improvement_proposal(
+            "worker_001", proposal["memory_id"], "needs_revision", "reviewer-b", "Add a rollback test",
+        )
+        listing = list_improvement_proposals("worker_001")
+        item = listing["proposals"][0]
+        self.assertEqual(item["memory_id"], proposal["memory_id"])
+        self.assertEqual(item["review_status"], "needs_revision")
+        self.assertEqual(len(item["review_history"]), 2)
+        self.assertEqual(item["latest_review"]["memory_id"], second["memory_id"])
+        self.assertEqual(read_memory("worker_001", "method_note")["count"], 3)
+        self.assertEqual(first["content"]["review_boundary"],
+                         "staging_review_only_no_code_change_no_deployment_no_model_training")
+
+    def test_improvement_proposal_review_rejects_wrong_worker_and_nonproposal(self):
+        proposal = append_memory(
+            "worker_001", "method_note", {"update_proposal": {"title": "Proposal"}}
+        )
+        ordinary = append_memory("worker_001", "method_note", {"note": "not a proposal"})
+        with self.assertRaises(ValueError):
+            review_improvement_proposal("worker_002", proposal["memory_id"], "rejected", "reviewer")
+        with self.assertRaises(ValueError):
+            review_improvement_proposal("worker_001", ordinary["memory_id"], "rejected", "reviewer")
+        with self.assertRaises(ValueError):
+            review_improvement_proposal("worker_001", proposal["memory_id"], "approved", "reviewer")
+        with self.assertRaises(ValueError):
+            list_improvement_proposals("worker_999")
 
     def test_rejects_unknown_worker_and_invalid_memory_type(self):
         with self.assertRaises(ValueError):

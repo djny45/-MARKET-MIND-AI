@@ -94,7 +94,7 @@ def build_source_candidate(
         "execution_allowed": False,
         "automatic_copy_allowed": False,
         "automatic_promotion_allowed": False,
-        "license_verified_by_caller": True,
+        "license_asserted_by_caller": True,
         "note": (
             "Metadata and text snapshot only. Caller must verify source URL, commit, "
             "license, attribution, and applicable license obligations before reuse."

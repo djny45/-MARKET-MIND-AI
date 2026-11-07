@@ -105,6 +105,36 @@ class StagingExperimentTests(unittest.TestCase):
                 'reviewer': 'reviewer',
             })
 
+    def test_duplicate_fixture_ids_are_rejected_before_evaluator_runs(self):
+        review_improvement_proposal("worker_001", self.proposal["memory_id"],
+                                    "approved_for_staging", "reviewer")
+        baseline = self._benchmark_cases()
+        baseline.append(dict(baseline[0]))
+        candidate = self._benchmark_cases()
+        with patch("app.staging_experiments.run_offline_research_benchmark") as evaluator:
+            with self.assertRaisesRegex(ValueError, "case_id values must be unique"):
+                run_staging_benchmark("worker_001", self.proposal["memory_id"], {
+                    "baseline_cases": baseline,
+                    "candidate_cases": candidate,
+                    "reviewer": "reviewer",
+                })
+            evaluator.assert_not_called()
+
+    def test_unpaired_fixture_ids_are_rejected_before_evaluator_runs(self):
+        review_improvement_proposal("worker_001", self.proposal["memory_id"],
+                                    "approved_for_staging", "reviewer")
+        baseline = self._benchmark_cases()
+        candidate = self._benchmark_cases()
+        candidate[0]["case_id"] = "not-paired"
+        with patch("app.staging_experiments.run_offline_research_benchmark") as evaluator:
+            with self.assertRaisesRegex(ValueError, "same case_id"):
+                run_staging_benchmark("worker_001", self.proposal["memory_id"], {
+                    "baseline_cases": baseline,
+                    "candidate_cases": candidate,
+                    "reviewer": "reviewer",
+                })
+            evaluator.assert_not_called()
+
     def test_fixture_benchmark_still_requires_approved_proposal(self):
         with self.assertRaisesRegex(ValueError, "approved_for_staging"):
             run_staging_benchmark("worker_001", self.proposal["memory_id"], {

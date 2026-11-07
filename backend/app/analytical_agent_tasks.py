@@ -587,6 +587,7 @@ def dispatch_queued_research_tasks(limit: int = 50, max_concurrency: int = 4) ->
                               from_status="queued", to_status="queued", occurred_at=selected_at,
                               detail={"dispatch_id": dispatch_id, "max_concurrency": max_concurrency})
     completed = []
+    dispatch_error_task_ids = []
     with ThreadPoolExecutor(max_workers=min(max_concurrency, len(task_ids)),
                             thread_name_prefix="market-mind-supervisor") as pool:
         futures = {pool.submit(execute_queued_research_task, task_id): task_id for task_id in task_ids}
@@ -597,8 +598,8 @@ def dispatch_queued_research_tasks(limit: int = 50, max_concurrency: int = 4) ->
                 if claimed:
                     completed.append(task_id)
             except Exception:
-                # One task failure must not interrupt dispatch of sibling tasks.
-                continue
+                # Preserve sibling dispatch progress while exposing infrastructure errors.
+                dispatch_error_task_ids.append(task_id)
     finished_at = datetime.now(timezone.utc).isoformat()
     with _connect() as db:
         for task_id in completed:
@@ -620,7 +621,10 @@ def dispatch_queued_research_tasks(limit: int = 50, max_concurrency: int = 4) ->
     task_status_counts = {row["status"]: row["count"] for row in status_rows}
     failed_task_count = task_status_counts.get("failed", 0)
     pending_task_count = task_status_counts.get("queued", 0) + task_status_counts.get("running", 0)
-    if failed_task_count:
+    dispatch_error_count = len(dispatch_error_task_ids)
+    if dispatch_error_count:
+        dispatch_status = "completed_with_dispatch_errors"
+    elif failed_task_count:
         dispatch_status = "completed_with_failures"
     elif pending_task_count:
         dispatch_status = "completed_with_pending"
@@ -632,6 +636,8 @@ def dispatch_queued_research_tasks(limit: int = 50, max_concurrency: int = 4) ->
         "task_status_counts": task_status_counts,
         "failed_task_count": failed_task_count,
         "pending_task_count": pending_task_count,
+        "dispatch_error_count": dispatch_error_count,
+        "dispatch_error_task_ids": dispatch_error_task_ids,
         "max_concurrency": min(max_concurrency, len(task_ids)),
         "status": dispatch_status,
         "task_ids": task_ids,

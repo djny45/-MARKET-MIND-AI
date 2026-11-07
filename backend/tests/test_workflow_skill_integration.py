@@ -51,6 +51,26 @@ class WorkflowSkillIntegrationTests(unittest.TestCase):
         self.assertEqual(skill["mode"], "research_evaluation_only")
         self.assertFalse(skill["broker_execution"])
         self.assertTrue(skill["content"].strip())
+        protocols = result["skill_protocols"]
+        self.assertEqual(len(protocols), 1)
+        protocol = protocols[0]
+        self.assertEqual(protocol["protocol_id"], "qlib-historical-evaluation-v1")
+        self.assertEqual(protocol["mode"], "advisory_checklist")
+        self.assertIn("chronological train/validation/test", " ".join(protocol["steps"]))
+        self.assertIn("Baseline and candidate metrics with sample counts", protocol["required_outputs"])
+        self.assertTrue(protocol["research_only"])
+        self.assertFalse(protocol["broker_execution"])
+        self.assertFalse(protocol["autonomous_model_update"])
+        self.assertIn("not_automatically_applied", protocol["enforcement"])
+
+    def test_qlib_protocol_is_not_attached_when_skill_not_selected(self):
+        request = WorkflowRequest(
+            nodes=[{"id": "input", "type": "market_input", "data": {"values": [5, 6, 7]}}],
+            edges=[],
+            inputs={},
+        )
+        result = run_workflow(request)
+        self.assertEqual(result["skill_protocols"], [])
 
     def test_workflow_rejects_broker_or_unknown_skill(self):
         request = WorkflowRequest(

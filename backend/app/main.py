@@ -9,6 +9,7 @@ from .workflow import NODE_TYPES, execute_workflow
 from .workers import list_workers
 from .worker_runtime import worker_runtime_status
 from .worker_memory import append_memory, read_memory, recall_memory, review_learning_candidate, list_learning_candidates, recall_approved_learning_candidates
+from .learning_feedback import evaluate_learning_feedback
 from .worker_registry import evaluate_registry, registry_manifest
 from .analytical_agent_runtime import runtime_manifest, brain_config, validate_learning_feedback, validate_update_proposal
 from .learning_engine import learning_overview, agent_learning_summary, run_feedback_improvement_cycle
@@ -245,6 +246,11 @@ class WorkerMemoryCandidateReviewRequest(BaseModel):
  decision: Literal["approved", "rejected", "needs_revision"]
  reviewer: str = Field(min_length=1, max_length=120)
  rationale: str = Field(default="", max_length=2000)
+
+class WorkerLearningFeedbackRequest(BaseModel):
+ current_metrics: dict[str, float] = Field(min_length=1, max_length=100)
+ stale_after_days: int = Field(default=30, ge=1, le=3650)
+ tolerance: float = Field(default=0.0001, ge=0, le=1e12)
 
 class AgentResearchMessageRequest(BaseModel):
  agent_id: str = Field(min_length=1, max_length=96)
@@ -487,6 +493,19 @@ def get_worker_memory(worker_id: str, memory_type: str | None = None, limit: int
 
 
 
+
+
+@app.post("/api/workers/{worker_id}/learning-feedback/evaluate")
+def evaluate_worker_learning_feedback(worker_id: str, request: WorkerLearningFeedbackRequest):
+ """Compare supplied metrics with reviewed evidence; differences require human interpretation."""
+ try:
+  return evaluate_learning_feedback(
+   worker_id, request.current_metrics,
+   stale_after_days=request.stale_after_days,
+   tolerance=request.tolerance,
+  )
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.get("/api/workers/{worker_id}/learning-candidates/approved-context")

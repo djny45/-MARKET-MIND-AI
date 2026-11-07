@@ -158,3 +158,14 @@ Verification:
 Verification:
 - GitHub Actions lookup returned no runs for the latest forecasting commits.
 - No local tests were executed; verification remains pending.
+
+
+## Ridge prediction validation audit — 2026-11-07
+
+- Added feature/coefficient dimensionality checks to the ridge predictor.
+- Predictor rejects non-finite inputs and overflowed predictions instead of returning invalid forecast values.
+- Added regression coverage for mismatched feature widths and prediction overflow.
+
+Verification:
+- No GitHub Actions workflow runs were returned for the latest commits.
+- Tests have not been executed locally; validation remains pending CI.

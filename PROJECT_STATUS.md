@@ -1,6 +1,6 @@
 # MARKET-MIND-AI — Release Status
 
-Last reviewed: 2026-11-01
+Last reviewed: 2026-11-07
 
 ## Current verified scope
 
@@ -92,9 +92,9 @@ Implemented on the open PR branch:
 - Restricted the API adapter to informational CLI actions; this is not a public shell or an unrestricted interactive terminal.
 
 CI:
-- Latest PR head at this status update: `38144db795a01b9a54bda1513f2b08896cbdfd0e`
-- The earlier Version 3.4 quality-check pass applies to an older commit, not this head.
-- No workflow run was returned for the current head during this audit; current-head CI is therefore unverified.
+- The earlier Version 3.4 quality-check pass applies to an older commit, not the current PR head.
+- No workflow run was returned for the latest PR head during this audit; current-head CI is unverified.
+- Check [PR #4](https://github.com/djny45/-MARKET-MIND-AI/pull/4) for the live head SHA and CI status.
 - PR #4 remains open and unmerged.
 
 Not yet completed:
@@ -104,3 +104,18 @@ Not yet completed:
 - The current frontend OpenBB panel is an informational restricted command panel, not a full interactive terminal.
 
 Do not describe OpenBB as fully integrated or live-data-ready until these gates are completed.
+## Historical research integrity update — 2026-11-07
+
+Implemented on PR #4:
+- Swing-point timeline annotations now appear at their confirmation bars, with pivot and confirmation timestamps kept separately.
+- Timeline timestamps are validated as timezone-aware, unique and chronological; regression tests include prefix stability.
+- Offline CSV research hashes and parses the same byte snapshot; export rejects source changes after research.
+- Blank optional CSV metadata is converted to JSON null before strict evidence serialization.
+- Indicator calculations use scaled arithmetic to reduce overflow in finite-value SMA, Bollinger and volatility inputs.
+- SMC and TA-Lib adapters share OHLC normalization and validation; optional dependencies remain isolated.
+- OpenBB import is pinned to a reviewed upstream commit; CLI version lookup uses the interpreter beside the CLI executable.
+- Dispatch status/audit handling and supervisor stale-threshold validation received regression coverage.
+
+Verification:
+- GitHub workflow lookup returned no workflow runs for the latest PR head.
+- Tests were not run locally in this environment. Do not mark this update CI-verified until a workflow or local test run completes.

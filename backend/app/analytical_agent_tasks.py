@@ -458,7 +458,7 @@ def list_research_tasks(agent_id: str, limit: int = 20) -> dict:
 
 def list_recent_task_activity(limit: int = 500) -> dict:
     """Return a bounded cross-agent task activity snapshot for the network UI."""
-    if not isinstance(limit, int) or not 1 <= limit <= 1000:
+    if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 1000:
         raise ValueError("limit must be between 1 and 1000")
     with _connect() as db:
         rows = db.execute(
@@ -475,7 +475,14 @@ def list_recent_task_activity(limit: int = 500) -> dict:
     recent_events = []
     for row in reversed(event_rows):
         event = dict(row)
-        event["detail"] = json.loads(event.pop("detail_json"))
+        detail_decode_error = False
+        try:
+            detail = json.loads(event.pop("detail_json"))
+        except (json.JSONDecodeError, TypeError):
+            detail = None
+            detail_decode_error = True
+        event["detail"] = detail
+        event["detail_decode_error"] = detail_decode_error
         recent_events.append(event)
     counts = {status: sum(task["status"] == status for task in tasks)
               for status in ("queued", "running", "completed", "failed")}

@@ -75,6 +75,25 @@ class SwingPointTests(unittest.TestCase):
             find_swing_points("not bars")
         with self.assertRaisesRegex(ValueError, "must be an object"):
             find_swing_points([None])
+    def test_window_must_be_positive_integer_not_bool_or_float(self):
+        for left, right in ((True, 1), (1, False), (1.5, 1), (1, 2.5), (-1, 1)):
+            with self.subTest(left=left, right=right):
+                with self.assertRaises(ValueError):
+                    find_swing_points([], left, right)
+
+    def test_invalid_prices_rejected(self):
+        for field, value in (("high", float("inf")), ("low", float("nan")), ("high", True)):
+            bars = [{"high": 10, "low": 8}, {"high": 11, "low": 7}]
+            bars[0][field] = value
+            with self.subTest(field=field, value=value):
+                with self.assertRaises(ValueError):
+                    find_swing_points(bars, 1, 1)
+
+    def test_low_cannot_exceed_high(self):
+        bars = [{"high": 8, "low": 9}, {"high": 10, "low": 7}]
+        with self.assertRaisesRegex(ValueError, "low must be <= high"):
+            find_swing_points(bars, 1, 1)
+
     def test_invalid_window_rejected(self):
         with self.assertRaises(ValueError):
             find_swing_points([], 0, 1)

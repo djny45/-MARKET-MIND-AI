@@ -107,10 +107,26 @@ def _fit_ridge(features: list[list[float]], targets: list[float], alpha: float) 
 
 
 def _predict(coefficients: list[float], features: list[list[float]]) -> list[float]:
-    return [
-        coefficients[0] + sum(weight * value for weight, value in zip(coefficients[1:], row))
-        for row in features
-    ]
+    if not coefficients or not features:
+        raise ValueError("coefficients and features must be non-empty")
+    if any(len(row) != len(coefficients) - 1 for row in features):
+        raise ValueError("feature width must match coefficient count")
+    if any(not _finite_number(value) for value in coefficients):
+        raise ValueError("coefficients must be finite numeric")
+    predictions = []
+    for row_index, row in enumerate(features):
+        if any(not _finite_number(value) for value in row):
+            raise ValueError(f"features[{row_index}] must contain finite numeric values")
+        try:
+            prediction = coefficients[0] + math.fsum(
+                weight * value for weight, value in zip(coefficients[1:], row)
+            )
+        except (OverflowError, ValueError):
+            raise ValueError("forecast predictions must be finite") from None
+        if not _finite_number(prediction):
+            raise ValueError("forecast predictions must be finite")
+        predictions.append(prediction)
+    return predictions
 
 
 def _metrics(actual: list[float], predicted: list[float]) -> dict[str, float]:

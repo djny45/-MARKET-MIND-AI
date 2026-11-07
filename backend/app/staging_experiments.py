@@ -161,7 +161,8 @@ def run_staging_benchmark(worker_id: str, proposal_memory_id: str, payload: dict
     if (isinstance(min_improvement, bool) or not isinstance(min_improvement, (int, float))
             or not math.isfinite(min_improvement) or not 0 < min_improvement <= 1):
         raise ValueError("min_improvement must be a finite number greater than 0 and at most 1")
-    has_regression = any(delta < 0 for delta in aggregate_deltas.values())
+    # Case-level drops must not be hidden by aggregate gains on other fixtures.
+    has_regression = bool(regressions) or any(delta < 0 for delta in aggregate_deltas.values())
     meaningful_gain = any(delta >= min_improvement for delta in aggregate_deltas.values())
     quality_gate = {
         "status": "blocked_regression" if has_regression else (

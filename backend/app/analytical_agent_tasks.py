@@ -319,6 +319,10 @@ def recover_interrupted_research_tasks(stale_after_seconds: int = 900) -> dict:
         now_dt.timestamp() - stale_after_seconds, timezone.utc
     ).isoformat()
     with _connect() as db:
+        # Acquire the SQLite write reservation before selecting stale rows.
+        # This prevents concurrent recovery callers from both observing the
+        # same interrupted task and appending duplicate requeue audit events.
+        db.execute("BEGIN IMMEDIATE")
         stale = db.execute(
             "SELECT task_id FROM analytical_agent_tasks WHERE status='running' AND updated_at < ?",
             (cutoff,),

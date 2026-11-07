@@ -467,3 +467,32 @@ if __name__ == "__main__":
         from app.analytical_agent_tasks import cancel_queued_research_task
         with self.assertRaises(ValueError):
             cancel_queued_research_task(" ")
+
+
+    def test_startup_recovery_runs_and_records_recovery_snapshot(self):
+        from app import main
+        expected = {
+            "requeued_interrupted_count": 2,
+            "recovery_mode": "manual_stale_requeue_no_dispatch",
+        }
+        with patch("app.main.recover_interrupted_research_tasks", return_value=expected):
+            result = main.recover_stale_tasks_on_startup()
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual(result["requeued_interrupted_count"], 2)
+        self.assertEqual(main.app.state.task_startup_recovery, result)
+
+    def test_startup_recovery_can_be_disabled_by_environment(self):
+        from app import main
+        with patch.dict(os.environ, {"MARKET_MIND_STARTUP_RECOVERY": "false"}), \\
+             patch("app.main.recover_interrupted_research_tasks") as recover:
+            result = main.recover_stale_tasks_on_startup()
+        recover.assert_not_called()
+        self.assertEqual(result["status"], "disabled")
+
+    def test_startup_recovery_failure_is_nonfatal_and_sanitized(self):
+        from app import main
+        with patch("app.main.recover_interrupted_research_tasks", side_effect=RuntimeError("secret database detail")):
+            result = main.recover_stale_tasks_on_startup()
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(result["error_type"], "RuntimeError")
+        self.assertNotIn("secret database detail", str(result))

@@ -478,6 +478,7 @@ def summarize_research_quality_dashboard(worker_id: str, limit: int = 100) -> di
     }
     regression_experiment_count = 0
     paired_regression_total = 0
+    experiments_missing_dataset_name_or_version = 0
     overlap_flagged_pairs_total = 0
     experiments_with_overlap_flags = 0
     dashboard_records = []
@@ -515,6 +516,11 @@ def summarize_research_quality_dashboard(worker_id: str, limit: int = 100) -> di
         for key, present in checks.items():
             if not present:
                 provenance_missing[key] += 1
+        if not all(checks[key] for key in (
+            "baseline_dataset_name_missing", "candidate_dataset_name_missing",
+            "baseline_dataset_version_missing", "candidate_dataset_version_missing",
+        )):
+            experiments_missing_dataset_name_or_version += 1
         baseline_overlap = runs.get("baseline_fixture_overlap", {})
         candidate_overlap = runs.get("candidate_fixture_overlap", {})
         baseline_overlap = baseline_overlap if isinstance(baseline_overlap, dict) else {}
@@ -566,6 +572,7 @@ def summarize_research_quality_dashboard(worker_id: str, limit: int = 100) -> di
         "experiment_count": len(dashboard_records),
         "quality_gate_status_counts": gate_counts,
         "experiments_with_paired_regressions": regression_experiment_count,
+        "experiments_missing_dataset_name_or_version": experiments_missing_dataset_name_or_version,
         "paired_regression_total": paired_regression_total,
         "experiments_with_fixture_overlap_flags": experiments_with_overlap_flags,
         "fixture_overlap_flagged_pair_total": overlap_flagged_pairs_total,

@@ -240,3 +240,49 @@ def review_learning_candidate(worker_id, memory_id, decision, reviewer, rational
         "quality_status": "partial", "content": review_content,
         "storage_mode": "append_only_evidence_notes",
     }
+
+
+def list_learning_candidates(worker_id, limit=50):
+    """Return bounded candidate summaries with their latest append-only review decision."""
+    if worker_id not in _WORKER_IDS:
+        raise ValueError("worker_id must identify a registered worker template")
+    if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 200:
+        raise ValueError("limit must be between 1 and 200")
+    with _connect() as db:
+        rows = db.execute(
+            "SELECT * FROM worker_memory WHERE worker_id=? AND memory_type='validation_result' "
+            "ORDER BY created_at DESC LIMIT 2000", (worker_id,),
+        ).fetchall()
+    candidates = {}
+    reviews = {}
+    for row in rows:
+        content = json.loads(row["content_json"])
+        if content.get("record_type") == "research_quality_learning_candidate":
+            candidates[row["memory_id"]] = {
+                "memory_id": row["memory_id"], "worker_id": worker_id,
+                "created_at": row["created_at"], "quality_status": row["quality_status"],
+                "source_refs": json.loads(row["source_refs_json"]), "content": content,
+                "review_status": "pending_review", "latest_review": None,
+                "review_history": [],
+            }
+        elif content.get("record_type") == "research_quality_learning_candidate_review":
+            candidate_id = content.get("candidate_memory_id")
+            if isinstance(candidate_id, str):
+                reviews.setdefault(candidate_id, []).append({
+                    "memory_id": row["memory_id"], "created_at": row["created_at"],
+                    "decision": content.get("decision"), "reviewer": content.get("reviewer"),
+                    "rationale": content.get("rationale", ""),
+                })
+    for candidate_id, candidate in candidates.items():
+        history = reviews.get(candidate_id, [])
+        history.sort(key=lambda item: item["created_at"])
+        if history:
+            candidate["review_history"] = history
+            candidate["latest_review"] = history[-1]
+            candidate["review_status"] = history[-1]["decision"]
+    items = sorted(candidates.values(), key=lambda item: item["created_at"], reverse=True)[:limit]
+    return {
+        "worker_id": worker_id, "count": len(items), "candidates": items,
+        "limit": limit, "scan_limit": 2000,
+        "note": "Review status is derived from append-only review events. Approved status is a label only; it does not train models or activate instructions.",
+    }

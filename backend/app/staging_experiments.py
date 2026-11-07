@@ -419,6 +419,7 @@ def summarize_research_quality_dashboard(worker_id: str, limit: int = 100) -> di
         and item["content"].get("record_type") == "staging_experiment_result"
     ][:limit]
     gate_counts: dict[str, int] = {}
+    delta_values: dict[str, list[float]] = {}
     provenance_missing = {
         "baseline_metadata_missing": 0, "candidate_metadata_missing": 0,
         "baseline_dataset_name_missing": 0, "candidate_dataset_name_missing": 0,
@@ -461,6 +462,12 @@ def summarize_research_quality_dashboard(worker_id: str, limit: int = 100) -> di
         for key, present in checks.items():
             if not present:
                 provenance_missing[key] += 1
+        aggregate_deltas = gate.get("aggregate_deltas", {})
+        aggregate_deltas = aggregate_deltas if isinstance(aggregate_deltas, dict) else {}
+        for metric_name, delta in aggregate_deltas.items():
+            if (isinstance(metric_name, str) and isinstance(delta, (int, float))
+                    and not isinstance(delta, bool) and math.isfinite(delta)):
+                delta_values.setdefault(metric_name, []).append(float(delta))
         dashboard_records.append({
             "memory_id": item.get("memory_id"),
             "proposal_memory_id": content.get("proposal_memory_id"),
@@ -475,6 +482,18 @@ def summarize_research_quality_dashboard(worker_id: str, limit: int = 100) -> di
             "baseline_dataset_version": base_meta.get("dataset_version"),
             "candidate_dataset_version": candidate_meta.get("dataset_version"),
         })
+    delta_summary = {
+        metric: {
+            "observations": len(values),
+            "mean_delta": round(sum(values) / len(values), 4),
+            "min_delta": round(min(values), 4),
+            "max_delta": round(max(values), 4),
+            "negative_count": sum(value < 0 for value in values),
+            "zero_count": sum(value == 0 for value in values),
+            "positive_count": sum(value > 0 for value in values),
+        }
+        for metric, values in delta_values.items() if values
+    }
     repeatability = summarize_repeatability(worker_id, limit=limit, min_trials=3)
     return {
         "worker_id": worker_id,
@@ -482,6 +501,7 @@ def summarize_research_quality_dashboard(worker_id: str, limit: int = 100) -> di
         "quality_gate_status_counts": gate_counts,
         "experiments_with_paired_regressions": regression_experiment_count,
         "paired_regression_total": paired_regression_total,
+        "aggregate_delta_summary": delta_summary,
         "provenance_missing_counts": provenance_missing,
         "repeatability": {
             "groups_meeting_min_trials": repeatability["groups_meeting_min_trials"],

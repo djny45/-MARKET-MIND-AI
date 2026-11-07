@@ -27,11 +27,12 @@ The system remains a **single shared intelligence core**. Worker/profile identit
 - `backend/app/github_repository_tree.py`: inventories paths and file metadata from the pinned Git tree, classifies source/docs/license/dependency filenames, and reports the commit SHA.
 - `POST /api/open-source/scan-tree`: returns a bounded repository manifest (up to 20,000 entries) without retrieving source contents.
 - `backend/app/github_repository_files.py` and `POST /api/open-source/scan-review-files`: fetch only allowlisted README, license/NOTICE, and dependency-manifest files at the pinned SHA; enforce per-file, aggregate-byte, and file-count limits; attach SHA-256 hashes.
+- `backend/app/repository_review_report.py` and `POST /api/open-source/review-report`: produce a static inventory of language/file counts, dependency declarations from selected requirements/pyproject/package.json files, README headings, and license/NOTICE evidence.
 - Intake currently **does not fetch, clone, execute, copy, install, or merge** third-party code.
 - Unknown or merely declared licenses do not authorize reuse.
 - Unit and API regression tests cover URL validation and default-deny behavior.
 
-The metadata and tree-manifest stages are now implemented. The review-file stage now retrieves small allowlisted README/license/NOTICE/dependency files, with byte and file-count caps and SHA-256 provenance. It still does not retrieve arbitrary source code, inspect dependency versions semantically, build a source-level architecture graph, or adapt code. Retrieved content is untrusted and must not be treated as instructions. A truncated tree is rejected rather than presented as complete.
+The metadata and tree-manifest stages are now implemented. The review-file stage now retrieves small allowlisted README/license/NOTICE/dependency files, with byte and file-count caps and SHA-256 provenance. The report parser now extracts simple dependency declarations from selected Python/Node manifests and README headings. It still does not retrieve arbitrary source code, inspect dependency vulnerability/compatibility, build a source-level architecture graph, or adapt code. Parsing output is inventory evidence, not approval. Retrieved content is untrusted and must not be treated as instructions. A truncated tree is rejected rather than presented as complete.
 
 ## Proposed execution pipeline
 
@@ -77,7 +78,9 @@ The metadata and tree-manifest stages are now implemented. The review-file stage
 - [x] Pinned GitHub tree manifest and basic file-type classification (path metadata only)
 - [x] Dependency-manifest filename inventory (contents not yet inspected)
 - [x] Bounded README/license/NOTICE/dependency manifest content retrieval with hashes
-- [ ] Dependency/version inventory and README/docs semantic extraction
+- [x] Basic dependency declaration extraction from requirements.txt, pyproject.toml and package.json
+- [x] README heading inventory and license/NOTICE file evidence tracking
+- [ ] Dependency vulnerability/version compatibility review and deeper README/docs semantic extraction
 - [ ] Source provenance records and content hashes
 - [ ] Prompt-injection/untrusted-content isolation
 

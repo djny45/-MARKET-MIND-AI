@@ -169,3 +169,15 @@ Verification:
 Verification:
 - No GitHub Actions workflow runs were returned for the latest commits.
 - Tests have not been executed locally; validation remains pending CI.
+
+
+## Walk-forward numerical aggregation audit — 2026-11-07
+
+- Validation MAE selection now uses `math.fsum` and rejects non-finite scores in both walk-forward implementations.
+- Pre-test mean-return baselines now use finite-checked compensated summation.
+- Legacy walk-forward per-window aggregation now checks overflow and non-finite aggregate metrics.
+- Both public walk-forward APIs remain available; their historical split/report differences are preserved for compatibility.
+
+Verification:
+- No local test execution available in this environment.
+- GitHub Actions status will be checked for the latest commits; do not treat the code as verified until CI runs.

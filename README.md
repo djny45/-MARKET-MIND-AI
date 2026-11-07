@@ -469,3 +469,16 @@ The offline staging benchmark now also pairs baseline and candidate fixtures by 
 ### Whitelisted offline evaluator configuration
 
 The fixture benchmark accepts an optional `quality_config` object with exactly one supported setting: `uncertainty_markers` (1–20 non-empty strings, each up to 80 characters). Unsupported keys are rejected. The normalized config is included in the benchmark fingerprint and returned with the result. The benchmark additionally reports `uncertainty_marker_coverage`, the share of fixture drafts containing at least one configured marker. This is a narrow text-checklist metric and can be gamed by wording; it is not a measure of genuine uncertainty calibration, factual quality, or predictive skill. This config does not change model weights, prompts, strategies, live data, production settings, or trading.
+
+### Approved proposal → whitelisted evaluator config staging
+
+A narrow config-evaluation endpoint now connects an already-approved proposal to an explicit, structured evaluator config patch:
+
+- `POST /api/workers/{worker_id}/improvement-proposals/{proposal_memory_id}/staging-config-evaluation`
+- Request fields: `baseline_cases`, `candidate_cases`, `config_patch`, `reviewer`, and optional `notes`.
+- The proposal's latest review must be `approved_for_staging` **before evaluation begins**. A subsequent review can revoke permission.
+- `config_patch` is passed as a structured object to the benchmark's whitelist. At present, only `uncertainty_markers` is supported; unknown keys or malformed markers are rejected.
+- Baseline fixtures use the default evaluator config; candidate fixtures use the validated patch. Baseline/candidate case IDs must match exactly.
+- The append-only record stores the normalized config patch, both benchmark fingerprints, and paired metric diagnostics.
+
+This endpoint does **not** translate proposal prose into settings, execute code from a proposal, or apply configuration to the running agent. The uncertainty-marker metric is a shallow text indicator, not real uncertainty calibration or model learning. This remains offline research evaluation only—no live market data, model-weight updates, deployment, or trades.

@@ -418,6 +418,9 @@ def get_research_task(task_id: str) -> dict | None:
     input_decode_error = False
     try:
         task_input = json.loads(row["input_json"])
+        if not isinstance(task_input, dict):
+            task_input = None
+            input_decode_error = True
     except (json.JSONDecodeError, TypeError):
         # Keep task status/result inspectable even when persisted input is corrupt.
         task_input = None
@@ -425,6 +428,9 @@ def get_research_task(task_id: str) -> dict | None:
     result_decode_error = False
     try:
         task_result = json.loads(row["result_json"])
+        if not isinstance(task_result, dict):
+            task_result = None
+            result_decode_error = True
     except (json.JSONDecodeError, TypeError):
         # Preserve task lifecycle visibility when a persisted result is damaged.
         task_result = None

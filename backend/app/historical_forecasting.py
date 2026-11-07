@@ -512,12 +512,12 @@ def evaluate_walk_forward_forecast(
         test_y = targets[cursor:cursor + test_window_size]
         model_metrics = _metrics(test_y, _predict(coefficients, test_x))
         zero_metrics = _metrics(test_y, [0.0] * len(test_y))
-try:
-                    mean_return = math.fsum(pretest_y) / len(pretest_y)
-                except (OverflowError, ValueError):
-                    raise ValueError("pretest mean return must be finite") from None
-                if not math.isfinite(mean_return):
-                    raise ValueError("pretest mean return must be finite")
+        try:
+            mean_return = math.fsum(pretest_y) / len(pretest_y)
+        except (OverflowError, ValueError):
+            raise ValueError("pretest mean return must be finite") from None
+        if not math.isfinite(mean_return):
+            raise ValueError("pretest mean return must be finite")
         mean_metrics = _metrics(test_y, [mean_return] * len(test_y))
         windows.append({
             "window_number": len(windows) + 1,

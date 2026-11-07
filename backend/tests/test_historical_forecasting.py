@@ -218,5 +218,30 @@ class HistoricalForecastingTests(unittest.TestCase):
             )
 
 
+    def test_ridge_fit_rejects_invalid_shape_and_alpha(self):
+        from app.historical_forecasting import _fit_ridge
+        for features, targets, alpha, message in (
+            ([], [], 0.1, "non-empty and aligned"),
+            ([[1.0], [2.0]], [0.1], 0.1, "non-empty and aligned"),
+            ([[1.0], [2.0, 3.0]], [0.1, 0.2], 0.1, "consistent non-zero width"),
+            ([[1.0]], [0.1], float("nan"), "alpha must be finite and positive"),
+            ([[True]], [0.1], 0.1, "features\\[0\\]\\[0\\] must be finite numeric"),
+        ):
+            with self.subTest(features=features, alpha=alpha):
+                with self.assertRaisesRegex(ValueError, message):
+                    _fit_ridge(features, targets, alpha)
+
+    def test_ridge_solver_rejects_malformed_or_nonfinite_system(self):
+        from app.historical_forecasting import _solve_linear_system
+        for matrix, vector, message in (
+            ([[1.0, 2.0]], [1.0], "square matrix"),
+            ([[float("inf")]], [1.0], "matrix\\[0\\]\\[0\\] must be finite numeric"),
+            ([[1.0]], [float("nan")], "vector\\[0\\] must be finite numeric"),
+        ):
+            with self.subTest(matrix=matrix, vector=vector):
+                with self.assertRaisesRegex(ValueError, message):
+                    _solve_linear_system(matrix, vector)
+
+
 if __name__ == "__main__":
     unittest.main()

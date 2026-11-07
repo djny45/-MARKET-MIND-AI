@@ -177,6 +177,28 @@ class ResearchQualityEvalTests(unittest.TestCase):
         self.assertEqual(metrics["source_registry_entries_invalid_provenance_count"], 1)
         self.assertEqual(metrics["source_registry_entries_complete_provenance_count"], 0)
 
+    def test_registry_completeness_uses_entries_not_only_identified_sources(self):
+        result = evaluate_research_draft(
+            draft="One source is missing an identifier.",
+            claims=[],
+            source_registry=[
+                {
+                    "source_id": "known", "title": "Source",
+                    "url": "https://example.org/source", "source_type": "web",
+                    "observed_at": "2026-11-07T10:00:00Z",
+                },
+                {
+                    "title": "No source ID", "url": "https://example.org/unknown",
+                    "source_type": "web", "observed_at": "2026-11-07T10:00:00Z",
+                },
+            ],
+        )
+        metrics = result["metrics"]
+        self.assertEqual(metrics["source_registry_count"], 1)
+        self.assertEqual(metrics["source_registry_entries_without_id_count"], 1)
+        self.assertEqual(metrics["source_registry_provenance_completeness"], 1.0)
+        self.assertEqual(metrics["source_registry_entries_complete_provenance_count"], 2)
+
     def test_empty_claim_set_has_null_coverage(self):
         result = evaluate_research_draft(draft="No claims.", claims=[], source_registry=[])
         self.assertIsNone(result["metrics"]["claim_reference_coverage"])

@@ -84,6 +84,27 @@ def test_timeline_rejects_naive_timestamps():
     with pytest.raises(ValueError, match="must include timezone"):
         build_research_timeline({"bars": bars})
 
+def test_swing_observation_is_emitted_on_confirmation_bar_not_pivot_bar():
+    bars = sample_bars()
+    report = build_research_timeline({"bars": bars})
+    # In this fixture, bar 2 is a local high and needs two right-side bars.
+    pivot_event = report["events"][2]
+    confirmation_event = report["events"][4]
+    assert not any(
+        item["type"] == "confirmed_swing_high"
+        for item in pivot_event["observations"]
+    )
+    swing = next(
+        item for item in confirmation_event["observations"]
+        if item["type"] == "confirmed_swing_high"
+    )
+    assert swing["pivot_index"] == 2
+    assert swing["confirmation_index"] == 4
+    assert swing["pivot_timestamp"] == bars[2]["timestamp"]
+    assert swing["confirmation_timestamp"] == bars[4]["timestamp"]
+    assert confirmation_event["timestamp"] == swing["confirmation_timestamp"]
+
+
 def test_timeline_rejects_non_finite_ohlcv_values():
     import pytest
     bars = sample_bars()

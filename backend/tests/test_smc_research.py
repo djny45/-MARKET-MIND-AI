@@ -44,6 +44,18 @@ class SMCResearchAdapterTests(unittest.TestCase):
         ]
         return tables, patches
 
+    def test_timestamp_column_must_be_unique_and_chronological(self):
+        from app.smc_research import analyze_historical_ohlcv
+        bad = self.frame.copy()
+        bad["timestamp"] = self.pd.date_range("2024-01-01", periods=len(bad), freq="h")
+        bad.loc[5, "timestamp"] = bad.loc[4, "timestamp"]
+        with self.assertRaisesRegex(ValueError, "duplicate instants"):
+            analyze_historical_ohlcv(bad, swing_length=5)
+        bad = self.frame.copy()
+        bad["timestamp"] = self.pd.date_range("2024-01-01", periods=len(bad), freq="h")[::-1]
+        with self.assertRaisesRegex(ValueError, "sorted chronologically"):
+            analyze_historical_ohlcv(bad, swing_length=5)
+
     def test_missing_ohlc_column_rejected(self):
         from app.smc_research import analyze_historical_ohlcv
         with self.assertRaisesRegex(ValueError, "Missing required OHLC"):

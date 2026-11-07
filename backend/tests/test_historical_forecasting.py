@@ -218,6 +218,17 @@ class HistoricalForecastingTests(unittest.TestCase):
             )
 
 
+    def test_metrics_rejects_subtraction_overflow(self):
+        from app.historical_forecasting import _metrics
+        with self.assertRaisesRegex(ValueError, "forecast errors must be finite"):
+            _metrics([-1e308], [1e308])
+
+    def test_walk_forward_rejects_invalid_step_size_overlap(self):
+        from app.historical_forecasting import evaluate_walk_forward_return_forecast
+        with self.assertRaisesRegex(ValueError, "step_size must be >= test_window"):
+            evaluate_walk_forward_return_forecast(
+                self.synthetic_closes(300), min_history_samples=80, test_window=20, step_size=10
+            )
     def test_ridge_fit_rejects_invalid_shape_and_alpha(self):
         from app.historical_forecasting import _fit_ridge
         for features, targets, alpha, message in (

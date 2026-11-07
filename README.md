@@ -463,3 +463,5 @@ A reproducible fixture-based route is also available:
 - `POST /api/workers/{worker_id}/improvement-proposals/{proposal_memory_id}/staging-benchmark` — run the existing deterministic traceability benchmark against separate baseline and candidate fixture sets, then persist both benchmark fingerprints and aggregate metrics.
 
 This route is still offline and fixture-only. It does not fetch market data or execute proposal code. The benchmark measures source-reference structure only; it is not a truth, forecasting, or trading-performance test.
+
+The offline staging benchmark now also pairs baseline and candidate fixtures by exact `case_id`, stores per-case deltas for both traceability coverage metrics, and flags case-level decreases. Mismatched case sets are rejected instead of comparing unrelated samples. These are structural regression diagnostics only; they do not assess truth, predictive ability, or trading performance.

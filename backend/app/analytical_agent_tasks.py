@@ -597,9 +597,21 @@ def dispatch_queued_research_tasks(limit: int = 50, max_concurrency: int = 4) ->
                 claimed = future.result()
                 if claimed:
                     completed.append(task_id)
-            except Exception:
+            except Exception as exc:
                 # Preserve sibling dispatch progress while exposing infrastructure errors.
                 dispatch_error_task_ids.append(task_id)
+                with _connect() as db:
+                    task = db.execute(
+                        "SELECT worker_id,status FROM analytical_agent_tasks WHERE task_id=?",
+                        (task_id,),
+                    ).fetchone()
+                    if task is not None:
+                        _record_event(
+                            db, task_id, task["worker_id"], "task_dispatch_error",
+                            from_status=task["status"], to_status=task["status"],
+                            detail={"dispatch_id": dispatch_id,
+                                    "error_type": type(exc).__name__},
+                        )
     finished_at = datetime.now(timezone.utc).isoformat()
     with _connect() as db:
         for task_id in completed:

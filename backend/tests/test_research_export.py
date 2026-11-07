@@ -13,6 +13,35 @@ class ResearchMethodologyMarkdownTests(unittest.TestCase):
         self.assertIn(bundle["integrity"]["digest"], report)
         self.assertIn("not a forecast", report.lower())
 
+    def test_empty_sources_list_falls_back_to_single_source_label(self):
+        bundle = build_research_evidence_bundle("BTCUSD", "1h", {
+            "bars": [], "source": "fallback-source", "sources": [],
+        })
+        report = render_research_methodology_markdown(bundle)
+        self.assertIn("- **Source metadata:** fallback-source", report)
+
+    def test_bundle_digest_recomputes_and_observations_are_preserved(self):
+        import hashlib
+        import json
+        bars = [{
+            "timestamp": "2026-01-01T00:00:00Z", "source": "feed-a",
+            "open": 10, "high": 12, "low": 9, "close": 11, "volume": 5,
+        }]
+        bundle = build_research_evidence_bundle("BTCUSD", "1h", {
+            "bars": bars, "source": "feed-a", "sources": ["feed-a"],
+        })
+        integrity = bundle["integrity"]
+        payload = dict(bundle)
+        payload.pop("integrity")
+        canonical = json.dumps(
+            payload, sort_keys=True, separators=(",", ":"),
+            ensure_ascii=False, allow_nan=False,
+        )
+        self.assertEqual(integrity["digest"], hashlib.sha256(canonical.encode("utf-8")).hexdigest())
+        self.assertEqual(bundle["observations"], bars)
+        self.assertIn("comparisons", bundle["source_comparison"])
+        self.assertIn("No forecasts", " ".join(bundle["limitations"]))
+
     def test_source_sha256_is_preserved_in_bundle_and_report(self):
         digest = "a" * 64
         bundle = build_research_evidence_bundle("BTCUSD", "1h", {

@@ -466,6 +466,8 @@ This route is still offline and fixture-only. It does not fetch market data or e
 
 The benchmark now also returns `fixture_overlap`, a lexical audit over draft and claim text plus source-ID reuse. It reports pairwise token Jaccard similarity (threshold 0.5) and shared source references/registry IDs. Treat these as review flags only: common wording may trigger them, and paraphrases may be missed. This is not semantic analysis and cannot establish leakage or independence.
 
+The stored staging-run provenance can be inspected through `GET /api/workers/{worker_id}/staging-experiments/provenance?limit=100`. It reports baseline/candidate metadata, evaluator version, and counts missing fixture metadata, dataset names, or versions. Legacy experiment records without provenance fields are reported as missing/legacy rather than silently treated as complete. This is an audit of declared labels only, not source verification.
+
 ### Benchmark fixture provenance
 
 Each offline traceability benchmark result now includes an evaluator version (`research-traceability-v1`), `fixture_origin: caller_supplied`, and optional bounded `fixture_metadata` fields: `dataset_name`, `dataset_version`, `source_description`, `prepared_by`, and `collection_date` (each up to 160 characters). Staging benchmark requests may provide separate `baseline_fixture_metadata` and `candidate_fixture_metadata`; these are stored with the respective benchmark run.

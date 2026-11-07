@@ -105,6 +105,12 @@ class HistoricalForecastingTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "forecast errors must be finite"):
             _metrics([-1e308], [1e308])
 
+    def test_metrics_normalize_integer_error_float_conversion_overflow(self):
+        from app.historical_forecasting import _metrics
+
+        with self.assertRaisesRegex(ValueError, "forecast errors must be finite"):
+            _metrics([-(10**308)], [10**308])
+
     def test_metrics_rmse_handles_large_finite_errors_without_square_overflow(self):
         from app.historical_forecasting import _metrics
 

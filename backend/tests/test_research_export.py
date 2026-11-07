@@ -86,6 +86,24 @@ class ResearchMethodologyMarkdownTests(unittest.TestCase):
         self.assertIn("- **Algorithm:** Not supplied", report)
         self.assertIn("- **Digest:** Not supplied", report)
 
+    def test_nonfinite_source_values_are_preserved_as_strict_json_strings(self):
+        import json
+        bundle = build_research_evidence_bundle("BTCUSD", "1h", {
+            "bars": [
+                {"timestamp": "2026-01-01T00:00:00Z", "source": "feed-a",
+                 "open": 10, "high": 12, "low": 9, "close": float("nan"),
+                 "volume": float("inf")},
+                {"timestamp": "2026-01-01T00:00:00Z", "source": "feed-b",
+                 "open": 10, "high": 12, "low": 9, "close": 11, "volume": 20},
+            ]
+        })
+        serialized = json.dumps(bundle, allow_nan=False)
+        self.assertIn('"close": "NaN"', serialized)
+        self.assertIn('"volume": "Infinity"', serialized)
+        comparison = bundle["source_comparison"]["comparisons"][0]["field_ranges"]
+        self.assertEqual(comparison["volume"]["invalid_value_count"], 1)
+        self.assertEqual(comparison["volume"]["invalid_values"][0]["raw_value"], "Infinity")
+
     def test_rejects_wrong_bundle_type(self):
         with self.assertRaises(ValueError):
             render_research_methodology_markdown({"report_type": "other"})

@@ -9,7 +9,7 @@ from .workflow import NODE_TYPES, execute_workflow
 from .workers import list_workers
 from .worker_runtime import worker_runtime_status
 from .worker_memory import append_memory, read_memory, recall_memory, review_learning_candidate, list_learning_candidates, recall_approved_learning_candidates, review_improvement_proposal, list_improvement_proposals
-from .staging_experiments import create_staging_experiment, list_staging_experiments
+from .staging_experiments import create_staging_experiment, run_staging_benchmark, list_staging_experiments
 from .learning_feedback import evaluate_learning_feedback
 from .worker_registry import evaluate_registry, registry_manifest
 from .analytical_agent_runtime import runtime_manifest, brain_config, validate_learning_feedback, validate_update_proposal
@@ -262,6 +262,12 @@ class StagingExperimentRequest(BaseModel):
  benchmark_id: str = Field(min_length=1, max_length=120)
  baseline_metrics: dict[str, float] = Field(min_length=1, max_length=10)
  candidate_metrics: dict[str, float] = Field(min_length=1, max_length=10)
+ reviewer: str = Field(min_length=1, max_length=120)
+ notes: str = Field(default="", max_length=2000)
+
+class StagingBenchmarkRequest(BaseModel):
+ baseline_cases: list[dict[str, Any]] = Field(min_length=1, max_length=100)
+ candidate_cases: list[dict[str, Any]] = Field(min_length=1, max_length=100)
  reviewer: str = Field(min_length=1, max_length=120)
  notes: str = Field(default="", max_length=2000)
 
@@ -550,6 +556,16 @@ def create_worker_staging_experiment(worker_id: str, proposal_memory_id: str, re
  """Record a human-run, metrics-only staging comparison for an approved proposal."""
  try:
   return create_staging_experiment(worker_id, proposal_memory_id, request.model_dump())
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+
+@app.post("/api/workers/{worker_id}/improvement-proposals/{proposal_memory_id}/staging-benchmark")
+def run_worker_staging_benchmark(worker_id: str, proposal_memory_id: str, request: StagingBenchmarkRequest):
+ """Run the built-in deterministic benchmark on two caller-supplied fixture sets."""
+ try:
+  return run_staging_benchmark(worker_id, proposal_memory_id, request.model_dump())
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 

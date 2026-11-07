@@ -72,6 +72,30 @@ class YahooFinanceAdapter:
                 ))
         except (KeyError, IndexError, TypeError, ValueError, OverflowError, OSError) as exc:
             raise ValueError("Yahoo response did not contain valid OHLCV chart data") from exc
+        if interval == "4h":
+            # Yahoo exposes hourly bars for this range. Aggregate only complete,
+            # UTC-aligned four-hour buckets; never label hourly bars as 4h.
+            grouped = {}
+            for bar in bars:
+                bucket = int(bar.timestamp.timestamp()) // 14400
+                grouped.setdefault(bucket, []).append(bar)
+            aggregated = []
+            for bucket in sorted(grouped):
+                group = grouped[bucket]
+                timestamps = [int(bar.timestamp.timestamp()) for bar in group]
+                bucket_start = bucket * 14400
+                if timestamps != [bucket_start + offset * 3600 for offset in range(4)]:
+                    continue
+                aggregated.append(OHLCVBar(
+                    timestamp=group[0].timestamp,
+                    open=group[0].open,
+                    high=max(bar.high for bar in group),
+                    low=min(bar.low for bar in group),
+                    close=group[-1].close,
+                    volume=math.fsum(bar.volume for bar in group),
+                    adjusted_close=group[-1].adjusted_close,
+                ))
+            bars = aggregated
         bars = bars[-limit:]
         if not bars:
             raise ValueError(f"No OHLCV bars returned for {symbol}; verify symbol and provider availability")
@@ -85,7 +109,7 @@ class YahooFinanceAdapter:
             warnings=[
                 "Best-effort Yahoo Finance chart data; provider availability and licensing may change.",
                 "Historical research data only; not guaranteed real-time or suitable for execution.",
-                "Requested 4h bars are sourced from 1h data and are not aggregated.",
+                "4h bars are aggregated from complete UTC-aligned hourly bars; incomplete buckets are discarded.",
             ] if interval == "4h" else [
                 "Best-effort Yahoo Finance chart data; provider availability and licensing may change.",
                 "Historical research data only; not guaranteed real-time or suitable for execution.",

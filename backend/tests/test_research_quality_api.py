@@ -172,5 +172,17 @@ class ResearchQualityApiTests(unittest.TestCase):
         self.assertEqual(raised.exception.status_code, 400)
 
 
+    def test_staging_audit_export_rejects_limits_outside_supported_range(self):
+        from fastapi import HTTPException
+        from app.main import export_worker_staging_audit
+
+        for limit in (0, 201, True):
+            with self.subTest(limit=limit):
+                with self.assertRaises(HTTPException) as raised:
+                    export_worker_staging_audit("worker_001", limit=limit)
+                self.assertEqual(raised.exception.status_code, 400)
+                self.assertEqual(raised.exception.detail, "limit must be between 1 and 200")
+
+
 if __name__ == "__main__":
     unittest.main()

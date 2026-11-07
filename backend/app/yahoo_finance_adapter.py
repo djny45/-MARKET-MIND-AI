@@ -126,7 +126,7 @@ class YahooFinanceAdapter:
             warnings=[
                 "Best-effort Yahoo Finance chart data; provider availability and licensing may change.",
                 "Historical research data only; not guaranteed real-time or suitable for execution.",
-                "4h bars are aggregated from four consecutive hourly bars within each continuous session segment; incomplete groups are discarded.",
+                "4h bars are aggregated from complete groups of four consecutive hourly bars within each continuous session segment; incomplete groups are discarded.",
             ] if interval == "4h" else [
                 "Best-effort Yahoo Finance chart data; provider availability and licensing may change.",
                 "Historical research data only; not guaranteed real-time or suitable for execution.",

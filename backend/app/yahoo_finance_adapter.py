@@ -105,7 +105,8 @@ class YahooFinanceAdapter:
         timestamps = [bar.timestamp for bar in bars]
         if any(current <= previous for previous, current in zip(timestamps, timestamps[1:])):
             raise ValueError("Yahoo chart timestamps must be unique and chronological")
-        if interval == "4h":
+        bars = bars[-limit:]
+        if not bars:
             raise ValueError(f"No OHLCV bars returned for {symbol}; verify symbol and provider availability")
         return MarketDataBatch(
             symbol=symbol,

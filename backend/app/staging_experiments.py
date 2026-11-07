@@ -86,19 +86,36 @@ def create_staging_experiment(worker_id: str, proposal_memory_id: str, payload: 
 
 
 def run_staging_benchmark(worker_id: str, proposal_memory_id: str, payload: dict[str, Any]) -> dict[str, Any]:
-    """Run deterministic offline fixtures as baseline/candidate and persist their metrics."""
+    """Run paired offline fixtures; optionally evaluate a whitelisted config patch.
+
+    Proposal prose is never interpreted as code or configuration. The optional
+    config_patch must be a structured object accepted by the benchmark's explicit
+    quality_config whitelist.
+    """
     if not isinstance(payload, dict):
         raise ValueError("payload must be an object")
+    # Check approval before running any evaluator work.
+    listing = list_improvement_proposals(worker_id, limit=200)
+    proposal = next((item for item in listing["proposals"] if item["memory_id"] == proposal_memory_id), None)
+    if proposal is None:
+        raise ValueError("proposal was not found for this worker")
+    if proposal["review_status"] != "approved_for_staging":
+        raise ValueError("proposal must have latest review status approved_for_staging")
     baseline_cases = payload.get("baseline_cases")
     candidate_cases = payload.get("candidate_cases")
     reviewer = payload.get("reviewer")
     notes = payload.get("notes", "")
+    config_patch = payload.get("config_patch")
+    if config_patch is not None and not isinstance(config_patch, dict):
+        raise ValueError("config_patch must be a structured object")
     if not isinstance(reviewer, str) or not reviewer.strip() or len(reviewer) > 120:
         raise ValueError("reviewer must be a non-empty string up to 120 characters")
     if not isinstance(notes, str) or len(notes) > 2000:
         raise ValueError("notes must be a string up to 2000 characters")
+    # Baseline uses the default evaluator. Candidate uses only the explicit
+    # whitelisted config patch; no proposal text is parsed.
     baseline_result = run_offline_research_benchmark(baseline_cases)
-    candidate_result = run_offline_research_benchmark(candidate_cases)
+    candidate_result = run_offline_research_benchmark(candidate_cases, quality_config=config_patch)
     metric_names = ("claim_reference_coverage", "known_source_reference_coverage")
     baseline_metrics = {name: baseline_result["aggregate_metrics"][name]["mean"]
                         for name in metric_names}
@@ -147,6 +164,8 @@ def run_staging_benchmark(worker_id: str, proposal_memory_id: str, payload: dict
             "baseline_case_count": baseline_result["case_count"],
             "candidate_case_count": candidate_result["case_count"],
             "benchmark_type": "offline_research_traceability",
+            "config_patch": candidate_result["quality_config"],
+            "config_patch_mode": "whitelisted_evaluator_config_only",
             "metric_names": list(metric_names),
             "paired_case_metrics": paired_metrics,
             "paired_case_summary": paired_summary,

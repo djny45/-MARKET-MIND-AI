@@ -7,6 +7,7 @@ scheduler or continuously running autonomous agent.
 from __future__ import annotations
 
 import json
+from contextlib import contextmanager
 import os
 import sqlite3
 import uuid
@@ -21,35 +22,45 @@ from .research_quality_eval import evaluate_research_draft
 MAX_TASK_INPUT_CHARS = 10000
 TASK_TYPE = "research_brief"
 
+@contextmanager
 def _connect():
+    """Yield an initialized SQLite connection and always close it after use.
+
+    sqlite3.Connection's context manager commits/rolls back but does not close
+    the connection; explicitly closing here prevents request/task connection leaks.
+    """
     path = Path(os.getenv("MARKET_MIND_DB", "./data/market_mind.db"))
     path.parent.mkdir(parents=True, exist_ok=True)
     db = sqlite3.connect(path, timeout=10)
-    db.row_factory = sqlite3.Row
-    db.execute("""CREATE TABLE IF NOT EXISTS analytical_agent_tasks (
-        task_id TEXT PRIMARY KEY, worker_id TEXT NOT NULL, task_type TEXT NOT NULL,
-        status TEXT NOT NULL, input_json TEXT NOT NULL, result_json TEXT NOT NULL,
-        brain_context_sha256 TEXT NOT NULL, created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-    )""")
-    db.execute("CREATE INDEX IF NOT EXISTS idx_agent_tasks_agent_time ON analytical_agent_tasks(worker_id,created_at)")
-    db.execute("""CREATE TABLE IF NOT EXISTS analytical_agent_task_events (
-        event_id INTEGER PRIMARY KEY AUTOINCREMENT, task_id TEXT NOT NULL,
-        worker_id TEXT NOT NULL, event_type TEXT NOT NULL,
-        from_status TEXT, to_status TEXT, occurred_at TEXT NOT NULL,
-        detail_json TEXT NOT NULL DEFAULT '{}'
-    )""")
-    db.execute("CREATE INDEX IF NOT EXISTS idx_agent_task_events_task_time ON analytical_agent_task_events(task_id,event_id)")
-    db.execute("""CREATE TABLE IF NOT EXISTS research_quality_evaluations (
-        evaluation_id INTEGER PRIMARY KEY AUTOINCREMENT,
-        task_id TEXT NOT NULL UNIQUE,
-        worker_id TEXT NOT NULL,
-        evaluation_json TEXT NOT NULL,
-        created_at TEXT NOT NULL,
-        FOREIGN KEY(task_id) REFERENCES analytical_agent_tasks(task_id)
-    )""")
-    db.execute("CREATE INDEX IF NOT EXISTS idx_quality_eval_worker_time ON research_quality_evaluations(worker_id,created_at)")
-    return db
+    try:
+        db.row_factory = sqlite3.Row
+        db.execute("""CREATE TABLE IF NOT EXISTS analytical_agent_tasks (
+            task_id TEXT PRIMARY KEY, worker_id TEXT NOT NULL, task_type TEXT NOT NULL,
+            status TEXT NOT NULL, input_json TEXT NOT NULL, result_json TEXT NOT NULL,
+            brain_context_sha256 TEXT NOT NULL, created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )""")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_agent_tasks_agent_time ON analytical_agent_tasks(worker_id,created_at)")
+        db.execute("""CREATE TABLE IF NOT EXISTS analytical_agent_task_events (
+            event_id INTEGER PRIMARY KEY AUTOINCREMENT, task_id TEXT NOT NULL,
+            worker_id TEXT NOT NULL, event_type TEXT NOT NULL,
+            from_status TEXT, to_status TEXT, occurred_at TEXT NOT NULL,
+            detail_json TEXT NOT NULL DEFAULT '{}'
+        )""")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_agent_task_events_task_time ON analytical_agent_task_events(task_id,event_id)")
+        db.execute("""CREATE TABLE IF NOT EXISTS research_quality_evaluations (
+            evaluation_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            task_id TEXT NOT NULL UNIQUE,
+            worker_id TEXT NOT NULL,
+            evaluation_json TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY(task_id) REFERENCES analytical_agent_tasks(task_id)
+        )""")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_quality_eval_worker_time ON research_quality_evaluations(worker_id,created_at)")
+        with db:
+            yield db
+    finally:
+        db.close()
 
 def _persist_quality_evaluation(task_id: str, worker_id: str, evaluation: dict) -> None:
     """Store one task-linked traceability evaluation; idempotent per task."""

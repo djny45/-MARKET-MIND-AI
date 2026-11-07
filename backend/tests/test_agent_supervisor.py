@@ -43,6 +43,7 @@ class AgentSupervisorTests(unittest.TestCase):
         self.assertEqual(result["max_concurrency"], 1)
         task = get_research_task(queued["task_id"])
         self.assertEqual(task["status"], "completed")
+        self.assertEqual(task["execution_attempts"], 1)
 
     def test_duplicate_dispatch_claims_task_only_once(self):
         queued = enqueue_research_task("worker_004", "duplicate dispatch sample")
@@ -53,7 +54,14 @@ class AgentSupervisorTests(unittest.TestCase):
                 for future in futures:
                     future.result()
             self.assertEqual(synthesize.call_count, 1)
-        self.assertEqual(get_research_task(queued["task_id"])["status"], "completed")
+        task = get_research_task(queued["task_id"])
+        self.assertEqual(task["status"], "completed")
+        self.assertEqual(task["execution_attempts"], 1)
+
+    def test_queued_task_has_zero_execution_attempts_before_dispatch(self):
+        queued = enqueue_research_task("worker_007", "attempt telemetry")
+        task = get_research_task(queued["task_id"])
+        self.assertEqual(task["execution_attempts"], 0)
 
     def test_recovery_requeues_interrupted_tasks_without_dispatch(self):
         queued = enqueue_research_task("worker_002", "recover sample")

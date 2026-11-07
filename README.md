@@ -494,6 +494,12 @@ The staging config-evaluation record now includes a deterministic quality gate:
 
 This is a fixture-based eligibility signal only. **It never auto-approves, merges, deploys, trains, or trades.** Human review remains required, and coverage gains do not establish truth or market performance.
 
+### Repeatability report (exact fixture/config reruns)
+
+Use `GET /api/workers/{worker_id}/staging-experiments/repeatability?limit=200&min_trials=3` to group repeated experiments by proposal, exact baseline/candidate benchmark fingerprints, and canonical evaluator config. It reports trial counts, gate-status counts, metric delta sign counts, and whether gate status was uniform or mixed. The minimum is 2–20 trials (default 3). Groups below the threshold are omitted from the report and counted separately.
+
+This is a descriptive consistency check, **not** a test on independent datasets: exact fixture repeats may simply reproduce the same cases. It does not establish statistical significance, causality, predictive skill, or trading performance.
+
 ### Staging experiment history summary
 
 A descriptive history endpoint is available:

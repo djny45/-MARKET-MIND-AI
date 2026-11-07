@@ -48,6 +48,22 @@ class ResearchQualityEvalTests(unittest.TestCase):
         self.assertEqual(metrics["duplicate_source_id_count"], 1)
         self.assertEqual(metrics["duplicate_source_ids"], ["src-1"])
 
+
+    def test_reports_source_registry_entries_without_ids(self):
+        result = evaluate_research_draft(
+            draft="Source registry includes an entry without an identifier.",
+            claims=[{"text": "Claim", "source_refs": ["src-1"]}],
+            source_registry=[
+                {"source_id": "src-1", "title": "Identified source"},
+                {"title": "Missing identifier"},
+                {"source_id": "   ", "title": "Blank identifier"},
+            ],
+        )
+        metrics = result["metrics"]
+        self.assertEqual(metrics["source_registry_count"], 1)
+        self.assertEqual(metrics["source_registry_entries_without_id_count"], 2)
+        self.assertEqual(metrics["known_source_reference_coverage"], 1.0)
+
     def test_empty_claim_set_has_null_coverage(self):
         result = evaluate_research_draft(draft="No claims.", claims=[], source_registry=[])
         self.assertIsNone(result["metrics"]["claim_reference_coverage"])

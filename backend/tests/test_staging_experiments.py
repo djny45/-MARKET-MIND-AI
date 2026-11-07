@@ -79,6 +79,34 @@ class StagingExperimentTests(unittest.TestCase):
         saved = list_staging_experiments("worker_001")["experiments"][0]
         self.assertIn("candidate_benchmark_id", saved["content"]["benchmark_runs"])
 
+    def test_staging_record_contains_stable_paired_case_id_digest(self):
+        import hashlib
+        import json
+
+        review_improvement_proposal("worker_001", self.proposal["memory_id"],
+                                    "approved_for_staging", "reviewer")
+        baseline = [
+            {"case_id": "fixture-z", "draft": "Evidence z",
+             "claims": [{"text": "Claim z", "source_refs": ["known"]}],
+             "source_registry": [{"source_id": "known"}]},
+            {"case_id": "fixture-a", "draft": "Evidence a",
+             "claims": [{"text": "Claim a", "source_refs": ["known"]}],
+             "source_registry": [{"source_id": "known"}]},
+        ]
+        candidate = [dict(case) for case in baseline]
+        result = run_staging_benchmark("worker_001", self.proposal["memory_id"], {
+            "baseline_cases": baseline,
+            "candidate_cases": candidate,
+            "reviewer": "reviewer",
+        })
+        expected = hashlib.sha256(
+            json.dumps(["fixture-a", "fixture-z"], separators=(",", ":"),
+                       ensure_ascii=True).encode("utf-8")
+        ).hexdigest()
+        runs = result["content"]["benchmark_runs"]
+        self.assertEqual(runs["paired_case_id_sha256"], expected)
+        self.assertIn("case IDs only", runs["paired_case_id_fingerprint_note"])
+
     def test_paired_case_comparison_records_metric_deltas_and_regressions(self):
         review_improvement_proposal('worker_001', self.proposal['memory_id'],
                                     'approved_for_staging', 'reviewer')

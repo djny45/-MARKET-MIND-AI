@@ -358,6 +358,24 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertEqual(events[0]["to_status"], "running")
         self.assertEqual(events[-1]["to_status"], result["status"])
 
+    def test_manual_dispatch_executor_exception_is_audited_without_error_message(self):
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, dispatch_queued_research_tasks, list_task_audit_events,
+        )
+
+        queued = enqueue_research_task("worker_010", "dispatch exception audit")
+        with patch(
+            "app.analytical_agent_tasks.execute_queued_research_task",
+            side_effect=RuntimeError("contains potentially sensitive details"),
+        ):
+            dispatch_queued_research_tasks(limit=1, max_concurrency=1)
+
+        events = list_task_audit_events(queued["task_id"])["events"]
+        dispatch_errors = [event for event in events if event["event_type"] == "task_dispatch_error"]
+        self.assertEqual(len(dispatch_errors), 1)
+        self.assertEqual(dispatch_errors[0]["detail"]["error_type"], "RuntimeError")
+        self.assertNotIn("potentially sensitive", str(dispatch_errors[0]["detail"]))
+
     def test_manual_dispatch_reports_executor_exceptions_separately(self):
         from app.analytical_agent_tasks import enqueue_research_task, dispatch_queued_research_tasks
 

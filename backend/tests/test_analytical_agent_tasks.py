@@ -346,6 +346,29 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertEqual(events[0]["to_status"], "running")
         self.assertEqual(events[-1]["to_status"], result["status"])
 
+    def test_manual_dispatch_reports_failed_task_outcomes(self):
+        import sqlite3
+        from app.analytical_agent_tasks import enqueue_research_task, dispatch_queued_research_tasks
+
+        queued = enqueue_research_task("worker_010", "dispatch failure outcome")
+
+        def fail_task(task_id):
+            with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+                db.execute(
+                    "UPDATE analytical_agent_tasks SET status='failed' WHERE task_id=?",
+                    (task_id,),
+                )
+            return True
+
+        with patch("app.analytical_agent_tasks.execute_queued_research_task", side_effect=fail_task):
+            result = dispatch_queued_research_tasks(limit=1, max_concurrency=1)
+
+        self.assertEqual(result["failed_task_count"], 1)
+        self.assertEqual(result["task_status_counts"]["failed"], 1)
+        self.assertEqual(result["status"], "completed_with_failures")
+        self.assertEqual(result["selected"], 1)
+        self.assertEqual(result["dispatched"], 1)
+
     def test_manual_dispatch_records_selection_and_completion(self):
         from app.analytical_agent_tasks import (
             enqueue_research_task, dispatch_queued_research_tasks, list_task_audit_events,

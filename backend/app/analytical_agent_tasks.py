@@ -457,7 +457,8 @@ def dispatch_queued_research_tasks(limit: int = 50, max_concurrency: int = 4) ->
         ).fetchall()
     task_ids = [row["task_id"] for row in rows]
     if not task_ids:
-        return {"selected": 0, "dispatched": 0, "max_concurrency": max_concurrency,
+        return {"selected": 0, "dispatched": 0, "task_status_counts": {},
+                "failed_task_count": 0, "max_concurrency": max_concurrency,
                 "status": "idle", "task_ids": []}
     dispatch_id = str(uuid.uuid4())
     selected_at = datetime.now(timezone.utc).isoformat()

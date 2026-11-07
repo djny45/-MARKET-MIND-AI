@@ -24,11 +24,13 @@ The system remains a **single shared intelligence core**. Worker/profile identit
 
 - `backend/app/open_source_intake.py`: canonical GitHub repository URL validation and a structured intake plan.
 - `POST /api/open-source/intake`: creates a review checklist for a candidate source.\n- `POST /api/open-source/crawl-metadata`: fetches bounded GitHub repository metadata and pins the default-branch commit SHA.
+- `backend/app/github_repository_tree.py`: inventories paths and file metadata from the pinned Git tree, classifies source/docs/license/dependency filenames, and reports the commit SHA.
+- `POST /api/open-source/scan-tree`: returns a bounded repository manifest (up to 20,000 entries) without retrieving source contents.
 - Intake currently **does not fetch, clone, execute, copy, install, or merge** third-party code.
 - Unknown or merely declared licenses do not authorize reuse.
 - Unit and API regression tests cover URL validation and default-deny behavior.
 
-The first metadata-only crawler is now implemented. It is not yet a full repository crawler: it does not enumerate source trees, download source files, inspect dependencies, or adapt code.
+The metadata and tree-manifest stages are now implemented. This is still not a source-content crawler: it does not download README/license/dependency file contents, inspect dependency versions or source semantics, or adapt code. A truncated tree is rejected rather than presented as complete.
 
 ## Proposed execution pipeline
 
@@ -71,8 +73,9 @@ The first metadata-only crawler is now implemented. It is not yet a full reposit
 ### M1 — Repository crawler and mapper
 - [x] Basic GitHub REST metadata adapter with fixed API host and URL validation
 - [ ] GitHub API request budget, pagination cap, and durable cache
-- [ ] Repository tree manifest and file-type allowlist
-- [ ] README/docs extraction and dependency inventory
+- [x] Pinned GitHub tree manifest and basic file-type classification (path metadata only)
+- [x] Dependency-manifest filename inventory (contents not yet inspected)
+- [ ] README/docs content extraction and dependency/version inventory
 - [ ] Source provenance records and content hashes
 - [ ] Prompt-injection/untrusted-content isolation
 

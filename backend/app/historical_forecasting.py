@@ -97,7 +97,11 @@ def _metrics(actual: list[float], predicted: list[float]) -> dict[str, float]:
                 raise ValueError(f"{name}[{index}] must be finite")
 
     errors = [prediction - target for target, prediction in zip(actual, predicted)]
-    if not all(math.isfinite(error) for error in errors):
+    try:
+        errors_finite = all(math.isfinite(error) for error in errors)
+    except (OverflowError, TypeError):
+        errors_finite = False
+    if not errors_finite:
         raise ValueError("forecast errors must be finite")
     # hypot avoids overflow from squaring large, but finite, error values.
     try:

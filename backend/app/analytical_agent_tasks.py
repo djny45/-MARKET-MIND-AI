@@ -262,9 +262,12 @@ def recover_interrupted_research_tasks(stale_after_seconds: int = 900) -> dict:
 
     A grace period reduces the chance of requeueing work that is still active.
     """
-    if (isinstance(stale_after_seconds, bool) or not isinstance(stale_after_seconds, int)
-            or stale_after_seconds < 1):
-        raise ValueError("stale_after_seconds must be a positive integer")
+    if (
+        isinstance(stale_after_seconds, bool)
+        or not isinstance(stale_after_seconds, int)
+        or not 1 <= stale_after_seconds <= 31_536_000
+    ):
+        raise ValueError("stale_after_seconds must be an integer between 1 and 31536000")
     now_dt = datetime.now(timezone.utc)
     now = now_dt.isoformat()
     cutoff = datetime.fromtimestamp(

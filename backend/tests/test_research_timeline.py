@@ -37,6 +37,12 @@ def test_invalid_limit_rejected():
         build_research_timeline({"bars": sample_bars()}, limit=1001)
 
 
+def test_boolean_limit_rejected():
+    import pytest
+    with pytest.raises(ValueError, match="limit must be between"):
+        build_research_timeline({"bars": sample_bars()}, limit=True)
+
+
 
 def test_timeline_indicator_context_respects_warmup_periods():
     from datetime import datetime, timedelta

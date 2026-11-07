@@ -7,6 +7,19 @@ from app.analytical_agent_tasks import submit_research_task, get_research_task, 
 from app.intelligence_core import synthesize_research
 
 class AnalyticalAgentTaskTests(unittest.TestCase):
+
+    def test_quality_evaluation_foreign_key_rejects_orphan_task(self):
+        import sqlite3
+        from app.analytical_agent_tasks import _connect
+
+        with self.assertRaises(sqlite3.IntegrityError):
+            with _connect() as db:
+                db.execute(
+                    "INSERT INTO research_quality_evaluations "
+                    "(task_id,worker_id,evaluation_json,created_at) VALUES (?,?,?,?)",
+                    ("missing-task-id", "worker_004", "{}", "2026-11-07T00:00:00+00:00"),
+                )
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.env = patch.dict(os.environ, {

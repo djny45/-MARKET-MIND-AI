@@ -334,3 +334,97 @@ def recall_approved_learning_candidates(worker_id, query, limit=5):
         "candidates": selected, "retrieval_mode": "approved_candidate_lexical_overlap",
         "note": "Approved metrics evidence only. Keyword retrieval is not semantic validation; these notes are references, not instructions, verified facts, or model training data.",
     }
+
+
+_PROPOSAL_REVIEW_DECISIONS = {"approved_for_staging", "rejected", "needs_revision"}
+
+
+def review_improvement_proposal(worker_id, proposal_memory_id, decision, reviewer, rationale=""):
+    """Append a human review event for a generated proposal; approval never deploys it."""
+    if worker_id not in _WORKER_IDS:
+        raise ValueError("worker_id must identify a registered worker template")
+    if (not isinstance(proposal_memory_id, str) or not proposal_memory_id.strip()
+            or len(proposal_memory_id) > 64):
+        raise ValueError("proposal_memory_id must be a non-empty identifier of at most 64 characters")
+    if not isinstance(decision, str) or decision not in _PROPOSAL_REVIEW_DECISIONS:
+        raise ValueError("decision must be approved_for_staging, rejected, or needs_revision")
+    if not isinstance(reviewer, str) or not reviewer.strip() or len(reviewer) > 120:
+        raise ValueError("reviewer must be a non-empty string of at most 120 characters")
+    if not isinstance(rationale, str) or len(rationale) > 2000:
+        raise ValueError("rationale must be a string of at most 2000 characters")
+    with _connect() as db:
+        proposal = db.execute(
+            "SELECT memory_type, content_json FROM worker_memory WHERE memory_id=? AND worker_id=?",
+            (proposal_memory_id, worker_id),
+        ).fetchone()
+        if proposal is None:
+            raise ValueError("improvement proposal was not found for this worker")
+        content = json.loads(proposal["content_json"])
+        if proposal["memory_type"] != "method_note" or not isinstance(content.get("update_proposal"), dict):
+            raise ValueError("memory record is not an improvement proposal")
+        review_id = str(uuid.uuid4())
+        created_at = datetime.now(timezone.utc).isoformat()
+        review_content = {
+            "record_type": "improvement_proposal_review",
+            "proposal_memory_id": proposal_memory_id,
+            "decision": decision,
+            "reviewer": reviewer.strip(),
+            "rationale": rationale,
+            "review_boundary": "staging_review_only_no_code_change_no_deployment_no_model_training",
+        }
+        encoded = json.dumps(review_content, ensure_ascii=False, sort_keys=True, allow_nan=False)
+        db.execute(
+            "INSERT INTO worker_memory VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (review_id, worker_id, "method_note", created_at,
+             json.dumps([f"improvement_proposal:{proposal_memory_id}"]), "partial", encoded),
+        )
+    return {
+        "memory_id": review_id, "worker_id": worker_id, "memory_type": "method_note",
+        "created_at": created_at, "source_refs": [f"improvement_proposal:{proposal_memory_id}"],
+        "quality_status": "partial", "content": review_content,
+        "storage_mode": "append_only_evidence_notes",
+    }
+
+
+def list_improvement_proposals(worker_id, limit=50):
+    """List bounded generated proposals and derive latest review from append-only events."""
+    if worker_id not in _WORKER_IDS:
+        raise ValueError("worker_id must identify a registered worker template")
+    if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 200:
+        raise ValueError("limit must be between 1 and 200")
+    with _connect() as db:
+        rows = db.execute(
+            "SELECT * FROM worker_memory WHERE worker_id=? AND memory_type='method_note' "
+            "ORDER BY created_at DESC LIMIT 2000", (worker_id,),
+        ).fetchall()
+    proposals, reviews = {}, {}
+    for row in rows:
+        content = json.loads(row["content_json"])
+        proposal = content.get("update_proposal")
+        if isinstance(proposal, dict):
+            proposals[row["memory_id"]] = {
+                "memory_id": row["memory_id"], "worker_id": worker_id,
+                "created_at": row["created_at"], "quality_status": row["quality_status"],
+                "source_refs": json.loads(row["source_refs_json"]), "proposal": proposal,
+                "review_status": "pending_review", "latest_review": None, "review_history": [],
+            }
+        elif content.get("record_type") == "improvement_proposal_review":
+            proposal_id = content.get("proposal_memory_id")
+            if isinstance(proposal_id, str):
+                reviews.setdefault(proposal_id, []).append({
+                    "memory_id": row["memory_id"], "created_at": row["created_at"],
+                    "decision": content.get("decision"), "reviewer": content.get("reviewer"),
+                    "rationale": content.get("rationale", ""),
+                })
+    for proposal_id, item in proposals.items():
+        history = sorted(reviews.get(proposal_id, []), key=lambda entry: entry["created_at"])
+        if history:
+            item["review_history"] = history
+            item["latest_review"] = history[-1]
+            item["review_status"] = history[-1]["decision"]
+    selected = sorted(proposals.values(), key=lambda item: item["created_at"], reverse=True)[:limit]
+    return {
+        "worker_id": worker_id, "count": len(selected), "proposals": selected,
+        "limit": limit, "scan_limit": 2000,
+        "note": "Review events are append-only. approved_for_staging is not authorization to modify code, deploy, train, or change trading strategy.",
+    }

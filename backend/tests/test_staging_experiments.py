@@ -79,6 +79,32 @@ class StagingExperimentTests(unittest.TestCase):
         saved = list_staging_experiments("worker_001")["experiments"][0]
         self.assertIn("candidate_benchmark_id", saved["content"]["benchmark_runs"])
 
+    def test_paired_case_comparison_records_metric_deltas_and_regressions(self):
+        review_improvement_proposal('worker_001', self.proposal['memory_id'],
+                                    'approved_for_staging', 'reviewer')
+        result = run_staging_benchmark('worker_001', self.proposal['memory_id'], {
+            'baseline_cases': self._benchmark_cases('known'),
+            'candidate_cases': self._benchmark_cases('missing'),
+            'reviewer': 'reviewer',
+        })
+        paired = result['content']['benchmark_runs']
+        self.assertEqual(paired['paired_case_summary']['paired_case_count'], 1)
+        self.assertEqual(paired['paired_case_summary']['regression_count'], 1)
+        delta = paired['paired_case_metrics']['fixture-one']['known_source_reference_coverage']['delta']
+        self.assertEqual(delta, -1.0)
+
+    def test_paired_benchmark_rejects_different_case_ids(self):
+        review_improvement_proposal('worker_001', self.proposal['memory_id'],
+                                    'approved_for_staging', 'reviewer')
+        baseline = self._benchmark_cases()
+        candidate = self._benchmark_cases()
+        candidate[0]['case_id'] = 'different-case'
+        with self.assertRaisesRegex(ValueError, 'same case_id'):
+            run_staging_benchmark('worker_001', self.proposal['memory_id'], {
+                'baseline_cases': baseline, 'candidate_cases': candidate,
+                'reviewer': 'reviewer',
+            })
+
     def test_fixture_benchmark_still_requires_approved_proposal(self):
         with self.assertRaisesRegex(ValueError, "approved_for_staging"):
             run_staging_benchmark("worker_001", self.proposal["memory_id"], {

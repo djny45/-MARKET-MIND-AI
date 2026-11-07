@@ -307,6 +307,21 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertEqual(events[-1]["event_type"], "task_failed")
         self.assertEqual(events[-1]["to_status"], "failed")
 
+    def test_dispatch_reports_failed_task_outcomes(self):
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, dispatch_queued_research_tasks,
+        )
+        queued = enqueue_research_task("worker_019", "dispatch failure outcome")
+        with patch("app.analytical_agent_tasks.synthesize_research",
+                   side_effect=RuntimeError("research provider failed")):
+            result = dispatch_queued_research_tasks(limit=1, max_concurrency=1)
+        self.assertEqual(result["selected"], 1)
+        self.assertEqual(result["dispatched"], 1)
+        self.assertEqual(result["task_status_counts"]["failed"], 1)
+        self.assertEqual(result["failed_task_count"], 1)
+        self.assertEqual(get_research_task(queued["task_id"])["status"], "failed")
+
+
 if __name__ == "__main__":
     unittest.main()
 

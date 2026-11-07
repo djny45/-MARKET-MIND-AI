@@ -116,6 +116,31 @@ class AgentSupervisorTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             recover_interrupted_research_tasks(stale_after_seconds=True)
 
+    def test_completed_research_persists_metrics_only_learning_candidate(self):
+        from app.worker_memory import read_memory
+        queued = enqueue_research_task(
+            "worker_009",
+            "traceability evaluation",
+            data={
+                "draft": "Claim summary with source references and limitations.",
+                "claims": [{"text": "Example claim", "source_refs": ["source-a"]}],
+                "source_registry": [{"source_id": "source-a", "title": "Example source"}],
+            },
+        )
+        with patch("app.analytical_agent_tasks.synthesize_research", return_value={
+            "status": "completed", "summary": "Example claim summary"
+        }):
+            execute_queued_research_task(queued["task_id"])
+        task = get_research_task(queued["task_id"])
+        candidate = task["result"]["research_learning_candidate"]
+        self.assertEqual(candidate["status"], "persisted_review_candidate")
+        memories = read_memory("worker_009", memory_type="validation_result")
+        self.assertEqual(memories["count"], 1)
+        note = memories["items"][0]["content"]
+        self.assertEqual(note["record_type"], "research_quality_learning_candidate")
+        self.assertTrue(note["review_required"])
+        self.assertEqual(note["learning_boundary"], "metrics_only_no_claim_truth_or_strategy_learning")
+
     def test_task_performance_includes_attempt_and_failure_class_metrics(self):
         queued = enqueue_research_task("worker_008", "metrics failure")
         with patch("app.analytical_agent_tasks.synthesize_research", side_effect=TimeoutError("request timed out")):

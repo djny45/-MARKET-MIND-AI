@@ -80,6 +80,27 @@ app.add_middleware(
 )
 app.include_router(agent_council_router)
 
+
+def recover_stale_tasks_on_startup():
+ """Best-effort SQLite task recovery at process startup (single-process mode)."""
+ if os.getenv("MARKET_MIND_STARTUP_RECOVERY", "true").strip().lower() in {"0", "false", "no", "off"}:
+  app.state.task_startup_recovery = {"status": "disabled", "requeued_interrupted_count": 0}
+  return app.state.task_startup_recovery
+ try:
+  recovery = recover_interrupted_research_tasks()
+  app.state.task_startup_recovery = {"status": "completed", **recovery}
+ except Exception as exc:
+  # Recovery must not prevent the research API from starting. Keep only the
+  # exception class in the status snapshot; do not expose internal details.
+  app.state.task_startup_recovery = {
+   "status": "failed", "error_type": type(exc).__name__,
+   "requeued_interrupted_count": 0,
+  }
+ return app.state.task_startup_recovery
+
+
+app.add_event_handler("startup", recover_stale_tasks_on_startup)
+
 class SaveWorkflowRequest(BaseModel):
  title: str = Field(min_length=1,max_length=120)
  description: str = Field(default="",max_length=500)

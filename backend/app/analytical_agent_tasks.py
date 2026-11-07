@@ -514,13 +514,22 @@ def agent_supervisor_status() -> dict:
     unknown_status_count = sum(count for state, count in counts.items() if state not in known_states)
     # This is a database snapshot, not a live worker probe. Failed or unrecognized
     # persisted states should not be reported as healthy.
-    supervisor_status = "attention_required" if counts.get("failed", 0) or unknown_status_count else "healthy"
+    attention_reasons = []
+    if counts.get("failed", 0):
+        attention_reasons.append("failed_tasks_present")
+    if unknown_status_count:
+        attention_reasons.append("unknown_task_states_present")
+    supervisor_status = "attention_required" if attention_reasons else "healthy"
     return {
         "supervisor": "manual_dispatch_supervisor",
         "status": supervisor_status,
         "task_count": total,
         "status_counts": counts,
+        "failed_task_count": counts.get("failed", 0),
+        "running_task_count": counts.get("running", 0),
+        "queued_task_count": counts.get("queued", 0),
         "unknown_status_count": unknown_status_count,
+        "attention_reasons": attention_reasons,
         "registered_agent_count": 550,
         "dispatch_mode": "explicit_bounded_dispatch",
         "continuous_daemon": False,

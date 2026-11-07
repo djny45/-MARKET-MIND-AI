@@ -604,15 +604,6 @@ def get_worker_staging_repeatability(worker_id: str, limit: int = 200, min_trial
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@app.get("/api/workers/{worker_id}/staging-experiments/repeatability")
-def get_worker_staging_repeatability(worker_id: str, limit: int = 200, min_trials: int = 3):
- """Summarize exact repeated fixture/config runs; descriptive only."""
- try:
-  return summarize_repeatability(worker_id, limit, min_trials)
- except ValueError as exc:
-  raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-
 @app.get("/api/workers/{worker_id}/staging-experiments/summary")
 def get_worker_staging_experiment_summary(worker_id: str, limit: int = 100):
  """Summarize recent staging experiments descriptively; does not rank strategies."""

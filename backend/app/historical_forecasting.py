@@ -38,6 +38,13 @@ def _solve_linear_system(matrix: list[list[float]], vector: list[float]) -> list
     n = len(vector)
     if n == 0 or len(matrix) != n or any(len(row) != n for row in matrix):
         raise ValueError("regression system must be a non-empty square matrix")
+    for row_index, row in enumerate(matrix):
+        for col_index, value in enumerate(row):
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+                raise ValueError(f"matrix[{row_index}][{col_index}] must be finite numeric")
+    for index, value in enumerate(vector):
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+            raise ValueError(f"vector[{index}] must be finite numeric")
     augmented = [row[:] + [vector[i]] for i, row in enumerate(matrix)]
     for col in range(n):
         pivot = max(range(col, n), key=lambda row: abs(augmented[row][col]))
@@ -54,7 +61,10 @@ def _solve_linear_system(matrix: list[list[float]], vector: list[float]) -> list
                 value - factor * pivot_value
                 for value, pivot_value in zip(augmented[row], augmented[col])
             ]
-    return [augmented[i][-1] for i in range(n)]
+    solution = [augmented[i][-1] for i in range(n)]
+    if not all(math.isfinite(value) for value in solution):
+        raise ValueError("regression coefficients must be finite")
+    return solution
 
 
 def _fit_ridge(features: list[list[float]], targets: list[float], alpha: float) -> list[float]:

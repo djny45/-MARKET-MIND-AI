@@ -282,12 +282,17 @@ def recover_interrupted_research_tasks(stale_after_seconds: int = 900) -> dict:
         still_running = db.execute(
             "SELECT COUNT(*) FROM analytical_agent_tasks WHERE status='running'"
         ).fetchone()[0]
+        queued_task_count = db.execute(
+            "SELECT COUNT(*) FROM analytical_agent_tasks WHERE status='queued'"
+        ).fetchone()[0]
         queued = db.execute(
-            "SELECT task_id FROM analytical_agent_tasks WHERE status='queued' ORDER BY created_at"
+            "SELECT task_id FROM analytical_agent_tasks WHERE status='queued' ORDER BY created_at LIMIT 100"
         ).fetchall()
     return {
         "requeued_interrupted_count": len(requeued),
+        "queued_task_count": queued_task_count,
         "queued_task_ids": [row["task_id"] for row in queued],
+        "queued_task_ids_truncated": queued_task_count > len(queued),
         "still_running_count": still_running,
         "stale_after_seconds": stale_after_seconds,
         "recovery_mode": "manual_stale_requeue_no_dispatch",

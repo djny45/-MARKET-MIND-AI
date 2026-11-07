@@ -585,5 +585,5 @@ def summarize_research_quality_dashboard(worker_id: str, limit: int = 100) -> di
         },
         "experiments": dashboard_records,
         "limit": limit,
-        "interpretation": "Descriptive audit of saved offline fixture experiments. Provenance is caller-declared; repeatability uses exact fixture/config repeats. This dashboard is not evidence of factual accuracy, independent data, predictive skill, or trading performance.",
+        "interpretation": "Descriptive audit of saved offline fixture experiments. Provenance is caller-declared; repeatability uses exact fixture/config repeats. This dashboard does not validate truth, source independence, predictive skill, or trading performance.",
     }

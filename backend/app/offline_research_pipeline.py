@@ -98,6 +98,17 @@ def build_offline_evidence_bundle(
         if len(timestamp_columns) != 1:
             raise ValueError("dataset must contain exactly one recognized timestamp column")
         timestamp_column = timestamp_columns[0]
+    # Evidence bars reserve these fields for normalized timestamps and
+    # source provenance. Reject collisions rather than silently overwriting
+    # user-supplied CSV values during export.
+    if "source" in frame.columns:
+        raise ValueError("dataset column 'source' conflicts with source provenance")
+    if timestamp_column != "timestamp" and "timestamp" in frame.columns:
+        raise ValueError(
+            "dataset column 'timestamp' conflicts with normalized timestamp "
+            "when a different timestamp_column is selected"
+        )
+
     bars = []
     for row in frame.to_dict(orient="records"):
         timestamp = row.pop(timestamp_column)

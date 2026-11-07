@@ -508,13 +508,19 @@ def agent_supervisor_status() -> dict:
             "SELECT status, COUNT(*) AS count FROM analytical_agent_tasks GROUP BY status"
         ).fetchall()
         total = db.execute("SELECT COUNT(*) FROM analytical_agent_tasks").fetchone()[0]
-    counts = {state: 0 for state in ("queued", "running", "completed", "failed")}
+    known_states = ("queued", "running", "completed", "failed")
+    counts = {state: 0 for state in known_states}
     counts.update({row["status"]: row["count"] for row in rows})
+    unknown_status_count = sum(count for state, count in counts.items() if state not in known_states)
+    # This is a database snapshot, not a live worker probe. Failed or unrecognized
+    # persisted states should not be reported as healthy.
+    supervisor_status = "attention_required" if counts.get("failed", 0) or unknown_status_count else "healthy"
     return {
         "supervisor": "manual_dispatch_supervisor",
-        "status": "healthy",
+        "status": supervisor_status,
         "task_count": total,
         "status_counts": counts,
+        "unknown_status_count": unknown_status_count,
         "registered_agent_count": 550,
         "dispatch_mode": "explicit_bounded_dispatch",
         "continuous_daemon": False,

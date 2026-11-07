@@ -527,3 +527,14 @@ It summarizes recent stored fixture experiments by proposal, quality-gate status
 Groups recorded fixture evaluations by proposal, exact baseline/candidate benchmark fingerprints, and canonicalized evaluator configuration. Groups below the minimum trial count are not presented as repeatability evidence. For eligible groups, the response reports gate-status counts and per-metric positive/negative/zero delta counts.
 
 This is a descriptive consistency check, not statistical significance or independent-data validation. Reusing identical fixtures can reproduce the same bias; it does not establish real-world market skill. No code, model weights, production configuration, or trading behavior is changed.
+
+
+### Consolidated research-quality dashboard
+
+Use `GET /api/workers/{worker_id}/research-quality-dashboard?limit=100` to combine recent offline staging diagnostics in one response:
+- quality-gate status counts and per-experiment aggregate deltas
+- paired case-level regression flags
+- missing declared dataset names/versions and the detailed provenance gap counts
+- exact-fixture repeatability groups (minimum 3 trials)
+
+The dashboard is a convenience view over existing append-only experiment records; it does not run new evaluations. Dataset labels remain caller-declared, repeatability groups may reuse identical fixtures, and regression flags refer only to structural traceability metrics. This endpoint does not establish factual accuracy, source authenticity, independent evidence, market forecasting skill, or trading performance. The dashboard is descriptive and does not automatically approve, train, deploy, or trade.

@@ -90,6 +90,29 @@ class ResearchQualityEvalTests(unittest.TestCase):
             {"title": 0, "url": 0, "source_type": 0, "observed_at": 1},
         )
         self.assertIn("Provenance field presence is not source validation", result["interpretation"])
+        self.assertEqual(metrics["claims_with_complete_source_provenance_refs"], 0)
+        self.assertEqual(metrics["claims_with_incomplete_source_provenance_refs"], 1)
+        self.assertEqual(metrics["incomplete_source_provenance_ids"], ["src-b"])
+        self.assertEqual(
+            result["claims"][0]["reference_status"],
+            "registry_match_incomplete_provenance",
+        )
+
+    def test_duplicate_source_ids_are_provenance_incomplete_if_any_entry_is_incomplete(self):
+        result = evaluate_research_draft(
+            draft="Duplicate source identifiers are ambiguous.",
+            claims=[{"text": "Claim", "source_refs": ["src-x"]}],
+            source_registry=[
+                {"source_id": "src-x", "title": "Complete", "url": "https://example.org/x",
+                 "source_type": "paper", "observed_at": "2026-11-07"},
+                {"source_id": "src-x", "title": "Incomplete"},
+            ],
+        )
+        metrics = result["metrics"]
+        self.assertEqual(metrics["duplicate_source_id_count"], 1)
+        self.assertEqual(metrics["claims_with_known_source_refs"], 1)
+        self.assertEqual(metrics["claims_with_complete_source_provenance_refs"], 0)
+        self.assertEqual(metrics["incomplete_source_provenance_ids"], ["src-x"])
 
     def test_empty_claim_set_has_null_coverage(self):
         result = evaluate_research_draft(draft="No claims.", claims=[], source_registry=[])

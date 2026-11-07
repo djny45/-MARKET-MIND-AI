@@ -4,7 +4,7 @@ import unittest
 from unittest.mock import patch
 
 from app.worker_memory import append_memory, review_improvement_proposal
-from app.staging_experiments import create_staging_experiment, run_staging_benchmark, list_staging_experiments
+from app.staging_experiments import create_staging_experiment, run_staging_benchmark, list_staging_experiments, summarize_staging_experiments
 
 
 class StagingExperimentTests(unittest.TestCase):
@@ -164,6 +164,25 @@ class StagingExperimentTests(unittest.TestCase):
         gate = result["content"]["benchmark_runs"]["quality_gate"]
         self.assertEqual(gate["status"], "eligible_for_human_staging_review")
         self.assertFalse(gate["automatic_approval"])
+
+    def test_history_summary_counts_gate_status_and_metric_deltas(self):
+        review_improvement_proposal("worker_001", self.proposal["memory_id"],
+                                    "approved_for_staging", "reviewer")
+        run_staging_benchmark("worker_001", self.proposal["memory_id"], {
+            "baseline_cases": self._benchmark_cases("missing"),
+            "candidate_cases": self._benchmark_cases("known"),
+            "reviewer": "reviewer",
+        })
+        summary = summarize_staging_experiments("worker_001")
+        self.assertEqual(summary["experiment_count"], 1)
+        self.assertEqual(summary["quality_gate_status_counts"]["eligible_for_human_staging_review"], 1)
+        self.assertIn("known_source_reference_coverage", summary["metric_delta_summary"])
+        self.assertIn("not statistical significance", summary["interpretation"])
+
+    def test_history_summary_rejects_bad_limit(self):
+        with self.assertRaisesRegex(ValueError, "limit"):
+            summarize_staging_experiments("worker_001", 0)
+
 
     def test_quality_gate_blocks_regression_and_validates_threshold(self):
         review_improvement_proposal("worker_001", self.proposal["memory_id"],

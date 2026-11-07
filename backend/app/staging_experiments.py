@@ -342,3 +342,62 @@ def list_staging_experiments(worker_id: str, limit: int = 50) -> dict[str, Any]:
     experiments = experiments[:limit]
     return {"worker_id": worker_id, "count": len(experiments), "experiments": experiments,
             "limit": limit, "note": "Append-only reviewer-supplied metrics records; no execution, training, deployment, or trading."}
+
+def summarize_staging_provenance(worker_id: str, limit: int = 100) -> dict[str, Any]:
+    """Audit declared fixture provenance across stored staging benchmark records."""
+    if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 200:
+        raise ValueError("limit must be between 1 and 200")
+    records = read_memory(worker_id, "validation_result", limit=200)["memory"]
+    experiments = [
+        item for item in records
+        if isinstance(item.get("content"), dict)
+        and item["content"].get("record_type") == "staging_experiment_result"
+        and isinstance(item["content"].get("benchmark_runs"), dict)
+        and "baseline_benchmark_id" in item["content"].get("benchmark_runs", {})
+    ][:limit]
+    missing_counts = {
+        "baseline_fixture_metadata_missing": 0, "candidate_fixture_metadata_missing": 0,
+        "baseline_dataset_name_missing": 0, "candidate_dataset_name_missing": 0,
+        "baseline_dataset_version_missing": 0, "candidate_dataset_version_missing": 0,
+    }
+    audit_records = []
+    for item in experiments:
+        content = item["content"]
+        runs = content["benchmark_runs"]
+        base = runs.get("baseline_provenance", {})
+        candidate = runs.get("candidate_provenance", {})
+        base = base if isinstance(base, dict) else {}
+        candidate = candidate if isinstance(candidate, dict) else {}
+        base_meta = base.get("fixture_metadata", {})
+        candidate_meta = candidate.get("fixture_metadata", {})
+        base_meta = base_meta if isinstance(base_meta, dict) else {}
+        candidate_meta = candidate_meta if isinstance(candidate_meta, dict) else {}
+        checks = (
+            ("baseline_fixture_metadata_missing", bool(base_meta)),
+            ("candidate_fixture_metadata_missing", bool(candidate_meta)),
+            ("baseline_dataset_name_missing", bool(base_meta.get("dataset_name"))),
+            ("candidate_dataset_name_missing", bool(candidate_meta.get("dataset_name"))),
+            ("baseline_dataset_version_missing", bool(base_meta.get("dataset_version"))),
+            ("candidate_dataset_version_missing", bool(candidate_meta.get("dataset_version"))),
+        )
+        for key, present in checks:
+            if not present:
+                missing_counts[key] += 1
+        audit_records.append({
+            "memory_id": item.get("memory_id"),
+            "proposal_memory_id": content.get("proposal_memory_id"),
+            "benchmark_id": content.get("benchmark_id"),
+            "evaluator_version": runs.get("evaluator_version"),
+            "baseline": {"benchmark_id": runs.get("baseline_benchmark_id"),
+                         "fixture_origin": base.get("fixture_origin", "legacy_or_missing"),
+                         "fixture_metadata": base_meta, "metadata_present": bool(base_meta)},
+            "candidate": {"benchmark_id": runs.get("candidate_benchmark_id"),
+                          "fixture_origin": candidate.get("fixture_origin", "legacy_or_missing"),
+                          "fixture_metadata": candidate_meta, "metadata_present": bool(candidate_meta)},
+        })
+    return {
+        "worker_id": worker_id, "record_count": len(audit_records),
+        "records": audit_records, "missing_provenance_counts": missing_counts,
+        "interpretation": "Audits caller-declared metadata only. Missing labels do not prove bad data; present labels do not authenticate sources. Older records may predate provenance fields.",
+        "limit": limit,
+    }

@@ -33,13 +33,16 @@ This roadmap is a plan, not a claim that features already exist. Mark an item co
 - [x] Add descriptive weekday/calendar-month seasonality analytics with sample-size limitations.
 - [ ] Add fundamentals, filings, news, and macro research panels.
 - [ ] Add source-cited research reports and exportable methodology notes.
-- [ ] Add historical evaluation framework with bias and data-quality checks.\n  - [x] Add a research-only binary classification metric summary (confusion matrix, accuracy, precision, recall, specificity, balanced accuracy, F1, class prevalence) and majority-class baseline comparison;
-- [x] Add split-level binary research evaluation aggregation with per-split metrics, pooled metrics, and fold variability; this is metric aggregation only, not evidence of model performance; metrics operate only on caller-supplied labels/predictions.\n  - [x] Add a research-only dataset metadata gate (source/symbol/timeframe, timezone-aware date range, sample count, missing fraction, synthetic-data flag); this does not inspect underlying bars or establish evaluation validity.
+- [ ] Add historical evaluation framework with bias and data-quality checks.
+  - [x] Add a research-only binary classification metric summary (confusion matrix, accuracy, precision, recall, specificity, balanced accuracy, F1, class prevalence) and majority-class baseline comparison;
+- [x] Add split-level binary research evaluation aggregation with per-split metrics, pooled metrics, and fold variability; this is metric aggregation only, not evidence of model performance; metrics operate only on caller-supplied labels/predictions.
+  - [x] Add a research-only dataset metadata gate (source/symbol/timeframe, timezone-aware date range, sample count, missing fraction, synthetic-data flag); this does not inspect underlying bars or establish evaluation validity.
 
 ## Phase 4 — Intelligence and workflow canvas
 - [ ] Define complete typed specialist-worker input/output contracts.
 - [x] Add versioned v1.0.0 contract definitions and runtime shape validation for all 10 currently supported workflow node types; detailed domain schemas and mandatory provenance enforcement remain pending.
-- [ ] Build central research orchestrator with model-backed inference and evidence-grounded synthesis.\n- [x] Add an optional single-core local Ollama provider boundary (loopback-only, disabled by default, bounded synthesis input, timeout/failure fallback and status API); initial orchestrator integration is now connected; evidence-citation prompts, human approval and model-backed integration tests remain pending.
+- [ ] Build central research orchestrator with model-backed inference and evidence-grounded synthesis.
+- [x] Add an optional single-core local Ollama provider boundary (loopback-only, disabled by default, bounded synthesis input, timeout/failure fallback and status API); initial orchestrator integration is now connected; evidence-citation prompts, human approval and model-backed integration tests remain pending.
 - [x] Implement initial deterministic shared-core orchestration API with worker result aggregation, contract references, registry integrity gate and consolidated descriptive report; model-backed inference and source-provenance attachment remain pending.
 - [x] Add initial shared-core worker registry and deterministic routing for supported workflow node types.
 - [ ] Add worker registry versioning and a broader evaluation suite.
@@ -50,7 +53,8 @@ This roadmap is a plan, not a claim that features already exist. Mark an item co
 Current boundary: worker routing invokes existing deterministic Python handlers. The 550 profiles are not independent models. Optional Ollama is a single shared, loopback-only summarization provider and is disabled by default; autonomous self-learning and brokerage execution remain disabled.
 - [x] Add per-agent brain-context specifications for all 550 worker identities, including distinct specialization, memory namespace, context hash, and shared-core provider topology.
 - [x] Add evaluated-feedback capture per worker and governed self-update proposals; updates remain pending review and require tests/rollback, with no autonomous model-weight training.
-- [x] Implement bounded research-task execution with shared-core synthesis, per-agent context/memory, SQLite lifecycle persistence, quality-evaluation traceability, audit events, explicit dispatch, stale-task recovery, and supervisor reporting.\n- [ ] Add source retrieval with provenance-aware evidence grounding; current tasks use supplied data only.
+- [x] Implement bounded research-task execution with shared-core synthesis, per-agent context/memory, SQLite lifecycle persistence, quality-evaluation traceability, audit events, explicit dispatch, stale-task recovery, and supervisor reporting.
+- [ ] Add source retrieval with provenance-aware evidence grounding; current tasks use supplied data only.
 - [ ] Implement autonomous research scheduling and cloud workspaces (currently not implemented).
 - [ ] Implement evaluated learning loop with benchmark datasets, quality metrics, regression gates, and reviewed promotion of approved agent configuration changes.
 - [ ] Build visual node-based research workflows.

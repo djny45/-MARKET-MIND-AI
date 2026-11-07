@@ -488,8 +488,9 @@ def dispatch_queued_research_tasks(limit: int = 50, max_concurrency: int = 4) ->
         for future in as_completed(futures):
             task_id = futures[future]
             try:
-                future.result()
-                completed.append(task_id)
+                claimed = future.result()
+                if claimed:
+                    completed.append(task_id)
             except Exception:
                 # One task failure must not interrupt dispatch of sibling tasks.
                 continue

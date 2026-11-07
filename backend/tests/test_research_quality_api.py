@@ -152,6 +152,15 @@ class ResearchQualityApiTests(unittest.TestCase):
         self.assertEqual(bundle["export_type"], "offline_staging_audit_bundle")
         self.assertEqual(bundle["dashboard"]["experiment_count"], 0)
         self.assertTrue(bundle["limitations"])
+        import hashlib
+        integrity = bundle.pop("integrity")
+        canonical = json.dumps(bundle, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False)
+        self.assertEqual(integrity["algorithm"], "sha256")
+        self.assertEqual(
+            integrity["canonical_bundle_sha256"],
+            hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
+        )
+        self.assertEqual(integrity["authentication"], "not_provided")
 
 
     def test_staging_audit_export_rejects_unknown_worker(self):

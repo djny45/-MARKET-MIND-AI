@@ -787,6 +787,38 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertEqual(events[-1]["event_type"], "task_failed")
         self.assertEqual(events[-1]["to_status"], "failed")
 
+    def test_idle_dispatch_has_same_contract_metadata(self):
+        from app.analytical_agent_tasks import dispatch_queued_research_tasks
+        result = dispatch_queued_research_tasks(limit=1, max_concurrency=1)
+        self.assertEqual(result["status"], "idle")
+        self.assertEqual(result["dispatch_mode"], "bounded_process_local_queue_snapshot")
+        self.assertIn("No queued tasks", result["note"])
+
+    def test_dispatch_audit_write_failure_does_not_abort_future_collection(self):
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, dispatch_queued_research_tasks,
+        )
+        from app import analytical_agent_tasks
+
+        queued = enqueue_research_task("worker_021", "audit write failure")
+        original_record_event = analytical_agent_tasks._record_event
+
+        def fail_only_dispatch_error(db, task_id, worker_id, event_type, **kwargs):
+            if event_type == "task_dispatch_error":
+                raise RuntimeError("audit storage unavailable")
+            return original_record_event(db, task_id, worker_id, event_type, **kwargs)
+
+        with patch("app.analytical_agent_tasks.execute_queued_research_task",
+                   side_effect=RuntimeError("executor failure")), patch(
+                       "app.analytical_agent_tasks._record_event",
+                       side_effect=fail_only_dispatch_error):
+            result = dispatch_queued_research_tasks(limit=1, max_concurrency=1)
+
+        self.assertEqual(result["dispatch_error_count"], 1)
+        self.assertEqual(result["dispatch_audit_write_failure_count"], 1)
+        self.assertEqual(result["dispatch_audit_write_failure_task_ids"], [queued["task_id"]])
+        self.assertEqual(result["status"], "completed_with_dispatch_errors")
+
     def test_dispatch_reports_failed_task_outcomes(self):
         from app.analytical_agent_tasks import (
             enqueue_research_task, dispatch_queued_research_tasks,

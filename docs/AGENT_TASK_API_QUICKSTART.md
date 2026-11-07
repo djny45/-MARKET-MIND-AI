@@ -60,7 +60,7 @@ Research and historical analysis only. No broker credentials, live order placeme
 ## Validation checklist
 
 - Test queued/running/completed/failed display states.
-- Handle 400 validation errors and 404 unknown task/worker/skill IDs.
+- Handle 422 request-model validation errors; 400 service validation errors (including unknown worker IDs on task submit/queue); and 404 unknown task/skill IDs or worker IDs on endpoints that explicitly return 404.
 - Handle API unavailable/timeouts without claiming the task completed.
 - Keep existing task/audit IDs and source metadata intact.
 - Run backend tests and frontend build; report actual outcomes and commit SHA.

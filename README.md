@@ -464,6 +464,8 @@ A reproducible fixture-based route is also available:
 
 This route is still offline and fixture-only. It does not fetch market data or execute proposal code. The benchmark measures source-reference structure only; it is not a truth, forecasting, or trading-performance test.
 
+The benchmark now also returns `fixture_overlap`, a lexical audit over draft and claim text plus source-ID reuse. It reports pairwise token Jaccard similarity (threshold 0.5) and shared source references/registry IDs. Treat these as review flags only: common wording may trigger them, and paraphrases may be missed. This is not semantic analysis and cannot establish leakage or independence.
+
 The benchmark also emits `fixture_diversity`: it hashes each case's draft, claims, and source registry and flags exact-content duplicates across different case IDs. This helps prevent duplicated examples from being mistaken for a diverse fixture set. It does not detect paraphrases or semantic overlap and does not establish independent evidence.
 
 The offline staging benchmark now also pairs baseline and candidate fixtures by exact `case_id`, stores per-case deltas for both traceability coverage metrics, and flags case-level decreases. Mismatched case sets are rejected instead of comparing unrelated samples. These are structural regression diagnostics only; they do not assess truth, predictive ability, or trading performance.

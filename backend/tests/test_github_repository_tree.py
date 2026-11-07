@@ -2,7 +2,6 @@
 import json
 
 import httpx
-import pytest
 
 from app.github_repository_tree import scan_repository_tree
 from app.github_repository_crawler import GitHubCrawlerError
@@ -60,14 +59,14 @@ def test_scan_tree_pins_commit_and_classifies_manifest_paths():
 def test_scan_tree_rejects_truncated_manifest():
     client = _client({"sha": "tree-sha", "truncated": True, "tree": []})
     try:
-        with pytest.raises(GitHubCrawlerError, match="truncated"):
+        with unittest.TestCase().assertRaisesRegex(GitHubCrawlerError, "truncated"):
             scan_repository_tree("https://github.com/acme/demo", client=client)
     finally:
         client.close()
 
 
 def test_scan_tree_rejects_non_github_repository_url():
-    with pytest.raises(ValueError):
+    with unittest.TestCase().assertRaises(ValueError):
         scan_repository_tree("https://github.com.evil.example/acme/demo")
 
 
@@ -81,7 +80,7 @@ def test_scan_tree_rejects_entry_over_limit():
                  for i in range(MAX_TREE_ENTRIES + 1)],
     })
     try:
-        with pytest.raises(GitHubCrawlerError, match="entry limit"):
+        with unittest.TestCase().assertRaisesRegex(GitHubCrawlerError, "entry limit"):
             scan_repository_tree("https://github.com/acme/demo", client=client)
     finally:
         client.close()

@@ -14,12 +14,16 @@ def find_swing_points(bars: list[dict], left: int = 2, right: int = 2) -> dict:
             swing_highs.append({
                 "index": index,
                 "timestamp": bars[index].get("timestamp"),
+                "confirmation_index": index + right,
+                "confirmation_timestamp": bars[index + right].get("timestamp"),
                 "price": high,
             })
         if low == min(low_window) and low_window.count(low) == 1:
             swing_lows.append({
                 "index": index,
                 "timestamp": bars[index].get("timestamp"),
+                "confirmation_index": index + right,
+                "confirmation_timestamp": bars[index + right].get("timestamp"),
                 "price": low,
             })
     return {

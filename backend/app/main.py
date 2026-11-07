@@ -20,6 +20,7 @@ from .synthesis_review import build_synthesis_review
 from .research_quality_eval import evaluate_research_draft
 from .skill_catalog import list_skills, load_skill
 from .open_source_intake import build_open_source_intake
+from .github_repository_crawler import fetch_repository_metadata, GitHubCrawlerError
 from .landing_page_builder import build_landing_page
 from .markets import market_catalog
 from .instruments import search_instruments
@@ -740,6 +741,17 @@ def workers(department: str | None = None, limit: int = 550):
  items=list_workers()
  if department: items=[w for w in items if w["department"]==department]
  return {"count":len(items[:max(1,min(limit,550))]),"workers":items[:max(1,min(limit,550))]}
+
+
+@app.post("/api/open-source/crawl-metadata")
+def crawl_open_source_metadata(request: OpenSourceIntakeRequest):
+ """Fetch bounded public GitHub metadata and pin a commit; never download or execute source."""
+ try:
+  return fetch_repository_metadata(request.repository_url)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+ except GitHubCrawlerError as exc:
+  raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
 @app.post("/api/open-source/intake")

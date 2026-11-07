@@ -15,6 +15,13 @@ class HistoricalQualityTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "history must be a mapping"):
                     build_historical_quality_diagnostics(invalid)
 
+    def test_accepts_custom_read_only_mapping(self):
+        from collections import UserDict
+        result = build_historical_quality_diagnostics(
+            UserDict({"interval": "1h", "bars": self.bars(5)})
+        )
+        self.assertEqual(result["bars_checked"], 5)
+
     def test_bars_must_be_list_or_tuple(self):
         for invalid in (None, {}, "bars"):
             with self.subTest(invalid=invalid):

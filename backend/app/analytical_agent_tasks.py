@@ -89,9 +89,17 @@ def get_task_quality_evaluation(task_id: str) -> dict | None:
         ).fetchone()
     if row is None:
         return {"task_id": task_id, "evaluation": None, "status": "not_evaluated"}
+    evaluation_decode_error = False
+    try:
+        evaluation = json.loads(row["evaluation_json"])
+    except (json.JSONDecodeError, TypeError):
+        # Preserve task-linked quality status if the stored evaluation is damaged.
+        evaluation = None
+        evaluation_decode_error = True
     return {
         "evaluation_id": row["evaluation_id"], "task_id": row["task_id"],
-        "worker_id": row["worker_id"], "evaluation": json.loads(row["evaluation_json"]),
+        "worker_id": row["worker_id"], "evaluation": evaluation,
+        "evaluation_decode_error": evaluation_decode_error,
         "created_at": row["created_at"], "status": "persisted",
     }
 

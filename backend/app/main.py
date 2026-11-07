@@ -1948,6 +1948,15 @@ def export_worker_staging_audit(worker_id: str, limit: int = 100):
     "No model training, deployment, or trading is performed by this export.",
    ],
   }
+  # Hash the canonical bundle before adding the integrity metadata. This detects
+  # accidental export changes; it does not authenticate the data or its sources.
+  canonical = json.dumps(bundle, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False)
+  bundle["integrity"] = {
+   "algorithm": "sha256",
+   "canonical_bundle_sha256": hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
+   "scope": "canonical bundle fields excluding this integrity object",
+   "authentication": "not_provided",
+  }
   encoded = json.dumps(bundle, ensure_ascii=False, sort_keys=True, indent=2, allow_nan=False)
   safe_worker_id = "".join(ch for ch in worker_id if ch.isalnum() or ch in "-_")[:80] or "worker"
   return Response(

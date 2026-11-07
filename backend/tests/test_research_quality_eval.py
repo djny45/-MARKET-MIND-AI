@@ -48,7 +48,6 @@ class ResearchQualityEvalTests(unittest.TestCase):
         self.assertEqual(metrics["duplicate_source_id_count"], 1)
         self.assertEqual(metrics["duplicate_source_ids"], ["src-1"])
 
-
     def test_reports_source_registry_entries_without_ids(self):
         result = evaluate_research_draft(
             draft="Source registry includes an entry without an identifier.",
@@ -63,6 +62,34 @@ class ResearchQualityEvalTests(unittest.TestCase):
         self.assertEqual(metrics["source_registry_count"], 1)
         self.assertEqual(metrics["source_registry_entries_without_id_count"], 2)
         self.assertEqual(metrics["known_source_reference_coverage"], 1.0)
+
+    def test_reports_missing_source_provenance_fields(self):
+        result = evaluate_research_draft(
+            draft="Provenance completeness is a structural check only.",
+            claims=[{"text": "Claim", "source_refs": ["src-a", "src-b"]}],
+            source_registry=[
+                {
+                    "source_id": "src-a",
+                    "title": "A title",
+                    "url": "https://example.org/a",
+                    "source_type": "paper",
+                    "observed_at": "2026-11-07T12:00:00Z",
+                },
+                {
+                    "source_id": "src-b",
+                    "title": "B title",
+                    "url": "https://example.org/b",
+                    "source_type": "web",
+                },
+            ],
+        )
+        metrics = result["metrics"]
+        self.assertEqual(metrics["source_registry_entries_missing_provenance_count"], 1)
+        self.assertEqual(
+            metrics["source_registry_missing_provenance_by_field"],
+            {"title": 0, "url": 0, "source_type": 0, "observed_at": 1},
+        )
+        self.assertIn("Provenance field presence is not source validation", result["interpretation"])
 
     def test_empty_claim_set_has_null_coverage(self):
         result = evaluate_research_draft(draft="No claims.", claims=[], source_registry=[])

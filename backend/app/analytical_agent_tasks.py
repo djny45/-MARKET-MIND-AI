@@ -127,7 +127,7 @@ def execute_queued_research_task(task_id: str) -> None:
     with _connect() as db:
         row = db.execute("SELECT * FROM analytical_agent_tasks WHERE task_id=?", (task_id,)).fetchone()
         if row is None or row["status"] != "queued":
-            return
+            return False
         # Claim atomically so duplicate dispatches cannot execute the same queued row.
         now = datetime.now(timezone.utc).isoformat()
         claimed = db.execute(
@@ -135,7 +135,7 @@ def execute_queued_research_task(task_id: str) -> None:
             (now, task_id),
         )
         if claimed.rowcount != 1:
-            return
+            return False
         _record_event(db, task_id, row["worker_id"], "task_claimed",
                       from_status="queued", to_status="running", occurred_at=now)
         agent_id = row["worker_id"]
@@ -204,6 +204,8 @@ def execute_queued_research_task(task_id: str) -> None:
         _record_event(db, task_id, agent_id, "task_" + status,
                       from_status="running", to_status=status, occurred_at=updated,
                       detail={"error_type": result.get("error_type")} if status == "failed" else {})
+    return True
+
 
 def recover_interrupted_research_tasks(stale_after_seconds: int = 900) -> dict:
     """Requeue only stale running tasks; this explicit operation never dispatches.

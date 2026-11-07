@@ -214,6 +214,27 @@ class ResearchBenchmarkTests(unittest.TestCase):
         self.assertEqual(result["regression_summary"]["skipped_comparison_count"], 2)
         self.assertEqual(result["regression_summary"]["status"], "comparison_incomplete")
 
+    def test_fixture_diversity_flags_exact_content_duplicates(self):
+        cases = fixture_cases()
+        cases[1]["draft"] = cases[0]["draft"]
+        cases[1]["claims"] = cases[0]["claims"]
+        cases[1]["source_registry"] = cases[0]["source_registry"]
+        # Case IDs remain unique; content duplication should be reported,
+        # not rejected or counted as independent evidence.
+        result = run_offline_research_benchmark(cases)
+        audit = result["fixture_diversity"]
+        self.assertEqual(audit["status"], "exact_duplicates_found")
+        self.assertEqual(audit["exact_duplicate_case_count"], 1)
+        self.assertEqual(audit["unique_case_payload_count"], len(cases) - 1)
+
+    def test_fixture_diversity_reports_no_exact_duplicates(self):
+        result = run_offline_research_benchmark(fixture_cases())
+        self.assertEqual(
+            result["fixture_diversity"]["status"], "no_exact_duplicates_found"
+        )
+        self.assertEqual(result["fixture_diversity"]["exact_duplicate_case_count"], 0)
+
+
     def test_rejects_invalid_baseline_shape(self):
         with self.assertRaises(ValueError):
             run_offline_research_benchmark(fixture_cases(), baseline={"bad": "shape"})

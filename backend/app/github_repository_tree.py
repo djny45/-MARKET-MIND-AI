@@ -13,7 +13,6 @@ import httpx
 from .github_repository_crawler import (
     API_ROOT,
     GitHubCrawlerError,
-    MAX_RESPONSE_BYTES,
     REQUEST_TIMEOUT_SECONDS,
     USER_AGENT,
     _read_bounded_json,

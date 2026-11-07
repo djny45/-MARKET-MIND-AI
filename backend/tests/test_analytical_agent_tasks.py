@@ -156,6 +156,30 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             list_recent_task_activity(limit=True)
 
+    def test_supervisor_health_flags_failed_and_unknown_task_states(self):
+        import sqlite3
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, agent_supervisor_status,
+        )
+
+        failed = enqueue_research_task("worker_004", "supervisor failed status")
+        unknown = enqueue_research_task("worker_004", "supervisor unknown status")
+        with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+            db.execute(
+                "UPDATE analytical_agent_tasks SET status=? WHERE task_id=?",
+                ("failed", failed["task_id"]),
+            )
+            db.execute(
+                "UPDATE analytical_agent_tasks SET status=? WHERE task_id=?",
+                ("unexpected_state", unknown["task_id"]),
+            )
+
+        snapshot = agent_supervisor_status()
+        self.assertEqual(snapshot["status"], "attention_required")
+        self.assertEqual(snapshot["status_counts"]["failed"], 1)
+        self.assertEqual(snapshot["status_counts"]["unexpected_state"], 1)
+        self.assertEqual(snapshot["unknown_status_count"], 1)
+
     def test_task_is_persisted_and_scoped_to_worker(self):
         result = submit_research_task("worker_001", "Review this supplied dataset", {"prices": [10, 11, 12]})
         self.assertEqual(result["status"], "completed")

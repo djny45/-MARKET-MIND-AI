@@ -24,7 +24,12 @@ def ema(values,period):
  xs=_valid(values); p=int(period)
  if p<1: raise ValueError("period must be positive")
  a=2/(p+1); out=[xs[0]]
- for x in xs[1:]: out.append(a*x+(1-a)*out[-1])
+ for x in xs[1:]:
+  previous=out[-1]
+  scale=max(abs(x),abs(previous))
+  value=0.0 if scale==0 else scale*(a*(x/scale)+(1-a)*(previous/scale))
+  if not isfinite(value): raise ValueError("exponential moving average must be finite")
+  out.append(value)
  return out
 def returns(values):
  xs=_valid(values,2)
@@ -48,8 +53,12 @@ def rsi(values,period=14):
   out.append(100.0 if al==0 else 100-100/(1+ag/al))
  return out
 def macd(values,fast=12,slow=26,signal=9):
- line=[a-b for a,b in zip(ema(values,fast),ema(values,slow))]; sig=ema(line,signal)
- return {"macd":line,"signal":sig,"histogram":[a-b for a,b in zip(line,sig)]}
+ line=[a-b for a,b in zip(ema(values,fast),ema(values,slow))]
+ if not all(isfinite(x) for x in line): raise ValueError("MACD line must be finite")
+ sig=ema(line,signal)
+ histogram=[a-b for a,b in zip(line,sig)]
+ if not all(isfinite(x) for x in histogram): raise ValueError("MACD histogram must be finite")
+ return {"macd":line,"signal":sig,"histogram":histogram}
 def bollinger(values,period=20,deviations=2):
  xs=_valid(values); p=int(period)
  if p<1: raise ValueError("period must be positive")

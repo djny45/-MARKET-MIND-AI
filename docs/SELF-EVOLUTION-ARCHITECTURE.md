@@ -23,12 +23,12 @@ The system remains a **single shared intelligence core**. Worker/profile identit
 ## Current implementation added in this increment
 
 - `backend/app/open_source_intake.py`: canonical GitHub repository URL validation and a structured intake plan.
-- `POST /api/open-source/intake`: creates a review checklist for a candidate source.
+- `POST /api/open-source/intake`: creates a review checklist for a candidate source.\n- `POST /api/open-source/crawl-metadata`: fetches bounded GitHub repository metadata and pins the default-branch commit SHA.
 - Intake currently **does not fetch, clone, execute, copy, install, or merge** third-party code.
 - Unknown or merely declared licenses do not authorize reuse.
 - Unit and API regression tests cover URL validation and default-deny behavior.
 
-This is a safety and provenance foundation, not a completed autonomous crawler.
+The first metadata-only crawler is now implemented. It is not yet a full repository crawler: it does not enumerate source trees, download source files, inspect dependencies, or adapt code.
 
 ## Proposed execution pipeline
 
@@ -63,11 +63,14 @@ This is a safety and provenance foundation, not a completed autonomous crawler.
 - [x] GitHub URL allowlist and canonicalization
 - [x] Review checklist and explicit default-deny gates
 - [x] API endpoint and regression tests
-- [ ] Public metadata fetch with redirect/rate/size limits
-- [ ] Commit pinning, license text and NOTICE capture
+- [x] Public GitHub repository metadata fetch with redirects disabled and response-size bounds
+- [x] Default-branch commit SHA pinning in metadata response
+- [ ] GitHub API rate-limit/backoff policy and durable cache
+- [ ] License text and NOTICE capture (SPDX metadata alone remains insufficient)
 
 ### M1 — Repository crawler and mapper
-- [ ] GitHub API adapter with request budget, pagination cap, and cache
+- [x] Basic GitHub REST metadata adapter with fixed API host and URL validation
+- [ ] GitHub API request budget, pagination cap, and durable cache
 - [ ] Repository tree manifest and file-type allowlist
 - [ ] README/docs extraction and dependency inventory
 - [ ] Source provenance records and content hashes

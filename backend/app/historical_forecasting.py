@@ -36,6 +36,8 @@ def _log_returns(prices: Sequence[float]) -> list[float]:
 def _solve_linear_system(matrix: list[list[float]], vector: list[float]) -> list[float]:
     """Gaussian elimination with partial pivoting for small ridge systems."""
     n = len(vector)
+    if n == 0 or len(matrix) != n or any(len(row) != n for row in matrix):
+        raise ValueError("regression system must be a non-empty square matrix")
     augmented = [row[:] + [vector[i]] for i, row in enumerate(matrix)]
     for col in range(n):
         pivot = max(range(col, n), key=lambda row: abs(augmented[row][col]))

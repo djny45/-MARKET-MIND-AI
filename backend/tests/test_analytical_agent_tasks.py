@@ -199,9 +199,9 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
     def test_duplicate_dispatch_only_claims_once(self):
         from app.analytical_agent_tasks import enqueue_research_task, execute_queued_research_task
         queued = enqueue_research_task("worker_006", "single claim")
-        execute_queued_research_task(queued["task_id"])
+        self.assertTrue(execute_queued_research_task(queued["task_id"]))
         first = get_research_task(queued["task_id"])
-        execute_queued_research_task(queued["task_id"])
+        self.assertFalse(execute_queued_research_task(queued["task_id"]))
         second = get_research_task(queued["task_id"])
         self.assertEqual(first["status"], second["status"])
         self.assertEqual(first["updated_at"], second["updated_at"])

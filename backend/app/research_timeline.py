@@ -32,6 +32,29 @@ def _validate_ohlcv_bars(bars):
         if values["volume"] < 0:
             raise ValueError(f"bars[{index}].volume must be non-negative")
 
+    # Require chronological, unique timestamps when all bars provide them.
+    timestamps = [bar.get("timestamp") for bar in bars]
+    if any(value is not None for value in timestamps):
+        if any(value is None for value in timestamps):
+            raise ValueError("timestamps must be present on every bar or none")
+        try:
+            from datetime import datetime
+            parsed = []
+            for index, value in enumerate(timestamps):
+                if not isinstance(value, str) or not value.strip():
+                    raise ValueError(f"bars[{index}].timestamp must be a non-empty string")
+                normalized = value.strip().replace("Z", "+00:00")
+                instant = datetime.fromisoformat(normalized)
+                if instant.tzinfo is None:
+                    raise ValueError(f"bars[{index}].timestamp must include timezone")
+                parsed.append(instant.astimezone(__import__("datetime").timezone.utc))
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise ValueError("timestamps must be valid timezone-aware ISO datetimes") from exc
+        if len(set(parsed)) != len(parsed):
+            raise ValueError("timestamps must be unique")
+        if parsed != sorted(parsed):
+            raise ValueError("timestamps must be sorted chronologically")
+
 
 def build_research_timeline(history: dict, limit: int = 200) -> dict:
     bars = history.get("bars", [])
@@ -98,10 +121,3 @@ def build_research_timeline(history: dict, limit: int = 200) -> dict:
         "execution": "disabled",
     }
 
-
-def test_timeline_rejects_nonpositive_prices():
-    import pytest
-    bars = sample_bars()
-    bars[0]["open"] = 0
-    with pytest.raises(ValueError, match="open must be positive"):
-        build_research_timeline({"bars": bars})

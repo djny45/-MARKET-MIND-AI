@@ -46,6 +46,23 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertEqual(len(tracked), 1)
         self.assertTrue(tracked[0].was_closed)
 
+    def test_task_inspection_survives_corrupt_persisted_result(self):
+        import sqlite3
+        from app.analytical_agent_tasks import enqueue_research_task
+
+        queued = enqueue_research_task("worker_004", "corrupt result inspection")
+        with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+            db.execute(
+                "UPDATE analytical_agent_tasks SET result_json=? WHERE task_id=?",
+                ("{broken-json", queued["task_id"]),
+            )
+
+        saved = get_research_task(queued["task_id"])
+        self.assertEqual(saved["status"], "queued")
+        self.assertIsNone(saved["result"])
+        self.assertTrue(saved["result_decode_error"])
+        self.assertFalse(saved["input_decode_error"])
+
     def test_task_is_persisted_and_scoped_to_worker(self):
         result = submit_research_task("worker_001", "Review this supplied dataset", {"prices": [10, 11, 12]})
         self.assertEqual(result["status"], "completed")

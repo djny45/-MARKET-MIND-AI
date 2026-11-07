@@ -249,6 +249,54 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertEqual(calls, 1)
         self.assertEqual(get_research_task(queued["task_id"])["status"], "completed")
 
+    def test_stale_recovery_cannot_overwrite_newer_execution(self):
+        from concurrent.futures import ThreadPoolExecutor
+        from threading import Event, Lock
+        import sqlite3
+        from datetime import datetime, timedelta, timezone
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, execute_queued_research_task, get_research_task,
+        )
+
+        queued = enqueue_research_task("worker_022", "recovery lease race")
+        first_started = Event()
+        release_first = Event()
+        call_lock = Lock()
+        calls = 0
+
+        def controlled_synthesis(payload):
+            nonlocal calls
+            with call_lock:
+                calls += 1
+                call_number = calls
+            if call_number == 1:
+                first_started.set()
+                self.assertTrue(release_first.wait(timeout=5))
+                return {"status": "completed", "summary": "stale execution"}
+            return {"status": "completed", "summary": "new execution"}
+
+        with patch("app.analytical_agent_tasks.synthesize_research",
+                   side_effect=controlled_synthesis):
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                old_run = pool.submit(execute_queued_research_task, queued["task_id"])
+                self.assertTrue(first_started.wait(timeout=5))
+
+                # Simulate recovery after the first executor exceeded its lease.
+                stale = (datetime.now(timezone.utc) - timedelta(seconds=1200)).isoformat()
+                with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+                    db.execute(
+                        "UPDATE analytical_agent_tasks SET status='queued',updated_at=? WHERE task_id=?",
+                        (stale, queued["task_id"]),
+                    )
+
+                self.assertTrue(execute_queued_research_task(queued["task_id"]))
+                release_first.set()
+                self.assertFalse(old_run.result(timeout=5))
+
+        saved = get_research_task(queued["task_id"])
+        self.assertEqual(saved["status"], "completed")
+        self.assertEqual(saved["result"]["shared_core_result"]["summary"], "new execution")
+
     def test_duplicate_dispatch_only_claims_once(self):
         from app.analytical_agent_tasks import enqueue_research_task, execute_queued_research_task
         queued = enqueue_research_task("worker_006", "single claim")

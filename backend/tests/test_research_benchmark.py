@@ -53,7 +53,7 @@ class ResearchBenchmarkTests(unittest.TestCase):
     def test_changed_fixture_changes_benchmark_id_and_baseline_delta(self):
         baseline = run_offline_research_benchmark(fixture_cases())
         cases = fixture_cases()
-        cases[1]["claims"] = [{"text": "Fixture claim B", "source_refs": ["fixture-source"]}]
+        cases[1]["claims"] = [{"text": "Fixture claim B", "source_refs": ["other-fixture-source"]}]
         current = run_offline_research_benchmark(
             cases, baseline={"metrics": baseline["aggregate_metrics"] and {
                 key: value["mean"] for key, value in baseline["aggregate_metrics"].items()
@@ -185,7 +185,7 @@ class ResearchBenchmarkTests(unittest.TestCase):
         )
         summary = result["regression_summary"]
         self.assertEqual(summary["status"], "comparison_incomplete")
-        self.assertEqual(summary["skipped_comparison_count"], 1)
+        self.assertEqual(summary["skipped_comparison_count"], 2)
         self.assertEqual(
             summary["skipped_comparisons"][0]["reason"],
             "baseline_metric_missing",
@@ -211,7 +211,7 @@ class ResearchBenchmarkTests(unittest.TestCase):
             result["baseline_comparison"]["claim_reference_coverage"]["reason"],
             "current_metric_unavailable",
         )
-        self.assertEqual(result["regression_summary"]["skipped_comparison_count"], 2)
+        self.assertEqual(result["regression_summary"]["skipped_comparison_count"], 3)
         self.assertEqual(result["regression_summary"]["status"], "comparison_incomplete")
 
     def test_fixture_diversity_flags_exact_content_duplicates(self):

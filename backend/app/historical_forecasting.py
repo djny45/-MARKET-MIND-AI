@@ -68,7 +68,20 @@ def _solve_linear_system(matrix: list[list[float]], vector: list[float]) -> list
 
 
 def _fit_ridge(features: list[list[float]], targets: list[float], alpha: float) -> list[float]:
+    if not features or len(features) != len(targets):
+        raise ValueError("features and targets must be non-empty and aligned")
     width = len(features[0])
+    if width == 0 or any(len(row) != width for row in features):
+        raise ValueError("feature rows must have a consistent non-zero width")
+    if isinstance(alpha, bool) or not isinstance(alpha, (int, float)) or not math.isfinite(alpha) or alpha <= 0:
+        raise ValueError("ridge alpha must be finite and positive")
+    for row_index, row in enumerate(features):
+        for column_index, value in enumerate(row):
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+                raise ValueError(f"features[{row_index}][{column_index}] must be finite numeric")
+    for index, value in enumerate(targets):
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+            raise ValueError(f"targets[{index}] must be finite numeric")
     # Add an intercept; do not penalize the intercept term.
     design = [[1.0] + row for row in features]
     size = width + 1

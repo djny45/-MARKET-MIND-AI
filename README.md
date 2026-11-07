@@ -14,6 +14,10 @@ A visual research environment where specialist analytical workers connect as reu
 
 ---
 
+## Deployment policy: Vercel-free
+
+MARKET-MIND-AI does not require or target Vercel. For a complete frontend + FastAPI stack, use the repository's private Docker deployment guide: [Private Docker deployment](docs/PRODUCTION-DEPLOYMENT.md). The supported baseline is self-hosted Docker Compose (or a manually managed host with equivalent network and security controls). GitHub Pages can serve static frontend assets only; it cannot host the FastAPI service or SQLite database. Keep the API private behind authentication and TLS before enabling remote access. Do not commit secrets or expose the research API publicly.
+
 ## Overview
 
 MARKET-MIND-AI is an open-source financial research terminal inspired by professional market-data workstations and visual node editors. Its core interaction model is a connected graph: data sources, validation steps, analytical workers, quantitative methods, and research outputs are composed into reusable workflows.

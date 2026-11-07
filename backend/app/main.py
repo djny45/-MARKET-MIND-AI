@@ -495,9 +495,12 @@ def agent_network_activity(limit: int = 500):
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 @app.get("/api/analytical-agent-supervisor/status")
-def analytical_agent_supervisor_status():
+def analytical_agent_supervisor_status(stale_after_seconds: int = 900):
  """Return task counts and bounded supervisor capability status."""
- return agent_supervisor_status()
+ try:
+  return agent_supervisor_status(stale_after_seconds)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.post("/api/analytical-agent-supervisor/dispatch")

@@ -125,6 +125,18 @@ class SMCResearchAdapterTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "finite number in \\(0, 1\\]"):
                     analyze_historical_ohlcv(self.frame, swing_length=5, liquidity_range_percent=invalid)
 
+    def test_fraction_liquidity_range_is_normalized_to_float(self):
+        from fractions import Fraction
+        from app.smc_research import analyze_historical_ohlcv
+
+        tables, patches = self._mock_indicator_tables(self.frame)
+        with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5]:
+            result = analyze_historical_ohlcv(
+                self.frame, swing_length=5,
+                liquidity_range_percent=Fraction(1, 100),
+            )
+        self.assertEqual(result["research_metadata"]["indicator_family"], "smart_money_concepts")
+
     def test_swing_length_must_be_positive_integer_not_bool(self):
         from app.smc_research import analyze_historical_ohlcv
         for invalid in (0, -1, 2.5, True):

@@ -53,8 +53,8 @@ def _normalize_source_entry(source: dict[str, Any]) -> dict[str, Any]:
         normalized["source_id"] = normalized.get("id")
     if not isinstance(normalized.get("source_type"), str) or not normalized["source_type"].strip():
         normalized["source_type"] = normalized.get("channel") or normalized.get("source")
-    observed = normalized.get("observed_at")
-    if not isinstance(observed, str) or not observed.strip():
+    observed = _normalize_timestamp(normalized.get("observed_at"))
+    if not observed:
         for key in ("retrieved_at", "ingested_at", "published_at"):
             observed = _normalize_timestamp(normalized.get(key))
             if observed:

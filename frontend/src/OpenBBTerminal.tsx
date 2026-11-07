@@ -20,6 +20,8 @@ export default function OpenBBTerminal() {
    setInstalled(Boolean(data.installed))
    setEnabled(Boolean(data.enabled))
   } catch (e) {
+   setInstalled(null)
+   setEnabled(null)
    setError(e instanceof Error ? e.message : 'Could not reach backend')
   }
  }
@@ -37,7 +39,8 @@ export default function OpenBBTerminal() {
    setOutput(data.output || '')
    if (data.error) setError(data.error)
    setInstalled(Boolean(data.available))
-   if (data.error?.includes('disabled')) setEnabled(false)
+   if (!data.error) setEnabled(true)
+   else if (data.error.includes('disabled')) setEnabled(false)
   } catch (e) {
    setError(e instanceof Error ? e.message : 'Could not reach backend')
   } finally { setBusy(false) }

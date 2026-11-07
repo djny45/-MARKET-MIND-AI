@@ -122,5 +122,33 @@ class StagingExperimentTests(unittest.TestCase):
         self.assertEqual(result["content"]["outcome"], "no_material_change")
 
 
+    def test_config_patch_evaluation_applies_only_whitelisted_candidate_config(self):
+        review_improvement_proposal("worker_001", self.proposal["memory_id"],
+                                    "approved_for_staging", "reviewer")
+        cases = self._benchmark_cases()
+        result = run_staging_benchmark("worker_001", self.proposal["memory_id"], {
+            "baseline_cases": cases,
+            "candidate_cases": cases,
+            "config_patch": {"uncertainty_markers": ["synthetic"]},
+            "reviewer": "reviewer",
+            "notes": "bounded config experiment",
+        })
+        saved = result["content"]["benchmark_runs"]
+        self.assertEqual(saved["config_patch"], {"uncertainty_markers": ["synthetic"]})
+        self.assertEqual(saved["config_patch_mode"], "whitelisted_evaluator_config_only")
+        self.assertEqual(saved["paired_case_summary"]["paired_case_count"], 1)
+
+    def test_config_patch_rejects_unknown_setting(self):
+        review_improvement_proposal("worker_001", self.proposal["memory_id"],
+                                    "approved_for_staging", "reviewer")
+        with self.assertRaisesRegex(ValueError, "supports only"):
+            run_staging_benchmark("worker_001", self.proposal["memory_id"], {
+                "baseline_cases": self._benchmark_cases(),
+                "candidate_cases": self._benchmark_cases(),
+                "config_patch": {"allow_arbitrary_code": True},
+                "reviewer": "reviewer",
+            })
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -85,9 +85,9 @@ def render_research_methodology_markdown(bundle):
     scope_value = bundle.get("scope")
     scope = scope_value if isinstance(scope_value, dict) else {}
     source_values = scope.get("sources")
-    if isinstance(source_values, (list, tuple)):
+    if isinstance(source_values, (list, tuple)) and source_values:
         sources = source_values
-    elif isinstance(source_values, str) and source_values:
+    elif isinstance(source_values, str) and source_values.strip():
         sources = [source_values]
     else:
         sources = [scope.get("source")] if scope.get("source") else []

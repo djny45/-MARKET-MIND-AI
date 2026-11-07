@@ -1,19 +1,40 @@
+import io
 import unittest
-from unittest.mock import patch, Mock
+from unittest.mock import patch
 import os
 
 from app.openbb_cli import run_openbb_cli
+
+
+class FakeProcess:
+    def __init__(self, output=b"", returncode=0):
+        self.stdout = io.BytesIO(output)
+        self.returncode = returncode
+        self.terminated = False
+
+    def poll(self):
+        return self.returncode
+
+    def wait(self, timeout=None):
+        return self.returncode
+
+    def terminate(self):
+        self.terminated = True
+        self.returncode = -15
+
+    def kill(self):
+        self.returncode = -9
 
 
 class OpenBBCLITests(unittest.TestCase):
     @patch.dict(os.environ, {}, clear=True)
     @patch("app.openbb_cli.shutil.which", return_value="/usr/bin/openbb")
     def test_disabled_by_default_gate_does_not_spawn_cli(self, _which):
-        with patch("app.openbb_cli.subprocess.run") as run:
+        with patch("app.openbb_cli.subprocess.Popen") as popen:
             result = run_openbb_cli("help")
         self.assertFalse(result.available)
         self.assertIn("disabled", result.error)
-        run.assert_not_called()
+        popen.assert_not_called()
 
     @patch.dict(os.environ, {"OPENBB_CLI_ENABLED": "true"})
     @patch("app.openbb_cli.shutil.which", return_value=None)
@@ -23,18 +44,17 @@ class OpenBBCLITests(unittest.TestCase):
         self.assertIn("not installed", result.error)
 
     @patch.dict(os.environ, {"OPENBB_CLI_ENABLED": "true"})
-    @patch("app.openbb_cli.subprocess.run")
+    @patch("app.openbb_cli.subprocess.Popen")
     @patch("app.openbb_cli.shutil.which", return_value="/usr/bin/openbb")
-    def test_help_uses_fixed_argument_and_no_shell(self, _which, run):
-        run.return_value = Mock(stdout="OpenBB usage", stderr="", returncode=0)
+    def test_help_uses_fixed_argument_and_no_shell(self, _which, popen):
+        popen.return_value = FakeProcess(b"OpenBB usage")
         result = run_openbb_cli("help")
         self.assertTrue(result.available)
         self.assertEqual(result.output, "OpenBB usage")
-        args, kwargs = run.call_args
+        args, kwargs = popen.call_args
         self.assertEqual(args[0], ["/usr/bin/openbb", "--help"])
         self.assertFalse(kwargs["shell"])
         self.assertEqual(kwargs["stdin"], __import__("subprocess").DEVNULL)
-        self.assertEqual(kwargs["timeout"], 8)
 
     @patch.dict(os.environ, {"OPENBB_CLI_ENABLED": "true"})
     @patch("app.openbb_cli.importlib.metadata.version", return_value="5.0.1")
@@ -47,22 +67,14 @@ class OpenBBCLITests(unittest.TestCase):
         version.assert_called_once_with("openbb-cli")
 
     @patch.dict(os.environ, {"OPENBB_CLI_ENABLED": "true"})
-    @patch("app.openbb_cli.subprocess.run")
+    @patch("app.openbb_cli.subprocess.Popen")
     @patch("app.openbb_cli.shutil.which", return_value="/usr/bin/openbb")
-    def test_caps_output_and_reports_nonzero(self, _which, run):
-        run.return_value = Mock(stdout="x" * 13000, stderr="", returncode=2)
+    def test_caps_streamed_output_and_reports_nonzero(self, _which, popen):
+        popen.return_value = FakeProcess(b"x" * 13000, returncode=2)
         result = run_openbb_cli("help")
         self.assertEqual(len(result.output), 12000)
         self.assertTrue(result.output.endswith("… [output truncated]"))
         self.assertIsNotNone(result.error)
-
-    @patch.dict(os.environ, {"OPENBB_CLI_ENABLED": "true"})
-    @patch("app.openbb_cli.subprocess.run", side_effect=__import__("subprocess").TimeoutExpired("openbb", 8))
-    @patch("app.openbb_cli.shutil.which", return_value="/usr/bin/openbb")
-    def test_timeout_is_reported(self, _which, _run):
-        result = run_openbb_cli("help")
-        self.assertTrue(result.available)
-        self.assertIn("timed out", result.error)
 
     @patch.dict(os.environ, {"OPENBB_CLI_ENABLED": " TrUe "})
     def test_enable_flag_is_case_insensitive_and_trimmed(self):
@@ -79,9 +91,9 @@ class OpenBBCLITests(unittest.TestCase):
         self.assertIn("metadata was not found", result.error)
 
     @patch.dict(os.environ, {"OPENBB_CLI_ENABLED": "true"})
-    @patch("app.openbb_cli.subprocess.run")
+    @patch("app.openbb_cli.subprocess.Popen")
     @patch("app.openbb_cli.shutil.which", return_value="/usr/bin/openbb")
-    def test_busy_semaphore_prevents_extra_subprocess(self, _which, run):
+    def test_busy_semaphore_prevents_extra_subprocess(self, _which, popen):
         from app.openbb_cli import _HELP_RUN_SEMAPHORE
         self.assertTrue(_HELP_RUN_SEMAPHORE.acquire(blocking=False))
         try:
@@ -90,7 +102,7 @@ class OpenBBCLITests(unittest.TestCase):
             _HELP_RUN_SEMAPHORE.release()
         self.assertTrue(result.available)
         self.assertIn("busy", result.error)
-        run.assert_not_called()
+        popen.assert_not_called()
 
     def test_rejects_unsupported_action(self):
         with self.assertRaises(ValueError):

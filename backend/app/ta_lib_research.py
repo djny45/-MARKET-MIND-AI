@@ -49,9 +49,14 @@ def analyze_historical_ohlcv(
 
     frame = ohlc.copy()
     frame.columns = [str(c).strip().lower() for c in frame.columns]
-    if frame.columns.duplicated().any():
-        duplicates = sorted(set(frame.columns[frame.columns.duplicated(keep=False)]))
-        raise ValueError(f"Duplicate columns after case/whitespace normalization: {duplicates}")
+    required = {"open", "high", "low", "close"}
+    duplicate_columns = set(frame.columns[frame.columns.duplicated(keep=False)])
+    relevant_duplicates = sorted(duplicate_columns.intersection(required))
+    if relevant_duplicates:
+        raise ValueError(
+            "Duplicate required OHLC columns after case/whitespace normalization: "
+            f"{relevant_duplicates}"
+        )
     # If a conventional timestamp column is supplied, enforce unique UTC instants
     # in chronological order before calculating row-aligned annotations.
     timestamp_columns = [c for c in ("timestamp", "datetime", "date", "time") if c in frame.columns]

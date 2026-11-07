@@ -19,6 +19,33 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.env.stop()
         self.temp.cleanup()
 
+    def test_task_database_connections_are_closed_after_use(self):
+        import sqlite3
+        from app.analytical_agent_tasks import _connect
+
+        original_connect = sqlite3.connect
+        tracked = []
+
+        class TrackingConnection(sqlite3.Connection):
+            was_closed = False
+
+            def close(self):
+                self.was_closed = True
+                super().close()
+
+        def tracked_connect(*args, **kwargs):
+            kwargs["factory"] = TrackingConnection
+            connection = original_connect(*args, **kwargs)
+            tracked.append(connection)
+            return connection
+
+        with patch("app.analytical_agent_tasks.sqlite3.connect", side_effect=tracked_connect):
+            with _connect() as db:
+                db.execute("SELECT 1")
+
+        self.assertEqual(len(tracked), 1)
+        self.assertTrue(tracked[0].was_closed)
+
     def test_task_is_persisted_and_scoped_to_worker(self):
         result = submit_research_task("worker_001", "Review this supplied dataset", {"prices": [10, 11, 12]})
         self.assertEqual(result["status"], "completed")

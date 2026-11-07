@@ -55,6 +55,26 @@ class SwingPointTests(unittest.TestCase):
         self.assertEqual(result["confirmed_swing_highs"], [])
         self.assertEqual(result["confirmed_swing_lows"], [])
 
+    def test_window_must_be_positive_integer_not_bool_or_float(self):
+        for left, right in ((1.5, 1), (1, 2.5), (True, 1), (1, False), (0, 1), (1, -1)):
+            with self.subTest(left=left, right=right):
+                with self.assertRaisesRegex(ValueError, "positive integers"):
+                    find_swing_points([], left=left, right=right)
+
+    def test_rejects_nonfinite_or_invalid_bar_prices(self):
+        for invalid in (float("nan"), float("inf"), True, "12"):
+            with self.subTest(invalid=invalid):
+                bars = [{"high": invalid, "low": 1}] * 5
+                with self.assertRaisesRegex(ValueError, "high must be"):
+                    find_swing_points(bars, left=1, right=1)
+        with self.assertRaisesRegex(ValueError, "low must be <= high"):
+            find_swing_points([{"high": 2, "low": 3}] * 5, left=1, right=1)
+
+    def test_bars_must_be_a_sequence_of_objects(self):
+        with self.assertRaisesRegex(ValueError, "list or tuple"):
+            find_swing_points("not bars")
+        with self.assertRaisesRegex(ValueError, "must be an object"):
+            find_swing_points([None])
     def test_invalid_window_rejected(self):
         with self.assertRaises(ValueError):
             find_swing_points([], 0, 1)

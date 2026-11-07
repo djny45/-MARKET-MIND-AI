@@ -9,6 +9,15 @@ import math
 from typing import Sequence
 
 
+def _finite_number(value) -> bool:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return False
+    try:
+        return math.isfinite(value)
+    except (OverflowError, TypeError):
+        return False
+
+
 def _log_returns(prices: Sequence[float]) -> list[float]:
     if not isinstance(prices, (list, tuple)) or len(prices) < 2:
         raise ValueError("prices must contain at least two values")
@@ -40,7 +49,7 @@ def _solve_linear_system(matrix: list[list[float]], vector: list[float]) -> list
         raise ValueError("regression system must be a non-empty square matrix")
     for row_index, row in enumerate(matrix):
         for col_index, value in enumerate(row):
-            if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+            if isinstance(value, bool) or not _finite_number(value):
                 raise ValueError(f"matrix[{row_index}][{col_index}] must be finite numeric")
     for index, value in enumerate(vector):
         if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
@@ -62,7 +71,7 @@ def _solve_linear_system(matrix: list[list[float]], vector: list[float]) -> list
                 for value, pivot_value in zip(augmented[row], augmented[col])
             ]
     solution = [augmented[i][-1] for i in range(n)]
-    if not all(math.isfinite(value) for value in solution):
+    if not all(_finite_number(value) for value in solution):
         raise ValueError("regression coefficients must be finite")
     return solution
 
@@ -73,7 +82,7 @@ def _fit_ridge(features: list[list[float]], targets: list[float], alpha: float) 
     width = len(features[0])
     if width == 0 or any(len(row) != width for row in features):
         raise ValueError("feature rows must have a consistent non-zero width")
-    if isinstance(alpha, bool) or not isinstance(alpha, (int, float)) or not math.isfinite(alpha) or alpha <= 0:
+    if isinstance(alpha, bool) or not _finite_number(alpha) or alpha <= 0:
         raise ValueError("ridge alpha must be finite and positive")
     for row_index, row in enumerate(features):
         for column_index, value in enumerate(row):

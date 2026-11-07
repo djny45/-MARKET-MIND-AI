@@ -171,6 +171,26 @@ def run_offline_research_benchmark(
                         ) if condition
                     ],
                 })
+    # Exact duplicate audit excludes case_id so duplicate content with
+    # different labels is not treated as independent evidence.
+    canonical_case_payloads = [
+        json.dumps(
+            {key: case.get(key) for key in ("draft", "claims", "source_registry")},
+            sort_keys=True, separators=(",", ":"), ensure_ascii=False,
+        )
+        for case in normalized_cases
+    ]
+    unique_case_payloads = set(canonical_case_payloads)
+    exact_duplicate_case_count = len(canonical_case_payloads) - len(unique_case_payloads)
+    fixture_diversity = {
+        "status": "exact_duplicates_found" if exact_duplicate_case_count else "no_exact_duplicates_found",
+        "case_count": len(canonical_case_payloads),
+        "unique_case_payload_count": len(unique_case_payloads),
+        "exact_duplicate_case_count": exact_duplicate_case_count,
+        "method": "exact canonical JSON equality of draft, claims, and source_registry; case_id excluded",
+        "limitations": "Exact-content audit only; it does not establish semantic diversity or independent evidence.",
+    }
+
     fixture_overlap = {
         "pair_count_flagged": len(overlap_pairs),
         "flagged_pairs": overlap_pairs,
@@ -283,6 +303,7 @@ def run_offline_research_benchmark(
         "quality_config": normalized_config,
         "case_count": len(results),
         "fixture_overlap": fixture_overlap,
+        "fixture_diversity": fixture_diversity,
         "aggregate_metrics": aggregate,
         "baseline_comparison": baseline_comparison,
         "regression_summary": regression_summary,

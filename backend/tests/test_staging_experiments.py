@@ -4,7 +4,7 @@ import unittest
 from unittest.mock import patch
 
 from app.worker_memory import append_memory, review_improvement_proposal
-from app.staging_experiments import create_staging_experiment, run_staging_benchmark, list_staging_experiments, summarize_staging_experiments
+from app.staging_experiments import create_staging_experiment, run_staging_benchmark, list_staging_experiments, summarize_staging_experiments, summarize_repeatability
 
 
 class StagingExperimentTests(unittest.TestCase):
@@ -178,6 +178,28 @@ class StagingExperimentTests(unittest.TestCase):
         self.assertEqual(summary["quality_gate_status_counts"]["eligible_for_human_staging_review"], 1)
         self.assertIn("known_source_reference_coverage", summary["metric_delta_summary"])
         self.assertIn("statistical significance", summary["interpretation"])
+
+    def test_repeatability_summary_groups_exact_repeated_runs(self):
+        review_improvement_proposal("worker_001", self.proposal["memory_id"],
+                                    "approved_for_staging", "reviewer")
+        payload = {
+            "baseline_cases": self._benchmark_cases("missing"),
+            "candidate_cases": self._benchmark_cases("known"),
+            "reviewer": "reviewer",
+        }
+        for _ in range(3):
+            run_staging_benchmark("worker_001", self.proposal["memory_id"], payload)
+        report = summarize_repeatability("worker_001", min_trials=3)
+        self.assertEqual(report["groups_meeting_min_trials"], 1)
+        group = report["repeatability_groups"][0]
+        self.assertEqual(group["trial_count"], 3)
+        self.assertEqual(group["consistency_label"], "uniform_gate_status")
+        self.assertIn("statistical significance", report["interpretation"])
+
+    def test_repeatability_rejects_invalid_trial_threshold(self):
+        with self.assertRaisesRegex(ValueError, "min_trials"):
+            summarize_repeatability("worker_001", min_trials=1)
+
 
     def test_history_summary_rejects_bad_limit(self):
         with self.assertRaisesRegex(ValueError, "limit"):

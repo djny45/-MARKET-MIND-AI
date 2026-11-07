@@ -92,6 +92,13 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertIsNone(audit["events"][0]["detail"])
         self.assertTrue(audit["events"][0]["detail_decode_error"])
 
+    def test_quality_evaluation_requires_existing_task_foreign_key(self):
+        import sqlite3
+        from app.analytical_agent_tasks import _persist_quality_evaluation
+
+        with self.assertRaises(sqlite3.IntegrityError):
+            _persist_quality_evaluation("missing-task-id", "worker_004", {"score": 0.8})
+
     def test_quality_evaluation_inspection_survives_corrupt_json(self):
         import sqlite3
         from app.analytical_agent_tasks import (

@@ -74,6 +74,11 @@ def create_staging_experiment(worker_id: str, proposal_memory_id: str, payload: 
         "execution_mode": "reviewer_supplied_metrics_only",
         "safety_boundary": "no_proposal_code_execution_no_model_update_no_deployment_no_trading",
     }
+    benchmark_runs = payload.get("benchmark_runs")
+    if benchmark_runs is not None:
+        if not isinstance(benchmark_runs, dict):
+            raise ValueError("benchmark_runs must be an object")
+        record["benchmark_runs"] = benchmark_runs
     return append_memory(worker_id, "validation_result", record,
                          [f"improvement_proposal:{proposal_memory_id}", f"benchmark:{benchmark_id.strip()}"],
                          "unverified")
@@ -108,16 +113,15 @@ def run_staging_benchmark(worker_id: str, proposal_memory_id: str, payload: dict
         "baseline_metrics": baseline_metrics,
         "candidate_metrics": candidate_metrics,
         "notes": notes,
+        "benchmark_runs": {
+            "baseline_benchmark_id": baseline_result["benchmark_id"],
+            "candidate_benchmark_id": candidate_result["benchmark_id"],
+            "baseline_case_count": baseline_result["case_count"],
+            "candidate_case_count": candidate_result["case_count"],
+            "benchmark_type": "offline_research_traceability",
+            "metric_names": list(metric_names),
+        },
     })
-    # Preserve reproducibility metadata on the saved record.
-    saved["content"]["benchmark_runs"] = {
-        "baseline_benchmark_id": baseline_result["benchmark_id"],
-        "candidate_benchmark_id": candidate_result["benchmark_id"],
-        "baseline_case_count": baseline_result["case_count"],
-        "candidate_case_count": candidate_result["case_count"],
-        "benchmark_type": "offline_research_traceability",
-        "metric_names": list(metric_names),
-    }
     return saved
 
 def list_staging_experiments(worker_id: str, limit: int = 50) -> dict[str, Any]:

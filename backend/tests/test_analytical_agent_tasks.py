@@ -255,6 +255,29 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertEqual(result["shared_core_result"]["status"], "not_configured")
 
 
+
+    def test_corrupt_queued_input_marks_claimed_task_failed(self):
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, execute_queued_research_task, list_task_audit_events,
+        )
+        import sqlite3
+        queued = enqueue_research_task("worker_019", "corrupt persisted input")
+        with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+            db.execute(
+                "UPDATE analytical_agent_tasks SET input_json=? WHERE task_id=?",
+                ("{not valid json", queued["task_id"]),
+            )
+
+        execute_queued_research_task(queued["task_id"])
+
+        saved = get_research_task(queued["task_id"])
+        self.assertEqual(saved["status"], "failed")
+        self.assertEqual(saved["result"]["error"], "Research task failed safely.")
+        self.assertEqual(saved["result"]["error_type"], "JSONDecodeError")
+        events = list_task_audit_events(queued["task_id"])["events"]
+        self.assertEqual(events[-1]["event_type"], "task_failed")
+        self.assertEqual(events[-1]["to_status"], "failed")
+
     def test_memory_retrieval_failure_marks_claimed_task_failed(self):
         from app.analytical_agent_tasks import (
             enqueue_research_task, execute_queued_research_task, list_task_audit_events,

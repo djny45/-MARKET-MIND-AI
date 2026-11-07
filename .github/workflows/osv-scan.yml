@@ -1,0 +1,26 @@
+name: OSV dependency vulnerability scan
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - integrate-smc-research-indicators
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+  security-events: write
+
+jobs:
+  osv-scan:
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@b1d267aea5211fa648d9d442fa64b90dbdcbdd36
+    with:
+      scan-args: |-
+        --recursive
+        ./
+      # Baseline mode: report findings without blocking until the initial
+      # vulnerability inventory is reviewed. Turn this on after triage.
+      fail-on-vuln: false
+      upload-sarif: true

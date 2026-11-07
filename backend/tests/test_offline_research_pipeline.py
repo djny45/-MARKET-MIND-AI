@@ -77,6 +77,32 @@ class OfflineResearchPipelineTests(unittest.TestCase):
         self.assertEqual(bundle["observations"][0]["timestamp"], "2024-01-01T00:00:00+00:00")
 
 
+    def test_offline_export_rejects_source_provenance_column_collision(self):
+        from app.offline_research_pipeline import (
+            run_offline_research, build_offline_evidence_bundle,
+        )
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as file:
+            file.write("timestamp,open,high,low,close,source\\n")
+            file.write("2024-01-01T00:00:00Z,10,12,9,11,original-source\\n")
+            path = file.name
+        self.addCleanup(Path(path).unlink, missing_ok=True)
+        result = run_offline_research(path, timestamp_column="timestamp")
+        with self.assertRaisesRegex(ValueError, "source.*conflicts with source provenance"):
+            build_offline_evidence_bundle(result, symbol="BTCUSD", interval="1d")
+
+    def test_offline_export_rejects_timestamp_field_collision(self):
+        from app.offline_research_pipeline import (
+            run_offline_research, build_offline_evidence_bundle,
+        )
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as file:
+            file.write("time_utc,timestamp,open,high,low,close\\n")
+            file.write("2024-01-01T00:00:00Z,original-ts,10,12,9,11\\n")
+            path = file.name
+        self.addCleanup(Path(path).unlink, missing_ok=True)
+        result = run_offline_research(path, timestamp_column="time_utc")
+        with self.assertRaisesRegex(ValueError, "timestamp.*conflicts with normalized timestamp"):
+            build_offline_evidence_bundle(result, symbol="BTCUSD", interval="1d")
+
     def test_evidence_bundle_round_trip_preserves_integrity_and_provenance(self):
         import json
         from app.offline_research_pipeline import (

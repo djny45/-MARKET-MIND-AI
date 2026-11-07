@@ -52,44 +52,45 @@ def _client():
     return httpx.Client(transport=httpx.MockTransport(handler))
 
 
-def test_fetch_review_files_only_returns_allowlisted_text_and_hashes():
-    client = _client()
-    try:
-        result = fetch_review_files("https://github.com/acme/demo", client=client)
-    finally:
-        client.close()
+class RepositoryReviewFilesTests(unittest.TestCase):
+    def test_fetch_review_files_only_returns_allowlisted_text_and_hashes(self):
+        client = _client()
+        try:
+            result = fetch_review_files("https://github.com/acme/demo", client=client)
+        finally:
+            client.close()
 
-    assert result["pinned_commit_sha"] == SHA
-    assert result["retrieved_file_count"] == 2
-    readme = next(item for item in result["files"] if item["path"] == "README.md")
-    assert readme["content"].startswith("# Sample project")
-    assert readme["sha256"] == hashlib.sha256(readme["content"].encode()).hexdigest()
-    assert all(item["path"] != "backend/app.py" for item in result["files"])
-    assert result["retrieval_policy"]["repository_code_executed"] is False
-
-
-def test_review_file_allowlist_is_not_bypassed():
-    from app.github_repository_files import _is_allowlisted
-
-    assert _is_allowlisted("docs/README.md")
-    assert _is_allowlisted("requirements.txt")
-    assert not _is_allowlisted("backend/app.py")
-    assert not _is_allowlisted(".env")
+        assert result["pinned_commit_sha"] == SHA
+        assert result["retrieved_file_count"] == 2
+        readme = next(item for item in result["files"] if item["path"] == "README.md")
+        assert readme["content"].startswith("# Sample project")
+        assert readme["sha256"] == hashlib.sha256(readme["content"].encode()).hexdigest()
+        assert all(item["path"] != "backend/app.py" for item in result["files"])
+        assert result["retrieval_policy"]["repository_code_executed"] is False
 
 
-def test_decode_rejects_oversized_contents():
-    from app.github_repository_files import _decode_contents
+    def test_review_file_allowlist_is_not_bypassed(self):
+        from app.github_repository_files import _is_allowlisted
 
-    payload = {
-        "path": "README.md", "encoding": "base64",
-        "content": base64.b64encode(b"x" * (MAX_FILE_BYTES + 1)).decode("ascii"),
-    }
-    with unittest.TestCase().assertRaisesRegex(GitHubCrawlerError, "per-file size"):
-        _decode_contents(payload, expected_path="README.md")
+        assert _is_allowlisted("docs/README.md")
+        assert _is_allowlisted("requirements.txt")
+        assert not _is_allowlisted("backend/app.py")
+        assert not _is_allowlisted(".env")
 
 
-def test_decode_rejects_path_mismatch():
-    from app.github_repository_files import _decode_contents
+    def test_decode_rejects_oversized_contents(self):
+        from app.github_repository_files import _decode_contents
 
-    with unittest.TestCase().assertRaisesRegex(GitHubCrawlerError, "mismatched path"):
-        _decode_contents({"path": "wrong.md"}, expected_path="README.md")
+        payload = {
+            "path": "README.md", "encoding": "base64",
+            "content": base64.b64encode(b"x" * (MAX_FILE_BYTES + 1)).decode("ascii"),
+        }
+        with unittest.TestCase().assertRaisesRegex(GitHubCrawlerError, "per-file size"):
+            _decode_contents(payload, expected_path="README.md")
+
+
+    def test_decode_rejects_path_mismatch(self):
+        from app.github_repository_files import _decode_contents
+
+        with unittest.TestCase().assertRaisesRegex(GitHubCrawlerError, "mismatched path"):
+            _decode_contents({"path": "wrong.md"}, expected_path="README.md")

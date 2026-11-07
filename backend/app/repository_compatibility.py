@@ -75,6 +75,8 @@ def build_compatibility_report(
         "schema_version": 1,
         "candidate_source": candidate_report.get("source_url"),
         "candidate_commit": candidate_report.get("pinned_commit_sha"),
+        "candidate_license_review_status": "not_assessed_by_compatibility_evaluator",
+        "candidate_security_scan_status": "not_assessed_by_compatibility_evaluator",
         "dependency_count_evaluated": len(matches),
         "name_overlap_count": overlapping,
         "dependencies": matches,
@@ -84,6 +86,7 @@ def build_compatibility_report(
             "Transitive dependencies, platform markers, extras, and build constraints are not resolved.",
             "Package names from different ecosystems are never compared.",
             "No packages are downloaded, installed, imported, or executed.",
+            "This report does not determine license compatibility or vulnerability status.",
             "License and security approval are separate human-review gates.",
         ],
         "approval": {

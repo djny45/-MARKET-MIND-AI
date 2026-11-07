@@ -1,11 +1,25 @@
 """Portable evidence bundle and human-readable methodology report; no forecasts or orders."""
 import hashlib
 import json
+import math
 import re
 
 from .historical_quality import build_historical_quality_diagnostics
 from .source_comparison import compare_source_observations
 from .research_timeline import build_research_timeline
+
+
+def _json_safe(value):
+    """Convert non-standard numeric values to explicit strings for strict JSON."""
+    if isinstance(value, float) and not math.isfinite(value):
+        if math.isnan(value):
+            return "NaN"
+        return "Infinity" if value > 0 else "-Infinity"
+    if isinstance(value, dict):
+        return {key: _json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(item) for item in value]
+    return value
 
 
 def build_research_evidence_bundle(symbol, interval, history, deep_report=None):
@@ -37,6 +51,9 @@ def build_research_evidence_bundle(symbol, interval, history, deep_report=None):
             "Source authenticity, licensing, completeness and freshness are not independently certified.",
             "No missing observations are inferred, interpolated or fabricated.",
             "No forecasts, directional signals, investment recommendations or orders are produced."]}
+    # JSON has no standard NaN/Infinity literals. Preserve these malformed source
+    # values as explicit strings so the evidence remains inspectable and exportable.
+    bundle = _json_safe(bundle)
     canonical = json.dumps(bundle, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
     bundle["integrity"] = {"algorithm": "sha256",
         "digest": hashlib.sha256(canonical.encode("utf-8")).hexdigest(),

@@ -1,4 +1,4 @@
-from backend.app.model_registry import list_model_integrations
+from app.model_registry import list_model_integrations
 
 
 def test_kronos_is_reported_as_source_only():

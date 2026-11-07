@@ -358,6 +358,22 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertEqual(events[0]["to_status"], "running")
         self.assertEqual(events[-1]["to_status"], result["status"])
 
+    def test_manual_dispatch_reports_executor_exceptions_separately(self):
+        from app.analytical_agent_tasks import enqueue_research_task, dispatch_queued_research_tasks
+
+        queued = enqueue_research_task("worker_010", "dispatch infrastructure exception")
+        with patch(
+            "app.analytical_agent_tasks.execute_queued_research_task",
+            side_effect=RuntimeError("simulated executor infrastructure failure"),
+        ):
+            result = dispatch_queued_research_tasks(limit=1, max_concurrency=1)
+
+        self.assertEqual(result["status"], "completed_with_dispatch_errors")
+        self.assertEqual(result["dispatch_error_count"], 1)
+        self.assertEqual(result["dispatch_error_task_ids"], [queued["task_id"]])
+        self.assertEqual(result["pending_task_count"], 1)
+        self.assertEqual(result["task_status_counts"]["queued"], 1)
+
     def test_manual_dispatch_reports_pending_tasks_when_not_claimed(self):
         from app.analytical_agent_tasks import enqueue_research_task, dispatch_queued_research_tasks
 

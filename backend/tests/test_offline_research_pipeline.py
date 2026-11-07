@@ -95,6 +95,22 @@ class OfflineResearchPipelineTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "changed after research"):
             build_offline_evidence_bundle(result, symbol="BTCUSD", interval="1d")
 
+    def test_blank_optional_metadata_exports_as_json_null(self):
+        import json
+        from app.offline_research_pipeline import (
+            run_offline_research, build_offline_evidence_bundle,
+        )
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as file:
+            file.write("timestamp,open,high,low,close,notes\n")
+            file.write("2024-01-01T00:00:00Z,10,12,9,11,\n")
+            file.write("2024-01-02T00:00:00Z,11,13,10,12,reviewed\n")
+            path = file.name
+        self.addCleanup(Path(path).unlink, missing_ok=True)
+        result = run_offline_research(path, timestamp_column="timestamp")
+        bundle = build_offline_evidence_bundle(result, symbol="BTCUSD", interval="1d")
+        self.assertIsNone(bundle["observations"][0]["notes"])
+        json.dumps(bundle, ensure_ascii=False, allow_nan=False)
+
     def test_offline_export_requires_recognized_timestamp_column(self):
         from app.offline_research_pipeline import (
             run_offline_research, build_offline_evidence_bundle,

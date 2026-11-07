@@ -22,7 +22,11 @@ def _valid_source_url(value: Any) -> bool:
         return False
     try:
         parsed = urlsplit(value.strip())
-        return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
+        if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+            return False
+        # Accessing .port also rejects malformed port syntax (for example ":abc").
+        parsed.port
+        return not any(character.isspace() for character in parsed.hostname)
     except ValueError:
         return False
 

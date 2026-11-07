@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from app.worker_memory import append_memory, read_memory, recall_memory
+from app.worker_memory import append_memory, read_memory, recall_memory, review_learning_candidate
 
 
 class WorkerMemoryTests(unittest.TestCase):
@@ -67,6 +67,38 @@ class WorkerMemoryTests(unittest.TestCase):
             recall_memory("worker_001", "")
         with self.assertRaises(ValueError):
             recall_memory("worker_001", "RSI", limit=0)
+
+
+    def test_candidate_review_is_append_only_and_worker_scoped(self):
+        candidate = append_memory(
+            "worker_001", "validation_result",
+            {"record_type": "research_quality_learning_candidate", "task_id": "task-1",
+             "metrics": {"coverage": 0.8}, "review_required": True},
+            ["research_task:task-1"], "partial",
+        )
+        review = review_learning_candidate(
+            "worker_001", candidate["memory_id"], "approved", "operator", "Reviewed metrics only"
+        )
+        self.assertEqual(review["content"]["decision"], "approved")
+        self.assertEqual(review["content"]["candidate_memory_id"], candidate["memory_id"])
+        records = read_memory("worker_001", "validation_result")["memory"]
+        self.assertEqual(len(records), 2)
+        original = next(item for item in records if item["memory_id"] == candidate["memory_id"])
+        self.assertTrue(original["content"]["review_required"])
+        self.assertEqual(review["source_refs"], [f"learning_candidate:{candidate['memory_id']}"])
+
+    def test_candidate_review_rejects_wrong_worker_and_non_candidate(self):
+        candidate = append_memory(
+            "worker_001", "validation_result",
+            {"record_type": "research_quality_learning_candidate"},
+        )
+        with self.assertRaises(ValueError):
+            review_learning_candidate("worker_002", candidate["memory_id"], "approved", "operator")
+        ordinary = append_memory("worker_001", "observation", {"note": "not candidate"})
+        with self.assertRaises(ValueError):
+            review_learning_candidate("worker_001", ordinary["memory_id"], "approved", "operator")
+        with self.assertRaises(ValueError):
+            review_learning_candidate("worker_001", candidate["memory_id"], "promote", "operator")
 
     def test_rejects_unknown_worker_and_invalid_memory_type(self):
         with self.assertRaises(ValueError):

@@ -16,6 +16,21 @@ class SwingPointTests(unittest.TestCase):
         self.assertEqual(result["confirmed_swing_highs"][0]["index"], 1)
         self.assertEqual(result["confirmed_swing_lows"][0]["index"], 2)
 
+    def test_swing_reports_confirmation_index_and_timestamp(self):
+        bars = [
+            {"high": 10, "low": 8, "timestamp": "t0"},
+            {"high": 12, "low": 7, "timestamp": "t1"},
+            {"high": 11, "low": 6, "timestamp": "t2"},
+            {"high": 9, "low": 7, "timestamp": "t3"},
+            {"high": 8, "low": 8, "timestamp": "t4"},
+        ]
+        result = find_swing_points(bars, 1, 1)
+        swing = result["confirmed_swing_highs"][0]
+        self.assertEqual(swing["index"], 1)
+        self.assertEqual(swing["timestamp"], "t1")
+        self.assertEqual(swing["confirmation_index"], 2)
+        self.assertEqual(swing["confirmation_timestamp"], "t2")
+
     def test_edges_are_not_labelled_without_confirmation(self):
         bars = [{"high": 10, "low": 8} for _ in range(4)]
         result = find_swing_points(bars, 1, 1)

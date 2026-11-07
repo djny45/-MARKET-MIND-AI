@@ -1925,3 +1925,35 @@ def get_worker_research_quality_dashboard(worker_id: str, limit: int = 100):
   return summarize_research_quality_dashboard(worker_id, limit)
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/workers/{worker_id}/staging-experiments/audit-export")
+def export_worker_staging_audit(worker_id: str, limit: int = 100):
+ """Return a consolidated JSON audit bundle for offline staging records.
+
+ This is an export of existing records and summaries only; it does not rerun
+ benchmarks, validate declared provenance, train, deploy, or trade.
+ """
+ try:
+  from .staging_experiments import list_staging_experiments
+  bundle = {
+   "worker_id": worker_id,
+   "export_type": "offline_staging_audit_bundle",
+   "dashboard": summarize_research_quality_dashboard(worker_id, limit),
+   "provenance": summarize_staging_provenance(worker_id, limit),
+   "experiment_records": list_staging_experiments(worker_id, limit)["experiments"],
+   "limitations": [
+    "Dataset metadata is caller-declared and not authenticated.",
+    "Fixture traceability metrics do not measure factual accuracy or market forecasting skill.",
+    "No model training, deployment, or trading is performed by this export.",
+   ],
+  }
+  encoded = json.dumps(bundle, ensure_ascii=False, sort_keys=True, indent=2, allow_nan=False)
+  safe_worker_id = "".join(ch for ch in worker_id if ch.isalnum() or ch in "-_")[:80] or "worker"
+  return Response(
+   content=encoded,
+   media_type="application/json",
+   headers={"Content-Disposition": f'attachment; filename="market-mind-staging-audit-{safe_worker_id}.json"'},
+  )
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc

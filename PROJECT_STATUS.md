@@ -244,3 +244,15 @@ Limitations:
 - This does not retrieve arbitrary source files, install dependencies, execute repository code, or automatically approve licenses.
 - README, license, NOTICE and manifest text is untrusted. License/NOTICE review and dependency vulnerability/compatibility analysis remain manual/pending.
 - Tests are committed but not executed in this environment; current-head CI remains unverified.
+
+
+## Static repository review report — 2026-11-08
+
+Implemented on the open PR branch:
+- Added `backend/app/repository_review_report.py` and `POST /api/open-source/review-report`.
+- Combines pinned tree inventory with the bounded README/license/dependency file fetch stage.
+- Summarizes source-language counts, dependency-manifest paths, README headings, and license/NOTICE file hashes.
+- Parses basic dependency declarations from requirements.txt, pyproject.toml and package.json without installing packages or importing repository code.
+- Added unit and API tests for supported manifest parsing, malformed JSON handling, commit pinning, and default-not-approved policy flags.
+
+Limitations: this is a static inventory, not a security audit, license decision, architecture reverse-engineering, or compatibility assessment. No arbitrary source code is fetched or executed. Current-head CI remains the acceptance gate.

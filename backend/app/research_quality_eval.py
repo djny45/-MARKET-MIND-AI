@@ -31,10 +31,14 @@ def evaluate_research_draft(
 
     source_ids = set()
     duplicate_source_ids = set()
+    source_entries_without_id = 0
     for source in source_registry:
         if not isinstance(source, dict):
             raise ValueError("source_registry entries must be objects")
         source_id = source.get("source_id")
+        if not isinstance(source_id, str) or not source_id.strip():
+            source_entries_without_id += 1
+            continue
         if isinstance(source_id, str) and source_id.strip():
             normalized_id = source_id.strip()
             if normalized_id in source_ids:
@@ -84,6 +88,7 @@ def evaluate_research_draft(
         "known_source_reference_coverage": round(claims_with_known_refs / denominator, 4) if total else None,
         "unknown_source_id_count": len(unknown_refs),
         "source_registry_count": len(source_ids),
+        "source_registry_entries_without_id_count": source_entries_without_id,
         "duplicate_source_id_count": len(duplicate_source_ids),
         "duplicate_source_ids": sorted(duplicate_source_ids),
         "uncertainty_marker_count": len(uncertainty_markers),

@@ -189,3 +189,54 @@ def recall_memory(worker_id, query, limit=5):
             "reference material; quality labels and citations are not independently verified."
         ),
     }
+
+
+_REVIEW_DECISIONS = {"approved", "rejected", "needs_revision"}
+
+
+def review_learning_candidate(worker_id, memory_id, decision, reviewer, rationale=""):
+    """Append a review event for a research-learning candidate; never mutates candidate memory."""
+    if worker_id not in _WORKER_IDS:
+        raise ValueError("worker_id must identify a registered worker template")
+    if not isinstance(memory_id, str) or not memory_id.strip() or len(memory_id) > 64:
+        raise ValueError("memory_id must be a non-empty identifier of at most 64 characters")
+    if decision not in _REVIEW_DECISIONS:
+        raise ValueError("decision must be approved, rejected, or needs_revision")
+    if not isinstance(reviewer, str) or not reviewer.strip() or len(reviewer) > 120:
+        raise ValueError("reviewer must be a non-empty string of at most 120 characters")
+    if not isinstance(rationale, str) or len(rationale) > 2000:
+        raise ValueError("rationale must be a string of at most 2000 characters")
+    with _connect() as db:
+        candidate = db.execute(
+            "SELECT memory_type, content_json FROM worker_memory WHERE memory_id=? AND worker_id=?",
+            (memory_id, worker_id),
+        ).fetchone()
+        if candidate is None:
+            raise ValueError("learning candidate was not found for this worker")
+        candidate_content = json.loads(candidate["content_json"])
+        if (candidate["memory_type"] != "validation_result"
+                or candidate_content.get("record_type") != "research_quality_learning_candidate"):
+            raise ValueError("memory record is not a research quality learning candidate")
+        review_id = str(uuid.uuid4())
+        created_at = datetime.now(timezone.utc).isoformat()
+        review_content = {
+            "record_type": "research_quality_learning_candidate_review",
+            "candidate_memory_id": memory_id,
+            "decision": decision,
+            "reviewer": reviewer.strip(),
+            "rationale": rationale,
+            "promotion_boundary": "approval_labels_candidate_only_no_model_training_or_strategy_change",
+        }
+        encoded = json.dumps(review_content, ensure_ascii=False, sort_keys=True, allow_nan=False)
+        db.execute(
+            "INSERT INTO worker_memory VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (review_id, worker_id, "validation_result", created_at,
+             json.dumps([f"learning_candidate:{memory_id}"]), "partial", encoded),
+        )
+    return {
+        "memory_id": review_id, "worker_id": worker_id,
+        "memory_type": "validation_result", "created_at": created_at,
+        "source_refs": [f"learning_candidate:{memory_id}"],
+        "quality_status": "partial", "content": review_content,
+        "storage_mode": "append_only_evidence_notes",
+    }

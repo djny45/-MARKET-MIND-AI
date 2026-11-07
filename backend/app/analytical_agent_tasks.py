@@ -574,6 +574,22 @@ def agent_task_performance(agent_id: str | None = None, limit: int = 550) -> dic
             total = db.execute(
                 "SELECT COUNT(*) FROM analytical_agent_tasks WHERE worker_id=?", (agent_id,)
             ).fetchone()[0]
+        attempt_rows = db.execute(
+            """SELECT worker_id,COALESCE(SUM(execution_attempts),0) AS execution_attempts,
+                      COUNT(*) AS task_count
+               FROM analytical_agent_tasks GROUP BY worker_id"""
+        ).fetchall() if agent_id is None else db.execute(
+            """SELECT worker_id,COALESCE(SUM(execution_attempts),0) AS execution_attempts,
+                      COUNT(*) AS task_count
+               FROM analytical_agent_tasks WHERE worker_id=? GROUP BY worker_id""",
+            (agent_id,)
+        ).fetchall()
+        failure_rows = db.execute(
+            "SELECT worker_id,result_json FROM analytical_agent_tasks WHERE status='failed'"
+        ).fetchall() if agent_id is None else db.execute(
+            "SELECT worker_id,result_json FROM analytical_agent_tasks WHERE status='failed' AND worker_id=?",
+            (agent_id,)
+        ).fetchall()
         recent = db.execute(
             """SELECT worker_id,status,COUNT(*) AS count
                FROM (SELECT worker_id,status FROM analytical_agent_tasks
@@ -602,6 +618,22 @@ def agent_task_performance(agent_id: str | None = None, limit: int = 550) -> dic
         return result
     all_agents = summarize(rows)
     recent_agents = summarize(recent)
+    attempt_totals = {row["worker_id"]: row["execution_attempts"] for row in attempt_rows}
+    failure_classes = {}
+    for row in failure_rows:
+        try:
+            result = json.loads(row["result_json"])
+        except (TypeError, ValueError):
+            result = {}
+        failure_class = result.get("failure_class", "unclassified")
+        worker = row["worker_id"]
+        bucket = failure_classes.setdefault(worker, {})
+        bucket[failure_class] = bucket.get(failure_class, 0) + 1
+    for worker, item in all_agents.items():
+        attempts = attempt_totals.get(worker, 0)
+        item["execution_attempts_total"] = attempts
+        item["average_execution_attempts_per_task"] = round(attempts / item["task_count"], 4) if item["task_count"] else 0
+        item["failure_class_counts"] = failure_classes.get(worker, {})
     return {
         "agent_id": agent_id,
         "task_count": total,

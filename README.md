@@ -501,3 +501,11 @@ A descriptive history endpoint is available:
 - `GET /api/workers/{worker_id}/staging-experiments/summary?limit=100`
 
 It summarizes recent stored fixture experiments by proposal, quality-gate status, metric delta ranges/means, and evaluator config patch frequency. It is a descriptive record only: it does not infer statistical significance, causality, market skill, or strategy rankings. The source records remain append-only and reviewer-controlled.
+
+### Repeatability summary for staging experiments
+
+- `GET /api/workers/{worker_id}/staging-experiments/repeatability?limit=200&min_trials=3`
+
+Groups recorded fixture evaluations by proposal, exact baseline/candidate benchmark fingerprints, and canonicalized evaluator configuration. Groups below the minimum trial count are not presented as repeatability evidence. For eligible groups, the response reports gate-status counts and per-metric positive/negative/zero delta counts.
+
+This is a descriptive consistency check, not statistical significance or independent-data validation. Reusing identical fixtures can reproduce the same bias; it does not establish real-world market skill. No code, model weights, production configuration, or trading behavior is changed.

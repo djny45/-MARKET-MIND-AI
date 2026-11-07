@@ -21,7 +21,7 @@ from .intelligence_core import intelligence_core_status, synthesize_research, In
 from .synthesis_review import build_synthesis_review
 from .research_quality_eval import evaluate_research_draft
 from .research_benchmark import run_offline_research_benchmark
-from .skill_catalog import list_skills, load_skill
+from .skill_catalog import list_skills, load_skill, build_skill_protocol
 from .landing_page_builder import build_landing_page
 from .markets import market_catalog
 from .instruments import search_instruments
@@ -1778,6 +1778,10 @@ def _execute_and_persist(request: WorkflowRequest, parent_run_id: str | None = N
   )
   result["skill_context"] = loaded_skills
   result["skill_context_mode"] = "research_and_paper_only"
+  result["skill_protocols"] = [
+   protocol for skill_id in request.skill_ids
+   if (protocol := build_skill_protocol(skill_id)) is not None
+  ]
   record = workspace.update_execution_checkpoint(
    run_id,
    {"completed_node_ids":[task["node_id"] for task in result["tasks"] if task["status"]=="completed"],

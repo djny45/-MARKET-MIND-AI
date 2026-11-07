@@ -7,7 +7,7 @@ set -euo pipefail
 # Requires git and git-subtree. Run from the MARKET-MIND-AI repository root.
 
 UPSTREAM_URL="https://github.com/openbq-org/OpenBB.git"
-UPSTREAM_REF="develop"
+UPSTREAM_REF="78020ee4b864ab50b8c1f56373877c2b4e7fb623" # reviewed upstream commit; update deliberately
 DEST="vendor/openbb"
 
 if ! git rev-parse --show-toplevel >/dev/null 2>&1; then

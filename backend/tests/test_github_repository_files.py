@@ -1,9 +1,9 @@
 """Tests for bounded allowlisted README/license/dependency retrieval."""
 import base64
+import unittest
 import hashlib
 
 import httpx
-import pytest
 
 from app.github_repository_files import fetch_review_files, MAX_FILE_BYTES
 from app.github_repository_crawler import GitHubCrawlerError
@@ -84,12 +84,12 @@ def test_decode_rejects_oversized_contents():
         "path": "README.md", "encoding": "base64",
         "content": base64.b64encode(b"x" * (MAX_FILE_BYTES + 1)).decode("ascii"),
     }
-    with pytest.raises(GitHubCrawlerError, match="per-file size"):
+    with unittest.TestCase().assertRaisesRegex(GitHubCrawlerError, "per-file size"):
         _decode_contents(payload, expected_path="README.md")
 
 
 def test_decode_rejects_path_mismatch():
     from app.github_repository_files import _decode_contents
 
-    with pytest.raises(GitHubCrawlerError, match="mismatched path"):
+    with unittest.TestCase().assertRaisesRegex(GitHubCrawlerError, "mismatched path"):
         _decode_contents({"path": "wrong.md"}, expected_path="README.md")

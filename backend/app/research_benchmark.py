@@ -91,6 +91,71 @@ def run_offline_research_benchmark(
             "source_registry": case.get("source_registry"),
         })
 
+    # Fixture overlap audit: compare normalized draft text and claim/source IDs.
+    # This is a transparent lexical signal, not semantic similarity or proof of leakage.
+    def _tokens(value: Any) -> set[str]:
+        if not isinstance(value, str):
+            return set()
+        return {token for token in value.lower().split() if token.strip(".,!?;:\"'()[]{}")}
+
+    case_signatures = []
+    for case in normalized_cases:
+        claim_items = case.get("claims") if isinstance(case.get("claims"), list) else []
+        source_items = case.get("source_registry") if isinstance(case.get("source_registry"), list) else []
+        claim_text = " ".join(
+            str(item.get("text", "")) for item in claim_items if isinstance(item, dict)
+        )
+        refs = sorted({
+            str(ref) for item in claim_items if isinstance(item, dict)
+            for ref in (item.get("source_refs") if isinstance(item.get("source_refs"), list) else [])
+        })
+        source_ids = sorted({
+            str(item.get("source_id")) for item in source_items
+            if isinstance(item, dict) and item.get("source_id") is not None
+        })
+        draft_tokens = _tokens(case.get("draft"))
+        claim_tokens = _tokens(claim_text)
+        all_tokens = draft_tokens | claim_tokens
+        case_signatures.append({
+            "case_id": case["case_id"],
+            "draft_tokens": draft_tokens,
+            "claim_tokens": claim_tokens,
+            "all_tokens": all_tokens,
+            "source_refs": set(refs),
+            "source_ids": set(source_ids),
+        })
+    overlap_pairs = []
+    for index, left in enumerate(case_signatures):
+        for right in case_signatures[index + 1:]:
+            union = left["all_tokens"] | right["all_tokens"]
+            token_jaccard = (
+                round(len(left["all_tokens"] & right["all_tokens"]) / len(union), 4)
+                if union else 1.0
+            )
+            shared_refs = sorted(left["source_refs"] & right["source_refs"])
+            shared_source_ids = sorted(left["source_ids"] & right["source_ids"])
+            if token_jaccard >= 0.5 or shared_refs or shared_source_ids:
+                overlap_pairs.append({
+                    "case_ids": [left["case_id"], right["case_id"]],
+                    "token_jaccard": token_jaccard,
+                    "shared_source_refs": shared_refs,
+                    "shared_source_ids": shared_source_ids,
+                    "flags": [
+                        flag for flag, condition in (
+                            ("high_lexical_overlap", token_jaccard >= 0.5),
+                            ("shared_source_refs", bool(shared_refs)),
+                            ("shared_source_registry_ids", bool(shared_source_ids)),
+                        ) if condition
+                    ],
+                })
+    fixture_overlap = {
+        "pair_count_flagged": len(overlap_pairs),
+        "flagged_pairs": overlap_pairs,
+        "threshold": 0.5,
+        "method": "case-insensitive whitespace token Jaccard over draft plus claim text; exact source ID overlap",
+        "limitations": "Lexical heuristic only. It can miss paraphrases, flag common boilerplate, and does not establish semantic duplication, leakage, independence, or quality.",
+    }
+
     canonical = json.dumps(
         {"cases": normalized_cases, "baseline": baseline,
          "regression_threshold": regression_threshold, "quality_config": normalized_config},
@@ -190,6 +255,7 @@ def run_offline_research_benchmark(
         "benchmark_type": "offline_research_traceability",
         "quality_config": normalized_config,
         "case_count": len(results),
+        "fixture_overlap": fixture_overlap,
         "aggregate_metrics": aggregate,
         "baseline_comparison": baseline_comparison,
         "regression_summary": regression_summary,

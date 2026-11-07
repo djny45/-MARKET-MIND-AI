@@ -23,6 +23,11 @@ class IndicatorTests(unittest.TestCase):
  def test_ema(self): self.assertEqual(len(ema([1,2,3],2)),3)
  def test_returns(self): self.assertAlmostEqual(returns([100,110,99])[0],.1)
  def test_rsi(self): self.assertTrue(all(x is None or 0<=x<=100 for x in rsi(list(range(1,40)))))
+ def test_rsi_flat_prices_are_neutral(self):
+  self.assertEqual(rsi([100,100,100,100],period=2),[None,50.0,50.0])
+ def test_rsi_all_gain_and_all_loss_edge_cases(self):
+  self.assertEqual(rsi([100,110,120,130],period=2),[None,100.0,100.0])
+  self.assertEqual(rsi([130,120,110,100],period=2),[None,0.0,0.0])
  def test_macd(self): self.assertEqual(len(macd(list(range(1,40)))["histogram"]),39)
  def test_bollinger(self): self.assertEqual(len(bollinger(list(range(1,25)))["upper"]),24)
  def test_returns_reject_nonfinite_result(self):

@@ -226,6 +226,7 @@ class HistoricalForecastingTests(unittest.TestCase):
             ([[1.0], [2.0, 3.0]], [0.1, 0.2], 0.1, "consistent non-zero width"),
             ([[1.0]], [0.1], float("nan"), "alpha must be finite and positive"),
             ([[True]], [0.1], 0.1, "features\\[0\\]\\[0\\] must be finite numeric"),
+            ([[10**10000]], [0.1], 0.1, "features\\[0\\]\\[0\\] must be finite numeric"),
         ):
             with self.subTest(features=features, alpha=alpha):
                 with self.assertRaisesRegex(ValueError, message):
@@ -237,6 +238,7 @@ class HistoricalForecastingTests(unittest.TestCase):
             ([[1.0, 2.0]], [1.0], "square matrix"),
             ([[float("inf")]], [1.0], "matrix\\[0\\]\\[0\\] must be finite numeric"),
             ([[1.0]], [float("nan")], "vector\\[0\\] must be finite numeric"),
+            ([[1.0]], [10**10000], "vector\\[0\\] must be finite numeric"),
         ):
             with self.subTest(matrix=matrix, vector=vector):
                 with self.assertRaisesRegex(ValueError, message):

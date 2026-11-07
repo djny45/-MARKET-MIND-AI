@@ -31,6 +31,24 @@ class SwingPointTests(unittest.TestCase):
         self.assertEqual(swing["confirmation_index"], 2)
         self.assertEqual(swing["confirmation_timestamp"], "t2")
 
+    def test_confirmed_swings_are_prefix_stable(self):
+        bars = [
+            {"high": high, "low": low, "timestamp": f"t{i}"}
+            for i, (high, low) in enumerate([
+                (10, 8), (12, 7), (11, 6), (9, 7), (8, 8),
+                (13, 5), (10, 6), (9, 7), (8, 8), (7, 9),
+            ])
+        ]
+        full = find_swing_points(bars, left=1, right=2)
+        for end in range(4, len(bars) + 1):
+            prefix = find_swing_points(bars[:end], left=1, right=2)
+            for key in ("confirmed_swing_highs", "confirmed_swing_lows"):
+                expected = [
+                    point for point in full[key]
+                    if point["confirmation_index"] < end
+                ]
+                self.assertEqual(prefix[key], expected, msg=f"{key} differs at prefix {end}")
+
     def test_edges_are_not_labelled_without_confirmation(self):
         bars = [{"high": 10, "low": 8} for _ in range(4)]
         result = find_swing_points(bars, 1, 1)

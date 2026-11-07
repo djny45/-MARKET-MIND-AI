@@ -64,6 +64,29 @@ class SMCResearchAdapterTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "NaN or infinite"):
             analyze_historical_ohlcv(bad, swing_length=5)
 
+    def test_non_numeric_ohlc_rejected(self):
+        from app.smc_research import analyze_historical_ohlcv
+        bad = self.frame.copy()
+        bad.loc[3, "close"] = "not-a-price"
+        with self.assertRaises((ValueError, TypeError)):
+            analyze_historical_ohlcv(bad, swing_length=5)
+
+    def test_inconsistent_low_rejected(self):
+        from app.smc_research import analyze_historical_ohlcv
+        bad = self.frame.copy()
+        bad.loc[3, "low"] = 10.3
+        with self.assertRaisesRegex(ValueError, "low is above"):
+            analyze_historical_ohlcv(bad, swing_length=5)
+
+    def test_non_finite_volume_rejected(self):
+        from app.smc_research import analyze_historical_ohlcv
+        for invalid in (float("nan"), float("inf"), float("-inf")):
+            with self.subTest(invalid=invalid):
+                bad = self.frame.copy()
+                bad.loc[3, "volume"] = invalid
+                with self.assertRaisesRegex(ValueError, "Volume contains NaN or infinite"):
+                    analyze_historical_ohlcv(bad, swing_length=5)
+
     def test_inconsistent_high_low_rejected(self):
         from app.smc_research import analyze_historical_ohlcv
         bad = self.frame.copy()

@@ -46,7 +46,7 @@ export default function OpenBBTerminal() {
   } finally { setBusy(false) }
  }
 
- return <section className="openbb-terminal">
+ return <section className="overview-area openbb-terminal">
   <div className="overview-heading"><div><span className="eyebrow">OPENBB / LOCAL CLI</span><h1>OpenBB terminal</h1><p>Restricted informational CLI bridge. This is not an unrestricted shell or an interactive REPL.</p></div><button className="soft-btn" onClick={checkStatus}>CHECK INSTALLATION</button></div>
   <div className="overview-status"><span className={installed===true?'status-ok':installed===false?'status-off':''}>{installed===true?'INSTALLED':installed===false?'NOT INSTALLED':'UNKNOWN'}</span><span>OPENBB CLI</span><span className="overview-separator">·</span><span className={enabled===true?'status-ok':enabled===false?'status-off':''}>{enabled===true?'EXECUTION ENABLED':enabled===false?'EXECUTION DISABLED':'EXECUTION STATUS UNKNOWN'}</span><span className="overview-separator">·</span><span>ALLOWLISTED COMMANDS ONLY</span></div>
   <div className="overview-panel openbb-controls">

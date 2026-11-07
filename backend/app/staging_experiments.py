@@ -401,3 +401,75 @@ def summarize_staging_provenance(worker_id: str, limit: int = 100) -> dict[str, 
         "interpretation": "Audits caller-declared metadata only. Missing labels do not prove bad data; present labels do not authenticate sources. Older records may predate provenance fields.",
         "limit": limit,
     }
+
+
+def summarize_research_quality_dashboard(worker_id: str, limit: int = 100) -> dict[str, Any]:
+    """Consolidate descriptive staging quality, regression, provenance, and repeatability signals."""
+    if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 200:
+        raise ValueError("limit must be between 1 and 200")
+    records = read_memory(worker_id, "validation_result", limit=200)["memory"]
+    experiments = [
+        item for item in records
+        if isinstance(item.get("content"), dict)
+        and item["content"].get("record_type") == "staging_experiment_result"
+    ][:limit]
+    gate_counts: dict[str, int] = {}
+    regression_experiments = 0
+    provenance_incomplete = 0
+    experiment_rows = []
+    for item in experiments:
+        content = item["content"]
+        runs = content.get("benchmark_runs", {})
+        runs = runs if isinstance(runs, dict) else {}
+        gate = runs.get("quality_gate", {})
+        gate = gate if isinstance(gate, dict) else {}
+        status = gate.get("status", "not_available")
+        gate_counts[status] = gate_counts.get(status, 0) + 1
+        paired = runs.get("paired_case_summary", {})
+        paired = paired if isinstance(paired, dict) else {}
+        regression_count = paired.get("regression_count", 0)
+        if not isinstance(regression_count, int) or isinstance(regression_count, bool):
+            regression_count = 0
+        has_regression = status == "blocked_regression" or regression_count > 0
+        regression_experiments += int(has_regression)
+        base = runs.get("baseline_provenance", {})
+        candidate = runs.get("candidate_provenance", {})
+        base = base if isinstance(base, dict) else {}
+        candidate = candidate if isinstance(candidate, dict) else {}
+        base_meta = base.get("fixture_metadata", {})
+        candidate_meta = candidate.get("fixture_metadata", {})
+        base_meta = base_meta if isinstance(base_meta, dict) else {}
+        candidate_meta = candidate_meta if isinstance(candidate_meta, dict) else {}
+        provenance_complete = bool(base_meta.get("dataset_name") and base_meta.get("dataset_version")
+                                   and candidate_meta.get("dataset_name") and candidate_meta.get("dataset_version"))
+        provenance_incomplete += int(not provenance_complete)
+        experiment_rows.append({
+            "memory_id": item.get("memory_id"),
+            "proposal_memory_id": content.get("proposal_memory_id"),
+            "benchmark_id": content.get("benchmark_id"),
+            "quality_gate_status": status,
+            "aggregate_deltas": gate.get("aggregate_deltas", {}),
+            "paired_regression_count": regression_count,
+            "regression_flag": has_regression,
+            "provenance_complete": provenance_complete,
+            "evaluator_version": runs.get("evaluator_version"),
+        })
+    repeatability = summarize_repeatability(worker_id, limit=limit, min_trials=3)
+    provenance = summarize_staging_provenance(worker_id, limit=limit)
+    return {
+        "worker_id": worker_id,
+        "experiment_count": len(experiment_rows),
+        "quality_gate_status_counts": gate_counts,
+        "experiments_with_regression_flags": regression_experiments,
+        "experiments_missing_dataset_name_or_version": provenance_incomplete,
+        "experiment_records": experiment_rows,
+        "provenance_missing_counts": provenance["missing_provenance_counts"],
+        "repeatability": {
+            "groups_meeting_min_trials": repeatability["groups_meeting_min_trials"],
+            "groups_below_min_trials": repeatability["groups_below_min_trials"],
+            "min_trials": repeatability["min_trials"],
+            "groups": repeatability["repeatability_groups"],
+        },
+        "interpretation": "Consolidated descriptive audit of saved caller-supplied fixture experiments. Provenance is self-declared; repeatability uses exact repeated fixtures. This does not validate truth, source authenticity, independent data, market skill, forecast quality, or trading performance.",
+        "limit": limit,
+    }

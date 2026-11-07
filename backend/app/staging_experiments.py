@@ -106,6 +106,34 @@ def run_staging_benchmark(worker_id: str, proposal_memory_id: str, payload: dict
                          for name in metric_names}
     if any(value is None for value in (*baseline_metrics.values(), *candidate_metrics.values())):
         raise ValueError("all baseline and candidate metrics must be available; provide cases with measurable claims")
+    # Require identical case IDs so comparisons are paired, not unrelated samples.
+    baseline_by_id = {item['case_id']: item for item in baseline_result['case_results']}
+    candidate_by_id = {item['case_id']: item for item in candidate_result['case_results']}
+    if set(baseline_by_id) != set(candidate_by_id):
+        raise ValueError('baseline and candidate must use the same case_id values for paired comparison')
+    paired_metrics = {}
+    regressions = []
+    for case_id in sorted(baseline_by_id):
+        before_metrics = baseline_by_id[case_id]['evaluation']['metrics']
+        after_metrics = candidate_by_id[case_id]['evaluation']['metrics']
+        case_comparison = {}
+        for metric_name in metric_names:
+            before = before_metrics.get(metric_name)
+            after = after_metrics.get(metric_name)
+            if isinstance(before, (int, float)) and not isinstance(before, bool) and isinstance(after, (int, float)) and not isinstance(after, bool):
+                delta = round(after - before, 4)
+                case_comparison[metric_name] = {'baseline': before, 'candidate': after, 'delta': delta, 'status': 'compared'}
+                if delta < 0:
+                    regressions.append({'case_id': case_id, 'metric': metric_name, 'delta': delta})
+            else:
+                case_comparison[metric_name] = {'baseline': before, 'candidate': after, 'delta': None, 'status': 'skipped', 'reason': 'metric_unavailable'}
+        paired_metrics[case_id] = case_comparison
+    paired_summary = {
+        'paired_case_count': len(paired_metrics),
+        'regression_count': len(regressions),
+        'regressions': regressions,
+        'interpretation': 'A decrease in these traceability coverage metrics is a structural regression flag, not evidence of factual, forecast, or trading performance.',
+    }
     combined_id = f"baseline:{baseline_result['benchmark_id']}|candidate:{candidate_result['benchmark_id']}"
     saved = create_staging_experiment(worker_id, proposal_memory_id, {
         "benchmark_id": combined_id,
@@ -120,6 +148,8 @@ def run_staging_benchmark(worker_id: str, proposal_memory_id: str, payload: dict
             "candidate_case_count": candidate_result["case_count"],
             "benchmark_type": "offline_research_traceability",
             "metric_names": list(metric_names),
+            "paired_case_metrics": paired_metrics,
+            "paired_case_summary": paired_summary,
         },
     })
     return saved

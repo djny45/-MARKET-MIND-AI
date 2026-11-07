@@ -67,6 +67,23 @@ def test_timeline_skips_non_finite_close_change_from_extreme_prices():
     assert report["events"][1]["close_change_pct"] is None
 
 
+def test_timeline_rejects_duplicate_or_unsorted_timestamps():
+    import pytest
+    bars = sample_bars()
+    bars[3]["timestamp"] = bars[2]["timestamp"]
+    with pytest.raises(ValueError, match="timestamps must be unique"):
+        build_research_timeline({"bars": bars})
+    bars = sample_bars()[::-1]
+    with pytest.raises(ValueError, match="sorted chronologically"):
+        build_research_timeline({"bars": bars})
+
+def test_timeline_rejects_naive_timestamps():
+    import pytest
+    bars = sample_bars()
+    bars[0]["timestamp"] = "2026-01-01T00:00:00"
+    with pytest.raises(ValueError, match="must include timezone"):
+        build_research_timeline({"bars": bars})
+
 def test_timeline_rejects_non_finite_ohlcv_values():
     import pytest
     bars = sample_bars()

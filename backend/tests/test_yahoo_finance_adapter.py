@@ -36,14 +36,37 @@ class YahooFinanceAdapterTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(batch.bars[0].adjusted_close, 102.7)
         self.assertTrue(batch.warnings)
 
-    async def test_four_hour_interval_discloses_unaggregated_hourly_source(self):
+    async def test_four_hour_interval_aggregates_complete_hourly_bars(self):
+        payload = chart_payload()
+        result = payload["chart"]["result"][0]
+        start = 1767225600
+        result["timestamp"] = [start + hour * 3600 for hour in range(4)]
+        quote = result["indicators"]["quote"][0]
+        quote["open"] = [100, 101, 102, 103]
+        quote["high"] = [102, 104, 103, 105]
+        quote["low"] = [99, 100, 101, 102]
+        quote["close"] = [101, 102, 102.5, 104]
+        quote["volume"] = [10, 20, 30, 40]
+        result["indicators"]["adjclose"][0]["adjclose"] = [100.5, 101.5, 102, 103.5]
+
         adapter = YahooFinanceAdapter()
-        with patch.object(adapter, "_fetch_chart", return_value=chart_payload()):
+        with patch.object(adapter, "_fetch_chart", return_value=payload):
             batch = await adapter.get_bars("AAPL", "4h", 10)
 
         self.assertEqual(batch.interval, "4h")
-        self.assertEqual(len(batch.bars), 2)
-        self.assertTrue(any("not aggregated" in warning for warning in batch.warnings))
+        self.assertEqual(len(batch.bars), 1)
+        bar = batch.bars[0]
+        self.assertEqual(bar.timestamp.timestamp(), start)
+        self.assertEqual((bar.open, bar.high, bar.low, bar.close), (100, 105, 99, 104))
+        self.assertEqual(bar.volume, 100)
+        self.assertEqual(bar.adjusted_close, 103.5)
+        self.assertTrue(any("aggregated from complete" in warning for warning in batch.warnings))
+
+    async def test_four_hour_interval_discards_incomplete_hourly_bucket(self):
+        adapter = YahooFinanceAdapter()
+        with patch.object(adapter, "_fetch_chart", return_value=chart_payload()):
+            with self.assertRaisesRegex(ValueError, "No OHLCV bars returned"):
+                await adapter.get_bars("AAPL", "4h", 10)
 
     async def test_skips_non_finite_negative_volume_and_invalid_ohlc_rows(self):
         payload = chart_payload()

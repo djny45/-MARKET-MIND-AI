@@ -21,6 +21,7 @@ from .research_quality_eval import evaluate_research_draft
 from .skill_catalog import list_skills, load_skill
 from .open_source_intake import build_open_source_intake
 from .github_repository_crawler import fetch_repository_metadata, GitHubCrawlerError
+from .github_repository_tree import scan_repository_tree
 from .landing_page_builder import build_landing_page
 from .markets import market_catalog
 from .instruments import search_instruments
@@ -748,6 +749,17 @@ def crawl_open_source_metadata(request: OpenSourceIntakeRequest):
  """Fetch bounded public GitHub metadata and pin a commit; never download or execute source."""
  try:
   return fetch_repository_metadata(request.repository_url)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+ except GitHubCrawlerError as exc:
+  raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@app.post("/api/open-source/scan-tree")
+def scan_open_source_tree(request: OpenSourceIntakeRequest):
+ """Inventory a pinned GitHub tree without fetching or executing repository source."""
+ try:
+  return scan_repository_tree(request.repository_url)
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
  except GitHubCrawlerError as exc:

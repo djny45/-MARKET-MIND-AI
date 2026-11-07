@@ -72,6 +72,32 @@ class ResearchExportCompareCliTests(unittest.TestCase):
             self.assertEqual(code, 1)
             self.assertEqual(json.loads(output.getvalue())["comparison_status"], "integrity_unverified")
 
+
+    def test_strict_cli_still_writes_report_when_integrity_is_unverified(self):
+        with tempfile.TemporaryDirectory() as directory:
+            before = Path(directory) / "before.json"
+            after = Path(directory) / "after.json"
+            report = Path(directory) / "strict-report.json"
+            before.write_text(json.dumps(export(10)), encoding="utf-8")
+            after.write_text(json.dumps(export(12)), encoding="utf-8")
+            output = io.StringIO()
+            with patch("sys.argv", [
+                "compare_research_exports.py", str(before), str(after),
+                "--report", str(report), "--strict",
+            ]):
+                with contextlib.redirect_stdout(output):
+                    code = main()
+            self.assertEqual(code, 1)
+            self.assertTrue(report.exists())
+            self.assertEqual(
+                json.loads(report.read_text(encoding="utf-8"))["comparison_status"],
+                "integrity_unverified",
+            )
+            self.assertEqual(
+                json.loads(output.getvalue())["comparison_status"],
+                "integrity_unverified",
+            )
+
     def test_strict_cli_returns_zero_for_verified_compatible_exports(self):
         import hashlib
         def signed(data):

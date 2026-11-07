@@ -378,8 +378,15 @@ class StagingExperimentTests(unittest.TestCase):
         cases[1]["draft"] = cases[0]["draft"]
         cases[1]["claims"] = list(cases[0]["claims"])
         cases[1]["source_registry"] = list(cases[0]["source_registry"])
+        baseline_cases = self._benchmark_cases("missing")
+        baseline_cases.append({
+            "case_id": "fixture-two",
+            "draft": "Independent synthetic fixture.",
+            "claims": [{"text": "Separate claim", "source_refs": ["missing"]}],
+            "source_registry": [{"source_id": "known"}],
+        })
         payload = {
-            "baseline_cases": self._benchmark_cases("missing"),
+            "baseline_cases": baseline_cases,
             "candidate_cases": cases,
             "reviewer": "reviewer",
         }

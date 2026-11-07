@@ -103,6 +103,16 @@ class OfflineResearchPipelineTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "timestamp.*conflicts with normalized timestamp"):
             build_offline_evidence_bundle(result, symbol="BTCUSD", interval="1d")
 
+    def test_offline_export_rejects_unsorted_timestamps_after_dataset_mutation(self):
+        from app.offline_research_pipeline import (
+            run_offline_research, build_offline_evidence_bundle,
+        )
+        path = self.write_csv()
+        result = run_offline_research(path, timestamp_column="timestamp")
+        result["dataset"] = result["dataset"].iloc[::-1].reset_index(drop=True)
+        with self.assertRaisesRegex(ValueError, "sorted chronologically"):
+            build_offline_evidence_bundle(result, symbol="BTCUSD", interval="1d")
+
     def test_evidence_bundle_round_trip_preserves_integrity_and_provenance(self):
         import json
         from app.offline_research_pipeline import (

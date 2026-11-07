@@ -117,5 +117,6 @@ Implemented on PR #4:
 - Dispatch status/audit handling and supervisor stale-threshold validation received regression coverage.
 
 Verification:
-- GitHub workflow lookup returned no workflow runs for the latest PR head.
+- Added `.github/workflows/backend-tests.yml` to run the backend unittest suite on PRs and this branch.
+- GitHub workflow lookup returned no run for the workflow commit yet; execution remains unverified.
 - Tests were not run locally in this environment. Do not mark this update CI-verified until a workflow or local test run completes.

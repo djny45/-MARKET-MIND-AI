@@ -1916,3 +1916,12 @@ def resume_workflow_run(run_id: str):
  }
  replay["resume_note"] = "Completed nodes from the last durable layer checkpoint were restored; incomplete nodes were scheduled again."
  return replay
+
+
+@app.get("/api/workers/{worker_id}/research-quality-dashboard")
+def get_worker_research_quality_dashboard(worker_id: str, limit: int = 100):
+ """Combine staging gate, paired regression, provenance, and repeatability summaries."""
+ try:
+  return summarize_research_quality_dashboard(worker_id, limit)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc

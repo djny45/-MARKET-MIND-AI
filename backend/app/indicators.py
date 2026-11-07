@@ -41,16 +41,25 @@ def returns(values):
    raise ValueError("return is non-finite for the supplied price observations")
   out.append(result)
  return out
+def _rsi_value(average_gain, average_loss):
+ if average_gain == 0 and average_loss == 0:
+  return 50.0
+ if average_loss == 0:
+  return 100.0
+ if average_gain == 0:
+  return 0.0
+ return 100-100/(1+average_gain/average_loss)
+
 def rsi(values,period=14):
  rs=returns(values); p=int(period)
  if p<1: raise ValueError("period must be positive")
  if len(rs)<p: return [None]*len(rs)
  gains=[max(x,0) for x in rs]; losses=[max(-x,0) for x in rs]
  ag=sum(gains[:p])/p; al=sum(losses[:p])/p; out=[None]*(p-1)
- out.append(100.0 if al==0 else 100-100/(1+ag/al))
+ out.append(_rsi_value(ag,al))
  for i in range(p,len(rs)):
   ag=(ag*(p-1)+gains[i])/p; al=(al*(p-1)+losses[i])/p
-  out.append(100.0 if al==0 else 100-100/(1+ag/al))
+  out.append(_rsi_value(ag,al))
  return out
 def macd(values,fast=12,slow=26,signal=9):
  line=[a-b for a,b in zip(ema(values,fast),ema(values,slow))]

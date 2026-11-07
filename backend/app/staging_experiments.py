@@ -266,9 +266,13 @@ def summarize_repeatability(worker_id: str, limit: int = 200, min_trials: int = 
         if not isinstance(baseline_id, str) or not isinstance(candidate_id, str) or not isinstance(patch, dict):
             continue
         # Same proposal, exact baseline/candidate fixture fingerprints, and config.
+        # Use canonical JSON rather than repr/sorted top-level items so nested
+        # config objects compare deterministically.
+        import json
+        config_repr = json.dumps(patch, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
         key = (str(content.get("proposal_memory_id", "")),
                baseline_id + "|" + candidate_id,
-               repr(sorted(patch.items())))
+               config_repr)
         gate = runs.get("quality_gate", {})
         groups.setdefault(key, []).append({
             "gate_status": gate.get("status", "not_available") if isinstance(gate, dict) else "not_available",

@@ -10,7 +10,7 @@ This document describes the implemented task lifecycle and its current execution
 - **Audit:** `GET /api/analytical-agent-tasks/{task_id}/audit` returns bounded, cursor-paginated lifecycle events.
 - **Cancel:** `POST /api/analytical-agent-tasks/{task_id}/cancel` changes a task from `queued` to `cancelled`. It cannot interrupt a task already claimed as `running`, nor alter completed/failed/cancelled tasks.
 - **Retry:** `POST /api/analytical-agent-tasks/{task_id}/retry` accepts only failed tasks and creates a *new* queued task with the original input. One retry per original task is allowed. It does not automatically dispatch or rerun in place; the new task must be explicitly dispatched.
-- **Recover:** `POST /api/analytical-agent-tasks/recover` requeues stale `running` tasks after the recovery grace period. Recovery does **not** dispatch them; dispatch remains explicit.
+- **Recover:** on backend startup, stale `running` tasks are requeued automatically (best-effort) after the recovery grace period. `MARKET_MIND_STARTUP_RECOVERY=false` disables this behavior. `POST /api/analytical-agent-tasks/recover` remains available for manual recovery. Recovery does **not** dispatch tasks; dispatch remains explicit.
 
 ## State and safety properties
 
@@ -24,7 +24,7 @@ This document describes the implemented task lifecycle and its current execution
 
 ## Not implemented by this lifecycle
 
-- Distributed/cloud queue or multi-process coordination.
+- Distributed/cloud queue or multi-process coordination. Startup recovery is safe only for the documented single-process SQLite deployment; multiple API processes sharing one database can mistakenly treat another process's active task as stale.
 - Automatic retry policy, scheduled research, or cloud workspaces. Retry is manual and capped at one fresh task per failed original.
 - Live market-data execution as part of the task runner.
 - Broker or exchange order execution.

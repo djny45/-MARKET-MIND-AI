@@ -65,10 +65,14 @@ def build_report(csv_path: str | Path, *, timestamp_column: str | None = None,
             "null_count": len(series) - len(valid),
             "latest_valid": valid[-1] if valid else None,
         }
-    if timestamp_column and timestamp_column in result["dataset"].columns:
+    normalized_timestamp_column = (
+        timestamp_column.strip().lower() if timestamp_column else None
+    )
+    report["timestamp_column"] = normalized_timestamp_column
+    if normalized_timestamp_column and normalized_timestamp_column in result["dataset"].columns:
         report["timestamps"] = [
             _json_value(v.isoformat() if hasattr(v, "isoformat") else v)
-            for v in result["dataset"][timestamp_column]
+            for v in result["dataset"][normalized_timestamp_column]
         ]
     return report
 
@@ -88,9 +92,13 @@ def main() -> int:
         return 2
     rendered = json.dumps(report, indent=2, ensure_ascii=False, allow_nan=False)
     if args.output:
-        args.output.expanduser().write_text(rendered + "\n", encoding="utf-8")
+        try:
+            args.output.expanduser().write_text(rendered + "\n", encoding="utf-8")
+        except OSError as exc:
+            print(json.dumps({"status": "error", "error": str(exc)}, indent=2))
+            return 2
     print(rendered)
-    print("Offline historical annotations only; no forecasts or trading actions.")
+    print("Offline historical annotations only; no forecasts or trading actions.", file=sys.stderr)
     return 0
 
 

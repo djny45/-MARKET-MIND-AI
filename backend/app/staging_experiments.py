@@ -473,3 +473,95 @@ def summarize_research_quality_dashboard(worker_id: str, limit: int = 100) -> di
         "interpretation": "Consolidated descriptive audit of saved caller-supplied fixture experiments. Provenance is self-declared; repeatability uses exact repeated fixtures. This does not validate truth, source authenticity, independent data, market skill, forecast quality, or trading performance.",
         "limit": limit,
     }
+
+
+
+def summarize_research_quality_dashboard(worker_id: str, limit: int = 100) -> dict[str, Any]:
+    """Combine recent staging gate, regression, provenance, and repeatability signals.
+
+    This is a bounded descriptive dashboard over saved offline fixture experiments.
+    It does not validate source authenticity, factual correctness, predictive skill,
+    or trading performance.
+    """
+    if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 200:
+        raise ValueError("limit must be between 1 and 200")
+    records = read_memory(worker_id, "validation_result", limit=200)["memory"]
+    experiments = [
+        item for item in records
+        if isinstance(item.get("content"), dict)
+        and item["content"].get("record_type") == "staging_experiment_result"
+    ][:limit]
+    gate_counts: dict[str, int] = {}
+    provenance_missing = {
+        "baseline_metadata_missing": 0, "candidate_metadata_missing": 0,
+        "baseline_dataset_name_missing": 0, "candidate_dataset_name_missing": 0,
+        "baseline_dataset_version_missing": 0, "candidate_dataset_version_missing": 0,
+    }
+    regression_experiment_count = 0
+    paired_regression_total = 0
+    dashboard_records = []
+    for item in experiments:
+        content = item["content"]
+        runs = content.get("benchmark_runs", {})
+        runs = runs if isinstance(runs, dict) else {}
+        gate = runs.get("quality_gate", {})
+        gate = gate if isinstance(gate, dict) else {}
+        status = gate.get("status", "not_available")
+        gate_counts[status] = gate_counts.get(status, 0) + 1
+        paired = runs.get("paired_case_summary", {})
+        paired = paired if isinstance(paired, dict) else {}
+        regression_count = paired.get("regression_count", 0)
+        if isinstance(regression_count, int) and not isinstance(regression_count, bool) and regression_count >= 0:
+            paired_regression_total += regression_count
+            if regression_count:
+                regression_experiment_count += 1
+        base = runs.get("baseline_provenance", {})
+        candidate = runs.get("candidate_provenance", {})
+        base = base if isinstance(base, dict) else {}
+        candidate = candidate if isinstance(candidate, dict) else {}
+        base_meta = base.get("fixture_metadata", {})
+        candidate_meta = candidate.get("fixture_metadata", {})
+        base_meta = base_meta if isinstance(base_meta, dict) else {}
+        candidate_meta = candidate_meta if isinstance(candidate_meta, dict) else {}
+        checks = {
+            "baseline_metadata_missing": bool(base_meta),
+            "candidate_metadata_missing": bool(candidate_meta),
+            "baseline_dataset_name_missing": bool(base_meta.get("dataset_name")),
+            "candidate_dataset_name_missing": bool(candidate_meta.get("dataset_name")),
+            "baseline_dataset_version_missing": bool(base_meta.get("dataset_version")),
+            "candidate_dataset_version_missing": bool(candidate_meta.get("dataset_version")),
+        }
+        for key, present in checks.items():
+            if not present:
+                provenance_missing[key] += 1
+        dashboard_records.append({
+            "memory_id": item.get("memory_id"),
+            "proposal_memory_id": content.get("proposal_memory_id"),
+            "benchmark_id": content.get("benchmark_id"),
+            "quality_gate_status": status,
+            "aggregate_deltas": gate.get("aggregate_deltas", {}),
+            "paired_case_count": paired.get("paired_case_count", 0),
+            "paired_regression_count": regression_count,
+            "evaluator_version": runs.get("evaluator_version"),
+            "baseline_dataset": base_meta.get("dataset_name"),
+            "candidate_dataset": candidate_meta.get("dataset_name"),
+            "baseline_dataset_version": base_meta.get("dataset_version"),
+            "candidate_dataset_version": candidate_meta.get("dataset_version"),
+        })
+    repeatability = summarize_repeatability(worker_id, limit=limit, min_trials=3)
+    return {
+        "worker_id": worker_id,
+        "experiment_count": len(dashboard_records),
+        "quality_gate_status_counts": gate_counts,
+        "experiments_with_paired_regressions": regression_experiment_count,
+        "paired_regression_total": paired_regression_total,
+        "provenance_missing_counts": provenance_missing,
+        "repeatability": {
+            "groups_meeting_min_trials": repeatability["groups_meeting_min_trials"],
+            "groups_below_min_trials": repeatability["groups_below_min_trials"],
+            "min_trials": repeatability["min_trials"],
+        },
+        "experiments": dashboard_records,
+        "limit": limit,
+        "interpretation": "Descriptive audit of saved offline fixture experiments. Provenance is caller-declared; repeatability uses exact fixture/config repeats. This dashboard is not evidence of factual accuracy, independent data, predictive skill, or trading performance.",
+    }

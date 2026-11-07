@@ -183,6 +183,18 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertEqual(snapshot["stale_running_task_count"], 0)
         self.assertNotIn("stale_running_tasks_present", snapshot["attention_reasons"])
 
+    def test_recovery_queue_preview_is_bounded_and_reports_total(self):
+        from app.analytical_agent_tasks import enqueue_research_task, recover_interrupted_research_tasks
+
+        for index in range(105):
+            enqueue_research_task("worker_004", f"queued recovery preview {index}")
+
+        result = recover_interrupted_research_tasks(stale_after_seconds=60)
+        self.assertEqual(result["queued_task_count"], 105)
+        self.assertEqual(len(result["queued_task_ids"]), 100)
+        self.assertTrue(result["queued_task_ids_truncated"])
+        self.assertEqual(result["requeued_interrupted_count"], 0)
+
     def test_supervisor_health_flags_stale_running_tasks(self):
         import sqlite3
         from app.analytical_agent_tasks import enqueue_research_task, agent_supervisor_status

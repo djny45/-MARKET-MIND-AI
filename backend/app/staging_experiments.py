@@ -151,6 +151,27 @@ def run_staging_benchmark(worker_id: str, proposal_memory_id: str, payload: dict
         'regressions': regressions,
         'interpretation': 'A decrease in these traceability coverage metrics is a structural regression flag, not evidence of factual, forecast, or trading performance.',
     }
+    # Explicit gate for staging eligibility only. It never approves or applies a
+    # proposal automatically. Coverage metrics are bounded in [0, 1].
+    aggregate_deltas = {
+        name: round(candidate_metrics[name] - baseline_metrics[name], 4)
+        for name in metric_names
+    }
+    min_improvement = payload.get("min_improvement", 0.01)
+    if (isinstance(min_improvement, bool) or not isinstance(min_improvement, (int, float))
+            or not math.isfinite(min_improvement) or not 0 < min_improvement <= 1):
+        raise ValueError("min_improvement must be a finite number greater than 0 and at most 1")
+    has_regression = any(delta < 0 for delta in aggregate_deltas.values())
+    meaningful_gain = any(delta >= min_improvement for delta in aggregate_deltas.values())
+    quality_gate = {
+        "status": "blocked_regression" if has_regression else (
+            "eligible_for_human_staging_review" if meaningful_gain else "no_meaningful_improvement"
+        ),
+        "min_improvement": float(min_improvement),
+        "aggregate_deltas": aggregate_deltas,
+        "automatic_approval": False,
+        "note": "Eligibility is a mechanical fixture gate only. Human review is required; it does not establish factual accuracy, predictive skill, or production readiness.",
+    }
     combined_id = f"baseline:{baseline_result['benchmark_id']}|candidate:{candidate_result['benchmark_id']}"
     saved = create_staging_experiment(worker_id, proposal_memory_id, {
         "benchmark_id": combined_id,
@@ -166,6 +187,7 @@ def run_staging_benchmark(worker_id: str, proposal_memory_id: str, payload: dict
             "benchmark_type": "offline_research_traceability",
             "config_patch": candidate_result["quality_config"],
             "config_patch_mode": "whitelisted_evaluator_config_only",
+            "quality_gate": quality_gate,
             "metric_names": list(metric_names),
             "paired_case_metrics": paired_metrics,
             "paired_case_summary": paired_summary,

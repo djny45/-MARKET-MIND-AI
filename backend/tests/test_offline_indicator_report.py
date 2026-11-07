@@ -57,6 +57,25 @@ class OfflineIndicatorReportTests(unittest.TestCase):
         )
 
     @patch.object(exporter, "run_offline_research")
+    def test_timestamp_column_normalizes_case_and_whitespace(self, run_pipeline):
+        run_pipeline.return_value = {
+            "row_count": 2,
+            "columns": FakeDataset.columns,
+            "dataset": FakeDataset(),
+            "indicators": {},
+        }
+
+        report = exporter.build_report("sample.csv", timestamp_column=" Timestamp ")
+
+        self.assertEqual(report["timestamp_column"], "timestamp")
+        self.assertEqual(report["timestamps"], [
+            "2024-01-01T00:00:00", None
+        ])
+        run_pipeline.assert_called_once_with(
+            "sample.csv", timestamp_column=" Timestamp ", include_ta_lib=False
+        )
+
+    @patch.object(exporter, "run_offline_research")
     def test_report_without_talib_has_empty_indicator_map(self, run_pipeline):
         run_pipeline.return_value = {
             "row_count": 1,

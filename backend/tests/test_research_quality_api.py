@@ -136,5 +136,32 @@ class ResearchQualityApiTests(unittest.TestCase):
             run_research_benchmark(request)
         self.assertEqual(raised.exception.status_code, 400)
 
+    def test_staging_audit_export_returns_json_attachment(self):
+        import json
+        import os
+        import tempfile
+        from unittest.mock import patch
+        from app.main import export_worker_staging_audit
+
+        with tempfile.TemporaryDirectory() as temp:
+            with patch.dict(os.environ, {"MARKET_MIND_DB": os.path.join(temp, "audit.sqlite")}):
+                response = export_worker_staging_audit("worker_001", limit=5)
+        self.assertEqual(response.media_type, "application/json")
+        self.assertIn("attachment; filename=", response.headers["content-disposition"])
+        bundle = json.loads(response.body)
+        self.assertEqual(bundle["export_type"], "offline_staging_audit_bundle")
+        self.assertEqual(bundle["dashboard"]["experiment_count"], 0)
+        self.assertTrue(bundle["limitations"])
+
+
+    def test_staging_audit_export_rejects_unknown_worker(self):
+        from fastapi import HTTPException
+        from app.main import export_worker_staging_audit
+
+        with self.assertRaises(HTTPException) as raised:
+            export_worker_staging_audit("not-a-worker", limit=5)
+        self.assertEqual(raised.exception.status_code, 400)
+
+
 if __name__ == "__main__":
     unittest.main()

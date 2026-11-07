@@ -50,13 +50,16 @@ def load_ohlcv_csv(path: str | Path | bytes | bytearray, *, timestamp_column: st
             reader = csv.reader(handle)
             header = next(reader, None)
             if header is not None:
-                for row_number, row in enumerate(reader, start=2):
+                for row in reader:
+                    # csv.reader.line_num counts physical lines, including
+                    # embedded newlines inside quoted fields.
+                    row_number = reader.line_num
                     if not row:
                         raise ValueError(f"CSV contains a blank row at line {row_number}")
                     if len(row) != len(header):
                         raise ValueError(
-                            f"CSV row {row_number} has {len(row)} fields; "
-                            f"expected {len(header)}"
+                            f"CSV row ending at physical line {row_number} has "
+                            f"{len(row)} fields; expected {len(header)}"
                         )
     except UnicodeError as exc:
         raise ValueError(f"Could not parse CSV data: {exc}") from exc

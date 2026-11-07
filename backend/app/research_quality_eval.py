@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Any
 from urllib.parse import urlsplit
 
-from datetime import datetime
+from datetime import datetime, timezone
 import math
 
 MAX_DRAFT_CHARS = 20_000
@@ -19,10 +19,10 @@ PROVENANCE_FIELDS = ("title", "url", "source_type", "observed_at")
 
 
 def _valid_source_url(value: Any) -> bool:
-    if not isinstance(value, str) or not value.strip():
+    if not isinstance(value, str) or not value or any(character.isspace() for character in value):
         return False
     try:
-        parsed = urlsplit(value.strip())
+        parsed = urlsplit(value)
         if parsed.scheme not in {"http", "https"} or not parsed.hostname:
             return False
         # Accessing .port also rejects malformed port syntax (for example ":abc").
@@ -30,6 +30,37 @@ def _valid_source_url(value: Any) -> bool:
         return not any(character.isspace() for character in parsed.hostname)
     except ValueError:
         return False
+
+
+def _normalize_timestamp(value: Any) -> str | None:
+    """Normalize supported provenance timestamps to ISO text without guessing."""
+    if isinstance(value, str):
+        return value.strip() or None
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        try:
+            if not math.isfinite(value):
+                return None
+            return datetime.fromtimestamp(value, timezone.utc).isoformat()
+        except (OverflowError, OSError, ValueError):
+            return None
+    return None
+
+
+def _normalize_source_entry(source: dict[str, Any]) -> dict[str, Any]:
+    """Accept the evaluator contract and normalize existing news/social records."""
+    normalized = dict(source)
+    if not isinstance(normalized.get("source_id"), str) or not normalized["source_id"].strip():
+        normalized["source_id"] = normalized.get("id")
+    if not isinstance(normalized.get("source_type"), str) or not normalized["source_type"].strip():
+        normalized["source_type"] = normalized.get("channel") or normalized.get("source")
+    observed = normalized.get("observed_at")
+    if not isinstance(observed, str) or not observed.strip():
+        for key in ("retrieved_at", "ingested_at", "published_at"):
+            observed = _normalize_timestamp(normalized.get(key))
+            if observed:
+                break
+    normalized["observed_at"] = observed
+    return normalized
 
 
 def _valid_observed_at(value: Any) -> bool:
@@ -40,6 +71,16 @@ def _valid_observed_at(value: Any) -> bool:
         datetime.fromisoformat(candidate.replace("Z", "+00:00"))
         return True
     except ValueError:
+        return False
+
+
+def _is_finite_number(value: Any) -> bool:
+    """Return whether a JSON numeric value is finite, including huge integers safely."""
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        return False
+    try:
+        return math.isfinite(value)
+    except OverflowError:
         return False
 
 
@@ -71,6 +112,7 @@ def evaluate_research_draft(
     for source in source_registry:
         if not isinstance(source, dict):
             raise ValueError("source_registry entries must be objects")
+        source = _normalize_source_entry(source)
         missing_fields = [
             field for field in PROVENANCE_FIELDS
             if not isinstance(source.get(field), str) or not source[field].strip()
@@ -145,16 +187,23 @@ def evaluate_research_draft(
         incomplete_provenance_refs.update(incomplete)
         if not refs:
             reference_status = "missing"
+            provenance_status = "not_applicable"
         elif missing:
             reference_status = "unknown_ids"
+            provenance_status = "unknown"
         elif incomplete:
-            reference_status = "registry_match_incomplete_provenance"
+            # Keep the established public status for clients; expose provenance
+            # completeness separately so consumers can migrate without breakage.
+            reference_status = "registry_match"
+            provenance_status = "incomplete"
         else:
-            reference_status = "registry_match_complete_provenance"
+            reference_status = "registry_match"
+            provenance_status = "complete"
         reviewed.append({
             "claim": text.strip(),
             "source_refs": refs,
             "reference_status": reference_status,
+            "provenance_status": provenance_status,
             "unknown_source_ids": missing,
             "incomplete_provenance_source_ids": incomplete,
         })
@@ -210,19 +259,21 @@ def evaluate_research_draft(
                 and not isinstance(current, bool)
                 and math.isfinite(current)
             )
-            previous_is_finite_number = (
-                isinstance(previous, (int, float))
-                and not isinstance(previous, bool)
-                and math.isfinite(previous)
-            )
+            previous_is_finite_number = _is_finite_number(previous)
+            safe_current = current if current_is_finite_number else None
+            safe_previous = previous if previous_is_finite_number else None
             if current_is_finite_number and previous_is_finite_number:
+                try:
+                    delta = round(current - previous, 4)
+                except (OverflowError, ValueError):
+                    delta = None
                 comparison[key] = {
-                    "current": current,
-                    "baseline": previous,
-                    "delta": round(current - previous, 4),
+                    "current": safe_current,
+                    "baseline": safe_previous,
+                    "delta": delta,
                 }
             else:
-                comparison[key] = {"current": current, "baseline": previous, "delta": None}
+                comparison[key] = {"current": safe_current, "baseline": safe_previous, "delta": None}
 
     return {
         "evaluation_type": "deterministic_research_traceability_check",

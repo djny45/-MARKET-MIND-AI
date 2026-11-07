@@ -105,6 +105,26 @@ class ResearchBenchmarkTests(unittest.TestCase):
         )
         self.assertEqual(result["regression_summary"]["items"], [])
 
+    def test_quality_config_changes_marker_coverage_and_fingerprint(self):
+        cases = [{
+            'case_id': 'uncertainty-fixture',
+            'draft': 'This is uncertain; limitation noted.',
+            'claims': [{'text': 'Synthetic claim', 'source_refs': ['fixture-source']}],
+            'source_registry': [{'source_id': 'fixture-source'}],
+        }]
+        default = run_offline_research_benchmark(cases)
+        custom = run_offline_research_benchmark(cases, quality_config={'uncertainty_markers': ['unverified']})
+        self.assertNotEqual(default['benchmark_id'], custom['benchmark_id'])
+        self.assertEqual(default['aggregate_metrics']['uncertainty_marker_coverage']['mean'], 1.0)
+        self.assertEqual(custom['aggregate_metrics']['uncertainty_marker_coverage']['mean'], 0.0)
+
+    def test_quality_config_rejects_unapproved_settings_and_bad_markers(self):
+        cases = fixture_cases()
+        with self.assertRaisesRegex(ValueError, 'supports only'):
+            run_offline_research_benchmark(cases, quality_config={'threshold': 0.5})
+        with self.assertRaisesRegex(ValueError, 'uncertainty_markers'):
+            run_offline_research_benchmark(cases, quality_config={'uncertainty_markers': []})
+
     def test_rejects_invalid_baseline_metric_values(self):
         invalid_values = (-0.1, 1.1, True, "0.8")
         for value in invalid_values:

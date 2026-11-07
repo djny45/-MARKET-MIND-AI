@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 from app.analytical_agent_tasks import (
     agent_supervisor_status,
+    classify_research_task_failure,
     dispatch_queued_research_tasks,
     enqueue_research_task,
     execute_queued_research_task,
@@ -113,6 +114,18 @@ class AgentSupervisorTests(unittest.TestCase):
             recover_interrupted_research_tasks(stale_after_seconds=0)
         with self.assertRaises(ValueError):
             recover_interrupted_research_tasks(stale_after_seconds=True)
+
+    def test_failure_classifier_marks_network_timeout_as_transient_candidate(self):
+        result = classify_research_task_failure(TimeoutError("provider request timed out"))
+        self.assertEqual(result["failure_class"], "transient_candidate")
+        self.assertEqual(result["retry_recommendation"], "operator_review")
+        self.assertFalse(result["automatic_retry"])
+
+    def test_failure_classifier_does_not_assume_unknown_errors_are_retryable(self):
+        result = classify_research_task_failure(ValueError("invalid task payload"))
+        self.assertEqual(result["failure_class"], "non_transient_candidate")
+        self.assertEqual(result["retry_recommendation"], "inspect_before_retry")
+        self.assertFalse(result["automatic_retry"])
 
     def test_dispatch_bounds_are_validated(self):
         with self.assertRaises(ValueError):

@@ -525,8 +525,13 @@ def agent_network_activity(limit: int = 500):
 
 @app.get("/api/analytical-agent-supervisor/status")
 def analytical_agent_supervisor_status():
- """Return task counts and bounded supervisor capability status."""
- return agent_supervisor_status()
+ """Return task counts, startup recovery snapshot, and bounded supervisor capability status."""
+ status = agent_supervisor_status()
+ status["startup_recovery"] = getattr(
+  app.state, "task_startup_recovery",
+  {"status": "not_run", "requeued_interrupted_count": 0},
+ )
+ return status
 
 
 @app.post("/api/analytical-agent-supervisor/dispatch")

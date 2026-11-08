@@ -25,6 +25,39 @@ class ResearchQualityApiTests(unittest.TestCase):
         self.assertEqual(getattr(raised.exception, "status_code", None), 400)
 
 
+
+    def test_evidence_audit_api_returns_grouping_and_disagreement_candidates(self):
+        from app.main import ResearchEvidenceAuditRequest, research_evidence_audit
+
+        request = ResearchEvidenceAuditRequest(
+            claims=[
+                {"text": "Support", "claim_key": "api-claim", "stance": "supports",
+                 "source_refs": ["source-a"]},
+                {"text": "Contradict", "claim_key": "api-claim", "stance": "contradicts",
+                 "source_refs": ["source-b"]},
+            ],
+            source_registry=[
+                {"source_id": "source-a", "url": "https://alpha.example/article"},
+                {"source_id": "source-b", "url": "https://beta.example/article"},
+            ],
+        )
+        result = research_evidence_audit(request)
+        self.assertEqual(result["audit_type"], "conservative_evidence_traceability_and_disagreement_audit")
+        self.assertEqual(result["metrics"]["claim_disagreement_candidate_count"], 1)
+        self.assertEqual(result["disagreement_candidates"][0]["status"], "human_review_required")
+
+    def test_evidence_audit_api_translates_invalid_payload_to_http_400(self):
+        from fastapi import HTTPException
+        from app.main import ResearchEvidenceAuditRequest, research_evidence_audit
+
+        request = ResearchEvidenceAuditRequest(
+            claims=[{"text": "Claim", "claim_key": "k", "stance": "unsupported"}],
+            source_registry=[],
+        )
+        with self.assertRaises(HTTPException) as raised:
+            research_evidence_audit(request)
+        self.assertEqual(raised.exception.status_code, 400)
+
     def test_task_quality_endpoint_returns_not_evaluated_for_valid_task(self):
         import os
         import tempfile

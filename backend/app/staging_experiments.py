@@ -12,6 +12,7 @@ from typing import Any
 
 from .worker_memory import append_memory, read_memory, list_improvement_proposals
 from .research_benchmark import run_offline_research_benchmark
+from .research_benchmark_record import serialize_benchmark_record
 
 _ALLOWED_OUTCOMES = {"candidate_better", "candidate_worse", "no_material_change", "inconclusive"}
 
@@ -216,6 +217,18 @@ def run_staging_benchmark(worker_id: str, proposal_memory_id: str, payload: dict
         "automatic_approval": False,
         "note": "Eligibility is a mechanical fixture gate only. Human review is required; it does not establish factual accuracy, predictive skill, or production readiness.",
     }
+    # Archive canonical benchmark records and hashes for later verification.
+    baseline_record_json = serialize_benchmark_record(baseline_result)
+    candidate_record_json = serialize_benchmark_record(candidate_result)
+    benchmark_record_evidence = {
+        "baseline_record_id": json.loads(baseline_record_json)["record_id"],
+        "baseline_record_sha256": hashlib.sha256(baseline_record_json.encode("utf-8")).hexdigest(),
+        "candidate_record_id": json.loads(candidate_record_json)["record_id"],
+        "candidate_record_sha256": hashlib.sha256(candidate_record_json.encode("utf-8")).hexdigest(),
+        "record_schema_version": 1,
+        "hash_algorithm": "sha256",
+        "note": "Hashes cover canonical serialized benchmark records; fixture provenance remains caller-declared.",
+    }
     combined_id = f"baseline:{baseline_result['benchmark_id']}|candidate:{candidate_result['benchmark_id']}"
     saved = create_staging_experiment(worker_id, proposal_memory_id, {
         "benchmark_id": combined_id,
@@ -226,6 +239,7 @@ def run_staging_benchmark(worker_id: str, proposal_memory_id: str, payload: dict
         "benchmark_runs": {
             "baseline_benchmark_id": baseline_result["benchmark_id"],
             "candidate_benchmark_id": candidate_result["benchmark_id"],
+            "benchmark_record_evidence": benchmark_record_evidence,
             "baseline_case_count": baseline_result["case_count"],
             "candidate_case_count": candidate_result["case_count"],
             "paired_case_id_sha256": _paired_case_id_fingerprint(baseline_cases),

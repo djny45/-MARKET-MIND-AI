@@ -35,11 +35,10 @@ class BenchmarkRecordStore:
             connection.execute(_SCHEMA)
 
     def _connect(self) -> sqlite3.Connection:
-        connection = (
-            self._memory_connection
-            if self._memory_connection is not None
-            else sqlite3.connect(self.database_path)
-        )
+        if self._memory_connection is not None:
+            self._memory_connection.row_factory = sqlite3.Row
+            return self._memory_connection
+        connection = sqlite3.connect(self.database_path)
         connection.row_factory = sqlite3.Row
         return connection
 

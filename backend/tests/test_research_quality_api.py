@@ -26,6 +26,29 @@ class ResearchQualityApiTests(unittest.TestCase):
 
 
 
+    def test_prepare_synthesis_review_endpoint_returns_packet_without_auto_approval(self):
+        from app.main import ResearchQualityEvaluationRequest, prepare_research_synthesis_review
+        request = ResearchQualityEvaluationRequest(
+            draft="Draft claim with limitation: not independently verified.",
+            claims=[{"text": "Claim", "source_refs": ["source-a"]}],
+            source_registry=[{"source_id": "source-a"}],
+        )
+        result = prepare_research_synthesis_review(request)
+        self.assertEqual(result["packet_type"], "evidence_aware_synthesis_review_packet")
+        self.assertEqual(result["review_status"], "pending_human_decision")
+        self.assertEqual(result["reference_gate"]["status"], "passed")
+        self.assertFalse(result["auto_approval"])
+
+    def test_prepare_synthesis_review_endpoint_rejects_overlong_draft(self):
+        from fastapi import HTTPException
+        from app.main import ResearchQualityEvaluationRequest, prepare_research_synthesis_review
+        request = ResearchQualityEvaluationRequest(
+            draft="x" * 8001, claims=[], source_registry=[],
+        )
+        with self.assertRaises(HTTPException) as raised:
+            prepare_research_synthesis_review(request)
+        self.assertEqual(raised.exception.status_code, 400)
+
     def test_evidence_audit_api_returns_grouping_and_disagreement_candidates(self):
         from app.main import ResearchEvidenceAuditRequest, research_evidence_audit
 

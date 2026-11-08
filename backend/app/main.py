@@ -27,6 +27,7 @@ from .open_source_intake import build_source_candidate
 from .github_research_discovery import discover_github_repositories
 from .github_pinned_extraction import fetch_pinned_text_candidate
 from .github_license_evidence import fetch_pinned_license_evidence
+from .github_research_chunking import chunk_research_text
 from .landing_page_builder import build_landing_page
 from .markets import market_catalog
 from .instruments import search_instruments
@@ -198,6 +199,11 @@ class GitHubPinnedExtractionRequest(BaseModel):
 class GitHubPinnedLicenseEvidenceRequest(BaseModel):
  repository_url: str = Field(min_length=1, max_length=300)
  commit_sha: str = Field(min_length=1, max_length=40)
+
+class GitHubResearchChunkingRequest(BaseModel):
+ memory_id: str = Field(min_length=1, max_length=64)
+ max_chars: int = Field(default=4000, ge=200, le=8000)
+ overlap_chars: int = Field(default=200, ge=0, le=3999)
 
 class OpenSourceIntakeRequest(BaseModel):
  repository_url: str = Field(min_length=1, max_length=300)
@@ -751,6 +757,49 @@ def extract_pinned_github_file(worker_id: str, request: GitHubPinnedExtractionRe
   raise HTTPException(status_code=400, detail=str(exc)) from exc
  except RuntimeError as exc:
   raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@app.post("/api/workers/{worker_id}/chunk-open-source-candidate")
+def chunk_open_source_candidate(worker_id: str, request: GitHubResearchChunkingRequest):
+ """Chunk a previously stored text candidate for evidence-linked review.
+
+ Chunk text is returned for inspection; only compact hashes/offsets are persisted.
+ """
+ try:
+  records = read_memory(worker_id, "validation_result", 200)["memory"]
+  candidate = next((item for item in records if item.get("memory_id") == request.memory_id), None)
+  if candidate is None:
+   raise ValueError("open-source candidate was not found in the recent worker memory window")
+  content = candidate.get("content")
+  if not isinstance(content, dict) or content.get("record_type") != "open_source_learning_candidate":
+   raise ValueError("memory record is not an open-source learning candidate")
+  source_text = content.get("content")
+  if not isinstance(source_text, str):
+   raise ValueError("candidate does not contain a text snapshot")
+  chunked = chunk_research_text(
+   source_text, max_chars=request.max_chars, overlap_chars=request.overlap_chars,
+  )
+  compact_chunks = [
+   {"index": item["index"], "start_char": item["start_char"],
+    "end_char": item["end_char"], "sha256": item["sha256"]}
+   for item in chunked["chunks"]
+  ]
+  memory_record = append_memory(
+   worker_id, "validation_result",
+   {"record_type": "github_research_chunk_manifest",
+    "source_memory_id": request.memory_id,
+    "source_sha256": chunked["source_sha256"],
+    "source_chars": chunked["source_chars"],
+    "chunk_count": chunked["chunk_count"],
+    "chunks": compact_chunks,
+    "review_required": True,
+    "semantic_extraction": False,
+    "auto_promotion": False},
+   [f"worker-memory:{request.memory_id}"], "unverified",
+  )
+  return {"chunking": chunked, "memory_record": memory_record}
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.post("/api/workers/{worker_id}/verify-pinned-github-license")

@@ -99,8 +99,10 @@ def verify_benchmark_record_evidence(evidence: Any) -> dict[str, Any]:
     for side in ("baseline", "candidate"):
         record_id = evidence.get(f"{side}_record_id")
         digest = evidence.get(f"{side}_record_sha256")
-        if not isinstance(record_id, str) or len(record_id) != 64 or not isinstance(digest, str) or len(digest) != 64:
+        if not isinstance(record_id, str) or not isinstance(digest, str):
             return {"status": "missing_or_malformed", "verified_records": verified}
+        if len(record_id) != 64 or len(digest) != 64:
+            return {"status": "invalid_digest", "verified_records": verified}
         try:
             int(record_id, 16)
             int(digest, 16)

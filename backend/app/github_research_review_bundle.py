@@ -25,7 +25,7 @@ def build_review_bundle(candidate_record: dict[str, Any], records: list[dict[str
     import re
     source_identity_valid = (
         isinstance(candidate.get("repository_url"), str)
-        and re.fullmatch(r"https://github\\.com/[^/\\s]+/[^/\\s]+", candidate["repository_url"]) is not None
+        and re.fullmatch(r"https://github\.com/[^/\s]+/[^/\s]+", candidate["repository_url"]) is not None
         and isinstance(candidate.get("commit_sha"), str)
         and re.fullmatch(r"[0-9a-fA-F]{40}", candidate["commit_sha"]) is not None
         and isinstance(candidate.get("file_path"), str)

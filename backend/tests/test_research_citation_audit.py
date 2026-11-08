@@ -62,5 +62,40 @@ class ResearchCitationAuditTests(unittest.TestCase):
             )
 
 
+    def test_chunk_provenance_hash_and_offsets_are_verified(self):
+        import hashlib
+        source_text = "prefix exact quote suffix"
+        source_hash = hashlib.sha256(source_text.encode("utf-8")).hexdigest()
+        claim = {"text": "Claim.", "citations": [{
+            "source_id": "src", "excerpt": "exact quote",
+            "source_sha256": source_hash, "chunk_sha256": "a" * 64,
+            "chunk_index": 0, "source_start_char": 0,
+            "source_end_char": len(source_text),
+            "excerpt_start_char": 7, "excerpt_end_char": 17,
+        }]}
+        result = audit_claim_citations(
+            claims=[claim], source_registry=[{"source_id": "src", "text": source_text}],
+        )
+        citation = result["claims"][0]["citations"][0]
+        self.assertEqual(citation["status"], "exact_excerpt_match")
+        self.assertTrue(citation["chunk_provenance_verified"])
+        self.assertEqual(citation["chunk_provenance_status"],
+                         "verified_source_hash_and_excerpt_offsets")
+
+    def test_chunk_provenance_mismatch_blocks_citation_coverage(self):
+        result = audit_claim_citations(
+            claims=[{"text": "Claim.", "citations": [{
+                "source_id": "src", "excerpt": "quote",
+                "source_sha256": "0" * 64, "chunk_sha256": "a" * 64,
+                "chunk_index": 0, "excerpt_start_char": 0, "excerpt_end_char": 5,
+            }]}],
+            source_registry=[{"source_id": "src", "text": "quote"}],
+        )
+        citation = result["claims"][0]["citations"][0]
+        self.assertEqual(citation["status"], "provenance_mismatch")
+        self.assertFalse(citation["chunk_provenance_verified"])
+        self.assertEqual(result["metrics"]["claims_without_valid_citations"], 1)
+
+
 if __name__ == "__main__":
     unittest.main()

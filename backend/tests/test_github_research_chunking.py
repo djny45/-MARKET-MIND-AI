@@ -14,6 +14,35 @@ class GitHubResearchChunkingTests(unittest.TestCase):
         self.assertEqual(first["chunks"][0]["start_char"], 0)
         self.assertEqual(first["chunks"][-1]["end_char"], len(text))
 
+    def test_manifest_hashes_offsets_and_overlap_are_consistent(self):
+        import hashlib
+
+        text = ("alpha beta gamma delta\n" * 50)
+        manifest = chunk_research_text(text, max_chars=300, overlap_chars=40)
+        source_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
+        self.assertEqual(manifest["source_sha256"], source_hash)
+        self.assertEqual(manifest["source_chars"], len(text))
+        self.assertEqual(manifest["chunk_count"], len(manifest["chunks"]))
+        self.assertFalse(manifest["semantic_extraction"])
+        self.assertFalse(manifest["instruction_injection"])
+        self.assertFalse(manifest["auto_promotion"])
+
+        for index, chunk in enumerate(manifest["chunks"]):
+            self.assertEqual(chunk["index"], index)
+            self.assertEqual(chunk["source_sha256"], source_hash)
+            self.assertEqual(chunk["text"], text[chunk["start_char"]:chunk["end_char"]])
+            self.assertEqual(
+                chunk["sha256"],
+                hashlib.sha256(chunk["text"].encode("utf-8")).hexdigest(),
+            )
+            self.assertLessEqual(len(chunk["text"]), manifest["max_chars"])
+            if index:
+                previous = manifest["chunks"][index - 1]
+                self.assertEqual(
+                    chunk["start_char"],
+                    previous["end_char"] - manifest["overlap_chars"],
+                )
+
     def test_rejects_bad_limits_and_large_input(self):
         for kwargs in [{"max_chars": 100}, {"max_chars": 300, "overlap_chars": 200}]:
             with self.assertRaises(ValueError):

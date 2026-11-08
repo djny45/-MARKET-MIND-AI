@@ -33,6 +33,11 @@ class ResearchBenchmarkTests(unittest.TestCase):
             0,
         )
         self.assertEqual(first["benchmark_type"], "offline_research_traceability")
+        self.assertTrue(first["research_only"])
+        self.assertFalse(first["automatic_promotion"])
+        self.assertFalse(first["model_training"])
+        self.assertFalse(first["broker_execution"])
+        self.assertFalse(first["deployment"])
 
     def test_reports_cases_without_metric_values(self):
         cases = fixture_cases()

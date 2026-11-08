@@ -296,6 +296,11 @@ def run_offline_research_benchmark(
     return {
         "benchmark_id": benchmark_id,
         "benchmark_type": "offline_research_traceability",
+        "research_only": True,
+        "automatic_promotion": False,
+        "model_training": False,
+        "broker_execution": False,
+        "deployment": False,
         "evaluator_version": BENCHMARK_EVALUATOR_VERSION,
         "fixture_origin": "caller_supplied",
         "fixture_metadata": normalized_fixture_metadata,

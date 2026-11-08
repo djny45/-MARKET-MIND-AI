@@ -1,4 +1,5 @@
 import unittest
+import hashlib
 from unittest.mock import patch
 
 from app import main
@@ -12,7 +13,7 @@ class GitHubResearchEvidenceApiTests(unittest.TestCase):
             "record_type": "open_source_learning_candidate",
             "repository_url": repo_url, "commit_sha": sha,
             "file_path": "docs.md", "content": "text",
-            "content_sha256": "b" * 64, "review_required": True,
+            "content_sha256": hashlib.sha256(b"text").hexdigest(), "review_required": True,
         }
         candidate_record = {"memory_id": "candidate-1", "content": candidate}
         license_record = {"memory_id": "license-1", "content": {

@@ -48,7 +48,8 @@ def build_chunk_citation(*, source_id: str, manifest: dict[str, Any],
             or start < 0 or end < start or end - start != len(text)):
         raise ValueError("chunk source offsets are invalid")
     normalized_excerpt = excerpt.strip()
-    if normalized_excerpt not in text:
+    excerpt_offset = text.find(normalized_excerpt)
+    if excerpt_offset < 0:
         raise ValueError("excerpt is not an exact substring of the selected chunk")
 
     return {
@@ -59,6 +60,8 @@ def build_chunk_citation(*, source_id: str, manifest: dict[str, Any],
         "source_sha256": source_hash.lower(),
         "source_start_char": start,
         "source_end_char": end,
+        "excerpt_start_char": start + excerpt_offset,
+        "excerpt_end_char": start + excerpt_offset + len(normalized_excerpt),
         "excerpt_match": "exact",
         "semantic_support_verified": False,
         "human_review_required": True,

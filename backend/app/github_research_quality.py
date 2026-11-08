@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 import re
+import hashlib
 
 
 def score_source_evidence(candidate: dict[str, Any], license_evidence: dict[str, Any] | None = None) -> dict:
@@ -21,8 +22,11 @@ def score_source_evidence(candidate: dict[str, Any], license_evidence: dict[str,
         ("file_path_present", bool(candidate.get("file_path")), 10),
         ("source_content_present", isinstance(candidate.get("content"), str)
          and bool(candidate["content"].strip()), 15),
-        ("source_sha256_valid", isinstance(candidate.get("content_sha256"), str)
-         and re.fullmatch(r"[0-9a-fA-F]{64}", candidate["content_sha256"]) is not None, 15),
+        ("source_sha256_matches_content", isinstance(candidate.get("content"), str)
+         and isinstance(candidate.get("content_sha256"), str)
+         and re.fullmatch(r"[0-9a-fA-F]{64}", candidate["content_sha256"]) is not None
+         and hashlib.sha256(candidate["content"].encode("utf-8")).hexdigest()
+         == candidate["content_sha256"].lower(), 15),
         ("pinned_license_file_evidence", license_evidence.get("license_file_found") is True
          and license_evidence.get("commit_sha") == candidate.get("commit_sha")
          and license_evidence.get("repository_url") == candidate.get("repository_url"), 20),

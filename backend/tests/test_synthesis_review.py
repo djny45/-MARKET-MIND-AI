@@ -217,7 +217,7 @@ class SynthesisReviewTests(unittest.TestCase):
         )
         with self.assertRaises(Exception) as raised:
             review_research_synthesis(request)
-        self.assertEqual(getattr(raised.exception, "status_code", None), 400
+        self.assertEqual(getattr(raised.exception, "status_code", None), 400)
 
 
     

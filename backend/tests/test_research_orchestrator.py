@@ -36,6 +36,33 @@ class ResearchOrchestratorTests(unittest.TestCase):
         self.assertEqual(result["model_synthesis"]["status"], "not_configured")
         self.assertIsNone(result["model_synthesis"]["summary"])
 
+    def test_supplied_evidence_is_audited_and_attached_to_report(self):
+        claims = [
+            {"text": "Claim supported", "claim_key": "audit-key", "stance": "supports",
+             "source_refs": ["src-a"]},
+            {"text": "Claim contradicted", "claim_key": "audit-key", "stance": "contradicts",
+             "source_refs": ["src-b"]},
+        ]
+        sources = [
+            {"source_id": "src-a", "url": "https://source-a.example/report"},
+            {"source_id": "src-b", "url": "https://source-b.example/report"},
+        ]
+        result = orchestrate_research(
+            self.nodes, self.edges, {},
+            evidence_claims=claims, source_registry=sources,
+        )
+        audit = result["report"]["evidence_audit"]
+        self.assertEqual(audit["metrics"]["claim_disagreement_candidate_count"], 1)
+        self.assertEqual(audit["disagreement_candidates"][0]["status"], "human_review_required")
+        self.assertTrue(any("does not verify source authenticity" in item
+                            for item in result["report"]["limitations"]))
+
+    def test_orchestration_without_claims_reports_audit_unavailable_coverage(self):
+        result = orchestrate_research(self.nodes, self.edges, {})
+        audit = result["report"]["evidence_audit"]
+        self.assertIsNone(audit["metrics"]["claim_reference_coverage"])
+        self.assertEqual(audit["metrics"]["claim_disagreement_candidate_count"], 0)
+
     def test_invalid_workflow_rejected(self):
         with self.assertRaises(ValueError):
             orchestrate_research([{"id": "bad", "type": "unknown"}], [], {})

@@ -33,6 +33,21 @@ class GitHubResearchQualityTests(unittest.TestCase):
         self.assertEqual(result["score"], 80)
         self.assertFalse(result["checks"][5]["passed"])
 
+    def test_malformed_hashes_and_url_do_not_receive_provenance_points(self):
+        candidate = {
+            "repository_url": "https://github.com/org/repo/extra",
+            "commit_sha": "g" * 40,
+            "file_path": "README.md",
+            "content": "Documentation",
+            "content_sha256": "z" * 64,
+            "review_required": True,
+        }
+        result = score_source_evidence(candidate)
+        self.assertFalse(result["checks"][0]["passed"])
+        self.assertFalse(result["checks"][1]["passed"])
+        self.assertFalse(result["checks"][4]["passed"])
+        self.assertEqual(result["score"], 25)
+
     def test_rejects_non_object(self):
         with self.assertRaises(ValueError):
             score_source_evidence("not a candidate")

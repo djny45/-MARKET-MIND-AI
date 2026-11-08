@@ -19,7 +19,7 @@ from .specialist_router import route_research_brief
 from .analytical_agent_tasks import retry_failed_research_task, cancel_queued_research_task, submit_research_task, get_research_task, list_research_tasks, enqueue_research_task, execute_queued_research_task, recover_interrupted_research_tasks, list_recent_task_activity, agent_supervisor_status, dispatch_queued_research_tasks, list_task_audit_events, get_task_quality_evaluation
 from .research_orchestrator import orchestrate_research
 from .intelligence_core import intelligence_core_status, synthesize_research, IntelligenceCoreError
-from .synthesis_review import build_synthesis_review, build_synthesis_review_packet
+from .synthesis_review import build_synthesis_review, build_synthesis_review_packet, validate_claim_review_checklist
 from .research_quality_eval import evaluate_research_draft
 from .research_evidence_audit import audit_evidence
 from .research_citation_audit import audit_claim_citations
@@ -181,6 +181,7 @@ class SynthesisReviewRequest(BaseModel):
  decision: Literal["approve", "reject"]
  reviewer: str = Field(min_length=1, max_length=120)
  review_note: str = Field(default="", max_length=1000)
+ claim_review_checklist: list[dict[str, Any]] | None = Field(default=None, max_length=100)
 
 
 class AgentSupervisorDispatchRequest(BaseModel):
@@ -2131,6 +2132,19 @@ def review_research_synthesis(request: SynthesisReviewRequest):
    source_registry=request.source_registry, decision=request.decision,
    reviewer=request.reviewer, review_note=request.review_note,
   )
+  if request.claim_review_checklist is not None:
+   submitted = request.claim_review_checklist
+   if len(submitted) != len(request.claims):
+    raise ValueError("claim_review_checklist must contain exactly one entry per claim.")
+   for index, item in enumerate(submitted):
+    if not isinstance(item, dict) or item.get("claim_index", index) != index:
+     raise ValueError("Checklist claim_index values must match the corresponding claim order.")
+    if "claim_text" in item and item["claim_text"] != request.claims[index].get("text"):
+     raise ValueError("Checklist claim_text must match the corresponding claim.")
+    if "source_refs" in item and item["source_refs"] != request.claims[index].get("source_refs", []):
+     raise ValueError("Checklist source_refs must match the corresponding claim.")
+   validated = validate_claim_review_checklist(submitted)
+   review["claim_review_checklist"] = validated
   return workspace.save_synthesis_review(review)
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc

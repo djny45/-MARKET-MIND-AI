@@ -83,6 +83,7 @@ class ResearchCitationAuditTests(unittest.TestCase):
                          "verified_source_hash_and_excerpt_offsets")
 
     def test_chunk_provenance_mismatch_blocks_citation_coverage(self):
+        import hashlib
         result = audit_claim_citations(
             claims=[{"text": "Claim.", "citations": [{
                 "source_id": "src", "excerpt": "quote",

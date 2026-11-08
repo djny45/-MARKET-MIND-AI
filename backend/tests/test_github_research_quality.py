@@ -1,4 +1,5 @@
 import unittest
+import hashlib
 
 from app.github_research_quality import score_source_evidence
 
@@ -9,7 +10,7 @@ class GitHubResearchQualityTests(unittest.TestCase):
         url = "https://github.com/org/repo"
         candidate = {
             "repository_url": url, "commit_sha": sha, "file_path": "docs/guide.md",
-            "content": "Example docs", "content_sha256": "b" * 64,
+            "content": "Example docs", "content_sha256": hashlib.sha256(b"Example docs").hexdigest(),
             "review_required": True,
         }
         license_evidence = {
@@ -26,7 +27,7 @@ class GitHubResearchQualityTests(unittest.TestCase):
         candidate = {
             "repository_url": "https://github.com/org/repo",
             "commit_sha": "a" * 40, "file_path": "README.md",
-            "content": "Documentation", "content_sha256": "c" * 64,
+            "content": "Documentation", "content_sha256": hashlib.sha256(b"Documentation").hexdigest(),
             "review_required": True,
         }
         result = score_source_evidence(candidate)

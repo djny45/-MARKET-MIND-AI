@@ -228,6 +228,9 @@ class StagingExperimentTests(unittest.TestCase):
         self.assertEqual(len(evidence["baseline_record_sha256"]), 64)
         self.assertEqual(len(evidence["candidate_record_sha256"]), 64)
         self.assertEqual(evidence["hash_algorithm"], "sha256")
+        import hashlib
+        self.assertEqual(hashlib.sha256(evidence["baseline_record_json"].encode("utf-8")).hexdigest(), evidence["baseline_record_sha256"])
+        self.assertEqual(hashlib.sha256(evidence["candidate_record_json"].encode("utf-8")).hexdigest(), evidence["candidate_record_sha256"])
 
     def test_history_summary_counts_gate_status_and_metric_deltas(self):
         review_improvement_proposal("worker_001", self.proposal["memory_id"],

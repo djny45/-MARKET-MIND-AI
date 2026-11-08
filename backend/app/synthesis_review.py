@@ -100,6 +100,13 @@ def build_synthesis_review(
     if not isinstance(source_registry, list) or len(source_registry) > 500:
         raise ValueError("source_registry must be a list with at most 500 items.")
 
+    # Preserve citation audit metadata in the review record. This is
+    # provenance/traceability metadata, not semantic claim validation.
+    from .research_citation_audit import audit_claim_citations
+    citation_audit = audit_claim_citations(
+        claims=claims, source_registry=source_registry,
+    )
+
     source_ids = set()
     for source in source_registry:
         if not isinstance(source, dict):
@@ -141,6 +148,13 @@ def build_synthesis_review(
         "review_note": review_note.strip(),
         "draft": draft.strip(),
         "claims": reviewed_claims,
+        "citation_audit": citation_audit,
+        "citation_gate": {
+            "status": citation_audit["status"],
+            "claim_citation_coverage": citation_audit["metrics"]["claim_citation_coverage"],
+            "claims_without_valid_citations": citation_audit["metrics"]["claims_without_valid_citations"],
+            "note": "Citation provenance is saved with this review; exact excerpt matching does not establish semantic support or truth.",
+        },
         "evidence_status": "source_refs_matched_but_not_authenticity_verified" if all_claims_have_sources else "incomplete_source_refs",
         "source_registry_count": len(source_ids),
         "limitations": [

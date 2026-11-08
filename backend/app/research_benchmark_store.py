@@ -71,6 +71,14 @@ class BenchmarkRecordStore:
             raise ValueError("stored benchmark ID does not match database index")
         if record.get("record_schema_version") != row["schema_version"]:
             raise ValueError("stored schema version does not match database index")
+        # Recompute the content-derived ID from the stored result. Checking only
+        # SQLite index fields would miss edits to nested benchmark payloads.
+        try:
+            expected_record = json.loads(serialize_benchmark_record(record["result"]))
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ValueError("stored benchmark record cannot be re-verified") from exc
+        if expected_record != record:
+            raise ValueError("stored benchmark record content does not match its record ID")
         return record
 
     def list_records(self, *, limit: int = 50) -> list[dict[str, Any]]:

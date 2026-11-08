@@ -165,17 +165,57 @@ def create_execution(run_id, request_payload, parent_run_id=None):
 
 
 def save_synthesis_review(review):
-    """Append a human review record; existing review decisions are immutable."""
-    import uuid
-    review_json=json.dumps(review,separators=(",",":"),allow_nan=False)
+    """Append a human review record with a SHA-256 integrity digest."""
+    import hashlib
+    review_json=json.dumps(review,separators=(",",":"),sort_keys=True,allow_nan=False)
     review_id=str(uuid.uuid4())
+    digest=hashlib.sha256(review_json.encode("utf-8")).hexdigest()
     now=datetime.now(timezone.utc).isoformat()
     with _connect() as con:
         con.execute("""CREATE TABLE IF NOT EXISTS synthesis_reviews (
           id TEXT PRIMARY KEY, status TEXT NOT NULL, reviewer_claim TEXT NOT NULL,
-          review_json TEXT NOT NULL, created_at TEXT NOT NULL
+          review_json TEXT NOT NULL, created_at TEXT NOT NULL,
+          review_sha256 TEXT NOT NULL DEFAULT ''
         )""")
+        columns={row["name"] for row in con.execute("PRAGMA table_info(synthesis_reviews)")}
+        if "review_sha256" not in columns:
+            con.execute("ALTER TABLE synthesis_reviews ADD COLUMN review_sha256 TEXT NOT NULL DEFAULT ''")
         con.execute("""INSERT INTO synthesis_reviews
-          (id,status,reviewer_claim,review_json,created_at) VALUES (?,?,?,?,?)""",
-          (review_id,review.get("status","unknown"),review.get("reviewer",""),review_json,now))
-    return {"review_id":review_id,**review,"review_persistence":"append_only_record"}
+          (id,status,reviewer_claim,review_json,created_at,review_sha256) VALUES (?,?,?,?,?,?)""",
+          (review_id,review.get("status","unknown"),review.get("reviewer",""),review_json,now,digest))
+    return {"review_id":review_id,**review,"review_persistence":"append_only_record",
+            "integrity":{"algorithm":"sha256","digest":digest,"verified":True}}
+
+def get_synthesis_review(review_id):
+    """Retrieve one immutable review record and verify its stored digest."""
+    import hashlib
+    with _connect() as con:
+        columns={row["name"] for row in con.execute("PRAGMA table_info(synthesis_reviews)")}
+        if "review_sha256" not in columns:
+            con.execute("ALTER TABLE synthesis_reviews ADD COLUMN review_sha256 TEXT NOT NULL DEFAULT ''")
+        row=con.execute("SELECT id,review_json,review_sha256,created_at FROM synthesis_reviews WHERE id=?",
+                        (review_id,)).fetchone()
+    if row is None:
+        return None
+    actual=hashlib.sha256(row["review_json"].encode("utf-8")).hexdigest()
+    try:
+        review=json.loads(row["review_json"])
+    except json.JSONDecodeError as exc:
+        raise ValueError("stored review JSON is invalid") from exc
+    if not isinstance(review,dict):
+        raise ValueError("stored review must be an object")
+    expected=row["review_sha256"]
+    return {"review_id":row["id"],**review,"created_at":row["created_at"],
+            "integrity":{"algorithm":"sha256","verified":bool(expected) and actual==expected,
+                         "reason":"verified" if expected and actual==expected else "digest_missing_or_mismatch"}}
+
+def list_synthesis_reviews(limit=50):
+    """List review metadata only; full draft/evidence is returned by get."""
+    if isinstance(limit,bool) or not isinstance(limit,int) or not 1<=limit<=100:
+        raise ValueError("limit must be an integer between 1 and 100")
+    with _connect() as con:
+        rows=con.execute("""SELECT id,status,reviewer_claim,created_at,review_sha256
+          FROM synthesis_reviews ORDER BY created_at DESC LIMIT ?""",(limit,)).fetchall()
+    return [{"review_id":row["id"],"status":row["status"],"reviewer_claim":row["reviewer_claim"],
+             "created_at":row["created_at"],
+             "integrity":{"algorithm":"sha256","digest_present":bool(row["review_sha256"])}} for row in rows]

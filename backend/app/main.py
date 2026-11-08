@@ -29,6 +29,7 @@ from .github_pinned_extraction import fetch_pinned_text_candidate
 from .github_license_evidence import fetch_pinned_license_evidence
 from .github_research_chunking import chunk_research_text
 from .github_research_quality import score_source_evidence
+from .github_research_review_bundle import build_review_bundle
 from .landing_page_builder import build_landing_page
 from .markets import market_catalog
 from .instruments import search_instruments
@@ -207,6 +208,9 @@ class GitHubResearchChunkingRequest(BaseModel):
  overlap_chars: int = Field(default=200, ge=0, le=3999)
 
 class GitHubResearchQualityRequest(BaseModel):
+ candidate_memory_id: str = Field(min_length=1, max_length=64)
+
+class GitHubResearchReviewBundleRequest(BaseModel):
  candidate_memory_id: str = Field(min_length=1, max_length=64)
 
 class OpenSourceIntakeRequest(BaseModel):
@@ -836,6 +840,21 @@ def chunk_open_source_candidate(worker_id: str, request: GitHubResearchChunkingR
    [f"worker-memory:{request.memory_id}"], "unverified",
   )
   return {"chunking": chunked, "memory_record": memory_record}
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/workers/{worker_id}/build-open-source-review-bundle")
+def build_open_source_review_bundle(worker_id: str, request: GitHubResearchReviewBundleRequest):
+ """Assemble existing source, chunk, license, and provenance records for human review."""
+ try:
+  records = read_memory(worker_id, "validation_result", 200)["memory"]
+  candidate = next(
+   (item for item in records if item.get("memory_id") == request.candidate_memory_id), None
+  )
+  if candidate is None:
+   raise ValueError("open-source candidate was not found in the recent worker memory window")
+  return {"review_bundle": build_review_bundle(candidate, records)}
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 

@@ -89,6 +89,41 @@ def create_staging_experiment(worker_id: str, proposal_memory_id: str, payload: 
 
 
 
+def verify_benchmark_record_evidence(evidence: Any) -> dict[str, Any]:
+    """Verify archived benchmark JSON bytes against their record IDs and SHA-256 hashes."""
+    if not isinstance(evidence, dict):
+        return {"status": "missing_or_malformed", "verified_records": 0}
+    verified = 0
+    for side in ("baseline", "candidate"):
+        raw = evidence.get(f"{side}_record_json")
+        expected_hash = evidence.get(f"{side}_record_sha256")
+        expected_id = evidence.get(f"{side}_record_id")
+        if not isinstance(raw, str) or not isinstance(expected_hash, str) or not isinstance(expected_id, str):
+            return {"status": "missing_or_malformed", "verified_records": verified}
+        actual_hash = hashlib.sha256(raw.encode("utf-8")).hexdigest()
+        if actual_hash != expected_hash:
+            return {"status": "hash_mismatch", "verified_records": verified}
+        try:
+            record = json.loads(raw)
+        except (TypeError, ValueError):
+            return {"status": "invalid_json", "verified_records": verified}
+        if not isinstance(record, dict) or record.get("record_id") != expected_id:
+            return {"status": "record_id_mismatch", "verified_records": verified}
+        if record.get("record_schema_version") != 1:
+            return {"status": "unsupported_schema", "verified_records": verified}
+        result = record.get("result")
+        if not isinstance(result, dict):
+            return {"status": "invalid_record_payload", "verified_records": verified}
+        try:
+            canonical_result = json.dumps(result, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+        except (TypeError, ValueError):
+            return {"status": "invalid_record_payload", "verified_records": verified}
+        if hashlib.sha256(canonical_result.encode("utf-8")).hexdigest() != expected_id:
+            return {"status": "record_content_mismatch", "verified_records": verified}
+        verified += 1
+    return {"status": "verified", "verified_records": verified}
+
+
 def _paired_case_id_fingerprint(cases: list[dict[str, Any]]) -> str:
     """Return a stable digest of normalized paired case IDs for audit records."""
     case_ids = sorted(case["case_id"].strip() for case in cases)

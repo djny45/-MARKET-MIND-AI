@@ -173,6 +173,53 @@ class SynthesisReviewTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "booleans or null"):
             validate_claim_review_checklist([{"reviewer_checked_source_context": "yes"}])
 
+    def test_review_api_persists_validated_checklist_submission(self):
+        from unittest.mock import patch
+        from app.main import SynthesisReviewRequest, review_research_synthesis
+        request = SynthesisReviewRequest(
+            draft="Human review draft.",
+            claims=[{"text": "Claim text.", "source_refs": ["src-1"]}],
+            source_registry=[{"source_id": "src-1", "text": "Claim text."}],
+            decision="reject",
+            reviewer="reviewer-label",
+            claim_review_checklist=[{
+                "claim_index": 0,
+                "claim_text": "Claim text.",
+                "source_refs": ["src-1"],
+                "semantic_assessment": "faithful_paraphrase",
+                "reviewer_checked_source_context": True,
+                "reviewer_checked_counterevidence": True,
+                "reviewer_note": "Checked source context and counterevidence.",
+                "review_complete": True,
+            }],
+        )
+        with patch("app.main.workspace.save_synthesis_review", side_effect=lambda review: review) as save:
+            result = review_research_synthesis(request)
+        self.assertEqual(result["claim_review_checklist"]["status"], "complete")
+        self.assertEqual(result["claim_review_checklist"]["complete_claim_count"], 1)
+        save.assert_called_once()
 
+    def test_review_api_rejects_checklist_for_wrong_claim(self):
+        from app.main import SynthesisReviewRequest, review_research_synthesis
+        request = SynthesisReviewRequest(
+            draft="Human review draft.",
+            claims=[{"text": "Actual claim.", "source_refs": ["src-1"]}],
+            source_registry=[{"source_id": "src-1"}],
+            decision="reject",
+            reviewer="reviewer-label",
+            claim_review_checklist=[{
+                "claim_index": 0, "claim_text": "Different claim.",
+                "semantic_assessment": "unclear",
+                "reviewer_checked_source_context": True,
+                "reviewer_checked_counterevidence": True,
+                "reviewer_note": "Reviewed.", "review_complete": True,
+            }],
+        )
+        with self.assertRaises(Exception) as raised:
+            review_research_synthesis(request)
+        self.assertEqual(getattr(raised.exception, "status_code", None), 400
+
+
+    
 if __name__ == "__main__":
     unittest.main()

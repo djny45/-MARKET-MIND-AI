@@ -26,6 +26,7 @@ from .skill_catalog import list_skills, load_skill, build_skill_protocol
 from .open_source_intake import build_source_candidate
 from .github_research_discovery import discover_github_repositories
 from .github_pinned_extraction import fetch_pinned_text_candidate
+from .github_license_evidence import fetch_pinned_license_evidence
 from .landing_page_builder import build_landing_page
 from .markets import market_catalog
 from .instruments import search_instruments
@@ -193,6 +194,10 @@ class GitHubPinnedExtractionRequest(BaseModel):
  file_path: str = Field(min_length=1, max_length=500)
  license_spdx: str = Field(min_length=1, max_length=50)
  source_kind: Literal["documentation", "source_excerpt", "research_note"] = "documentation"
+
+class GitHubPinnedLicenseEvidenceRequest(BaseModel):
+ repository_url: str = Field(min_length=1, max_length=300)
+ commit_sha: str = Field(min_length=1, max_length=40)
 
 class OpenSourceIntakeRequest(BaseModel):
  repository_url: str = Field(min_length=1, max_length=300)
@@ -742,6 +747,27 @@ def extract_pinned_github_file(worker_id: str, request: GitHubPinnedExtractionRe
    "unverified",
   )
   return {"candidate": candidate, "memory_record": memory_record}
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+ except RuntimeError as exc:
+  raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@app.post("/api/workers/{worker_id}/verify-pinned-github-license")
+def verify_pinned_github_license(worker_id: str, request: GitHubPinnedLicenseEvidenceRequest):
+ """Retrieve license-file evidence from a pinned commit for human review only.
+
+ This endpoint does not determine license compatibility or provide legal advice.
+ """
+ try:
+  evidence = fetch_pinned_license_evidence(**request.model_dump())
+  memory_record = append_memory(
+   worker_id, "validation_result",
+   {"record_type": "pinned_github_license_evidence", **evidence},
+   [f"license_evidence:{evidence['repository_url']}@{evidence['commit_sha']}"],
+   "unverified",
+  )
+  return {"evidence": evidence, "memory_record": memory_record}
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
  except RuntimeError as exc:

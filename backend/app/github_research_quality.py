@@ -14,6 +14,8 @@ import hashlib
 def score_source_evidence(candidate: dict[str, Any], license_evidence: dict[str, Any] | None = None) -> dict:
     if not isinstance(candidate, dict):
         raise ValueError("candidate must be an object")
+    if license_evidence is not None and not isinstance(license_evidence, dict):
+        raise ValueError("license_evidence must be an object")
     license_evidence = license_evidence or {}
     checks = [
         ("repository_url_valid", isinstance(candidate.get("repository_url"), str) and re.fullmatch(r"https://github\.com/[^/\s]+/[^/\s]+", candidate["repository_url"]) is not None, 10),

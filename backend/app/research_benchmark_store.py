@@ -42,13 +42,23 @@ class BenchmarkRecordStore:
         The in-memory connection is intentionally retained for the store lifetime.
         """
         if self._memory_connection is not None:
-            self._memory_connection.row_factory = sqlite3.Row
-            yield self._memory_connection
+            connection = self._memory_connection
+            connection.row_factory = sqlite3.Row
+            try:
+                yield connection
+                connection.commit()
+            except Exception:
+                connection.rollback()
+                raise
             return
         connection = sqlite3.connect(self.database_path)
         connection.row_factory = sqlite3.Row
         try:
             yield connection
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
         finally:
             connection.close()
 

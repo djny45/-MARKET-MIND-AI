@@ -77,6 +77,29 @@ class SynthesisReviewPersistenceTests(unittest.TestCase):
         self.assertEqual(citation["excerpt"], "exact source passage")
         self.assertIn("does not establish semantic support", fetched["citation_gate"]["note"])
 
+    def test_validated_claim_checklist_survives_review_history_round_trip(self):
+        from app.synthesis_review import validate_claim_review_checklist
+        checklist = validate_claim_review_checklist([{
+            "claim_index": 0,
+            "semantic_assessment": "faithful_paraphrase",
+            "reviewer_checked_source_context": True,
+            "reviewer_checked_counterevidence": True,
+            "reviewer_note": "Compared the source context and counterevidence.",
+            "review_complete": True,
+        }])
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.dict(os.environ, {"MARKET_MIND_DB": os.path.join(tmp, "checklist.db")}):
+                saved = save_synthesis_review({
+                    "status": "rejected", "reviewer": "claimed-reviewer",
+                    "draft": "Checklist review draft.",
+                    "claim_review_checklist": checklist,
+                })
+                fetched = get_synthesis_review(saved["review_id"])
+        self.assertTrue(fetched["integrity"]["verified"])
+        self.assertEqual(fetched["claim_review_checklist"], checklist)
+        self.assertEqual(fetched["claim_review_checklist"]["status"], "complete")
+        self.assertEqual(fetched["claim_review_checklist"]["complete_claim_count"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()

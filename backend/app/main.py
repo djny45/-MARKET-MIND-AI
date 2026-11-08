@@ -25,6 +25,7 @@ from .research_benchmark import run_offline_research_benchmark
 from .skill_catalog import list_skills, load_skill, build_skill_protocol
 from .open_source_intake import build_source_candidate
 from .github_research_discovery import discover_github_repositories
+from .github_pinned_extraction import fetch_pinned_text_candidate
 from .landing_page_builder import build_landing_page
 from .markets import market_catalog
 from .instruments import search_instruments
@@ -185,6 +186,13 @@ class AgentLearningFeedbackRequest(BaseModel):
 class GitHubRepositoryDiscoveryRequest(BaseModel):
  query: str = Field(min_length=1, max_length=180)
  limit: int = Field(default=5, ge=1, le=10)
+
+class GitHubPinnedExtractionRequest(BaseModel):
+ repository_url: str = Field(min_length=1, max_length=300)
+ commit_sha: str = Field(min_length=1, max_length=40)
+ file_path: str = Field(min_length=1, max_length=500)
+ license_spdx: str = Field(min_length=1, max_length=50)
+ source_kind: Literal["documentation", "source_excerpt", "research_note"] = "documentation"
 
 class OpenSourceIntakeRequest(BaseModel):
  repository_url: str = Field(min_length=1, max_length=300)
@@ -712,6 +720,28 @@ def discover_worker_github_repositories(worker_id: str, request: GitHubRepositor
    "unverified",
   )
   return {"discovery": result, "memory_record": memory_record}
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+ except RuntimeError as exc:
+  raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@app.post("/api/workers/{worker_id}/extract-pinned-github-file")
+def extract_pinned_github_file(worker_id: str, request: GitHubPinnedExtractionRequest):
+ """Fetch one small text file at a pinned public GitHub commit.
+
+ The resulting content is stored as unverified, review-pending evidence only.
+ No third-party code is executed, copied into runtime, or promoted.
+ """
+ try:
+  candidate = fetch_pinned_text_candidate(**request.model_dump())
+  memory_record = append_memory(
+   worker_id, "validation_result",
+   {"record_type": "open_source_learning_candidate", **candidate},
+   [f"open_source:{candidate['repository_url']}@{candidate['commit_sha']}:{candidate['file_path']}"],
+   "unverified",
+  )
+  return {"candidate": candidate, "memory_record": memory_record}
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
  except RuntimeError as exc:

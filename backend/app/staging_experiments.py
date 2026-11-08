@@ -90,38 +90,25 @@ def create_staging_experiment(worker_id: str, proposal_memory_id: str, payload: 
 
 
 def verify_benchmark_record_evidence(evidence: Any) -> dict[str, Any]:
-    """Verify archived benchmark JSON bytes against their record IDs and SHA-256 hashes."""
-    if not isinstance(evidence, dict):
+    """Validate compact archived hash commitments without claiming payload re-verification."""
+    if not isinstance(evidence, dict) or evidence.get("record_schema_version") != 1:
         return {"status": "missing_or_malformed", "verified_records": 0}
+    if evidence.get("hash_algorithm") != "sha256" or evidence.get("archived_payloads") is not False:
+        return {"status": "unsupported_evidence_format", "verified_records": 0}
     verified = 0
     for side in ("baseline", "candidate"):
-        raw = evidence.get(f"{side}_record_json")
-        expected_hash = evidence.get(f"{side}_record_sha256")
-        expected_id = evidence.get(f"{side}_record_id")
-        if not isinstance(raw, str) or not isinstance(expected_hash, str) or not isinstance(expected_id, str):
+        record_id = evidence.get(f"{side}_record_id")
+        digest = evidence.get(f"{side}_record_sha256")
+        if not isinstance(record_id, str) or len(record_id) != 64 or not isinstance(digest, str) or len(digest) != 64:
             return {"status": "missing_or_malformed", "verified_records": verified}
-        actual_hash = hashlib.sha256(raw.encode("utf-8")).hexdigest()
-        if actual_hash != expected_hash:
-            return {"status": "hash_mismatch", "verified_records": verified}
         try:
-            record = json.loads(raw)
-        except (TypeError, ValueError):
-            return {"status": "invalid_json", "verified_records": verified}
-        if not isinstance(record, dict) or record.get("record_id") != expected_id:
-            return {"status": "record_id_mismatch", "verified_records": verified}
-        if record.get("record_schema_version") != 1:
-            return {"status": "unsupported_schema", "verified_records": verified}
-        result = record.get("result")
-        if not isinstance(result, dict):
-            return {"status": "invalid_record_payload", "verified_records": verified}
-        try:
-            canonical_result = json.dumps(result, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
-        except (TypeError, ValueError):
-            return {"status": "invalid_record_payload", "verified_records": verified}
-        if hashlib.sha256(canonical_result.encode("utf-8")).hexdigest() != expected_id:
-            return {"status": "record_content_mismatch", "verified_records": verified}
+            int(record_id, 16)
+            int(digest, 16)
+        except ValueError:
+            return {"status": "invalid_digest", "verified_records": verified}
         verified += 1
-    return {"status": "verified", "verified_records": verified}
+    return {"status": "commitments_well_formed", "verified_records": verified,
+            "payload_bytes_recheckable": False}
 
 
 def _paired_case_id_fingerprint(cases: list[dict[str, Any]]) -> str:
@@ -252,19 +239,22 @@ def run_staging_benchmark(worker_id: str, proposal_memory_id: str, payload: dict
         "automatic_approval": False,
         "note": "Eligibility is a mechanical fixture gate only. Human review is required; it does not establish factual accuracy, predictive skill, or production readiness.",
     }
-    # Archive canonical benchmark records and hashes for later verification.
+    # Keep compact hash commitments in append-only worker memory. Full benchmark
+    # JSON can exceed the 12k memory-record limit; rerun identical fixtures to
+    # reproduce the canonical bytes when source fixtures are retained.
     baseline_record_json = serialize_benchmark_record(baseline_result)
     candidate_record_json = serialize_benchmark_record(candidate_result)
+    baseline_record = json.loads(baseline_record_json)
+    candidate_record = json.loads(candidate_record_json)
     benchmark_record_evidence = {
-        "baseline_record_id": json.loads(baseline_record_json)["record_id"],
+        "baseline_record_id": baseline_record["record_id"],
         "baseline_record_sha256": hashlib.sha256(baseline_record_json.encode("utf-8")).hexdigest(),
-        "candidate_record_id": json.loads(candidate_record_json)["record_id"],
+        "candidate_record_id": candidate_record["record_id"],
         "candidate_record_sha256": hashlib.sha256(candidate_record_json.encode("utf-8")).hexdigest(),
-        "baseline_record_json": baseline_record_json,
-        "candidate_record_json": candidate_record_json,
         "record_schema_version": 1,
         "hash_algorithm": "sha256",
-        "note": "Hashes cover canonical serialized benchmark records; fixture provenance remains caller-declared.",
+        "archived_payloads": False,
+        "note": "SHA-256 commitments cover canonical serialized records; full JSON bytes are not stored due to the 12k memory limit. Recompute by rerunning identical fixtures. Fixture provenance remains caller-declared.",
     }
     combined_id = f"baseline:{baseline_result['benchmark_id']}|candidate:{candidate_result['benchmark_id']}"
     saved = create_staging_experiment(worker_id, proposal_memory_id, {

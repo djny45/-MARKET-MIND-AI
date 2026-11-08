@@ -12,7 +12,37 @@ from typing import Any
 VALID_DECISIONS = {"approve", "reject"}
 MAX_CLAIMS = 100
 MAX_TEXT_CHARS = 8_000
+SEMANTIC_REVIEW_LABELS = [
+    "direct_quote", "faithful_paraphrase", "contextual_support",
+    "contradicted", "unsupported", "unclear",
+]
 
+
+def _build_claim_review_checklist(claims: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Create blank human assessment fields; never pre-fill semantic judgments."""
+    checklist = []
+    for index, claim in enumerate(claims):
+        if not isinstance(claim, dict):
+            raise ValueError("Each claim must be an object.")
+        text = claim.get("text")
+        refs = claim.get("source_refs", [])
+        if not isinstance(text, str) or not text.strip() or len(text) > 2000:
+            raise ValueError("Each claim text must contain 1 to 2000 characters.")
+        if not isinstance(refs, list) or len(refs) > 20 or any(not isinstance(ref, str) for ref in refs):
+            raise ValueError("Claim source_refs must be a list of at most 20 strings.")
+        checklist.append({
+            "claim_index": index,
+            "claim_text": text.strip(),
+            "source_refs": sorted({ref.strip() for ref in refs if ref.strip()}),
+            "semantic_assessment": None,
+            "allowed_assessments": list(SEMANTIC_REVIEW_LABELS),
+            "reviewer_checked_source_context": None,
+            "reviewer_checked_counterevidence": None,
+            "reviewer_note": "",
+            "review_complete": False,
+            "instructions": "A human reviewer must inspect the source in context, consider counterevidence, choose an assessment, and add notes before marking complete.",
+        })
+    return checklist
 
 
 def build_synthesis_review_packet(
@@ -36,14 +66,13 @@ def build_synthesis_review_packet(
         and all(item["reference_status"] == "registry_match" for item in audit["claims"])
     )
     disagreement_count = audit["metrics"]["claim_disagreement_candidate_count"]
-    # Claim-level citation records are audited separately from source_refs. Missing
-    # citation records remain explicitly review-needed rather than being inferred.
     citation_audit = audit_claim_citations(
         claims=claims, source_registry=source_registry,
     )
     claim_support_screen = audit_claim_source_overlap(
         claims=claims, source_registry=source_registry,
     )
+    claim_review_checklist = _build_claim_review_checklist(claims)
     return {
         "packet_type": "evidence_aware_synthesis_review_packet",
         "review_status": "pending_human_decision",
@@ -67,6 +96,13 @@ def build_synthesis_review_packet(
         "claim_support_gate": {
             "status": claim_support_screen["status"],
             "note": "Lexical overlap is a triage signal only; human semantic review remains mandatory.",
+        },
+        "claim_review_checklist": claim_review_checklist,
+        "claim_review_checklist_gate": {
+            "status": "human_review_required",
+            "complete_claim_count": 0,
+            "total_claim_count": len(claim_review_checklist),
+            "note": "Checklist fields are intentionally blank; no semantic assessment is inferred or pre-approved.",
         },
         "citation_gate": {
             "status": citation_audit["status"],
@@ -109,8 +145,6 @@ def build_synthesis_review(
     if not isinstance(source_registry, list) or len(source_registry) > 500:
         raise ValueError("source_registry must be a list with at most 500 items.")
 
-    # Preserve citation audit metadata in the review record. This is
-    # provenance/traceability metadata, not semantic claim validation.
     from .research_citation_audit import audit_claim_citations
     citation_audit = audit_claim_citations(
         claims=claims, source_registry=source_registry,

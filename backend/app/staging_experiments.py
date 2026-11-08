@@ -225,6 +225,8 @@ def run_staging_benchmark(worker_id: str, proposal_memory_id: str, payload: dict
         "baseline_record_sha256": hashlib.sha256(baseline_record_json.encode("utf-8")).hexdigest(),
         "candidate_record_id": json.loads(candidate_record_json)["record_id"],
         "candidate_record_sha256": hashlib.sha256(candidate_record_json.encode("utf-8")).hexdigest(),
+        "baseline_record_json": baseline_record_json,
+        "candidate_record_json": candidate_record_json,
         "record_schema_version": 1,
         "hash_algorithm": "sha256",
         "note": "Hashes cover canonical serialized benchmark records; fixture provenance remains caller-declared.",

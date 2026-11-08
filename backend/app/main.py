@@ -24,6 +24,7 @@ from .research_quality_eval import evaluate_research_draft
 from .research_benchmark import run_offline_research_benchmark
 from .skill_catalog import list_skills, load_skill, build_skill_protocol
 from .open_source_intake import build_source_candidate
+from .github_research_discovery import discover_github_repositories
 from .landing_page_builder import build_landing_page
 from .markets import market_catalog
 from .instruments import search_instruments
@@ -180,6 +181,10 @@ class AgentLearningFeedbackRequest(BaseModel):
  summary: str = Field(min_length=1, max_length=4000)
  outcome: Literal["helpful", "partially_helpful", "not_helpful", "unverified"]
  metrics: dict[str, Any] = Field(default_factory=dict)
+
+class GitHubRepositoryDiscoveryRequest(BaseModel):
+ query: str = Field(min_length=1, max_length=180)
+ limit: int = Field(default=5, ge=1, le=10)
 
 class OpenSourceIntakeRequest(BaseModel):
  repository_url: str = Field(min_length=1, max_length=300)
@@ -690,6 +695,28 @@ def review_worker_learning_candidate(worker_id: str, memory_id: str, request: Wo
   )
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+@app.post("/api/workers/{worker_id}/github-repository-discovery")
+def discover_worker_github_repositories(worker_id: str, request: GitHubRepositoryDiscoveryRequest):
+ """Discover bounded public GitHub repository metadata for research only.
+
+ Results are persisted as unverified observation notes. Discovery does not fetch
+ source files, verify licensing, execute code, or promote skills.
+ """
+ try:
+  result = discover_github_repositories(request.query, request.limit)
+  memory_record = append_memory(
+   worker_id, "observation",
+   {"record_type": "github_repository_discovery", **result},
+   ["https://api.github.com/search/repositories"],
+   "unverified",
+  )
+  return {"discovery": result, "memory_record": memory_record}
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+ except RuntimeError as exc:
+  raise HTTPException(status_code=502, detail=str(exc)) from exc
+
 
 @app.post("/api/workers/{worker_id}/open-source-candidates")
 def register_open_source_candidate(worker_id: str, request: OpenSourceIntakeRequest):

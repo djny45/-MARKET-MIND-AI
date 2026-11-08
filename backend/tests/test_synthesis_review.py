@@ -143,5 +143,28 @@ class SynthesisReviewTests(unittest.TestCase):
         self.assertIn("does not establish semantic support", result["citation_gate"]["note"])
 
 
+    def test_review_packet_includes_lexical_screen_but_keeps_human_review(self):
+        from app.synthesis_review import build_synthesis_review_packet
+        packet = build_synthesis_review_packet(
+            draft="A claim needs semantic review.",
+            claims=[{
+                "text": "Solar output increased during 2024.",
+                "source_refs": ["s1"],
+                "citations": [{"source_id": "s1", "excerpt": "Solar output increased"}],
+            }],
+            source_registry=[{
+                "source_id": "s1",
+                "text": "Solar output increased during 2024.",
+            }],
+        )
+        self.assertEqual(packet["claim_support_screen"]["status"],
+                         "screened_not_semantically_verified")
+        self.assertEqual(packet["claim_support_gate"]["status"],
+                         "screened_not_semantically_verified")
+        self.assertEqual(packet["review_status"], "pending_human_decision")
+        self.assertTrue(packet["human_decision_required"])
+        self.assertFalse(packet["auto_approval"])
+
+
 if __name__ == "__main__":
     unittest.main()

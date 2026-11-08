@@ -21,6 +21,10 @@ class GitHubResearchChunkingTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "50000-byte"):
             chunk_research_text("x" * 50001)
 
+    def test_rejects_chunk_count_that_would_overflow_manifest(self):
+        with self.assertRaisesRegex(ValueError, "100-chunk"):
+            chunk_research_text("x" * 50000, max_chars=200, overlap_chars=0)
+
     def test_rejects_empty_text(self):
         with self.assertRaises(ValueError):
             chunk_research_text("  ")

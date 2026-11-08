@@ -1,6 +1,6 @@
 import unittest
 
-from app.synthesis_review import build_synthesis_review
+from app.synthesis_review import build_synthesis_review, validate_claim_review_checklist
 
 
 class SynthesisReviewTests(unittest.TestCase):
@@ -40,14 +40,8 @@ class SynthesisReviewTests(unittest.TestCase):
         from app.synthesis_review import build_synthesis_review_packet
         packet = build_synthesis_review_packet(
             draft="Draft with a traceable quote.",
-            claims=[{
-                "text": "Claim supported by an excerpt.",
-                "source_refs": ["s1"],
-                "citations": [{"source_id": "s1", "excerpt": "verbatim excerpt"}],
-            }],
-            source_registry=[{
-                "source_id": "s1", "text": "Intro. verbatim excerpt. Outro.",
-            }],
+            claims=[{"text": "Claim supported by an excerpt.", "source_refs": ["s1"], "citations": [{"source_id": "s1", "excerpt": "verbatim excerpt"}]}],
+            source_registry=[{"source_id": "s1", "text": "Intro. verbatim excerpt. Outro."}],
         )
         self.assertEqual(packet["citation_audit"]["status"], "passed")
         self.assertEqual(packet["citation_gate"]["claim_citation_coverage"], 1.0)
@@ -60,11 +54,7 @@ class SynthesisReviewTests(unittest.TestCase):
         from app.synthesis_review import build_synthesis_review_packet
         packet = build_synthesis_review_packet(
             draft="Review citation gap.",
-            claims=[{
-                "text": "Claim without usable citation.",
-                "source_refs": ["s1"],
-                "citations": [{"source_id": "s1", "excerpt": "not present"}],
-            }],
+            claims=[{"text": "Claim without usable citation.", "source_refs": ["s1"], "citations": [{"source_id": "s1", "excerpt": "not present"}]}],
             source_registry=[{"source_id": "s1", "text": "source text here"}],
         )
         self.assertEqual(packet["citation_audit"]["status"], "needs_review")
@@ -118,14 +108,9 @@ class SynthesisReviewTests(unittest.TestCase):
     def test_review_result_preserves_citation_audit_provenance(self):
         result = build_synthesis_review(
             draft="Saved review draft.",
-            claims=[{
-                "text": "A claim with an exact quote.",
-                "source_refs": ["s1"],
-                "citations": [{"source_id": "s1", "excerpt": "source excerpt"}],
-            }],
+            claims=[{"text": "A claim with an exact quote.", "source_refs": ["s1"], "citations": [{"source_id": "s1", "excerpt": "source excerpt"}]}],
             source_registry=[{"source_id": "s1", "text": "Intro source excerpt ending."}],
-            decision="reject",
-            reviewer="reviewer",
+            decision="reject", reviewer="reviewer",
         )
         self.assertEqual(result["citation_audit"]["status"], "passed")
         self.assertEqual(result["citation_gate"]["claims_without_valid_citations"], 0)
@@ -138,11 +123,7 @@ class SynthesisReviewTests(unittest.TestCase):
         from app.synthesis_review import build_synthesis_review_packet
         packet = build_synthesis_review_packet(
             draft="A claim needs semantic review.",
-            claims=[{
-                "text": "Solar output increased during 2024.",
-                "source_refs": ["s1"],
-                "citations": [{"source_id": "s1", "excerpt": "Solar output increased"}],
-            }],
+            claims=[{"text": "Solar output increased during 2024.", "source_refs": ["s1"], "citations": [{"source_id": "s1", "excerpt": "Solar output increased"}]}],
             source_registry=[{"source_id": "s1", "text": "Solar output increased during 2024."}],
         )
         self.assertEqual(packet["claim_support_screen"]["status"], "screened_not_semantically_verified")
@@ -158,9 +139,7 @@ class SynthesisReviewTests(unittest.TestCase):
             claims=[{"text": "A claim to assess.", "source_refs": ["s1"]}],
             source_registry=[{"source_id": "s1", "text": "Source body."}],
         )
-        checklist = packet["claim_review_checklist"]
-        self.assertEqual(len(checklist), 1)
-        item = checklist[0]
+        item = packet["claim_review_checklist"][0]
         self.assertIsNone(item["semantic_assessment"])
         self.assertIsNone(item["reviewer_checked_source_context"])
         self.assertIsNone(item["reviewer_checked_counterevidence"])
@@ -168,6 +147,31 @@ class SynthesisReviewTests(unittest.TestCase):
         self.assertEqual(packet["claim_review_checklist_gate"]["status"], "human_review_required")
         self.assertEqual(packet["claim_review_checklist_gate"]["complete_claim_count"], 0)
         self.assertFalse(packet["auto_approval"])
+
+    def test_checklist_submission_requires_context_counterevidence_and_note(self):
+        incomplete = validate_claim_review_checklist([{
+            "claim_index": 0, "semantic_assessment": "direct_quote",
+            "reviewer_checked_source_context": True,
+            "reviewer_checked_counterevidence": False,
+            "reviewer_note": "Looks fine", "review_complete": True,
+        }])
+        self.assertEqual(incomplete["status"], "incomplete")
+        self.assertEqual(incomplete["complete_claim_count"], 0)
+        complete = validate_claim_review_checklist([{
+            "claim_index": 0, "semantic_assessment": "faithful_paraphrase",
+            "reviewer_checked_source_context": True,
+            "reviewer_checked_counterevidence": True,
+            "reviewer_note": "Compared source context and counterevidence.",
+            "review_complete": True,
+        }])
+        self.assertEqual(complete["status"], "complete")
+        self.assertEqual(complete["complete_claim_count"], 1)
+
+    def test_checklist_submission_rejects_invalid_fields(self):
+        with self.assertRaisesRegex(ValueError, "allowed review labels"):
+            validate_claim_review_checklist([{"semantic_assessment": "AI says true"}])
+        with self.assertRaisesRegex(ValueError, "booleans or null"):
+            validate_claim_review_checklist([{"reviewer_checked_source_context": "yes"}])
 
 
 if __name__ == "__main__":

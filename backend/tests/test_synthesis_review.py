@@ -36,6 +36,53 @@ class SynthesisReviewTests(unittest.TestCase):
         self.assertFalse(packet["auto_approval"])
         self.assertIn("not that sources substantiate claims", packet["limitations"][-1])
 
+
+    def test_review_packet_integrates_exact_citation_audit(self):
+        from app.synthesis_review import build_synthesis_review_packet
+        packet = build_synthesis_review_packet(
+            draft="Draft with a traceable quote.",
+            claims=[{
+                "text": "Claim supported by an excerpt.",
+                "source_refs": ["s1"],
+                "citations": [{"source_id": "s1", "excerpt": "verbatim excerpt"}],
+            }],
+            source_registry=[{
+                "source_id": "s1", "text": "Intro. verbatim excerpt. Outro.",
+            }],
+        )
+        self.assertEqual(packet["citation_audit"]["status"], "passed")
+        self.assertEqual(packet["citation_gate"]["claim_citation_coverage"], 1.0)
+        self.assertEqual(packet["citation_gate"]["claims_without_valid_citations"], 0)
+        self.assertEqual(packet["review_status"], "pending_human_decision")
+        self.assertTrue(packet["human_decision_required"])
+        self.assertFalse(packet["auto_approval"])
+
+    def test_review_packet_flags_missing_or_bad_citation_excerpt(self):
+        from app.synthesis_review import build_synthesis_review_packet
+        packet = build_synthesis_review_packet(
+            draft="Review citation gap.",
+            claims=[{
+                "text": "Claim without usable citation.",
+                "source_refs": ["s1"],
+                "citations": [{"source_id": "s1", "excerpt": "not present"}],
+            }],
+            source_registry=[{"source_id": "s1", "text": "source text here"}],
+        )
+        self.assertEqual(packet["citation_audit"]["status"], "needs_review")
+        self.assertEqual(packet["citation_gate"]["claims_without_valid_citations"], 1)
+        self.assertEqual(packet["review_status"], "pending_human_decision")
+        self.assertFalse(packet["auto_approval"])
+
+    def test_review_packet_missing_citation_metadata_needs_review(self):
+        from app.synthesis_review import build_synthesis_review_packet
+        packet = build_synthesis_review_packet(
+            draft="Claim needs citation review.",
+            claims=[{"text": "Claim with source ref but no excerpt citations.", "source_refs": ["s1"]}],
+            source_registry=[{"source_id": "s1", "text": "Some source text."}],
+        )
+        self.assertEqual(packet["citation_audit"]["status"], "needs_review")
+        self.assertEqual(packet["citation_gate"]["claims_without_valid_citations"], 1)
+
     def test_approval_requires_refs_matching_supplied_registry(self):
         result = build_synthesis_review(**self.base, decision="approve")
         self.assertEqual(result["status"], "approved")

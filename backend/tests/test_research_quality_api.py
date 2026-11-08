@@ -26,6 +26,29 @@ class ResearchQualityApiTests(unittest.TestCase):
 
 
 
+    def test_citation_audit_endpoint_checks_exact_excerpt_traceability(self):
+        from app.main import ResearchCitationAuditRequest, audit_research_synthesis_citations
+        request = ResearchCitationAuditRequest(
+            claims=[{"text": "Claim.", "citations": [
+                {"source_id": "src-a", "excerpt": "matched quote"}
+            ]}],
+            source_registry=[{"source_id": "src-a", "text": "A matched quote is present."}],
+        )
+        result = audit_research_synthesis_citations(request)
+        self.assertEqual(result["status"], "passed")
+        self.assertEqual(result["metrics"]["claim_citation_coverage"], 1.0)
+
+    def test_citation_audit_endpoint_returns_400_for_duplicate_source_ids(self):
+        from fastapi import HTTPException
+        from app.main import ResearchCitationAuditRequest, audit_research_synthesis_citations
+        request = ResearchCitationAuditRequest(
+            claims=[],
+            source_registry=[{"source_id": "dup"}, {"source_id": "dup"}],
+        )
+        with self.assertRaises(HTTPException) as raised:
+            audit_research_synthesis_citations(request)
+        self.assertEqual(raised.exception.status_code, 400)
+
     def test_prepare_synthesis_review_endpoint_returns_packet_without_auto_approval(self):
         from app.main import ResearchQualityEvaluationRequest, prepare_research_synthesis_review
         request = ResearchQualityEvaluationRequest(

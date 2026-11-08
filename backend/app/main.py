@@ -28,6 +28,7 @@ from .github_research_discovery import discover_github_repositories
 from .github_pinned_extraction import fetch_pinned_text_candidate
 from .github_license_evidence import fetch_pinned_license_evidence
 from .github_research_chunking import chunk_research_text
+from .github_research_quality import score_source_evidence
 from .landing_page_builder import build_landing_page
 from .markets import market_catalog
 from .instruments import search_instruments
@@ -204,6 +205,9 @@ class GitHubResearchChunkingRequest(BaseModel):
  memory_id: str = Field(min_length=1, max_length=64)
  max_chars: int = Field(default=4000, ge=200, le=8000)
  overlap_chars: int = Field(default=200, ge=0, le=3999)
+
+class GitHubResearchQualityRequest(BaseModel):
+ candidate_memory_id: str = Field(min_length=1, max_length=64)
 
 class OpenSourceIntakeRequest(BaseModel):
  repository_url: str = Field(min_length=1, max_length=300)
@@ -757,6 +761,40 @@ def extract_pinned_github_file(worker_id: str, request: GitHubPinnedExtractionRe
   raise HTTPException(status_code=400, detail=str(exc)) from exc
  except RuntimeError as exc:
   raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@app.post("/api/workers/{worker_id}/score-open-source-evidence")
+def score_open_source_evidence(worker_id: str, request: GitHubResearchQualityRequest):
+ """Score provenance-field completeness only; never establish truth or approval."""
+ try:
+  records = read_memory(worker_id, "validation_result", 200)["memory"]
+  candidate_record = next(
+   (item for item in records if item.get("memory_id") == request.candidate_memory_id), None
+  )
+  if candidate_record is None:
+   raise ValueError("open-source candidate was not found in the recent worker memory window")
+  candidate = candidate_record.get("content")
+  if not isinstance(candidate, dict) or candidate.get("record_type") != "open_source_learning_candidate":
+   raise ValueError("memory record is not an open-source learning candidate")
+  repo_url = candidate.get("repository_url")
+  commit_sha = candidate.get("commit_sha")
+  license_record = next(
+   (item.get("content", {}) for item in records
+    if isinstance(item.get("content"), dict)
+    and item["content"].get("record_type") == "pinned_github_license_evidence"
+    and item["content"].get("repository_url") == repo_url
+    and item["content"].get("commit_sha") == commit_sha), None
+  )
+  score = score_source_evidence(candidate, license_record)
+  memory_record = append_memory(
+   worker_id, "validation_result",
+   {"record_type": "github_research_evidence_quality",
+    "candidate_memory_id": request.candidate_memory_id, **score},
+   [f"worker-memory:{request.candidate_memory_id}"], "unverified",
+  )
+  return {"quality_score": score, "memory_record": memory_record}
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.post("/api/workers/{worker_id}/chunk-open-source-candidate")

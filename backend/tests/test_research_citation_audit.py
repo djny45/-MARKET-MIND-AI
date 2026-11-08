@@ -71,7 +71,7 @@ class ResearchCitationAuditTests(unittest.TestCase):
             "source_sha256": source_hash, "chunk_sha256": "a" * 64,
             "chunk_index": 0, "source_start_char": 0,
             "source_end_char": len(source_text),
-            "excerpt_start_char": 7, "excerpt_end_char": 17,
+            "excerpt_start_char": 7, "excerpt_end_char": 18,
         }]}
         result = audit_claim_citations(
             claims=[claim], source_registry=[{"source_id": "src", "text": source_text}],

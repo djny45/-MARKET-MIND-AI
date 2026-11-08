@@ -2118,6 +2118,24 @@ def review_research_synthesis(request: SynthesisReviewRequest):
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+@app.get("/api/research/synthesis/reviews")
+def list_research_synthesis_reviews(limit: int = 50):
+ """List persisted review metadata; draft/evidence details are not included."""
+ try:
+  return {"reviews": workspace.list_synthesis_reviews(limit)}
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/research/synthesis/reviews/{review_id}")
+def get_research_synthesis_review(review_id: str):
+ """Retrieve one saved review and report its SHA-256 integrity check."""
+ result = workspace.get_synthesis_review(review_id)
+ if result is None:
+  raise HTTPException(status_code=404, detail="Synthesis review not found")
+ return result
+
+
 @app.post("/api/research/orchestrate")
 def orchestrate_research_request(request: ResearchOrchestrationRequest):
  """Coordinate specialist workers through the shared deterministic intelligence core."""

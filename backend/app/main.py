@@ -19,7 +19,7 @@ from .specialist_router import route_research_brief
 from .analytical_agent_tasks import retry_failed_research_task, cancel_queued_research_task, submit_research_task, get_research_task, list_research_tasks, enqueue_research_task, execute_queued_research_task, recover_interrupted_research_tasks, list_recent_task_activity, agent_supervisor_status, dispatch_queued_research_tasks, list_task_audit_events, get_task_quality_evaluation
 from .research_orchestrator import orchestrate_research
 from .intelligence_core import intelligence_core_status, synthesize_research, IntelligenceCoreError
-from .synthesis_review import build_synthesis_review
+from .synthesis_review import build_synthesis_review, build_synthesis_review_packet
 from .research_quality_eval import evaluate_research_draft
 from .research_evidence_audit import audit_evidence
 from .research_benchmark import run_offline_research_benchmark
@@ -2088,6 +2088,18 @@ def run_research_benchmark(request: ResearchBenchmarkRequest):
   )
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+@app.post("/api/research/synthesis/prepare-review")
+def prepare_research_synthesis_review(request: ResearchQualityEvaluationRequest):
+ """Prepare an evidence-aware synthesis review packet; never auto-approve."""
+ try:
+  return build_synthesis_review_packet(
+   draft=request.draft, claims=request.claims,
+   source_registry=request.source_registry,
+  )
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
 
 @app.post("/api/research/synthesis/review")
 def review_research_synthesis(request: SynthesisReviewRequest):

@@ -36,7 +36,6 @@ class SynthesisReviewTests(unittest.TestCase):
         self.assertFalse(packet["auto_approval"])
         self.assertTrue(any("not that sources substantiate claims" in item for item in packet["limitations"]))
 
-
     def test_review_packet_integrates_exact_citation_audit(self):
         from app.synthesis_review import build_synthesis_review_packet
         packet = build_synthesis_review_packet(
@@ -116,22 +115,15 @@ class SynthesisReviewTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "draft"):
             build_synthesis_review(**args, decision="reject")
 
-
     def test_review_result_preserves_citation_audit_provenance(self):
         result = build_synthesis_review(
             draft="Saved review draft.",
             claims=[{
                 "text": "A claim with an exact quote.",
                 "source_refs": ["s1"],
-                "citations": [{
-                    "source_id": "s1",
-                    "excerpt": "source excerpt",
-                }],
+                "citations": [{"source_id": "s1", "excerpt": "source excerpt"}],
             }],
-            source_registry=[{
-                "source_id": "s1",
-                "text": "Intro source excerpt ending.",
-            }],
+            source_registry=[{"source_id": "s1", "text": "Intro source excerpt ending."}],
             decision="reject",
             reviewer="reviewer",
         )
@@ -142,7 +134,6 @@ class SynthesisReviewTests(unittest.TestCase):
         self.assertEqual(saved_citation["status"], "exact_excerpt_match")
         self.assertIn("does not establish semantic support", result["citation_gate"]["note"])
 
-
     def test_review_packet_includes_lexical_screen_but_keeps_human_review(self):
         from app.synthesis_review import build_synthesis_review_packet
         packet = build_synthesis_review_packet(
@@ -152,17 +143,30 @@ class SynthesisReviewTests(unittest.TestCase):
                 "source_refs": ["s1"],
                 "citations": [{"source_id": "s1", "excerpt": "Solar output increased"}],
             }],
-            source_registry=[{
-                "source_id": "s1",
-                "text": "Solar output increased during 2024.",
-            }],
+            source_registry=[{"source_id": "s1", "text": "Solar output increased during 2024."}],
         )
-        self.assertEqual(packet["claim_support_screen"]["status"],
-                         "screened_not_semantically_verified")
-        self.assertEqual(packet["claim_support_gate"]["status"],
-                         "screened_not_semantically_verified")
+        self.assertEqual(packet["claim_support_screen"]["status"], "screened_not_semantically_verified")
+        self.assertEqual(packet["claim_support_gate"]["status"], "screened_not_semantically_verified")
         self.assertEqual(packet["review_status"], "pending_human_decision")
         self.assertTrue(packet["human_decision_required"])
+        self.assertFalse(packet["auto_approval"])
+
+    def test_claim_semantic_checklist_is_blank_and_requires_human_review(self):
+        from app.synthesis_review import build_synthesis_review_packet
+        packet = build_synthesis_review_packet(
+            draft="Review each claim against its source.",
+            claims=[{"text": "A claim to assess.", "source_refs": ["s1"]}],
+            source_registry=[{"source_id": "s1", "text": "Source body."}],
+        )
+        checklist = packet["claim_review_checklist"]
+        self.assertEqual(len(checklist), 1)
+        item = checklist[0]
+        self.assertIsNone(item["semantic_assessment"])
+        self.assertIsNone(item["reviewer_checked_source_context"])
+        self.assertIsNone(item["reviewer_checked_counterevidence"])
+        self.assertFalse(item["review_complete"])
+        self.assertEqual(packet["claim_review_checklist_gate"]["status"], "human_review_required")
+        self.assertEqual(packet["claim_review_checklist_gate"]["complete_claim_count"], 0)
         self.assertFalse(packet["auto_approval"])
 
 

@@ -14,6 +14,55 @@ MAX_CLAIMS = 100
 MAX_TEXT_CHARS = 8_000
 
 
+
+def build_synthesis_review_packet(
+    *, draft: str, claims: list[dict[str, Any]],
+    source_registry: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Prepare an evidence-aware packet; never approve or authenticate it."""
+    if not isinstance(draft, str) or not draft.strip() or len(draft) > MAX_TEXT_CHARS:
+        raise ValueError("draft must contain 1 to 8000 characters.")
+    from .research_evidence_audit import audit_evidence
+    from .research_quality_eval import evaluate_research_draft
+
+    audit = audit_evidence(claims=claims, source_registry=source_registry)
+    quality = evaluate_research_draft(
+        draft=draft, claims=claims, source_registry=source_registry,
+    )
+    reference_gate_passed = (
+        bool(claims)
+        and all(item["reference_status"] == "registry_match" for item in audit["claims"])
+    )
+    disagreement_count = audit["metrics"]["claim_disagreement_candidate_count"]
+    return {
+        "packet_type": "evidence_aware_synthesis_review_packet",
+        "review_status": "pending_human_decision",
+        "reference_gate": {
+            "status": "passed" if reference_gate_passed else "blocked",
+            "all_claims_have_known_source_refs": reference_gate_passed,
+            "unknown_source_id_count": audit["metrics"]["unknown_source_id_count"],
+            "claims_without_refs_count": sum(
+                1 for item in audit["claims"] if item["reference_status"] == "missing"
+            ),
+        },
+        "review_attention": {
+            "status": "attention_required" if disagreement_count else "no_disagreement_candidates_detected",
+            "disagreement_candidate_count": disagreement_count,
+            "note": "No detected disagreement does not establish that claims are correct or conflict-free.",
+        },
+        "quality_metrics": quality["metrics"],
+        "evidence_audit": audit,
+        "draft": draft.strip(),
+        "human_decision_required": True,
+        "auto_approval": False,
+        "limitations": [
+            "This endpoint prepares a review packet only; it does not persist a review or record a reviewer decision.",
+            "Source authenticity, claim entailment, factual correctness, and reviewer identity are not verified.",
+            "A passed reference gate means identifiers match the supplied registry, not that sources substantiate claims.",
+        ],
+    }
+
+
 def build_synthesis_review(
     *,
     draft: str,

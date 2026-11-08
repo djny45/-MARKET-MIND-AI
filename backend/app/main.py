@@ -21,6 +21,7 @@ from .research_orchestrator import orchestrate_research
 from .intelligence_core import intelligence_core_status, synthesize_research, IntelligenceCoreError
 from .synthesis_review import build_synthesis_review
 from .research_quality_eval import evaluate_research_draft
+from .research_evidence_audit import audit_evidence
 from .research_benchmark import run_offline_research_benchmark
 from .skill_catalog import list_skills, load_skill, build_skill_protocol
 from .open_source_intake import build_source_candidate
@@ -151,6 +152,11 @@ class ResearchQualityEvaluationRequest(BaseModel):
  claims: list[dict[str, Any]] = Field(default_factory=list, max_length=200)
  source_registry: list[dict[str, Any]] = Field(default_factory=list, max_length=500)
  baseline: dict[str, Any] | None = None
+
+class ResearchEvidenceAuditRequest(BaseModel):
+ claims: list[dict[str, Any]] = Field(default_factory=list, max_length=200)
+ source_registry: list[dict[str, Any]] = Field(default_factory=list, max_length=500)
+
 
 
 
@@ -2051,6 +2057,18 @@ def evaluate_research_quality(request: ResearchQualityEvaluationRequest):
   return evaluate_research_draft(
    draft=request.draft, claims=request.claims,
    source_registry=request.source_registry, baseline=request.baseline,
+  )
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/research/evidence-audit")
+def research_evidence_audit(request: ResearchEvidenceAuditRequest):
+ """Audit source grouping and explicit claim-stance disagreements for human review."""
+ try:
+  return audit_evidence(
+   claims=request.claims,
+   source_registry=request.source_registry,
   )
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc

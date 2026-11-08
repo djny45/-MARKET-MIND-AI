@@ -72,19 +72,66 @@ def audit_claim_citations(*, claims: list[dict[str, Any]],
                 raise ValueError("citation excerpt must be a string up to 1200 characters")
             source_text = source.get("excerpt") or source.get("text") or source.get("content")
             has_source_text = isinstance(source_text, str) and bool(source_text.strip())
-            exact_match = bool(excerpt.strip()) and has_source_text and excerpt.strip() in source_text
+            normalized_excerpt = excerpt.strip()
+            exact_match = bool(normalized_excerpt) and has_source_text and normalized_excerpt in source_text
             status = "exact_excerpt_match" if exact_match else (
                 "source_text_unavailable" if not has_source_text else "excerpt_not_found"
             )
+
+            # Optional chunk provenance fields are checked when present. Older
+            # citation records remain supported, but cannot claim chunk verification.
+            provenance_fields = (
+                "source_sha256", "chunk_sha256", "chunk_index",
+                "source_start_char", "source_end_char",
+                "excerpt_start_char", "excerpt_end_char",
+            )
+            has_chunk_provenance = any(field in citation for field in provenance_fields)
+            provenance_status = "not_provided"
+            if has_chunk_provenance:
+                import hashlib
+                expected_source_hash = citation.get("source_sha256")
+                actual_source_hash = (
+                    hashlib.sha256(source_text.encode("utf-8")).hexdigest()
+                    if has_source_text else None
+                )
+                chunk_hash = citation.get("chunk_sha256")
+                chunk_index = citation.get("chunk_index")
+                start = citation.get("excerpt_start_char")
+                end = citation.get("excerpt_end_char")
+                valid_offsets = (
+                    isinstance(start, int) and not isinstance(start, bool)
+                    and isinstance(end, int) and not isinstance(end, bool)
+                    and start >= 0 and end >= start
+                    and end - start == len(normalized_excerpt)
+                )
+                offsets_match = (
+                    valid_offsets and has_source_text
+                    and source_text[start:end] == normalized_excerpt
+                )
+                hash_matches = (
+                    isinstance(expected_source_hash, str)
+                    and expected_source_hash.lower() == actual_source_hash
+                )
+                chunk_hash_valid = (
+                    isinstance(chunk_hash, str) and len(chunk_hash) == 64
+                    and all(ch in "0123456789abcdefABCDEF" for ch in chunk_hash)
+                )
+                provenance_ok = hash_matches and offsets_match and chunk_hash_valid
+                provenance_status = "verified_source_hash_and_excerpt_offsets" if provenance_ok else "provenance_mismatch"
+                if not provenance_ok:
+                    exact_match = False
+                    status = "provenance_mismatch"
             if not exact_match:
                 claim_valid = False
             citation_reports.append({
                 "source_id": sid,
                 "source_title": source.get("title") if isinstance(source.get("title"), str) else None,
                 "source_url": source.get("url") if isinstance(source.get("url"), str) else None,
-                "excerpt": excerpt.strip(),
+                "excerpt": normalized_excerpt,
                 "status": status,
                 "source_text_match": exact_match,
+                "chunk_provenance_status": provenance_status,
+                "chunk_provenance_verified": provenance_status == "verified_source_hash_and_excerpt_offsets",
             })
 
         if claim_valid:

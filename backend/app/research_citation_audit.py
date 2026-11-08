@@ -81,7 +81,7 @@ def audit_claim_citations(*, claims: list[dict[str, Any]],
             # Optional chunk provenance fields are checked when present. Older
             # citation records remain supported, but cannot claim chunk verification.
             provenance_fields = (
-                "source_sha256", "chunk_sha256", "chunk_index",
+                "source_sha256", "chunk_sha256", "chunk_text", "chunk_index",
                 "source_start_char", "source_end_char",
                 "excerpt_start_char", "excerpt_end_char",
             )
@@ -95,7 +95,10 @@ def audit_claim_citations(*, claims: list[dict[str, Any]],
                     if has_source_text else None
                 )
                 chunk_hash = citation.get("chunk_sha256")
+                chunk_text = citation.get("chunk_text")
                 chunk_index = citation.get("chunk_index")
+                chunk_start = citation.get("source_start_char")
+                chunk_end = citation.get("source_end_char")
                 start = citation.get("excerpt_start_char")
                 end = citation.get("excerpt_end_char")
                 valid_offsets = (
@@ -113,10 +116,23 @@ def audit_claim_citations(*, claims: list[dict[str, Any]],
                     and expected_source_hash.lower() == actual_source_hash
                 )
                 chunk_hash_valid = (
-                    isinstance(chunk_hash, str) and len(chunk_hash) == 64
-                    and all(ch in "0123456789abcdefABCDEF" for ch in chunk_hash)
+                    isinstance(chunk_text, str)
+                    and isinstance(chunk_hash, str)
+                    and hashlib.sha256(chunk_text.encode("utf-8")).hexdigest() == chunk_hash.lower()
                 )
-                provenance_ok = hash_matches and offsets_match and chunk_hash_valid
+                chunk_source_slice_valid = (
+                    isinstance(chunk_start, int) and not isinstance(chunk_start, bool)
+                    and isinstance(chunk_end, int) and not isinstance(chunk_end, bool)
+                    and chunk_start >= 0 and chunk_end >= chunk_start
+                    and chunk_end - chunk_start == len(chunk_text or "")
+                    and has_source_text and source_text[chunk_start:chunk_end] == chunk_text
+                )
+                excerpt_inside_chunk = (
+                    chunk_source_slice_valid and valid_offsets
+                    and chunk_start <= start <= end <= chunk_end
+                    and chunk_text[start - chunk_start:end - chunk_start] == normalized_excerpt
+                )
+                provenance_ok = hash_matches and offsets_match and chunk_hash_valid and chunk_source_slice_valid and excerpt_inside_chunk
                 provenance_status = "verified_source_hash_and_excerpt_offsets" if provenance_ok else "provenance_mismatch"
                 if not provenance_ok:
                     exact_match = False

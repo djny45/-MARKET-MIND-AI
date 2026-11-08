@@ -68,6 +68,11 @@ class GitHubResearchQualityTests(unittest.TestCase):
         self.assertFalse(result["checks"][4]["passed"])
         self.assertEqual(result["score"], 85)
 
+    def test_rejects_non_object_license_evidence(self):
+        candidate = {"repository_url": "https://github.com/org/repo"}
+        with self.assertRaisesRegex(ValueError, "license_evidence must be an object"):
+            score_source_evidence(candidate, "not a license record")
+
     def test_rejects_non_object(self):
         with self.assertRaises(ValueError):
             score_source_evidence("not a candidate")

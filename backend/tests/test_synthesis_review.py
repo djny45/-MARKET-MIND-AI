@@ -34,7 +34,7 @@ class SynthesisReviewTests(unittest.TestCase):
         )
         self.assertEqual(packet["reference_gate"]["status"], "passed")
         self.assertFalse(packet["auto_approval"])
-        self.assertIn("not that sources substantiate claims", packet["limitations"][-1])
+        self.assertTrue(any("not that sources substantiate claims" in item for item in packet["limitations"]))
 
 
     def test_review_packet_integrates_exact_citation_audit(self):

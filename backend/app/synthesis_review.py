@@ -24,6 +24,7 @@ def build_synthesis_review_packet(
         raise ValueError("draft must contain 1 to 8000 characters.")
     from .research_evidence_audit import audit_evidence
     from .research_quality_eval import evaluate_research_draft
+    from .research_citation_audit import audit_claim_citations
 
     audit = audit_evidence(claims=claims, source_registry=source_registry)
     quality = evaluate_research_draft(
@@ -34,6 +35,11 @@ def build_synthesis_review_packet(
         and all(item["reference_status"] == "registry_match" for item in audit["claims"])
     )
     disagreement_count = audit["metrics"]["claim_disagreement_candidate_count"]
+    # Claim-level citation records are audited separately from source_refs. Missing
+    # citation records remain explicitly review-needed rather than being inferred.
+    citation_audit = audit_claim_citations(
+        claims=claims, source_registry=source_registry,
+    )
     return {
         "packet_type": "evidence_aware_synthesis_review_packet",
         "review_status": "pending_human_decision",
@@ -52,6 +58,13 @@ def build_synthesis_review_packet(
         },
         "quality_metrics": quality["metrics"],
         "evidence_audit": audit,
+        "citation_audit": citation_audit,
+        "citation_gate": {
+            "status": citation_audit["status"],
+            "claim_citation_coverage": citation_audit["metrics"]["claim_citation_coverage"],
+            "claims_without_valid_citations": citation_audit["metrics"]["claims_without_valid_citations"],
+            "note": "Exact excerpt matching is traceability only; it does not establish semantic support or truth.",
+        },
         "draft": draft.strip(),
         "human_decision_required": True,
         "auto_approval": False,
@@ -59,6 +72,7 @@ def build_synthesis_review_packet(
             "This endpoint prepares a review packet only; it does not persist a review or record a reviewer decision.",
             "Source authenticity, claim entailment, factual correctness, and reviewer identity are not verified.",
             "A passed reference gate means identifiers match the supplied registry, not that sources substantiate claims.",
+            "Citation audit checks exact excerpts against supplied source text; missing citation excerpts require human review.",
         ],
     }
 

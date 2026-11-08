@@ -20,25 +20,41 @@ def build_review_bundle(candidate_record: dict[str, Any], records: list[dict[str
     if not isinstance(records, list):
         raise ValueError("records must be a list")
 
-    related = []
+    related: dict[str, list[dict[str, Any]]] = {
+        "chunk_manifest": [],
+        "provenance_score": [],
+        "license_evidence": [],
+    }
     for item in records:
         content = item.get("content") if isinstance(item, dict) else None
         if not isinstance(content, dict):
             continue
         if (content.get("source_memory_id") == candidate_id
                 and content.get("record_type") == "github_research_chunk_manifest"):
-            related.append(("chunk_manifest", item))
+            related["chunk_manifest"].append(item)
         if (content.get("candidate_memory_id") == candidate_id
                 and content.get("record_type") == "github_research_evidence_quality"):
-            related.append(("provenance_score", item))
+            related["provenance_score"].append(item)
         if (content.get("record_type") == "pinned_github_license_evidence"
                 and content.get("repository_url") == candidate.get("repository_url")
                 and content.get("commit_sha") == candidate.get("commit_sha")):
-            related.append(("license_evidence", item))
+            related["license_evidence"].append(item)
 
-    evidence = {kind: item for kind, item in related}
-    missing = [kind for kind in ("chunk_manifest", "provenance_score", "license_evidence")
-               if kind not in evidence]
+    # Duplicate evidence is ambiguous. Do not silently select the last record:
+    # that could let a conflicting record overwrite previously reviewed evidence.
+    evidence = {
+        kind: matches[0]
+        for kind, matches in related.items()
+        if len(matches) == 1
+    }
+    missing = [
+        kind for kind in ("chunk_manifest", "provenance_score", "license_evidence")
+        if not related[kind]
+    ]
+    for kind, matches in related.items():
+        if len(matches) > 1:
+            missing.append(f"ambiguous_{kind}")
+
     score_content = evidence.get("provenance_score", {}).get("content", {})
     score = score_content.get("score") if isinstance(score_content, dict) else None
     license_content = evidence.get("license_evidence", {}).get("content", {})

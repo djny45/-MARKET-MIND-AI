@@ -22,6 +22,7 @@ from .intelligence_core import intelligence_core_status, synthesize_research, In
 from .synthesis_review import build_synthesis_review, build_synthesis_review_packet
 from .research_quality_eval import evaluate_research_draft
 from .research_evidence_audit import audit_evidence
+from .research_citation_audit import audit_claim_citations
 from .research_benchmark import run_offline_research_benchmark
 from .skill_catalog import list_skills, load_skill, build_skill_protocol
 from .open_source_intake import build_source_candidate
@@ -154,6 +155,11 @@ class ResearchQualityEvaluationRequest(BaseModel):
  claims: list[dict[str, Any]] = Field(default_factory=list, max_length=200)
  source_registry: list[dict[str, Any]] = Field(default_factory=list, max_length=500)
  baseline: dict[str, Any] | None = None
+
+class ResearchCitationAuditRequest(BaseModel):
+ claims: list[dict[str, Any]] = Field(default_factory=list, max_length=100)
+ source_registry: list[dict[str, Any]] = Field(default_factory=list, max_length=500)
+
 
 class ResearchEvidenceAuditRequest(BaseModel):
  claims: list[dict[str, Any]] = Field(default_factory=list, max_length=200)
@@ -2088,6 +2094,17 @@ def run_research_benchmark(request: ResearchBenchmarkRequest):
   )
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+@app.post("/api/research/synthesis/citation-audit")
+def audit_research_synthesis_citations(request: ResearchCitationAuditRequest):
+ """Check claim citation IDs and quoted excerpts against supplied source text."""
+ try:
+  return audit_claim_citations(
+   claims=request.claims, source_registry=request.source_registry,
+  )
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
 
 @app.post("/api/research/synthesis/prepare-review")
 def prepare_research_synthesis_review(request: ResearchQualityEvaluationRequest):

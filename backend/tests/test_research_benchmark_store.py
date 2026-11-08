@@ -63,6 +63,27 @@ class BenchmarkRecordStoreTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "not valid JSON"):
                 store.get(record_id)
 
+    def test_retrieval_rejects_nested_payload_tampering(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "history.sqlite"
+            store = BenchmarkRecordStore(database)
+            record_id = store.save(benchmark_result())
+            import json
+            import sqlite3
+            with sqlite3.connect(database) as connection:
+                row = connection.execute(
+                    "SELECT record_json FROM research_benchmark_records WHERE record_id = ?",
+                    (record_id,),
+                ).fetchone()
+                record = json.loads(row[0])
+                record["result"]["case_count"] = 999
+                connection.execute(
+                    "UPDATE research_benchmark_records SET record_json = ? WHERE record_id = ?",
+                    (json.dumps(record), record_id),
+                )
+            with self.assertRaisesRegex(ValueError, "content does not match its record ID"):
+                store.get(record_id)
+
     def test_unknown_record_returns_none(self):
         with tempfile.TemporaryDirectory() as directory:
             store = BenchmarkRecordStore(Path(directory) / "history.sqlite")

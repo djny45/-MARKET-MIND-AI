@@ -28,6 +28,11 @@ class ResearchBenchmarkRecordTests(unittest.TestCase):
         self.assertEqual(record["benchmark_id"], result["benchmark_id"])
         self.assertEqual(record["result"], result)
         self.assertEqual(len(record["record_id"]), 64)
+        self.assertTrue(record["result"]["research_only"])
+        self.assertFalse(record["result"]["automatic_promotion"])
+        self.assertFalse(record["result"]["model_training"])
+        self.assertFalse(record["result"]["broker_execution"])
+        self.assertFalse(record["result"]["deployment"])
 
     def test_record_id_changes_when_result_changes(self):
         baseline = run_offline_research_benchmark(cases())

@@ -46,6 +46,8 @@ def chunk_research_text(
         if end >= len(text):
             break
         start = end - overlap_chars
+        if len(chunks) > 100:
+            raise ValueError("chunk count exceeds the 100-chunk manifest limit; increase max_chars")
     return {
         "source_sha256": source_hash,
         "source_chars": len(text),

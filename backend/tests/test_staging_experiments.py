@@ -222,6 +222,12 @@ class StagingExperimentTests(unittest.TestCase):
         gate = result["content"]["benchmark_runs"]["quality_gate"]
         self.assertEqual(gate["status"], "eligible_for_human_staging_review")
         self.assertFalse(gate["automatic_approval"])
+        evidence = result["content"]["benchmark_runs"]["benchmark_record_evidence"]
+        self.assertEqual(len(evidence["baseline_record_id"]), 64)
+        self.assertEqual(len(evidence["candidate_record_id"]), 64)
+        self.assertEqual(len(evidence["baseline_record_sha256"]), 64)
+        self.assertEqual(len(evidence["candidate_record_sha256"]), 64)
+        self.assertEqual(evidence["hash_algorithm"], "sha256")
 
     def test_history_summary_counts_gate_status_and_metric_deltas(self):
         review_improvement_proposal("worker_001", self.proposal["memory_id"],

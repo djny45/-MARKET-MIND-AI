@@ -190,6 +190,9 @@ def get_synthesis_review(review_id):
     """Retrieve one immutable review record and verify its stored digest."""
     import hashlib
     with _connect() as con:
+        exists=con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='synthesis_reviews'").fetchone()
+        if exists is None:
+            return None
         columns={row["name"] for row in con.execute("PRAGMA table_info(synthesis_reviews)")}
         if "review_sha256" not in columns:
             con.execute("ALTER TABLE synthesis_reviews ADD COLUMN review_sha256 TEXT NOT NULL DEFAULT ''")
@@ -214,6 +217,12 @@ def list_synthesis_reviews(limit=50):
     if isinstance(limit,bool) or not isinstance(limit,int) or not 1<=limit<=100:
         raise ValueError("limit must be an integer between 1 and 100")
     with _connect() as con:
+        exists=con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='synthesis_reviews'").fetchone()
+        if exists is None:
+            return []
+        columns={row["name"] for row in con.execute("PRAGMA table_info(synthesis_reviews)")}
+        if "review_sha256" not in columns:
+            con.execute("ALTER TABLE synthesis_reviews ADD COLUMN review_sha256 TEXT NOT NULL DEFAULT ''")
         rows=con.execute("""SELECT id,status,reviewer_claim,created_at,review_sha256
           FROM synthesis_reviews ORDER BY created_at DESC LIMIT ?""",(limit,)).fetchall()
     return [{"review_id":row["id"],"status":row["status"],"reviewer_claim":row["reviewer_claim"],

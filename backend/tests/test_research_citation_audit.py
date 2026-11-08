@@ -68,8 +68,8 @@ class ResearchCitationAuditTests(unittest.TestCase):
         source_hash = hashlib.sha256(source_text.encode("utf-8")).hexdigest()
         claim = {"text": "Claim.", "citations": [{
             "source_id": "src", "excerpt": "exact quote",
-            "source_sha256": source_hash, "chunk_sha256": "a" * 64,
-            "chunk_index": 0, "source_start_char": 0,
+            "source_sha256": source_hash, "chunk_sha256": source_hash,
+            "chunk_text": source_text, "chunk_index": 0, "source_start_char": 0,
             "source_end_char": len(source_text),
             "excerpt_start_char": 7, "excerpt_end_char": 18,
         }]}
@@ -86,8 +86,10 @@ class ResearchCitationAuditTests(unittest.TestCase):
         result = audit_claim_citations(
             claims=[{"text": "Claim.", "citations": [{
                 "source_id": "src", "excerpt": "quote",
-                "source_sha256": "0" * 64, "chunk_sha256": "a" * 64,
-                "chunk_index": 0, "excerpt_start_char": 0, "excerpt_end_char": 5,
+                "source_sha256": "0" * 64, "chunk_sha256": hashlib.sha256(b"quote").hexdigest(),
+                "chunk_text": "quote", "chunk_index": 0,
+                "source_start_char": 0, "source_end_char": 5,
+                "excerpt_start_char": 0, "excerpt_end_char": 5,
             }]}],
             source_registry=[{"source_id": "src", "text": "quote"}],
         )

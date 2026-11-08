@@ -30,10 +30,28 @@ class BenchmarkRecordStore:
         self._memory_connection = (
             sqlite3.connect(":memory:") if self.database_path == ":memory:" else None
         )
+        self._closed = False
         if self.database_path != ":memory:":
             Path(self.database_path).parent.mkdir(parents=True, exist_ok=True)
         with self._connect() as connection:
             connection.execute(_SCHEMA)
+
+    def close(self) -> None:
+        """Release the retained in-memory connection; safe to call repeatedly."""
+        if self._closed:
+            return
+        if self._memory_connection is not None:
+            self._memory_connection.close()
+            self._memory_connection = None
+        self._closed = True
+
+    def __enter__(self) -> "BenchmarkRecordStore":
+        if self._closed:
+            raise RuntimeError("benchmark record store is closed")
+        return self
+
+    def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
+        self.close()
 
     @contextmanager
     def _connect(self) -> Iterator[sqlite3.Connection]:
@@ -41,6 +59,8 @@ class BenchmarkRecordStore:
 
         The in-memory connection is intentionally retained for the store lifetime.
         """
+        if self._closed:
+            raise RuntimeError("benchmark record store is closed")
         if self._memory_connection is not None:
             connection = self._memory_connection
             connection.row_factory = sqlite3.Row

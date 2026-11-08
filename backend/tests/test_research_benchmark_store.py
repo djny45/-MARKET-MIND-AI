@@ -84,6 +84,12 @@ class BenchmarkRecordStoreTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "content does not match its record ID"):
                 store.get(record_id)
 
+    def test_in_memory_store_persists_across_operations(self):
+        store = BenchmarkRecordStore(":memory:")
+        record_id = store.save(benchmark_result())
+        self.assertIsNotNone(store.get(record_id))
+        self.assertEqual(len(store.list_records()), 1)
+
     def test_unknown_record_returns_none(self):
         with tempfile.TemporaryDirectory() as directory:
             store = BenchmarkRecordStore(Path(directory) / "history.sqlite")

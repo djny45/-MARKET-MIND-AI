@@ -25,6 +25,7 @@ def build_synthesis_review_packet(
     from .research_evidence_audit import audit_evidence
     from .research_quality_eval import evaluate_research_draft
     from .research_citation_audit import audit_claim_citations
+    from .research_claim_support import audit_claim_source_overlap
 
     audit = audit_evidence(claims=claims, source_registry=source_registry)
     quality = evaluate_research_draft(
@@ -38,6 +39,9 @@ def build_synthesis_review_packet(
     # Claim-level citation records are audited separately from source_refs. Missing
     # citation records remain explicitly review-needed rather than being inferred.
     citation_audit = audit_claim_citations(
+        claims=claims, source_registry=source_registry,
+    )
+    claim_support_screen = audit_claim_source_overlap(
         claims=claims, source_registry=source_registry,
     )
     return {
@@ -59,6 +63,11 @@ def build_synthesis_review_packet(
         "quality_metrics": quality["metrics"],
         "evidence_audit": audit,
         "citation_audit": citation_audit,
+        "claim_support_screen": claim_support_screen,
+        "claim_support_gate": {
+            "status": claim_support_screen["status"],
+            "note": "Lexical overlap is a triage signal only; human semantic review remains mandatory.",
+        },
         "citation_gate": {
             "status": citation_audit["status"],
             "claim_citation_coverage": citation_audit["metrics"]["claim_citation_coverage"],

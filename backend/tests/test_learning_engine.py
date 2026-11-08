@@ -211,6 +211,13 @@ class LearningEngineTests(unittest.TestCase):
         self.assertTrue(plan["promotion_gate"]["requires_human_decision"])
         self.assertFalse(plan["promotion_gate"]["auto_promote"])
         self.assertFalse(plan["promotion_gate"]["model_training"])
+        self.assertTrue(plan["promotion_gate"]["benchmark_records_must_be_complete_and_comparable"])
+        self.assertTrue(plan["promotion_gate"]["missing_or_skipped_metrics_block_promotion"])
+        required = plan["promotion_gate"]["required_evidence"]
+        self.assertIn("immutable_baseline_benchmark_record_id", required)
+        self.assertIn("immutable_candidate_benchmark_record_id", required)
+        self.assertIn("benchmark_record_sha256_for_each", required)
+        self.assertIn("reviewer_decision_and_rationale", required)
         self.assertIn("/staging-benchmark", plan["next_api_endpoint"])
 
     def test_feedback_staging_plan_rejects_unknown_proposal(self):

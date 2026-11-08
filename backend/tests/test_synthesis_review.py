@@ -12,6 +12,30 @@ class SynthesisReviewTests(unittest.TestCase):
             reviewer="human-reviewer",
         )
 
+    def test_review_packet_flags_unknown_refs_and_requires_human_decision(self):
+        from app.synthesis_review import build_synthesis_review_packet
+        packet = build_synthesis_review_packet(
+            draft="Review draft with caveat.",
+            claims=[{"text": "Claim with unknown source", "source_refs": ["missing-id"]}],
+            source_registry=[{"source_id": "known-id"}],
+        )
+        self.assertEqual(packet["review_status"], "pending_human_decision")
+        self.assertEqual(packet["reference_gate"]["status"], "blocked")
+        self.assertTrue(packet["human_decision_required"])
+        self.assertFalse(packet["auto_approval"])
+        self.assertEqual(packet["evidence_audit"]["metrics"]["unknown_source_id_count"], 1)
+
+    def test_review_packet_passes_reference_gate_but_never_verifies_truth(self):
+        from app.synthesis_review import build_synthesis_review_packet
+        packet = build_synthesis_review_packet(
+            draft="A sourced claim; limitation: source meaning is not verified.",
+            claims=[{"text": "Claim", "source_refs": ["src-1"]}],
+            source_registry=[{"source_id": "src-1"}],
+        )
+        self.assertEqual(packet["reference_gate"]["status"], "passed")
+        self.assertFalse(packet["auto_approval"])
+        self.assertIn("not that sources substantiate claims", packet["limitations"][-1])
+
     def test_approval_requires_refs_matching_supplied_registry(self):
         result = build_synthesis_review(**self.base, decision="approve")
         self.assertEqual(result["status"], "approved")

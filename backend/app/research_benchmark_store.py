@@ -24,13 +24,22 @@ class BenchmarkRecordStore:
 
     def __init__(self, database_path: str | Path):
         self.database_path = str(database_path)
+        # SQLite creates a separate database for every new ":memory:" connection.
+        # Keep one connection alive so saves remain visible to later reads.
+        self._memory_connection = (
+            sqlite3.connect(":memory:") if self.database_path == ":memory:" else None
+        )
         if self.database_path != ":memory:":
             Path(self.database_path).parent.mkdir(parents=True, exist_ok=True)
         with self._connect() as connection:
             connection.execute(_SCHEMA)
 
     def _connect(self) -> sqlite3.Connection:
-        connection = sqlite3.connect(self.database_path)
+        connection = (
+            self._memory_connection
+            if self._memory_connection is not None
+            else sqlite3.connect(self.database_path)
+        )
         connection.row_factory = sqlite3.Row
         return connection
 

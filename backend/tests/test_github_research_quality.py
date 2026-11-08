@@ -46,7 +46,7 @@ class GitHubResearchQualityTests(unittest.TestCase):
         self.assertFalse(result["checks"][0]["passed"])
         self.assertFalse(result["checks"][1]["passed"])
         self.assertFalse(result["checks"][4]["passed"])
-        self.assertEqual(result["score"], 25)
+        self.assertEqual(result["score"], 35)
 
     def test_rejects_non_object(self):
         with self.assertRaises(ValueError):

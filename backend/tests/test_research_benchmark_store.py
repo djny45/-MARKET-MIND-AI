@@ -90,6 +90,20 @@ class BenchmarkRecordStoreTests(unittest.TestCase):
         self.assertIsNotNone(store.get(record_id))
         self.assertEqual(len(store.list_records()), 1)
 
+    def test_in_memory_store_close_is_idempotent_and_rejects_reuse(self):
+        store = BenchmarkRecordStore(":memory:")
+        store.close()
+        store.close()
+        with self.assertRaisesRegex(RuntimeError, "store is closed"):
+            store.list_records()
+
+    def test_store_context_manager_closes_in_memory_connection(self):
+        with BenchmarkRecordStore(":memory:") as store:
+            record_id = store.save(benchmark_result())
+            self.assertIsNotNone(store.get(record_id))
+        with self.assertRaisesRegex(RuntimeError, "store is closed"):
+            store.get(record_id)
+
     def test_unknown_record_returns_none(self):
         with tempfile.TemporaryDirectory() as directory:
             store = BenchmarkRecordStore(Path(directory) / "history.sqlite")

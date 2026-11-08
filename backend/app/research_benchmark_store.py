@@ -3,8 +3,9 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 from app.research_benchmark_record import serialize_benchmark_record
 
@@ -34,13 +35,22 @@ class BenchmarkRecordStore:
         with self._connect() as connection:
             connection.execute(_SCHEMA)
 
-    def _connect(self) -> sqlite3.Connection:
+    @contextmanager
+    def _connect(self) -> Iterator[sqlite3.Connection]:
+        """Yield a connection, closing file-backed connections after each use.
+
+        The in-memory connection is intentionally retained for the store lifetime.
+        """
         if self._memory_connection is not None:
             self._memory_connection.row_factory = sqlite3.Row
-            return self._memory_connection
+            yield self._memory_connection
+            return
         connection = sqlite3.connect(self.database_path)
         connection.row_factory = sqlite3.Row
-        return connection
+        try:
+            yield connection
+        finally:
+            connection.close()
 
     def save(self, benchmark_result: dict[str, Any]) -> str:
         record_json = serialize_benchmark_record(benchmark_result)

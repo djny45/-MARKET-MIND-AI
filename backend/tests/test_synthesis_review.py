@@ -117,5 +117,31 @@ class SynthesisReviewTests(unittest.TestCase):
             build_synthesis_review(**args, decision="reject")
 
 
+    def test_review_result_preserves_citation_audit_provenance(self):
+        result = build_synthesis_review(
+            draft="Saved review draft.",
+            claims=[{
+                "text": "A claim with an exact quote.",
+                "source_refs": ["s1"],
+                "citations": [{
+                    "source_id": "s1",
+                    "excerpt": "source excerpt",
+                }],
+            }],
+            source_registry=[{
+                "source_id": "s1",
+                "text": "Intro source excerpt ending.",
+            }],
+            decision="reject",
+            reviewer="reviewer",
+        )
+        self.assertEqual(result["citation_audit"]["status"], "passed")
+        self.assertEqual(result["citation_gate"]["claims_without_valid_citations"], 0)
+        saved_citation = result["citation_audit"]["claims"][0]["citations"][0]
+        self.assertEqual(saved_citation["excerpt"], "source excerpt")
+        self.assertEqual(saved_citation["status"], "exact_excerpt_match")
+        self.assertIn("does not establish semantic support", result["citation_gate"]["note"])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -46,5 +46,37 @@ class SynthesisReviewPersistenceTests(unittest.TestCase):
         self.assertEqual(second["status"], "rejected")
 
 
+    def test_citation_provenance_survives_sqlite_round_trip_and_digest(self):
+        from app.synthesis_review import build_synthesis_review
+        review = build_synthesis_review(
+            draft="Review draft with a citation.",
+            claims=[{
+                "text": "Claim supported by source excerpt.",
+                "source_refs": ["source-1"],
+                "citations": [{
+                    "source_id": "source-1",
+                    "excerpt": "exact source passage",
+                }],
+            }],
+            source_registry=[{
+                "source_id": "source-1",
+                "text": "Opening. exact source passage. Closing.",
+            }],
+            decision="reject",
+            reviewer="human-reviewer",
+            review_note="Needs semantic verification.",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.dict(os.environ, {"MARKET_MIND_DB": os.path.join(tmp, "citation.db")}):
+                saved = save_synthesis_review(review)
+                fetched = get_synthesis_review(saved["review_id"])
+        self.assertTrue(fetched["integrity"]["verified"])
+        self.assertEqual(fetched["citation_audit"], review["citation_audit"])
+        self.assertEqual(fetched["citation_gate"], review["citation_gate"])
+        citation = fetched["citation_audit"]["claims"][0]["citations"][0]
+        self.assertEqual(citation["excerpt"], "exact source passage")
+        self.assertIn("does not establish semantic support", fetched["citation_gate"]["note"])
+
+
 if __name__ == "__main__":
     unittest.main()

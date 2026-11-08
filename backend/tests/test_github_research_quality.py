@@ -48,6 +48,25 @@ class GitHubResearchQualityTests(unittest.TestCase):
         self.assertFalse(result["checks"][4]["passed"])
         self.assertEqual(result["score"], 35)
 
+    def test_hash_mismatch_does_not_receive_source_hash_points(self):
+        sha = "a" * 40
+        candidate = {
+            "repository_url": "https://github.com/org/repo",
+            "commit_sha": sha,
+            "file_path": "README.md",
+            "content": "Actual source text",
+            "content_sha256": "b" * 64,
+            "review_required": True,
+        }
+        license_evidence = {
+            "license_file_found": True,
+            "commit_sha": sha,
+            "repository_url": candidate["repository_url"],
+        }
+        result = score_source_evidence(candidate, license_evidence)
+        self.assertFalse(result["checks"][4]["passed"])
+        self.assertEqual(result["score"], 85)
+
     def test_rejects_non_object(self):
         with self.assertRaises(ValueError):
             score_source_evidence("not a candidate")

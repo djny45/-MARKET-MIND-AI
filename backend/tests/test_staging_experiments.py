@@ -4,7 +4,7 @@ import unittest
 from unittest.mock import patch
 
 from app.worker_memory import append_memory, review_improvement_proposal
-from app.staging_experiments import create_staging_experiment, run_staging_benchmark, list_staging_experiments, summarize_staging_experiments, summarize_repeatability, summarize_research_quality_dashboard, summarize_staging_provenance
+from app.staging_experiments import create_staging_experiment, run_staging_benchmark, list_staging_experiments, summarize_staging_experiments, summarize_repeatability, summarize_research_quality_dashboard, summarize_staging_provenance, verify_benchmark_record_evidence
 
 
 class StagingExperimentTests(unittest.TestCase):
@@ -231,6 +231,10 @@ class StagingExperimentTests(unittest.TestCase):
         import hashlib
         self.assertEqual(hashlib.sha256(evidence["baseline_record_json"].encode("utf-8")).hexdigest(), evidence["baseline_record_sha256"])
         self.assertEqual(hashlib.sha256(evidence["candidate_record_json"].encode("utf-8")).hexdigest(), evidence["candidate_record_sha256"])
+        self.assertEqual(verify_benchmark_record_evidence(evidence)["status"], "verified")
+        tampered = dict(evidence)
+        tampered["baseline_record_json"] += " "
+        self.assertEqual(verify_benchmark_record_evidence(tampered)["status"], "hash_mismatch")
 
     def test_history_summary_counts_gate_status_and_metric_deltas(self):
         review_improvement_proposal("worker_001", self.proposal["memory_id"],

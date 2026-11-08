@@ -30,7 +30,8 @@ class ResearchClaimSupportTests(unittest.TestCase):
             source_registry=[{"source_id": "metadata-only", "title": "No source body"}],
         )
         statuses = [source["status"] for source in result["claims"][0]["sources"]]
-        self.assertEqual(statuses, ["unknown_source_id", "source_text_unavailable"])
+        # Source refs are normalized and sorted to make audit output deterministic.
+        self.assertEqual(statuses, ["source_text_unavailable", "unknown_source_id"])
         self.assertTrue(all(source["overlap_score"] is None
                             for source in result["claims"][0]["sources"]))
 

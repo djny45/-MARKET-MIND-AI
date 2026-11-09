@@ -103,6 +103,32 @@ class WorkerRegistryTests(unittest.TestCase):
         self.assertFalse(result["valid"])
         self.assertIn("agent_profile_kind_mismatch", result["errors"])
 
+    def test_registry_flags_assigned_skill_missing_from_disk(self):
+        profile = {
+            "id": "worker_001", "name": "Test Worker", "department": "data_quality",
+            "specialty": "test", "kind": "ai_analytical_worker",
+            "model": EXPECTED_CORE, "memory_namespace": "workers/test",
+            "skill_refs": ["test-skill"], "status": "template",
+        }
+        with patch("app.worker_registry.list_workers", return_value=[profile]), \
+             patch("app.worker_registry.list_skills", return_value=[
+                 {"id": "test-skill", "available": False}
+             ]):
+            result = evaluate_registry()
+        self.assertFalse(result["valid"])
+        self.assertIn("assigned_skill_unavailable", result["errors"])
+        self.assertEqual(
+            result["skill_availability"]["assigned_unavailable_skill_ids"],
+            ["test-skill"],
+        )
+        self.assertFalse(result["skill_availability"]["all_assigned_skills_available"])
+
+    def test_registry_does_not_claim_semantic_skill_alignment(self):
+        result = evaluate_registry()
+        self.assertEqual(result["specialty_skill_alignment"]["status"], "not_evaluated")
+        self.assertIn("do not establish semantic alignment",
+                      result["specialty_skill_alignment"]["note"])
+
     def test_registry_does_not_claim_independent_models_or_broker_execution(self):
         boundary = evaluate_registry()["execution_boundary"]
         self.assertTrue(boundary["profiles_are_templates"])

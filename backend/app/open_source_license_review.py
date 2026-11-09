@@ -36,16 +36,23 @@ def build_license_review_checklist(candidate: dict, evidence: dict | None) -> di
         raise ValueError("candidate is missing required provenance fields")
     _validate_candidate_integrity(candidate)
 
+    evidence_text = evidence.get("license_text") if isinstance(evidence, dict) else None
+    evidence_digest = evidence.get("license_file_sha256") if isinstance(evidence, dict) else None
+    evidence_digest_valid = bool(
+        isinstance(evidence_text, str)
+        and isinstance(evidence_digest, str)
+        and len(evidence_digest) == 64
+        and hashlib.sha256(evidence_text.encode("utf-8")).hexdigest() == evidence_digest.lower()
+    )
     evidence_matches = bool(
         isinstance(evidence, dict)
         and evidence.get("repository_url") == candidate["repository_url"]
         and str(evidence.get("commit_sha", "")).lower() == candidate["commit_sha"].lower()
         and evidence.get("license_file_found") is True
         and evidence.get("license_evidence_status") == "license_file_found_pending_human_review"
-        and isinstance(evidence.get("license_file_sha256"), str)
-        and len(evidence["license_file_sha256"]) == 64
-        and isinstance(evidence.get("license_text"), str)
-        and bool(evidence["license_text"].strip())
+        and evidence_digest_valid
+        and isinstance(evidence_text, str)
+        and bool(evidence_text.strip())
     )
     checklist = [
         {"item": "Verify repository and pinned commit match the intended source",
@@ -67,6 +74,7 @@ def build_license_review_checklist(candidate: dict, evidence: dict | None) -> di
         "evidence_match": evidence_matches,
         "evidence_sha256": evidence.get("license_file_sha256") if evidence_matches else None,
         "evidence_status": "matched_pending_human_review" if evidence_matches else "missing_or_mismatched",
+        "evidence_digest_valid": evidence_digest_valid,
         "checklist": checklist,
         "review_status": "pending_human_review",
         "human_review_required": True,

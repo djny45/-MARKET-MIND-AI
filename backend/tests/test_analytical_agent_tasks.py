@@ -31,6 +31,18 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertEqual(list_research_tasks("worker_001")["total"], 1)
         self.assertEqual(list_research_tasks("worker_002")["total"], 0)
 
+    def test_context_preparation_failure_marks_claimed_task_failed(self):
+        from app.analytical_agent_tasks import enqueue_research_task, execute_queued_research_task, list_task_audit_events
+        queued = enqueue_research_task("worker_031", "context failure should not strand task")
+        with patch("app.analytical_agent_tasks.brain_config", side_effect=RuntimeError("context unavailable")):
+            self.assertTrue(execute_queued_research_task(queued["task_id"]))
+        saved = get_research_task(queued["task_id"])
+        self.assertEqual(saved["status"], "failed")
+        self.assertEqual(saved["result"]["error"], "Research task failed safely.")
+        events = list_task_audit_events(queued["task_id"])["events"]
+        self.assertEqual(events[-1]["event_type"], "task_failed")
+        self.assertEqual(events[-1]["to_status"], "failed")
+
     def test_task_without_configured_provider_is_explicit(self):
         result = submit_research_task("worker_003", "Summarize provided facts", {"facts": ["A", "B"]})
         self.assertEqual(result["result"]["shared_core_result"]["status"], "not_configured")

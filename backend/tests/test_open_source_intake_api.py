@@ -10,6 +10,7 @@ from app.main import (
     OpenSourceIntakeRequest, GitHubResearchQualityRequest,
     register_open_source_candidate, review_open_source_license,
     OpenSourceLicenseReviewDispositionRequest, record_open_source_license_review,
+    list_open_source_license_reviews,
 )
 from app.worker_memory import append_memory, read_memory
 from app.open_source_license_review import build_license_review_checklist
@@ -194,6 +195,53 @@ class OpenSourceIntakeApiTests(unittest.TestCase):
                 ),
             )
         self.assertEqual(error.exception.status_code, 400)
+
+    def test_license_review_history_endpoint_returns_only_disposition_records(self):
+        intake = register_open_source_candidate("worker_001", self.request())
+        candidate_memory_id = intake["memory_record"]["memory_id"]
+        license_text = "Apache license text for review."
+        append_memory(
+            "worker_001", "validation_result",
+            {
+                "record_type": "pinned_github_license_evidence",
+                "repository_url": intake["candidate"]["repository_url"],
+                "commit_sha": intake["candidate"]["commit_sha"],
+                "license_file_found": True,
+                "license_evidence_status": "license_file_found_pending_human_review",
+                "license_file_sha256": hashlib.sha256(license_text.encode("utf-8")).hexdigest(),
+                "license_text": license_text,
+            },
+            ["pinned-license-test"], "unverified",
+        )
+        checklist = review_open_source_license(
+            "worker_001", GitHubResearchQualityRequest(candidate_memory_id=candidate_memory_id)
+        )
+        record_open_source_license_review(
+            "worker_001",
+            OpenSourceLicenseReviewDispositionRequest(
+                candidate_memory_id=candidate_memory_id,
+                checklist_memory_id=checklist["memory_record"]["memory_id"],
+                reviewer="reviewer-test",
+                disposition="reviewed",
+                review_note="Reviewed for research tracking only.",
+            ),
+        )
+        result = list_open_source_license_reviews("worker_001", limit=10)
+        self.assertEqual(result["count"], 1)
+        self.assertEqual(
+            result["reviews"][0]["review"]["record_type"],
+            "open_source_license_review_disposition",
+        )
+        self.assertFalse(result["reviews"][0]["review"]["reuse_approved"])
+        self.assertFalse(result["reviews"][0]["review"]["execution_allowed"])
+
+    def test_license_review_history_rejects_invalid_limit_and_worker(self):
+        with self.assertRaises(HTTPException) as limit_error:
+            list_open_source_license_reviews("worker_001", limit=0)
+        self.assertEqual(limit_error.exception.status_code, 400)
+        with self.assertRaises(HTTPException) as worker_error:
+            list_open_source_license_reviews("worker_9999", limit=10)
+        self.assertEqual(worker_error.exception.status_code, 400)
 
     def test_license_review_api_rejects_non_candidate_memory(self):
         with self.assertRaises(HTTPException) as error:

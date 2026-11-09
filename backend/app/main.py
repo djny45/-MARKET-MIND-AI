@@ -226,6 +226,13 @@ class GitHubResearchChunkingRequest(BaseModel):
 class GitHubResearchQualityRequest(BaseModel):
  candidate_memory_id: str = Field(min_length=1, max_length=64)
 
+class OpenSourceLicenseReviewDispositionRequest(BaseModel):
+ candidate_memory_id: str = Field(min_length=1, max_length=64)
+ checklist_memory_id: str = Field(min_length=1, max_length=64)
+ reviewer: str = Field(min_length=1, max_length=120)
+ disposition: Literal["reviewed", "needs_more_evidence", "refer_to_legal", "do_not_use"]
+ review_note: str = Field(default="", max_length=2000)
+
 class GitHubResearchReviewBundleRequest(BaseModel):
  candidate_memory_id: str = Field(min_length=1, max_length=64)
 
@@ -852,6 +859,58 @@ def review_open_source_license(worker_id: str, request: GitHubResearchQualityReq
    [f"worker-memory:{request.candidate_memory_id}"], "unverified",
   )
   return {"checklist": checklist, "memory_record": memory_record}
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/workers/{worker_id}/record-open-source-license-review")
+def record_open_source_license_review(worker_id: str, request: OpenSourceLicenseReviewDispositionRequest):
+ """Append a human-entered review disposition; this is not a license approval."""
+ try:
+  records = read_memory(worker_id, "validation_result", 200)["memory"]
+  candidate_record = next(
+   (item for item in records if item.get("memory_id") == request.candidate_memory_id), None
+  )
+  checklist_record = next(
+   (item for item in records if item.get("memory_id") == request.checklist_memory_id), None
+  )
+  if candidate_record is None or checklist_record is None:
+   raise ValueError("candidate or checklist was not found in the recent worker memory window")
+  candidate = candidate_record.get("content")
+  checklist = checklist_record.get("content")
+  if not isinstance(candidate, dict) or candidate.get("record_type") != "open_source_learning_candidate":
+   raise ValueError("candidate memory is not an open-source intake candidate")
+  if not isinstance(checklist, dict) or checklist.get("record_type") != "open_source_license_review_checklist":
+   raise ValueError("checklist memory is not a license-review checklist")
+  if checklist.get("candidate_memory_id") != request.candidate_memory_id:
+   raise ValueError("checklist does not reference the supplied candidate")
+  if checklist.get("candidate_id") != candidate.get("candidate_id"):
+   raise ValueError("checklist candidate identifier does not match candidate memory")
+  # Reviewer identity is self-reported in this prototype; authentication is not implemented.
+  review_record = {
+   "record_type": "open_source_license_review_disposition",
+   "candidate_memory_id": request.candidate_memory_id,
+   "checklist_memory_id": request.checklist_memory_id,
+   "candidate_id": candidate.get("candidate_id"),
+   "repository_url": candidate.get("repository_url"),
+   "commit_sha": candidate.get("commit_sha"),
+   "reviewer": request.reviewer.strip(),
+   "reviewer_identity_verified": False,
+   "disposition": request.disposition,
+   "review_note": request.review_note,
+   "review_status": "human_disposition_recorded_unverified",
+   "reuse_approved": False,
+   "execution_allowed": False,
+   "automatic_copy_allowed": False,
+   "legal_conclusion": False,
+   "note": "This records a self-reported review disposition only. It is not legal advice, license approval, or authorization to reuse or execute source.",
+  }
+  memory_record = append_memory(
+   worker_id, "validation_result", review_record,
+   [f"worker-memory:{request.candidate_memory_id}", f"worker-memory:{request.checklist_memory_id}"],
+   "unverified",
+  )
+  return {"review": review_record, "memory_record": memory_record}
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 

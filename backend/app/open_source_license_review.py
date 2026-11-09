@@ -9,6 +9,23 @@ from __future__ import annotations
 import hashlib
 
 
+def _validate_candidate_integrity(candidate: dict) -> None:
+    """Validate candidate content hash and deterministic ID when content is present."""
+    if "content" not in candidate:
+        return  # Metadata-only records may be reviewed, but cannot be integrity-verified here.
+    content = candidate.get("content")
+    if not isinstance(content, str):
+        raise ValueError("candidate content must be text for integrity verification")
+    digest = hashlib.sha256(content.encode("utf-8")).hexdigest()
+    if digest != candidate.get("content_sha256"):
+        raise ValueError("candidate content digest mismatch")
+    expected_id = hashlib.sha256(
+        f"{candidate['repository_url']}@{candidate['commit_sha']}:{candidate.get('file_path', '')}:{digest}".encode("utf-8")
+    ).hexdigest()
+    if candidate.get("candidate_id") != expected_id:
+        raise ValueError("candidate identifier mismatch")
+
+
 def build_license_review_checklist(candidate: dict, evidence: dict | None) -> dict:
     """Build a review-only checklist; never auto-approve source reuse."""
     if not isinstance(candidate, dict):
@@ -17,6 +34,7 @@ def build_license_review_checklist(candidate: dict, evidence: dict | None) -> di
     if any(not isinstance(candidate.get(key), str) or not candidate[key].strip()
            for key in required):
         raise ValueError("candidate is missing required provenance fields")
+    _validate_candidate_integrity(candidate)
 
     evidence_matches = bool(
         isinstance(evidence, dict)

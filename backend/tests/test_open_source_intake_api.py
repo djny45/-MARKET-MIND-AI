@@ -236,6 +236,24 @@ class OpenSourceIntakeApiTests(unittest.TestCase):
         self.assertFalse(result["reviews"][0]["review"]["execution_allowed"])
         self.assertEqual(result["reviews"][0]["integrity_status"], "valid")
 
+    def test_license_review_history_flags_tampered_record_digest(self):
+        append_memory(
+            "worker_001", "validation_result",
+            {
+                "record_type": "open_source_license_review_disposition",
+                "reviewer": "test-reviewer",
+                "disposition": "needs_more_evidence",
+                "review_record_sha256": "0" * 64,
+            },
+            ["tampered-review-record-test"], "unverified",
+        )
+        result = list_open_source_license_reviews("worker_001", limit=10)
+        self.assertEqual(result["count"], 1)
+        self.assertEqual(
+            result["reviews"][0]["integrity_status"],
+            "missing_or_mismatched",
+        )
+
     def test_license_review_history_rejects_invalid_limit_and_worker(self):
         with self.assertRaises(HTTPException) as limit_error:
             list_open_source_license_reviews("worker_001", limit=0)

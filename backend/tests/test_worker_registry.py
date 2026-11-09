@@ -49,6 +49,18 @@ class WorkerRegistryTests(unittest.TestCase):
         self.assertIn("invalid_worker_skill_references", result["errors"])
         self.assertIn("agent_count_mismatch", result["errors"])
 
+    def test_registry_handles_null_skill_reference_list(self):
+        profile = {
+            "id": "worker_001", "name": "bad", "department": "data_quality",
+            "specialty": "test", "kind": "template", "model": EXPECTED_CORE,
+            "memory_namespace": "bad", "skill_refs": None, "status": "active",
+        }
+        with patch("app.worker_registry.list_workers", return_value=[profile]):
+            result = evaluate_registry()
+        self.assertFalse(result["valid"])
+        self.assertIn("invalid_worker_skill_references", result["errors"])
+        self.assertEqual(result["total_skill_reference_count"], 0)
+
     def test_registry_reports_non_object_profile(self):
         with patch("app.worker_registry.list_workers", return_value=["invalid-profile"]):
             result = evaluate_registry()

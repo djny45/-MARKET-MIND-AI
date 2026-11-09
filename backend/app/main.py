@@ -2150,10 +2150,21 @@ def review_research_synthesis(request: SynthesisReviewRequest):
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 @app.get("/api/research/synthesis/reviews")
-def list_research_synthesis_reviews(limit: int = 50):
- """List persisted review metadata; draft/evidence details are not included."""
+def list_research_synthesis_reviews(limit: int = 50, status: str | None = None,
+                                    reviewer: str | None = None):
+ """List metadata only, filtered by exact status and reviewer label."""
  try:
-  return {"reviews": workspace.list_synthesis_reviews(limit)}
+  return {"reviews": workspace.list_synthesis_reviews(limit, status=status, reviewer=reviewer)}
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/research/synthesis/reviews/summary")
+def summarize_research_synthesis_reviews(status: str | None = None,
+                                         reviewer: str | None = None):
+ """Return metadata-only counts, optionally filtered by exact status/reviewer label."""
+ try:
+  return workspace.synthesis_review_summary(status=status, reviewer=reviewer)
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 

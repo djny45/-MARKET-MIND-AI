@@ -924,7 +924,8 @@ def list_open_source_license_reviews(worker_id: str, limit: int = 50):
  if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 200:
   raise HTTPException(status_code=400, detail="limit must be between 1 and 200")
  try:
-  records = read_memory(worker_id, "validation_result", 200)["memory"]
+  memory_result = read_memory(worker_id, "validation_result", 200)
+  records = memory_result["memory"]
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
  reviews = []
@@ -951,7 +952,7 @@ def list_open_source_license_reviews(worker_id: str, limit: int = 50):
   "reviews": reviews[:limit],
   "scan_limit": 200,
   "memory_records_scanned": len(records),
-  "scan_truncated": read_memory(worker_id, "validation_result", 200)["total_matching"] > len(records),
+  "scan_truncated": memory_result["total_matching"] > len(records),
   "note": "Recent append-only records only; reviewer identity is unverified and dispositions are not license clearance or reuse permission.",
  }
 

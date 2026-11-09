@@ -75,6 +75,14 @@ def build_review_bundle(candidate_record: dict[str, Any], records: list[dict[str
 
     score_content = evidence.get("provenance_score", {}).get("content", {})
     score = score_content.get("score") if isinstance(score_content, dict) else None
+    score_record_valid = (
+        isinstance(score_content, dict)
+        and score_content.get("candidate_memory_id") == candidate_id
+        and score_content.get("score_type") == "provenance_completeness_heuristic"
+        and score_content.get("max_score") == 100
+        and isinstance(score, int) and not isinstance(score, bool)
+        and 0 <= score <= 100
+    )
     license_content = evidence.get("license_evidence", {}).get("content", {})
     license_text = license_content.get("license_text") if isinstance(license_content, dict) else None
     license_digest = license_content.get("license_file_sha256") if isinstance(license_content, dict) else None
@@ -100,9 +108,8 @@ def build_review_bundle(candidate_record: dict[str, Any], records: list[dict[str
         missing.append("matching_chunk_manifest")
     if "license_evidence" in evidence and not license_found:
         missing.append("valid_license_file_evidence")
-    if "provenance_score" in evidence and (
-            isinstance(score, bool) or not isinstance(score, int) or score < 0 or score > 100):
-        missing.append("valid_provenance_score")
+    if "provenance_score" in evidence and not score_record_valid:
+        missing.append("valid_provenance_score_record")
 
     bundle = {
         "candidate_memory_id": candidate_id,
@@ -115,7 +122,8 @@ def build_review_bundle(candidate_record: dict[str, Any], records: list[dict[str
         "evidence_memory_ids": {
             kind: item.get("memory_id") for kind, item in evidence.items()
         },
-        "provenance_score": score,
+        "provenance_score": score if score_record_valid else None,
+        "provenance_score_record_valid": score_record_valid,
         "license_file_found": bool(isinstance(license_content, dict) and license_content.get("license_file_found") is True),
         "license_evidence_digest_valid": license_digest_valid,
         "license_evidence_sha256": license_digest.lower() if license_digest_valid else None,

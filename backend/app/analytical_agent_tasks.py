@@ -20,6 +20,7 @@ from .worker_memory import recall_memory
 from .research_quality_eval import evaluate_research_draft
 
 MAX_TASK_INPUT_CHARS = 10000
+MAX_TASK_EXECUTION_ATTEMPTS = 3
 TASK_TYPE = "research_brief"
 
 @contextmanager
@@ -397,21 +398,46 @@ def recover_interrupted_research_tasks(stale_after_seconds: int = 900) -> dict:
         # same interrupted task and appending duplicate requeue audit events.
         db.execute("BEGIN IMMEDIATE")
         stale = db.execute(
-            "SELECT task_id FROM analytical_agent_tasks WHERE status='running' AND updated_at < ?",
+            "SELECT task_id,worker_id,execution_attempts FROM analytical_agent_tasks "
+            "WHERE status='running' AND updated_at < ?",
             (cutoff,),
         ).fetchall()
-        db.execute(
-            "UPDATE analytical_agent_tasks SET status='queued',updated_at=? "
-            "WHERE status='running' AND updated_at < ?",
-            (now, cutoff),
-        )
+        requeued = []
+        exhausted = []
         for task in stale:
-            task_row = db.execute(
-                "SELECT worker_id FROM analytical_agent_tasks WHERE task_id=?", (task["task_id"],)
-            ).fetchone()
-            _record_event(db, task["task_id"], task_row["worker_id"], "task_requeued",
-                          from_status="running", to_status="queued", occurred_at=now,
-                          detail={"reason": "stale_recovery", "stale_after_seconds": stale_after_seconds})
+            if task["execution_attempts"] >= MAX_TASK_EXECUTION_ATTEMPTS:
+                failure = {
+                    "error": "Research task stopped after reaching the execution attempt limit.",
+                    "error_type": "ExecutionAttemptLimit",
+                    "max_execution_attempts": MAX_TASK_EXECUTION_ATTEMPTS,
+                }
+                changed = db.execute(
+                    "UPDATE analytical_agent_tasks SET status='failed',result_json=?,updated_at=? "
+                    "WHERE task_id=? AND status='running'",
+                    (_json(failure), now, task["task_id"]),
+                )
+                if changed.rowcount == 1:
+                    exhausted.append(task["task_id"])
+                    _record_event(
+                        db, task["task_id"], task["worker_id"], "task_failed",
+                        from_status="running", to_status="failed", occurred_at=now,
+                        detail={"reason": "execution_attempt_limit",
+                                "execution_attempts": task["execution_attempts"]},
+                    )
+            else:
+                changed = db.execute(
+                    "UPDATE analytical_agent_tasks SET status='queued',updated_at=? "
+                    "WHERE task_id=? AND status='running'",
+                    (now, task["task_id"]),
+                )
+                if changed.rowcount == 1:
+                    requeued.append(task["task_id"])
+                    _record_event(
+                        db, task["task_id"], task["worker_id"], "task_requeued",
+                        from_status="running", to_status="queued", occurred_at=now,
+                        detail={"reason": "stale_recovery", "stale_after_seconds": stale_after_seconds,
+                                "execution_attempts": task["execution_attempts"]},
+                    )
         still_running = db.execute(
             "SELECT COUNT(*) FROM analytical_agent_tasks WHERE status='running'"
         ).fetchone()[0]
@@ -419,7 +445,9 @@ def recover_interrupted_research_tasks(stale_after_seconds: int = 900) -> dict:
             "SELECT task_id FROM analytical_agent_tasks WHERE status='queued' ORDER BY created_at"
         ).fetchall()
     return {
-        "requeued_interrupted_count": len(stale),
+        "requeued_interrupted_count": len(requeued),
+        "failed_attempt_limit_count": len(exhausted),
+        "failed_attempt_limit_task_ids": exhausted,
         "queued_task_ids": [row["task_id"] for row in queued],
         "still_running_count": still_running,
         "stale_after_seconds": stale_after_seconds,

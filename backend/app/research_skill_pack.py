@@ -16,8 +16,8 @@ SKILL_PACK_PATH = (
 SKILL_PACK_VERSION = "1.0.0"
 SKILL_ID_PREFIX = "mm-skill-"
 SKILL_COUNT = 300
-_HEADING = re.compile(r"^###\s+(\d{3})\.\s+(.+?)\s*$", re.MULTILINE)
-_DOMAIN_HEADING = re.compile(r"^##\s+(.+?)\s*$", re.MULTILINE)
+_HEADING = re.compile(r"^###[ \t]+([0-9]{3})[.][ \t]+(.+?)[ \t]*$", re.MULTILINE)
+_DOMAIN_HEADING = re.compile(r"^##[ \t]+(.+?)[ \t]*$", re.MULTILINE)
 
 
 def _parse_catalog():

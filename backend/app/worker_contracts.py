@@ -108,9 +108,28 @@ def validate_worker_output(node_type: str, output) -> None:
     if shape == "number_or_object":
         if isinstance(output, bool) or not isinstance(output, (int, float, dict)):
             raise ValueError(f"{node_type} output contract requires a number or object")
-        return
-    if not isinstance(output, dict):
+    elif not isinstance(output, dict):
         raise ValueError(f"{node_type} output contract requires an object")
-    missing = set(contract["output"]["required_keys"]) - set(output)
-    if missing:
-        raise ValueError(f"{node_type} output is missing contract keys: {', '.join(sorted(missing))}")
+    else:
+        missing = set(contract["output"]["required_keys"]) - set(output)
+        if missing:
+            raise ValueError(f"{node_type} output is missing contract keys: {', '.join(sorted(missing))}")
+
+    def validate_finite(value, path: str) -> None:
+        if isinstance(value, bool) or value is None or isinstance(value, str):
+            return
+        if isinstance(value, (int, float)):
+            if not math.isfinite(float(value)):
+                raise ValueError(f"{node_type} output {path} must contain only finite numbers")
+            return
+        if isinstance(value, list):
+            for index, item in enumerate(value):
+                validate_finite(item, f"{path}[{index}]")
+            return
+        if isinstance(value, dict):
+            for key, item in value.items():
+                validate_finite(item, f"{path}.{key}")
+            return
+        raise ValueError(f"{node_type} output {path} contains an unsupported value")
+
+    validate_finite(output, "value")

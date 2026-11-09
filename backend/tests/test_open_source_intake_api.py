@@ -234,6 +234,7 @@ class OpenSourceIntakeApiTests(unittest.TestCase):
         )
         self.assertFalse(result["reviews"][0]["review"]["reuse_approved"])
         self.assertFalse(result["reviews"][0]["review"]["execution_allowed"])
+        self.assertEqual(result["reviews"][0]["integrity_status"], "valid")
 
     def test_license_review_history_rejects_invalid_limit_and_worker(self):
         with self.assertRaises(HTTPException) as limit_error:

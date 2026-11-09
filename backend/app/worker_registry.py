@@ -76,6 +76,41 @@ def evaluate_registry() -> dict:
         and all(isinstance(skill_id, str) for skill_id in worker.get("skill_refs", []))
     ):
         errors.append("duplicate_worker_skill_reference")
+    pack_skills_by_id = {
+        skill["id"]: skill for skill in catalog_skills
+        if isinstance(skill, dict) and isinstance(skill.get("id"), str)
+        and skill["id"].startswith("mm-skill-")
+    }
+    domain_names = sorted({
+        skill.get("domain") for skill in pack_skills_by_id.values()
+        if isinstance(skill.get("domain"), str) and skill.get("domain").strip()
+    })
+    department_skill_matrix = {}
+    for department in DEPARTMENTS:
+        department_workers = [
+            worker for worker in profiles if worker.get("department") == department
+        ]
+        assigned_ids = {
+            skill_id for worker in department_workers
+            for skill_id in worker.get("skill_refs", [])
+            if isinstance(worker.get("skill_refs", []), list)
+            and isinstance(skill_id, str) and skill_id.startswith("mm-skill-")
+        }
+        domain_counts = {domain: 0 for domain in domain_names}
+        unmapped_ids = []
+        for skill_id in sorted(assigned_ids):
+            skill = pack_skills_by_id.get(skill_id)
+            domain = skill.get("domain") if isinstance(skill, dict) else None
+            if domain in domain_counts:
+                domain_counts[domain] += 1
+            else:
+                unmapped_ids.append(skill_id)
+        department_skill_matrix[department] = {
+            "worker_count": len(department_workers),
+            "assigned_unique_pack_skill_count": len(assigned_ids),
+            "domain_skill_counts": domain_counts,
+            "unmapped_pack_skill_ids": unmapped_ids,
+        }
     pack_skill_ids = {
         skill["id"] for skill in catalog_skills
         if isinstance(skill, dict) and isinstance(skill.get("id"), str)
@@ -134,6 +169,16 @@ def evaluate_registry() -> dict:
         "department_counts": counts,
         "skill_reference_counts_by_department": skill_ref_counts,
         "research_pack_skill_coverage": pack_skill_coverage,
+        "department_skill_domain_matrix": {
+            "status": "catalog_domain_coverage_only_not_semantic_alignment",
+            "catalog_domain_count": len(domain_names),
+            "catalog_domains": domain_names,
+            "departments": department_skill_matrix,
+            "unmapped_assigned_skill_count": sum(
+                len(item["unmapped_pack_skill_ids"])
+                for item in department_skill_matrix.values()
+            ),
+        },
         "total_skill_reference_count": len(all_skill_refs),
         "skill_availability": {
             "catalog_available_skill_count": len(available_skill_ids),

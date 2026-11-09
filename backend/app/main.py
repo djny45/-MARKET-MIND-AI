@@ -834,14 +834,16 @@ def review_open_source_license(worker_id: str, request: GitHubResearchQualityReq
   candidate = candidate_record.get("content")
   if not isinstance(candidate, dict) or candidate.get("record_type") != "open_source_learning_candidate":
    raise ValueError("memory record is not an open-source learning candidate")
-  evidence = next(
-   (item.get("content", {}) for item in records
-    if isinstance(item.get("content"), dict)
-    and item["content"].get("record_type") == "pinned_github_license_evidence"
-    and item["content"].get("repository_url") == candidate.get("repository_url")
-    and str(item["content"].get("commit_sha", "")).lower() == str(candidate.get("commit_sha", "")).lower()),
-   None,
-  )
+  matching_evidence = [
+   item.get("content", {}) for item in records
+   if isinstance(item.get("content"), dict)
+   and item["content"].get("record_type") == "pinned_github_license_evidence"
+   and item["content"].get("repository_url") == candidate.get("repository_url")
+   and str(item["content"].get("commit_sha", "")).lower() == str(candidate.get("commit_sha", "")).lower()
+  ]
+  if len(matching_evidence) > 1:
+   raise ValueError("multiple license evidence records match this repository and commit; resolve the duplicate records before review")
+  evidence = matching_evidence[0] if matching_evidence else None
   checklist = build_license_review_checklist(candidate, evidence)
   memory_record = append_memory(
    worker_id, "validation_result",

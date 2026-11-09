@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 import hashlib
+import json
 
 
 def build_review_bundle(candidate_record: dict[str, Any], records: list[dict[str, Any]]) -> dict[str, Any]:
@@ -103,7 +104,7 @@ def build_review_bundle(candidate_record: dict[str, Any], records: list[dict[str
             isinstance(score, bool) or not isinstance(score, int) or score < 0 or score > 100):
         missing.append("valid_provenance_score")
 
-    return {
+    bundle = {
         "candidate_memory_id": candidate_id,
         "source": {
             "repository_url": candidate.get("repository_url"),
@@ -117,6 +118,7 @@ def build_review_bundle(candidate_record: dict[str, Any], records: list[dict[str
         "provenance_score": score,
         "license_file_found": bool(isinstance(license_content, dict) and license_content.get("license_file_found") is True),
         "license_evidence_digest_valid": license_digest_valid,
+        "license_evidence_sha256": license_digest.lower() if license_digest_valid else None,
         "chunk_manifest_matches_source": bool(manifest_matches),
         "missing_evidence": sorted(set(missing)),
         "review_status": "ready_for_human_review" if not missing else "evidence_incomplete",
@@ -126,3 +128,8 @@ def build_review_bundle(candidate_record: dict[str, Any], records: list[dict[str
         "model_training": False,
         "note": "Bundle completeness is not legal approval, factual verification, or permission to execute/promote code.",
     }
+    canonical_bundle = json.dumps(
+        bundle, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")
+    bundle["bundle_sha256"] = hashlib.sha256(canonical_bundle).hexdigest()
+    return bundle

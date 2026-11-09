@@ -16,19 +16,26 @@ SKILL_PACK_PATH = (
 SKILL_PACK_VERSION = "1.0.0"
 SKILL_ID_PREFIX = "mm-skill-"
 SKILL_COUNT = 300
-_HEADING = re.compile(r"^###\s+(\d{3})\.\s+(.+?)\s*$", re.MULTILINE)
+_HEADING = re.compile(r"^###\\s+(\\d{3})\\.\\s+(.+?)\\s*$", re.MULTILINE)
+_DOMAIN_HEADING = re.compile(r"^##\\s+(.+?)\\s*$", re.MULTILINE)
 
 
 def _parse_catalog():
-    """Return the numbered catalog sections, rejecting malformed catalogs."""
+    """Return numbered entries with their source-defined level-two domain."""
     if not SKILL_PACK_PATH.is_file():
         return []
     text = SKILL_PACK_PATH.read_text(encoding="utf-8")
     matches = list(_HEADING.finditer(text))
+    domain_headings = list(_DOMAIN_HEADING.finditer(text))
     entries = []
     for index, match in enumerate(matches):
         number = int(match.group(1))
         title = match.group(2).strip()
+        domain = next(
+            (heading.group(1).strip() for heading in reversed(domain_headings)
+             if heading.start() < match.start()),
+            None,
+        )
         start = match.end()
         end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
         section = text[start:end].strip()
@@ -36,7 +43,8 @@ def _parse_catalog():
             "id": f"{SKILL_ID_PREFIX}{number:03d}",
             "name": title,
             "number": number,
-            "content": f"### {number:03d}. {title}\n\n{section}",
+            "domain": domain,
+            "content": f"### {number:03d}. {title}\\n\\n{section}",
         })
     return entries
 
@@ -50,7 +58,7 @@ def _display_skill_path():
 
 
 def list_pack_skills():
-    """List pack skills only when the complete, ordered catalog is valid."""
+    """List skills only when the complete, ordered catalog has valid domains."""
     entries = _parse_catalog()
     expected_ids = [f"{SKILL_ID_PREFIX}{number:03d}" for number in range(1, SKILL_COUNT + 1)]
     if len(entries) != SKILL_COUNT:
@@ -59,10 +67,13 @@ def list_pack_skills():
         return []
     if len({entry["name"] for entry in entries}) != SKILL_COUNT:
         return []
+    if any(not entry["domain"] for entry in entries):
+        return []
     return [
         {
             "id": entry["id"],
             "name": entry["name"],
+            "domain": entry["domain"],
             "description": f"Research skill: {entry['name']}.",
             "path": _display_skill_path(),
             "available": True,
@@ -84,6 +95,7 @@ def load_pack_skill(skill_id):
     return {
         "id": skill_id,
         "name": parsed["name"],
+        "domain": parsed["domain"],
         "description": f"Research skill: {parsed['name']}.",
         "content": parsed["content"],
         "mode": "research_evaluation_only",

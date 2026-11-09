@@ -5,7 +5,10 @@ from unittest.mock import patch
 
 from fastapi import HTTPException
 
-from app.main import (\n    OpenSourceIntakeRequest, GitHubResearchQualityRequest,\n    register_open_source_candidate, review_open_source_license,\n)
+from app.main import (
+    OpenSourceIntakeRequest, GitHubResearchQualityRequest,
+    register_open_source_candidate, review_open_source_license,
+)
 from app.worker_memory import append_memory, read_memory
 
 

@@ -50,6 +50,17 @@ class WorkerContractTests(unittest.TestCase):
             validate_worker_output("sma", {"series": [1.0]})
         validate_worker_output("volatility", 0.25)
 
+    def test_output_contract_rejects_non_finite_nested_numbers(self):
+        for output in (
+            {"series": [1.0, float("nan")], "period": 2},
+            {"series": [1.0, float("inf")], "period": 2},
+            {"macd": [1.0], "signal": [float("-inf")], "histogram": [0.0]},
+        ):
+            node_type = "macd" if "macd" in output else "sma"
+            with self.subTest(node_type=node_type, output=output):
+                with self.assertRaisesRegex(ValueError, "finite numbers"):
+                    validate_worker_output(node_type, output)
+
     def test_unknown_node_contract_rejected(self):
         with self.assertRaises(ValueError):
             get_worker_contract("unknown")

@@ -1,3 +1,4 @@
+import hashlib
 import os
 import tempfile
 import unittest
@@ -10,6 +11,7 @@ from app.main import (
     register_open_source_candidate, review_open_source_license,
 )
 from app.worker_memory import append_memory, read_memory
+from app.open_source_license_review import build_license_review_checklist
 
 
 class OpenSourceIntakeApiTests(unittest.TestCase):
@@ -73,7 +75,7 @@ class OpenSourceIntakeApiTests(unittest.TestCase):
                 "commit_sha": candidate["commit_sha"],
                 "license_file_found": True,
                 "license_evidence_status": "license_file_found_pending_human_review",
-                "license_file_sha256": "d" * 64,
+                "license_file_sha256": hashlib.sha256(b"Apache license text for review.").hexdigest(),
                 "license_text": "Apache license text for review.",
             },
             ["pinned-license-test"], "unverified",
@@ -94,6 +96,25 @@ class OpenSourceIntakeApiTests(unittest.TestCase):
             item["content"].get("record_type") == "open_source_license_review_checklist"
             for item in saved["memory"]
         ))
+
+
+    def test_license_review_rejects_tampered_license_text_digest(self):
+        intake = register_open_source_candidate("worker_001", self.request())
+        candidate = intake["candidate"]
+        evidence = {
+            "repository_url": candidate["repository_url"],
+            "commit_sha": candidate["commit_sha"],
+            "license_file_found": True,
+            "license_evidence_status": "license_file_found_pending_human_review",
+            "license_file_sha256": hashlib.sha256(b"Original license text").hexdigest(),
+            "license_text": "Altered license text",
+        }
+        checklist = build_license_review_checklist(candidate, evidence)
+        self.assertFalse(checklist["evidence_match"])
+        self.assertFalse(checklist["evidence_digest_valid"])
+        self.assertEqual(checklist["evidence_status"], "missing_or_mismatched")
+        self.assertFalse(checklist["reuse_approved"])
+        self.assertFalse(checklist["execution_allowed"])
 
     def test_license_review_api_rejects_non_candidate_memory(self):
         with self.assertRaises(HTTPException) as error:

@@ -42,6 +42,20 @@ class GitHubResearchReviewBundleTests(unittest.TestCase):
         self.assertTrue(bundle["human_review_required"])
         self.assertFalse(bundle["automatic_promotion"])
         self.assertFalse(bundle["execution_allowed"])
+        self.assertEqual(len(bundle["bundle_sha256"]), 64)
+        self.assertEqual(bundle["bundle_sha256"], build_review_bundle(self.candidate, self.records)["bundle_sha256"])
+
+    def test_bundle_digest_changes_when_pinned_license_evidence_changes(self):
+        import hashlib
+        changed = [dict(item, content=dict(item["content"])) for item in self.records]
+        changed_text = "Updated pinned license evidence"
+        changed[2]["content"]["license_text"] = changed_text
+        changed[2]["content"]["license_file_sha256"] = hashlib.sha256(changed_text.encode()).hexdigest()
+        original_bundle = build_review_bundle(self.candidate, self.records)
+        changed_bundle = build_review_bundle(self.candidate, changed)
+        self.assertTrue(changed_bundle["license_evidence_digest_valid"])
+        self.assertNotEqual(original_bundle["license_evidence_sha256"], changed_bundle["license_evidence_sha256"])
+        self.assertNotEqual(original_bundle["bundle_sha256"], changed_bundle["bundle_sha256"])
 
     def test_missing_or_mismatched_evidence_blocks_readiness(self):
         records = self.records[:]

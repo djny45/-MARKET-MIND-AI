@@ -115,6 +115,11 @@ def audit_claim_citations(*, claims: list[dict[str, Any]],
                     isinstance(expected_source_hash, str)
                     and expected_source_hash.lower() == actual_source_hash
                 )
+                chunk_index_valid = (
+                    isinstance(chunk_index, int)
+                    and not isinstance(chunk_index, bool)
+                    and chunk_index >= 0
+                )
                 chunk_hash_valid = (
                     isinstance(chunk_text, str)
                     and isinstance(chunk_hash, str)
@@ -132,7 +137,11 @@ def audit_claim_citations(*, claims: list[dict[str, Any]],
                     and chunk_start <= start <= end <= chunk_end
                     and chunk_text[start - chunk_start:end - chunk_start] == normalized_excerpt
                 )
-                provenance_ok = hash_matches and offsets_match and chunk_hash_valid and chunk_source_slice_valid and excerpt_inside_chunk
+                provenance_ok = (
+                    hash_matches and chunk_index_valid and offsets_match
+                    and chunk_hash_valid and chunk_source_slice_valid
+                    and excerpt_inside_chunk
+                )
                 provenance_status = "verified_source_hash_and_excerpt_offsets" if provenance_ok else "provenance_mismatch"
                 if not provenance_ok:
                     exact_match = False

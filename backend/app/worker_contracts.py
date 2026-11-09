@@ -74,7 +74,11 @@ def validate_worker_input(node_type: str, payload) -> None:
                 raise ValueError(
                     f"{node_type} input series item {index} must be a number"
                 )
-            if not math.isfinite(float(value)):
+            try:
+                finite = math.isfinite(float(value))
+            except (OverflowError, ValueError):
+                finite = False
+            if not finite:
                 raise ValueError(
                     f"{node_type} input series item {index} must be finite"
                 )
@@ -94,7 +98,11 @@ def validate_worker_input(node_type: str, payload) -> None:
         value = payload["value"]
         if isinstance(value, bool) or not isinstance(value, (int, float)):
             raise ValueError(f"{node_type} input value must be a number")
-        if not math.isfinite(float(value)):
+        try:
+            finite = math.isfinite(float(value))
+        except (OverflowError, ValueError):
+            finite = False
+        if not finite:
             raise ValueError(f"{node_type} input value must be finite")
         return
     raise ValueError(
@@ -119,7 +127,11 @@ def validate_worker_output(node_type: str, output) -> None:
         if isinstance(value, bool) or value is None or isinstance(value, str):
             return
         if isinstance(value, (int, float)):
-            if not math.isfinite(float(value)):
+            try:
+                finite = math.isfinite(float(value))
+            except (OverflowError, ValueError):
+                finite = False
+            if not finite:
                 raise ValueError(f"{node_type} output {path} must contain only finite numbers")
             return
         if isinstance(value, list):

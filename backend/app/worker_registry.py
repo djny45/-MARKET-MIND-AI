@@ -42,6 +42,11 @@ def evaluate_registry() -> dict:
         skill.get("id") for skill in catalog_skills
         if isinstance(skill, dict) and isinstance(skill.get("id"), str)
     }
+    available_skill_ids = {
+        skill.get("id") for skill in catalog_skills
+        if isinstance(skill, dict) and isinstance(skill.get("id"), str)
+        and skill.get("available") is True
+    }
     malformed_skill_refs = any(
         not isinstance(worker.get("skill_refs", []), list)
         or any(not isinstance(skill_id, str) for skill_id in worker.get("skill_refs", []))
@@ -58,6 +63,12 @@ def evaluate_registry() -> dict:
             )
     if any(skill_id not in allowed_skill_ids for skill_id in all_skill_refs):
         errors.append("unknown_skill_reference")
+    unavailable_assigned_skill_ids = sorted(
+        {skill_id for skill_id in all_skill_refs if skill_id in allowed_skill_ids}
+        - available_skill_ids
+    )
+    if unavailable_assigned_skill_ids:
+        errors.append("assigned_skill_unavailable")
     if any(
         len(worker.get("skill_refs", [])) != len(set(worker.get("skill_refs", [])))
         for worker in profiles
@@ -124,6 +135,16 @@ def evaluate_registry() -> dict:
         "skill_reference_counts_by_department": skill_ref_counts,
         "research_pack_skill_coverage": pack_skill_coverage,
         "total_skill_reference_count": len(all_skill_refs),
+        "skill_availability": {
+            "catalog_available_skill_count": len(available_skill_ids),
+            "assigned_unavailable_skill_ids": unavailable_assigned_skill_ids,
+            "assigned_unavailable_skill_count": len(unavailable_assigned_skill_ids),
+            "all_assigned_skills_available": not unavailable_assigned_skill_ids,
+        },
+        "specialty_skill_alignment": {
+            "status": "not_evaluated",
+            "note": "Skill ID validity and file availability do not establish semantic alignment with worker department or specialty.",
+        },
         "shared_intelligence_core": EXPECTED_CORE,
         "profile_digest_sha256": digest,
         "valid": not errors,

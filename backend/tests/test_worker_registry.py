@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 from app.worker_registry import (
     EXPECTED_CORE, EXPECTED_WORKER_COUNT, REGISTRY_VERSION,
@@ -33,6 +34,27 @@ class WorkerRegistryTests(unittest.TestCase):
         second = evaluate_registry()
         self.assertEqual(first["profile_digest_sha256"], second["profile_digest_sha256"])
         self.assertEqual(first["department_counts"], second["department_counts"])
+
+    def test_registry_reports_malformed_profiles_without_crashing(self):
+        malformed = [
+            {"id": "worker_001", "name": "bad", "department": "unknown",
+             "specialty": "test", "kind": "template", "model": EXPECTED_CORE,
+             "memory_namespace": "bad", "skill_refs": "not-a-list", "status": "active"},
+            None,
+        ]
+        with patch("app.worker_registry.list_workers", return_value=malformed):
+            result = evaluate_registry()
+        self.assertFalse(result["valid"])
+        self.assertIn("agent_profile_not_an_object", result["errors"])
+        self.assertIn("invalid_worker_skill_references", result["errors"])
+        self.assertIn("agent_count_mismatch", result["errors"])
+
+    def test_registry_reports_non_object_profile(self):
+        with patch("app.worker_registry.list_workers", return_value=["invalid-profile"]):
+            result = evaluate_registry()
+        self.assertFalse(result["valid"])
+        self.assertIn("agent_profile_not_an_object", result["errors"])
+        self.assertIn("agent_ids_not_contiguous_or_ordered", result["errors"])
 
     def test_registry_does_not_claim_independent_models_or_broker_execution(self):
         boundary = evaluate_registry()["execution_boundary"]

@@ -66,8 +66,12 @@ def evaluate_research_draft(
         if not isinstance(source, dict):
             raise ValueError("source_registry entries must be objects")
         source_id = source.get("source_id")
-        if isinstance(source_id, str) and source_id.strip():
-            source_ids.add(source_id.strip())
+        if not isinstance(source_id, str) or not source_id.strip():
+            raise ValueError("each source requires a non-empty source_id")
+        normalized_source_id = source_id.strip()
+        if normalized_source_id in source_ids:
+            raise ValueError("source_id values must be unique")
+        source_ids.add(normalized_source_id)
 
     total = len(claims)
     claims_with_refs = 0

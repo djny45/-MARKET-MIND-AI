@@ -92,9 +92,11 @@ def evaluate_registry() -> dict:
         ]
         assigned_ids = {
             skill_id for worker in department_workers
-            for skill_id in worker.get("skill_refs", [])
-            if isinstance(worker.get("skill_refs", []), list)
-            and isinstance(skill_id, str) and skill_id.startswith("mm-skill-")
+            for skill_id in (
+                worker.get("skill_refs")
+                if isinstance(worker.get("skill_refs"), list) else []
+            )
+            if isinstance(skill_id, str) and skill_id.startswith("mm-skill-")
         }
         domain_counts = {domain: 0 for domain in domain_names}
         unmapped_ids = []

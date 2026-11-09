@@ -21,6 +21,20 @@ class ResearchQualityEvalTests(unittest.TestCase):
         self.assertIn("limitation", metrics["uncertainty_markers"])
         self.assertEqual(result["evaluation_type"], "deterministic_research_traceability_check")
 
+    def test_rejects_missing_or_duplicate_source_ids(self):
+        for registry in (
+            [{"title": "Missing ID"}],
+            [{"source_id": ""}],
+            [{"source_id": "src"}, {"source_id": " src "}],
+        ):
+            with self.subTest(registry=registry):
+                with self.assertRaisesRegex(ValueError, "source_id"):
+                    evaluate_research_draft(
+                        draft="Draft.",
+                        claims=[{"text": "Claim", "source_refs": ["src"]}],
+                        source_registry=registry,
+                    )
+
     def test_compares_metrics_with_explicit_baseline(self):
         result = evaluate_research_draft(
             draft="Draft with source refs.",

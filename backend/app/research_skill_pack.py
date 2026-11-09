@@ -16,8 +16,8 @@ SKILL_PACK_PATH = (
 SKILL_PACK_VERSION = "1.0.0"
 SKILL_ID_PREFIX = "mm-skill-"
 SKILL_COUNT = 300
-_HEADING = re.compile(r"^###\\s+(\\d{3})\\.\\s+(.+?)\\s*$", re.MULTILINE)
-_DOMAIN_HEADING = re.compile(r"^##\\s+(.+?)\\s*$", re.MULTILINE)
+_HEADING = re.compile(r"^###\s+(\d{3})\.\s+(.+?)\s*$", re.MULTILINE)
+_DOMAIN_HEADING = re.compile(r"^##\s+(.+?)\s*$", re.MULTILINE)
 
 
 def _parse_catalog():
@@ -44,7 +44,7 @@ def _parse_catalog():
             "name": title,
             "number": number,
             "domain": domain,
-            "content": f"### {number:03d}. {title}\\n\\n{section}",
+            "content": f"### {number:03d}. {title}\n\n{section}",
         })
     return entries
 

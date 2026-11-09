@@ -49,11 +49,13 @@ def evaluate_registry() -> dict:
     )
     if malformed_skill_refs:
         errors.append("invalid_worker_skill_references")
-    all_skill_refs = [
-        skill_id for worker in profiles
-        for skill_id in worker.get("skill_refs", [])
-        if isinstance(worker.get("skill_refs", []), list) and isinstance(skill_id, str)
-    ]
+    all_skill_refs = []
+    for worker in profiles:
+        skill_refs = worker.get("skill_refs", [])
+        if isinstance(skill_refs, list):
+            all_skill_refs.extend(
+                skill_id for skill_id in skill_refs if isinstance(skill_id, str)
+            )
     if any(skill_id not in allowed_skill_ids for skill_id in all_skill_refs):
         errors.append("unknown_skill_reference")
     if any(

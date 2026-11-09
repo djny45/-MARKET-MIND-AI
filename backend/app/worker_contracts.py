@@ -4,6 +4,7 @@ Contracts describe data shapes and evidence expectations. They do not imply
 model inference, trade recommendations, or broker capabilities.
 """
 from copy import deepcopy
+import math
 
 CONTRACT_VERSION = "1.0.0"
 
@@ -64,6 +65,41 @@ def validate_worker_input(node_type: str, payload) -> None:
         return
     if not isinstance(payload, (list, dict)):
         raise ValueError(f"{node_type} input contract requires a list or object")
+
+    def validate_series(values) -> None:
+        if not isinstance(values, list):
+            raise ValueError(f"{node_type} input series must be a list")
+        for index, value in enumerate(values):
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise ValueError(
+                    f"{node_type} input series item {index} must be a number"
+                )
+            if not math.isfinite(float(value)):
+                raise ValueError(
+                    f"{node_type} input series item {index} must be finite"
+                )
+
+    if isinstance(payload, list):
+        validate_series(payload)
+        return
+
+    for key in ("values", "close", "series"):
+        if key in payload:
+            validate_series(payload[key])
+            return
+    if isinstance(payload.get("data"), dict):
+        validate_worker_input(node_type, payload["data"])
+        return
+    if "value" in payload:
+        value = payload["value"]
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError(f"{node_type} input value must be a number")
+        if not math.isfinite(float(value)):
+            raise ValueError(f"{node_type} input value must be finite")
+        return
+    raise ValueError(
+        f"{node_type} input object must contain values, close, series, data, or value"
+    )
 
 
 def validate_worker_output(node_type: str, output) -> None:

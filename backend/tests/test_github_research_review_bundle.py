@@ -23,6 +23,7 @@ class GitHubResearchReviewBundleTests(unittest.TestCase):
             {"memory_id": "score-1", "content": {
                 "record_type": "github_research_evidence_quality",
                 "candidate_memory_id": "candidate-1", "score": 100,
+                "max_score": 100, "score_type": "provenance_completeness_heuristic",
             }},
             {"memory_id": "license-1", "content": {
                 "record_type": "pinned_github_license_evidence",
@@ -44,6 +45,15 @@ class GitHubResearchReviewBundleTests(unittest.TestCase):
         self.assertFalse(bundle["execution_allowed"])
         self.assertEqual(len(bundle["bundle_sha256"]), 64)
         self.assertEqual(bundle["bundle_sha256"], build_review_bundle(self.candidate, self.records)["bundle_sha256"])
+
+    def test_untyped_or_mislinked_score_cannot_make_bundle_ready(self):
+        records = [dict(item, content=dict(item["content"])) for item in self.records]
+        records[1]["content"]["score_type"] = "unverified_quality_rating"
+        bundle = build_review_bundle(self.candidate, records)
+        self.assertEqual(bundle["review_status"], "evidence_incomplete")
+        self.assertFalse(bundle["provenance_score_record_valid"])
+        self.assertIn("valid_provenance_score_record", bundle["missing_evidence"])
+        self.assertIsNone(bundle["provenance_score"])
 
     def test_bundle_digest_changes_when_pinned_license_evidence_changes(self):
         import hashlib
@@ -98,6 +108,7 @@ class GitHubResearchReviewBundleTests(unittest.TestCase):
             {"memory_id": "score", "content": {
                 "record_type": "github_research_evidence_quality",
                 "candidate_memory_id": "candidate-1", "score": 80,
+                "max_score": 100, "score_type": "provenance_completeness_heuristic",
             }},
             {"memory_id": "license", "content": {
                 "record_type": "pinned_github_license_evidence",

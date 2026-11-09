@@ -123,6 +123,24 @@ class WorkerRegistryTests(unittest.TestCase):
         )
         self.assertFalse(result["skill_availability"]["all_assigned_skills_available"])
 
+    def test_department_domain_matrix_is_explicitly_coverage_not_alignment(self):
+        result = evaluate_registry()
+        matrix = result["department_skill_domain_matrix"]
+        self.assertEqual(
+            matrix["status"],
+            "catalog_domain_coverage_only_not_semantic_alignment",
+        )
+        self.assertEqual(matrix["catalog_domain_count"], 15)
+        self.assertEqual(len(matrix["departments"]), 20)
+        self.assertEqual(matrix["unmapped_assigned_skill_count"], 0)
+        for department, item in matrix["departments"].items():
+            with self.subTest(department=department):
+                self.assertEqual(
+                    sum(item["domain_skill_counts"].values()),
+                    item["assigned_unique_pack_skill_count"],
+                )
+                self.assertEqual(item["unmapped_pack_skill_ids"], [])
+
     def test_registry_does_not_claim_semantic_skill_alignment(self):
         result = evaluate_registry()
         self.assertEqual(result["specialty_skill_alignment"]["status"], "not_evaluated")

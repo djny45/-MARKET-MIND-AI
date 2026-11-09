@@ -302,6 +302,30 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertEqual(recovery["recovery_mode"], "manual_stale_requeue_no_dispatch")
         self.assertEqual(get_research_task(queued["task_id"])["status"], "queued")
 
+    def test_recovery_fails_stale_task_after_execution_attempt_limit(self):
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, recover_interrupted_research_tasks,
+            list_task_audit_events, MAX_TASK_EXECUTION_ATTEMPTS,
+        )
+        from datetime import datetime, timedelta, timezone
+        import sqlite3
+        queued = enqueue_research_task("worker_005", "exhausted recovery")
+        stale_timestamp = (datetime.now(timezone.utc) - timedelta(seconds=1200)).isoformat()
+        with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+            db.execute(
+                "UPDATE analytical_agent_tasks SET status='running',updated_at=?,execution_attempts=? WHERE task_id=?",
+                (stale_timestamp, MAX_TASK_EXECUTION_ATTEMPTS, queued["task_id"]),
+            )
+        recovery = recover_interrupted_research_tasks()
+        saved = get_research_task(queued["task_id"])
+        self.assertEqual(recovery["requeued_interrupted_count"], 0)
+        self.assertEqual(recovery["failed_attempt_limit_count"], 1)
+        self.assertEqual(saved["status"], "failed")
+        self.assertEqual(saved["result"]["error_type"], "ExecutionAttemptLimit")
+        events = list_task_audit_events(queued["task_id"])["events"]
+        self.assertEqual(events[-1]["event_type"], "task_failed")
+        self.assertEqual(events[-1]["to_status"], "failed")
+
     def test_duplicate_dispatch_only_claims_once(self):
         from app.analytical_agent_tasks import enqueue_research_task, execute_queued_research_task
         queued = enqueue_research_task("worker_006", "single claim")

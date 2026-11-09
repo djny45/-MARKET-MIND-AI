@@ -905,6 +905,9 @@ def record_open_source_license_review(worker_id: str, request: OpenSourceLicense
    "legal_conclusion": False,
    "note": "This records a self-reported review disposition only. It is not legal advice, license approval, or authorization to reuse or execute source.",
   }
+  review_record["review_record_sha256"] = hashlib.sha256(
+   json.dumps(review_record, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+  ).hexdigest()
   memory_record = append_memory(
    worker_id, "validation_result", review_record,
    [f"worker-memory:{request.candidate_memory_id}", f"worker-memory:{request.checklist_memory_id}"],
@@ -924,17 +927,24 @@ def list_open_source_license_reviews(worker_id: str, limit: int = 50):
   records = read_memory(worker_id, "validation_result", 200)["memory"]
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
- reviews = [
-  {
+ reviews = []
+ for item in records:
+  review = item.get("content")
+  if not isinstance(review, dict) or review.get("record_type") != "open_source_license_review_disposition":
+   continue
+  stored_digest = review.get("review_record_sha256")
+  unsigned_review = {key: value for key, value in review.items() if key != "review_record_sha256"}
+  computed_digest = hashlib.sha256(
+   json.dumps(unsigned_review, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+  ).hexdigest()
+  reviews.append({
    "memory_id": item["memory_id"],
    "created_at": item["created_at"],
    "quality_status": item["quality_status"],
-   "review": item["content"],
-  }
-  for item in records
-  if isinstance(item.get("content"), dict)
-  and item["content"].get("record_type") == "open_source_license_review_disposition"
- ]
+   "review": review,
+   "integrity_status": "valid" if stored_digest == computed_digest else "missing_or_mismatched",
+  })
+
  return {
   "worker_id": worker_id,
   "count": min(len(reviews), limit),

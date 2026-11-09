@@ -68,6 +68,41 @@ class WorkerRegistryTests(unittest.TestCase):
         self.assertIn("agent_profile_not_an_object", result["errors"])
         self.assertIn("agent_ids_not_contiguous_or_ordered", result["errors"])
 
+    def test_registry_rejects_empty_required_profile_values(self):
+        profile = {
+            "id": "worker_001", "name": "  ", "department": "data_quality",
+            "specialty": "test", "kind": "ai_analytical_worker",
+            "model": EXPECTED_CORE, "memory_namespace": "workers/test",
+            "skill_refs": [], "status": "template",
+        }
+        with patch("app.worker_registry.list_workers", return_value=[profile]):
+            result = evaluate_registry()
+        self.assertFalse(result["valid"])
+        self.assertIn("agent_profile_invalid_required_field_values", result["errors"])
+
+    def test_registry_rejects_non_template_worker_profiles(self):
+        profile = {
+            "id": "worker_001", "name": "Test Worker", "department": "data_quality",
+            "specialty": "test", "kind": "ai_analytical_worker",
+            "model": EXPECTED_CORE, "memory_namespace": "workers/test",
+            "skill_refs": [], "status": "active",
+        }
+        with patch("app.worker_registry.list_workers", return_value=[profile]):
+            result = evaluate_registry()
+        self.assertFalse(result["valid"])
+        self.assertIn("agent_profile_status_mismatch", result["errors"])
+
+    def test_registry_rejects_unknown_worker_kind(self):
+        profile = {
+            "id": "worker_001", "name": "Test Worker", "department": "data_quality",
+            "specialty": "test", "kind": "generic", "model": EXPECTED_CORE,
+            "memory_namespace": "workers/test", "skill_refs": [], "status": "template",
+        }
+        with patch("app.worker_registry.list_workers", return_value=[profile]):
+            result = evaluate_registry()
+        self.assertFalse(result["valid"])
+        self.assertIn("agent_profile_kind_mismatch", result["errors"])
+
     def test_registry_does_not_claim_independent_models_or_broker_execution(self):
         boundary = evaluate_registry()["execution_boundary"]
         self.assertTrue(boundary["profiles_are_templates"])

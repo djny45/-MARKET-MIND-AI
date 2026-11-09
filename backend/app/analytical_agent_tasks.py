@@ -46,6 +46,8 @@ def _connect():
         task_columns = {row["name"] for row in db.execute("PRAGMA table_info(analytical_agent_tasks)")}
         if "execution_attempts" not in task_columns:
             db.execute("ALTER TABLE analytical_agent_tasks ADD COLUMN execution_attempts INTEGER NOT NULL DEFAULT 0")
+        if "execution_token" not in task_columns:
+            db.execute("ALTER TABLE analytical_agent_tasks ADD COLUMN execution_token TEXT")
         db.execute("""CREATE TABLE IF NOT EXISTS analytical_agent_task_retries (
             original_task_id TEXT PRIMARY KEY,
             retry_task_id TEXT NOT NULL UNIQUE,
@@ -300,10 +302,12 @@ def execute_queued_research_task(task_id: str) -> bool:
             return False
         # Claim atomically so duplicate dispatches cannot execute the same queued row.
         now = datetime.now(timezone.utc).isoformat()
+        execution_token = str(uuid.uuid4())
         claimed = db.execute(
             "UPDATE analytical_agent_tasks SET status='running',updated_at=?,"
-            "execution_attempts=execution_attempts+1 WHERE task_id=? AND status='queued'",
-            (now, task_id),
+            "execution_attempts=execution_attempts+1,execution_token=? "
+            "WHERE task_id=? AND status='queued'",
+            (now, execution_token, task_id),
         )
         if claimed.rowcount != 1:
             return False
@@ -372,8 +376,16 @@ def execute_queued_research_task(task_id: str) -> bool:
         status = "failed"
     updated = datetime.now(timezone.utc).isoformat()
     with _connect() as db:
-        db.execute("UPDATE analytical_agent_tasks SET status=?,result_json=?,updated_at=? WHERE task_id=?",
-                   (status, _json(result), updated, task_id))
+        # Fence completion by the exact claim token. If stale recovery requeued
+        # this task and another dispatcher claimed it, the old executor must not
+        # overwrite the newer attempt's result or append a misleading event.
+        finalized = db.execute(
+            "UPDATE analytical_agent_tasks SET status=?,result_json=?,updated_at=?,"
+            "execution_token=NULL WHERE task_id=? AND status='running' AND execution_token=?",
+            (status, _json(result), updated, task_id, execution_token),
+        )
+        if finalized.rowcount != 1:
+            return False
         _record_event(db, task_id, agent_id, "task_" + status,
                       from_status="running", to_status=status, occurred_at=updated,
                       detail={"error_type": result.get("error_type")} if status == "failed" else {})
@@ -412,8 +424,8 @@ def recover_interrupted_research_tasks(stale_after_seconds: int = 900) -> dict:
                     "max_execution_attempts": MAX_TASK_EXECUTION_ATTEMPTS,
                 }
                 changed = db.execute(
-                    "UPDATE analytical_agent_tasks SET status='failed',result_json=?,updated_at=? "
-                    "WHERE task_id=? AND status='running'",
+                    "UPDATE analytical_agent_tasks SET status='failed',result_json=?,updated_at=?,"
+                    "execution_token=NULL WHERE task_id=? AND status='running'",
                     (_json(failure), now, task["task_id"]),
                 )
                 if changed.rowcount == 1:
@@ -426,7 +438,7 @@ def recover_interrupted_research_tasks(stale_after_seconds: int = 900) -> dict:
                     )
             else:
                 changed = db.execute(
-                    "UPDATE analytical_agent_tasks SET status='queued',updated_at=? "
+                    "UPDATE analytical_agent_tasks SET status='queued',updated_at=?,execution_token=NULL "
                     "WHERE task_id=? AND status='running'",
                     (now, task["task_id"]),
                 )

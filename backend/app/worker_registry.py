@@ -95,6 +95,20 @@ def evaluate_registry() -> dict:
                 "memory_namespace", "skill_refs", "status"}
     if any(not required.issubset(worker) for worker in profiles):
         errors.append("agent_profile_missing_required_fields")
+    non_empty_string_fields = (
+        "id", "name", "department", "specialty", "kind", "model",
+        "memory_namespace", "status",
+    )
+    if any(
+        not isinstance(worker.get(field), str) or not worker[field].strip()
+        for worker in profiles
+        for field in non_empty_string_fields
+    ):
+        errors.append("agent_profile_invalid_required_field_values")
+    if any(worker.get("kind") != "ai_analytical_worker" for worker in profiles):
+        errors.append("agent_profile_kind_mismatch")
+    if any(worker.get("status") != "template" for worker in profiles):
+        errors.append("agent_profile_status_mismatch")
     canonical = json.dumps(workers, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
     counts = {

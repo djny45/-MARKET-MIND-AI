@@ -950,6 +950,8 @@ def list_open_source_license_reviews(worker_id: str, limit: int = 50):
   "count": min(len(reviews), limit),
   "reviews": reviews[:limit],
   "scan_limit": 200,
+  "memory_records_scanned": len(records),
+  "scan_truncated": read_memory(worker_id, "validation_result", 200)["total_matching"] > len(records),
   "note": "Recent append-only records only; reviewer identity is unverified and dispositions are not license clearance or reuse permission.",
  }
 

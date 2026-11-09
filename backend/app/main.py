@@ -26,6 +26,7 @@ from .research_citation_audit import audit_claim_citations
 from .research_benchmark import run_offline_research_benchmark
 from .skill_catalog import list_skills, load_skill, build_skill_protocol
 from .open_source_intake import build_source_candidate
+from .open_source_license_review import build_license_review_checklist
 from .github_research_discovery import discover_github_repositories
 from .github_pinned_extraction import fetch_pinned_text_candidate
 from .github_license_evidence import fetch_pinned_license_evidence
@@ -812,6 +813,43 @@ def score_open_source_evidence(worker_id: str, request: GitHubResearchQualityReq
    [f"worker-memory:{request.candidate_memory_id}"], "unverified",
   )
   return {"quality_score": score, "memory_record": memory_record}
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/workers/{worker_id}/review-open-source-license")
+def review_open_source_license(worker_id: str, request: GitHubResearchQualityRequest):
+ """Build and persist a human-review checklist for an intake candidate.
+
+ Checklist generation validates pinned evidence and candidate integrity, but
+ never approves license compatibility or enables code reuse/execution.
+ """
+ try:
+  records = read_memory(worker_id, "validation_result", 200)["memory"]
+  candidate_record = next(
+   (item for item in records if item.get("memory_id") == request.candidate_memory_id), None
+  )
+  if candidate_record is None:
+   raise ValueError("open-source candidate was not found in the recent worker memory window")
+  candidate = candidate_record.get("content")
+  if not isinstance(candidate, dict) or candidate.get("record_type") != "open_source_learning_candidate":
+   raise ValueError("memory record is not an open-source learning candidate")
+  evidence = next(
+   (item.get("content", {}) for item in records
+    if isinstance(item.get("content"), dict)
+    and item["content"].get("record_type") == "pinned_github_license_evidence"
+    and item["content"].get("repository_url") == candidate.get("repository_url")
+    and str(item["content"].get("commit_sha", "")).lower() == str(candidate.get("commit_sha", "")).lower()),
+   None,
+  )
+  checklist = build_license_review_checklist(candidate, evidence)
+  memory_record = append_memory(
+   worker_id, "validation_result",
+   {"record_type": "open_source_license_review_checklist",
+    "candidate_memory_id": request.candidate_memory_id, **checklist},
+   [f"worker-memory:{request.candidate_memory_id}"], "unverified",
+  )
+  return {"checklist": checklist, "memory_record": memory_record}
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 

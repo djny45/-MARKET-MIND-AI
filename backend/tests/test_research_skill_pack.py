@@ -7,7 +7,7 @@ from app import research_skill_pack as pack
 
 
 def catalog(*titles):
-    return "\n".join(
+    return "## Test Domain\n\n" + "\n".join(
         f"### {index:03d}. {title}\n\nResearch notes for {title}."
         for index, title in enumerate(titles, start=1)
     )
@@ -45,7 +45,7 @@ class ResearchSkillPackValidationTests(unittest.TestCase):
     def test_out_of_order_ids_are_rejected(self):
         entries = [f"### {index:03d}. Playbook {index:03d}\n\nContent" for index in range(1, 301)]
         entries[0], entries[1] = entries[1], entries[0]
-        self.write_catalog("\n".join(entries))
+        self.write_catalog("## Test Domain\n\n" + "\n".join(entries))
         self.assertEqual(pack.list_pack_skills(), [])
 
     def test_duplicate_skill_names_are_rejected(self):

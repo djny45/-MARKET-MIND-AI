@@ -28,6 +28,9 @@ class GitHubResearchReviewBundleTests(unittest.TestCase):
                 "record_type": "pinned_github_license_evidence",
                 "repository_url": "https://github.com/org/repo",
                 "commit_sha": "a" * 40, "license_file_found": True,
+                "license_evidence_status": "license_file_found_pending_human_review",
+                "license_file_sha256": __import__("hashlib").sha256(b"Example pinned license text").hexdigest(),
+                "license_text": "Example pinned license text",
             }},
         ]
 
@@ -50,6 +53,17 @@ class GitHubResearchReviewBundleTests(unittest.TestCase):
         self.assertEqual(bundle["review_status"], "evidence_incomplete")
         self.assertIn("matching_chunk_manifest", bundle["missing_evidence"])
         self.assertIn("license_evidence", bundle["missing_evidence"])
+
+    def test_tampered_license_evidence_digest_blocks_review_readiness(self):
+        records = [dict(item, content=dict(item["content"])) for item in self.records]
+        records[2]["content"]["license_text"] = "changed license text"
+        records[2]["content"]["license_file_sha256"] = "d" * 64
+        records[2]["content"]["license_evidence_status"] = "license_file_found_pending_human_review"
+        bundle = build_review_bundle(self.candidate, records)
+        self.assertEqual(bundle["review_status"], "evidence_incomplete")
+        self.assertFalse(bundle["license_evidence_digest_valid"])
+        self.assertIn("valid_license_file_evidence", bundle["missing_evidence"])
+        self.assertFalse(bundle["execution_allowed"])
 
     def test_missing_source_identity_blocks_review_readiness(self):
         candidate = {
@@ -75,6 +89,9 @@ class GitHubResearchReviewBundleTests(unittest.TestCase):
                 "record_type": "pinned_github_license_evidence",
                 "repository_url": None, "commit_sha": None,
                 "license_file_found": True,
+                "license_evidence_status": "license_file_found_pending_human_review",
+                "license_file_sha256": "e" * 64,
+                "license_text": "License text",
             }},
         ])
         self.assertEqual(bundle["review_status"], "evidence_incomplete")

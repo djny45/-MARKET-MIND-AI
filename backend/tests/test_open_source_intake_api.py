@@ -235,6 +235,8 @@ class OpenSourceIntakeApiTests(unittest.TestCase):
         self.assertFalse(result["reviews"][0]["review"]["reuse_approved"])
         self.assertFalse(result["reviews"][0]["review"]["execution_allowed"])
         self.assertEqual(result["reviews"][0]["integrity_status"], "valid")
+        self.assertGreater(result["memory_records_scanned"], 0)
+        self.assertFalse(result["scan_truncated"])
 
     def test_license_review_history_flags_tampered_record_digest(self):
         append_memory(

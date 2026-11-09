@@ -20,7 +20,12 @@ class AgentBatchDispatchTests(unittest.TestCase):
         self.temp.cleanup()
 
     def test_batch_records_explicit_provider_unavailable_for_each_agent(self):
-        result = run_agent_batch(["worker_001", "worker_021"], "Analyze provided data", {"x": 1})
+        # Isolate dispatch aggregation from provider/database concurrency.
+        with patch("app.analytical_agent_tasks.submit_research_task", side_effect=[
+            {"task_id": "task-1", "status": "completed", "execution_mode": "test", "result": {}},
+            {"task_id": "task-2", "status": "completed", "execution_mode": "test", "result": {}},
+        ]):
+            result = run_agent_batch(["worker_001", "worker_021"], "Analyze provided data", {"x": 1})
         self.assertEqual(result["agent_count_requested"], 2)
         self.assertEqual(result["agent_count_accepted"], 2)
         self.assertEqual(result["status_counts"]["completed"], 2)

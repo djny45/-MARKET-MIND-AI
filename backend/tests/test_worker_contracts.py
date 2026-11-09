@@ -31,7 +31,7 @@ class WorkerContractTests(unittest.TestCase):
         validate_worker_input("market_input", None)
 
     def test_numeric_series_contract_rejects_booleans_strings_and_non_finite_values(self):
-        for payload in ([1, True, 3], [1, "2", 3], [1, float("inf")]):
+        for payload in ([1, True, 3], [1, "2", 3], [1, float("inf")], [1, 10 ** 1000]):
             with self.subTest(payload=payload):
                 with self.assertRaises(ValueError):
                     validate_worker_input("sma", payload)
@@ -54,6 +54,7 @@ class WorkerContractTests(unittest.TestCase):
         for output in (
             {"series": [1.0, float("nan")], "period": 2},
             {"series": [1.0, float("inf")], "period": 2},
+            {"series": [1.0, 10 ** 1000], "period": 2},
             {"macd": [1.0], "signal": [float("-inf")], "histogram": [0.0]},
         ):
             node_type = "macd" if "macd" in output else "sma"

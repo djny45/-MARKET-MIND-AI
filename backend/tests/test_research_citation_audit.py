@@ -82,6 +82,31 @@ class ResearchCitationAuditTests(unittest.TestCase):
         self.assertEqual(citation["chunk_provenance_status"],
                          "verified_source_hash_and_excerpt_offsets")
 
+    def test_invalid_chunk_index_blocks_provenance_verification(self):
+        import hashlib
+        source_text = "prefix exact quote suffix"
+        source_hash = hashlib.sha256(source_text.encode("utf-8")).hexdigest()
+        for invalid_index in (-1, True, 1.5):
+            with self.subTest(chunk_index=invalid_index):
+                result = audit_claim_citations(
+                    claims=[{"text": "Claim.", "citations": [{
+                        "source_id": "src", "excerpt": "exact quote",
+                        "source_sha256": source_hash,
+                        "chunk_sha256": source_hash,
+                        "chunk_text": source_text,
+                        "chunk_index": invalid_index,
+                        "source_start_char": 0,
+                        "source_end_char": len(source_text),
+                        "excerpt_start_char": 7,
+                        "excerpt_end_char": 18,
+                    }]}],
+                    source_registry=[{"source_id": "src", "text": source_text}],
+                )
+                citation = result["claims"][0]["citations"][0]
+                self.assertEqual(citation["status"], "provenance_mismatch")
+                self.assertFalse(citation["chunk_provenance_verified"])
+                self.assertEqual(result["status"], "needs_review")
+
     def test_chunk_provenance_mismatch_blocks_citation_coverage(self):
         import hashlib
         result = audit_claim_citations(

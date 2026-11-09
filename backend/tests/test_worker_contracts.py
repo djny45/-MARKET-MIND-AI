@@ -30,6 +30,20 @@ class WorkerContractTests(unittest.TestCase):
             validate_worker_input("sma", "not-a-series")
         validate_worker_input("market_input", None)
 
+    def test_numeric_series_contract_rejects_booleans_strings_and_non_finite_values(self):
+        for payload in ([1, True, 3], [1, "2", 3], [1, float("inf")]):
+            with self.subTest(payload=payload):
+                with self.assertRaises(ValueError):
+                    validate_worker_input("sma", payload)
+
+    def test_object_contract_requires_a_numeric_series_field(self):
+        validate_worker_input("sma", {"close": [1, 2.5, 3]})
+        validate_worker_input("sma", {"data": {"values": [1, 2, 3]}})
+        with self.assertRaisesRegex(ValueError, "must contain"):
+            validate_worker_input("sma", {"metadata": "not observations"})
+        with self.assertRaisesRegex(ValueError, "must be a list"):
+            validate_worker_input("sma", {"values": "1,2,3"})
+
     def test_output_required_keys_validation(self):
         validate_worker_output("sma", {"series": [1.0], "period": 2})
         with self.assertRaises(ValueError):

@@ -1,3 +1,4 @@
+import hashlib
 import unittest
 
 from app.open_source_intake import build_source_candidate
@@ -20,7 +21,7 @@ class OpenSourceLicenseReviewTests(unittest.TestCase):
             "commit_sha": "a" * 40,
             "license_file_found": True,
             "license_evidence_status": "license_file_found_pending_human_review",
-            "license_file_sha256": "d" * 64,
+            "license_file_sha256": hashlib.sha256(b"Example license text.").hexdigest(),
             "license_text": "Example license text.",
         }
 

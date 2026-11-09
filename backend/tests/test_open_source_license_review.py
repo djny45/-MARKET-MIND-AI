@@ -1,17 +1,18 @@
 import unittest
 
+from app.open_source_intake import build_source_candidate
 from app.open_source_license_review import build_license_review_checklist
 
 
 class OpenSourceLicenseReviewTests(unittest.TestCase):
     def candidate(self):
-        return {
-            "candidate_id": "c" * 64,
-            "repository_url": "https://github.com/example/project",
-            "commit_sha": "a" * 40,
-            "license_spdx": "MIT",
-            "content_sha256": "b" * 64,
-        }
+        return build_source_candidate(
+            repository_url="https://github.com/example/project",
+            commit_sha="a" * 40,
+            file_path="docs/readme.md",
+            license_spdx="MIT",
+            content="Research excerpt with provenance.",
+        )
 
     def evidence(self):
         return {
@@ -23,7 +24,7 @@ class OpenSourceLicenseReviewTests(unittest.TestCase):
             "license_text": "Example license text.",
         }
 
-    def test_exact_pinned_evidence_creates_blank_review_only_checklist(self):
+    def test_intake_candidate_and_pinned_license_evidence_join_review_only(self):
         result = build_license_review_checklist(self.candidate(), self.evidence())
         self.assertTrue(result["evidence_match"])
         self.assertEqual(result["review_status"], "pending_human_review")
@@ -44,6 +45,18 @@ class OpenSourceLicenseReviewTests(unittest.TestCase):
         evidence["license_text"] = " "
         result = build_license_review_checklist(self.candidate(), evidence)
         self.assertFalse(result["evidence_match"])
+
+    def test_candidate_content_tampering_is_detected(self):
+        candidate = self.candidate()
+        candidate["content"] = "altered content"
+        with self.assertRaisesRegex(ValueError, "digest mismatch"):
+            build_license_review_checklist(candidate, self.evidence())
+
+    def test_candidate_identifier_tampering_is_detected(self):
+        candidate = self.candidate()
+        candidate["candidate_id"] = "f" * 64
+        with self.assertRaisesRegex(ValueError, "identifier mismatch"):
+            build_license_review_checklist(candidate, self.evidence())
 
     def test_rejects_missing_candidate_provenance(self):
         with self.assertRaisesRegex(ValueError, "provenance"):

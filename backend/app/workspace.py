@@ -212,10 +212,31 @@ def get_synthesis_review(review_id):
             "integrity":{"algorithm":"sha256","verified":bool(expected) and actual==expected,
                          "reason":"verified" if expected and actual==expected else "digest_missing_or_mismatch"}}
 
-def list_synthesis_reviews(limit=50):
-    """List review metadata only; full draft/evidence is returned by get."""
+def list_synthesis_reviews(limit=50, status=None, reviewer=None):
+    """List review metadata with optional exact status/reviewer-label filters.
+
+    Reviewer values are user-supplied labels, not authenticated identities.
+    Full draft/evidence remains available only through get_synthesis_review.
+    """
     if isinstance(limit,bool) or not isinstance(limit,int) or not 1<=limit<=100:
         raise ValueError("limit must be an integer between 1 and 100")
+    if status is not None:
+        if not isinstance(status,str) or not status.strip() or len(status)>64:
+            raise ValueError("status must be a non-empty string of at most 64 characters")
+        status=status.strip()
+    if reviewer is not None:
+        if not isinstance(reviewer,str) or not reviewer.strip() or len(reviewer)>128:
+            raise ValueError("reviewer must be a non-empty string of at most 128 characters")
+        reviewer=reviewer.strip()
+    clauses=[]
+    params=[]
+    if status is not None:
+        clauses.append("status = ?")
+        params.append(status)
+    if reviewer is not None:
+        clauses.append("reviewer_claim = ?")
+        params.append(reviewer)
+    where=(" WHERE "+" AND ".join(clauses)) if clauses else ""
     with _connect() as con:
         exists=con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='synthesis_reviews'").fetchone()
         if exists is None:
@@ -224,7 +245,38 @@ def list_synthesis_reviews(limit=50):
         if "review_sha256" not in columns:
             con.execute("ALTER TABLE synthesis_reviews ADD COLUMN review_sha256 TEXT NOT NULL DEFAULT ''")
         rows=con.execute("""SELECT id,status,reviewer_claim,created_at,review_sha256
-          FROM synthesis_reviews ORDER BY created_at DESC LIMIT ?""",(limit,)).fetchall()
+          FROM synthesis_reviews"""+where+""" ORDER BY created_at DESC LIMIT ?""",
+          (*params,limit)).fetchall()
     return [{"review_id":row["id"],"status":row["status"],"reviewer_claim":row["reviewer_claim"],
              "created_at":row["created_at"],
              "integrity":{"algorithm":"sha256","digest_present":bool(row["review_sha256"])}} for row in rows]
+
+
+def synthesis_review_summary(status=None, reviewer=None):
+    """Return metadata-only review counts, optionally scoped to exact filters."""
+    # Reuse filter validation and SQL parameter handling without returning draft data.
+    if status is not None:
+        if not isinstance(status,str) or not status.strip() or len(status)>64:
+            raise ValueError("status must be a non-empty string of at most 64 characters")
+        status=status.strip()
+    if reviewer is not None:
+        if not isinstance(reviewer,str) or not reviewer.strip() or len(reviewer)>128:
+            raise ValueError("reviewer must be a non-empty string of at most 128 characters")
+        reviewer=reviewer.strip()
+    clauses=[]
+    params=[]
+    if status is not None:
+        clauses.append("status = ?")
+        params.append(status)
+    if reviewer is not None:
+        clauses.append("reviewer_claim = ?")
+        params.append(reviewer)
+    where=(" WHERE "+" AND ".join(clauses)) if clauses else ""
+    with _connect() as con:
+        exists=con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='synthesis_reviews'").fetchone()
+        if exists is None:
+            return {"total":0,"by_status":{}}
+        rows=con.execute("SELECT status, COUNT(*) AS count FROM synthesis_reviews"+where+
+                         " GROUP BY status ORDER BY status",params).fetchall()
+    counts={row["status"]:row["count"] for row in rows}
+    return {"total":sum(counts.values()),"by_status":counts}

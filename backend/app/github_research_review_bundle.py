@@ -6,6 +6,7 @@ execute source code, train models, or approve/publish research skills.
 from __future__ import annotations
 
 from typing import Any
+import hashlib
 
 
 def build_review_bundle(candidate_record: dict[str, Any], records: list[dict[str, Any]]) -> dict[str, Any]:
@@ -74,8 +75,21 @@ def build_review_bundle(candidate_record: dict[str, Any], records: list[dict[str
     score_content = evidence.get("provenance_score", {}).get("content", {})
     score = score_content.get("score") if isinstance(score_content, dict) else None
     license_content = evidence.get("license_evidence", {}).get("content", {})
-    license_found = (isinstance(license_content, dict)
-                     and license_content.get("license_file_found") is True)
+    license_text = license_content.get("license_text") if isinstance(license_content, dict) else None
+    license_digest = license_content.get("license_file_sha256") if isinstance(license_content, dict) else None
+    license_digest_valid = bool(
+        isinstance(license_text, str)
+        and isinstance(license_digest, str)
+        and re.fullmatch(r"[0-9a-fA-F]{64}", license_digest) is not None
+        and hashlib.sha256(license_text.encode("utf-8")).hexdigest() == license_digest.lower()
+    )
+    license_found = (
+        isinstance(license_content, dict)
+        and license_content.get("license_file_found") is True
+        and license_content.get("license_evidence_status") == "license_file_found_pending_human_review"
+        and license_digest_valid
+        and bool(license_text.strip()) if isinstance(license_text, str) else False
+    )
     manifest_content = evidence.get("chunk_manifest", {}).get("content", {})
     manifest_matches = (isinstance(manifest_content, dict)
                         and manifest_content.get("source_sha256") == candidate.get("content_sha256")
@@ -84,7 +98,7 @@ def build_review_bundle(candidate_record: dict[str, Any], records: list[dict[str
     if "chunk_manifest" in evidence and not manifest_matches:
         missing.append("matching_chunk_manifest")
     if "license_evidence" in evidence and not license_found:
-        missing.append("license_file_found")
+        missing.append("valid_license_file_evidence")
     if "provenance_score" in evidence and (
             isinstance(score, bool) or not isinstance(score, int) or score < 0 or score > 100):
         missing.append("valid_provenance_score")
@@ -101,7 +115,8 @@ def build_review_bundle(candidate_record: dict[str, Any], records: list[dict[str
             kind: item.get("memory_id") for kind, item in evidence.items()
         },
         "provenance_score": score,
-        "license_file_found": license_found,
+        "license_file_found": bool(isinstance(license_content, dict) and license_content.get("license_file_found") is True),
+        "license_evidence_digest_valid": license_digest_valid,
         "chunk_manifest_matches_source": bool(manifest_matches),
         "missing_evidence": sorted(set(missing)),
         "review_status": "ready_for_human_review" if not missing else "evidence_incomplete",

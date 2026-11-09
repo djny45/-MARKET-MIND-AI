@@ -310,19 +310,21 @@ def execute_queued_research_task(task_id: str) -> bool:
                       from_status="queued", to_status="running", occurred_at=now)
         task_input = json.loads(row["input_json"])
         agent_id = row["worker_id"]
-        brain = brain_config(agent_id)
-    payload = {
-        "agent": {"id": agent_id, "department": brain["department"], "specialty": brain["specialty"]},
-        "agent_context": brain["brain_context"],
-        "retrieved_memory": recall_memory(
-            agent_id, task_input["brief"] + " " + json.dumps(task_input.get("data"), ensure_ascii=False)[:6000],
-            limit=5,
-        ),
-        "task": task_input,
-        "constraints": ["Use supplied data only.", "Distinguish facts, assumptions, and unknowns.",
-                       "Do not invent missing market data.", "No trade execution or investment certainty."],
-    }
     try:
+        # Build context inside the guarded execution block. A memory/configuration
+        # failure must transition the claimed task to failed, not strand it as running.
+        brain = brain_config(agent_id)
+        payload = {
+            "agent": {"id": agent_id, "department": brain["department"], "specialty": brain["specialty"]},
+            "agent_context": brain["brain_context"],
+            "retrieved_memory": recall_memory(
+                agent_id, task_input["brief"] + " " + json.dumps(task_input.get("data"), ensure_ascii=False)[:6000],
+                limit=5,
+            ),
+            "task": task_input,
+            "constraints": ["Use supplied data only.", "Distinguish facts, assumptions, and unknowns.",
+                           "Do not invent missing market data.", "No trade execution or investment certainty."],
+        }
         synthesis = synthesize_research(payload)
         task_data = task_input.get("data")
         evaluation = None

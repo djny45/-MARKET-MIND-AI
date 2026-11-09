@@ -915,6 +915,35 @@ def record_open_source_license_review(worker_id: str, request: OpenSourceLicense
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+@app.get("/api/workers/{worker_id}/open-source-license-reviews")
+def list_open_source_license_reviews(worker_id: str, limit: int = 50):
+ """List recent license-review dispositions without implying approval."""
+ if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 200:
+  raise HTTPException(status_code=400, detail="limit must be between 1 and 200")
+ try:
+  records = read_memory(worker_id, "validation_result", 200)["memory"]
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+ reviews = [
+  {
+   "memory_id": item["memory_id"],
+   "created_at": item["created_at"],
+   "quality_status": item["quality_status"],
+   "review": item["content"],
+  }
+  for item in records
+  if isinstance(item.get("content"), dict)
+  and item["content"].get("record_type") == "open_source_license_review_disposition"
+ ]
+ return {
+  "worker_id": worker_id,
+  "count": min(len(reviews), limit),
+  "reviews": reviews[:limit],
+  "scan_limit": 200,
+  "note": "Recent append-only records only; reviewer identity is unverified and dispositions are not license clearance or reuse permission.",
+ }
+
+
 @app.post("/api/workers/{worker_id}/chunk-open-source-candidate")
 def chunk_open_source_candidate(worker_id: str, request: GitHubResearchChunkingRequest):
  """Chunk a previously stored text candidate for evidence-linked review.

@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from app.workspace import save_synthesis_review, get_synthesis_review, list_synthesis_reviews
+from app.workspace import save_synthesis_review, get_synthesis_review, list_synthesis_reviews, synthesis_review_summary
 
 
 class SynthesisReviewPersistenceTests(unittest.TestCase):
@@ -99,6 +99,32 @@ class SynthesisReviewPersistenceTests(unittest.TestCase):
         self.assertEqual(fetched["claim_review_checklist"], checklist)
         self.assertEqual(fetched["claim_review_checklist"]["status"], "complete")
         self.assertEqual(fetched["claim_review_checklist"]["complete_claim_count"], 1)
+
+
+    def test_review_history_filters_and_summary_counts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.dict(os.environ, {"MARKET_MIND_DB": os.path.join(tmp, "filtered.db")}):
+                save_synthesis_review({"status": "approved", "reviewer": "alice", "draft": "private A"})
+                save_synthesis_review({"status": "rejected", "reviewer": "alice", "draft": "private B"})
+                save_synthesis_review({"status": "approved", "reviewer": "bob", "draft": "private C"})
+                approved_alice = list_synthesis_reviews(status="approved", reviewer="alice")
+                summary = synthesis_review_summary()
+                alice_summary = synthesis_review_summary(reviewer="alice")
+        self.assertEqual(len(approved_alice), 1)
+        self.assertEqual(approved_alice[0]["status"], "approved")
+        self.assertNotIn("draft", approved_alice[0])
+        self.assertEqual(summary, {"total": 3, "by_status": {"approved": 2, "rejected": 1}})
+        self.assertEqual(alice_summary, {"total": 2, "by_status": {"approved": 1, "rejected": 1}})
+
+    def test_review_history_rejects_invalid_filters(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.dict(os.environ, {"MARKET_MIND_DB": os.path.join(tmp, "invalid-filter.db")}):
+                save_synthesis_review({"status": "approved", "reviewer": "alice"})
+                with self.assertRaisesRegex(ValueError, "status"):
+                    list_synthesis_reviews(status=" ")
+                with self.assertRaisesRegex(ValueError, "reviewer"):
+                    synthesis_review_summary(reviewer=" ")
+
 
 
 if __name__ == "__main__":

@@ -287,6 +287,15 @@ def build_binary_research_report(
         split_boundaries["test_start"],
         embargo_seconds=embargo_seconds,
     )
+    dataset_start = datetime.fromisoformat(normalized_manifest["start"])
+    dataset_end = datetime.fromisoformat(normalized_manifest["end"])
+    train_end = datetime.fromisoformat(chronology["train_end"])
+    test_start = datetime.fromisoformat(chronology["test_start"])
+    if train_end < dataset_start or test_start > dataset_end:
+        raise ValueError(
+            "chronological split boundaries must fall within the dataset manifest range"
+        )
+
     aggregate = aggregate_binary_evaluation_runs(actual_runs, predicted_runs)
     evaluated_samples = aggregate["pooled"]["sample_count"]
     if evaluated_samples > normalized_manifest["sample_count"]:

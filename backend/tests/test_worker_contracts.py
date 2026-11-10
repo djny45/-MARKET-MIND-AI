@@ -2,7 +2,7 @@ import unittest
 
 from app.worker_contracts import (
     CONTRACT_VERSION, get_worker_contract,
-    validate_worker_input, validate_worker_output,
+    validate_worker_input, validate_worker_output, validate_evidence_provenance,
 )
 
 
@@ -61,6 +61,28 @@ class WorkerContractTests(unittest.TestCase):
             with self.subTest(node_type=node_type, output=output):
                 with self.assertRaisesRegex(ValueError, "finite numbers"):
                     validate_worker_output(node_type, output)
+
+    def test_evidence_provenance_requires_source_timestamp_and_quality(self):
+        validate_evidence_provenance({
+            "input_source": "provider:sample",
+            "retrieval_timestamp": "2026-11-10T12:30:00Z",
+            "quality_status": "pass",
+        })
+        for evidence in (
+            {},
+            {"input_source": "provider"},
+            {"input_source": "provider", "retrieval_timestamp": "not-a-date",
+             "quality_status": "pass"},
+            {"input_source": "provider", "retrieval_timestamp": "2026-11-10T12:30:00",
+             "quality_status": "pass"},
+            {"input_source": " ", "retrieval_timestamp": "2026-11-10T12:30:00Z",
+             "quality_status": "pass"},
+            {"input_source": "provider", "retrieval_timestamp": "2026-11-10T12:30:00Z",
+             "quality_status": "unsupported"},
+        ):
+            with self.subTest(evidence=evidence):
+                with self.assertRaises(ValueError):
+                    validate_evidence_provenance(evidence)
 
     def test_unknown_node_contract_rejected(self):
         with self.assertRaises(ValueError):

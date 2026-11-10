@@ -158,6 +158,12 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertEqual(result["dispatch_error_count"], 1)
         self.assertEqual(result["dispatch_errors"], [{"task_id": first["task_id"], "error_type": "RuntimeError"}])
         self.assertEqual(get_research_task(second["task_id"])["status"], "completed")
+        from app.analytical_agent_tasks import list_task_audit_events
+        audit = list_task_audit_events(first["task_id"])["events"]
+        error_events = [event for event in audit if event["event_type"] == "task_dispatch_error"]
+        self.assertEqual(len(error_events), 1)
+        self.assertEqual(error_events[0]["detail"]["error_type"], "RuntimeError")
+        self.assertNotIn("internal detail", str(error_events[0]["detail"]))
 
     def test_agent_task_performance_reports_outcome_rates(self):
         from app.analytical_agent_tasks import (

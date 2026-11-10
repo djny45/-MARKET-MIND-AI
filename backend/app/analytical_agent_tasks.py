@@ -925,6 +925,19 @@ def dispatch_queued_research_tasks(limit: int = 50, max_concurrency: int = 4) ->
                               from_status=task["status"], to_status=task["status"],
                               occurred_at=finished_at,
                               detail={"dispatch_id": dispatch_id})
+        for dispatch_error in dispatch_errors:
+            task = db.execute(
+                "SELECT worker_id,status FROM analytical_agent_tasks WHERE task_id=?",
+                (dispatch_error["task_id"],),
+            ).fetchone()
+            if task is not None:
+                _record_event(
+                    db, dispatch_error["task_id"], task["worker_id"],
+                    "task_dispatch_error", from_status=task["status"],
+                    to_status=task["status"], occurred_at=finished_at,
+                    detail={"dispatch_id": dispatch_id,
+                            "error_type": dispatch_error["error_type"]},
+                )
     return {
         "selected": len(task_ids),
         "dispatched": len(completed),

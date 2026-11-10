@@ -4,6 +4,7 @@ Contracts describe data shapes and evidence expectations. They do not imply
 model inference, trade recommendations, or broker capabilities.
 """
 from copy import deepcopy
+from datetime import datetime
 import math
 
 CONTRACT_VERSION = "1.0.0"
@@ -145,3 +146,33 @@ def validate_worker_output(node_type: str, output) -> None:
         raise ValueError(f"{node_type} output {path} contains an unsupported value")
 
     validate_finite(output, "value")
+
+
+def validate_evidence_provenance(evidence) -> None:
+    """Validate optional source provenance before a workflow handler consumes it.
+
+    Provenance remains optional until every supported provider can supply it;
+    when present, malformed or timezone-naive metadata is rejected.
+    """
+    if not isinstance(evidence, dict):
+        raise ValueError("Evidence provenance must be an object")
+    required = ("input_source", "retrieval_timestamp", "quality_status")
+    missing = [key for key in required if key not in evidence]
+    if missing:
+        raise ValueError(
+            "Evidence provenance is missing required fields: " + ", ".join(missing)
+        )
+    source = evidence["input_source"]
+    if not isinstance(source, str) or not source.strip():
+        raise ValueError("Evidence provenance input_source must be a non-empty string")
+    timestamp = evidence["retrieval_timestamp"]
+    if not isinstance(timestamp, str) or not timestamp.strip():
+        raise ValueError("Evidence provenance retrieval_timestamp must be an ISO-8601 string")
+    try:
+        parsed = datetime.fromisoformat(timestamp.strip().replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError("Evidence provenance retrieval_timestamp must be valid ISO-8601") from exc
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise ValueError("Evidence provenance retrieval_timestamp must include a timezone")
+    if evidence["quality_status"] not in ("pass", "warn", "fail", "unknown"):
+        raise ValueError("Evidence provenance quality_status must be pass, warn, fail, or unknown")

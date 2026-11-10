@@ -202,16 +202,44 @@ def retry_failed_research_task(task_id: str) -> dict | None:
         if row["status"] != "failed":
             return {"task_id": task_id, "status": row["status"], "retried": False,
                     "reason": "task_not_failed"}
+        # The retry ledger is the authoritative parent/child relation. Check it
+        # before consulting the audit payload, which may be malformed or incomplete.
+        retry_parent = db.execute(
+            "SELECT original_task_id FROM analytical_agent_task_retries WHERE retry_task_id=?",
+            (task_id,),
+        ).fetchone()
+        if retry_parent is not None:
+            return {
+                "task_id": task_id, "status": "failed", "retried": False,
+                "reason": "retry_limit_reached", "retry_limit": 1,
+                "retry_task_id": None, "retry_lineage_limit": 1,
+            }
         # Do not allow retry-of-retry chains: one retry maximum per task lineage.
         queued_event_rows = db.execute(
             "SELECT detail_json FROM analytical_agent_task_events "
             "WHERE task_id=? AND event_type='task_queued'", (task_id,)
         ).fetchall()
-        is_retry_task = any(
-            isinstance((detail := json.loads(event["detail_json"])), dict)
-            and detail.get("retry_of_task_id")
-            for event in queued_event_rows
-        )
+        is_retry_task = False
+        for event in queued_event_rows:
+            try:
+                detail = json.loads(event["detail_json"])
+            except (TypeError, ValueError):
+                # Retry lineage is a safety boundary: corrupted audit history
+                # must not silently make a retry task eligible for another retry.
+                return {
+                    "task_id": task_id, "status": "failed", "retried": False,
+                    "reason": "retry_history_unavailable",
+                    "retry_task_id": None, "retry_lineage_limit": 1,
+                }
+            if not isinstance(detail, dict):
+                return {
+                    "task_id": task_id, "status": "failed", "retried": False,
+                    "reason": "retry_history_unavailable",
+                    "retry_task_id": None, "retry_lineage_limit": 1,
+                }
+            if detail.get("retry_of_task_id"):
+                is_retry_task = True
+                break
         if is_retry_task:
             return {"task_id": task_id, "status": "failed", "retried": False,
                     "reason": "retry_limit_reached", "retry_limit": 1,

@@ -158,6 +158,39 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(out["aggregation"]["completed_count"], 2)
         self.assertEqual(out["results"]["feed"], {"values": [1, 2, 3]})
 
+    def test_workflow_records_validated_optional_input_provenance(self):
+        nodes = [{
+            "id": "feed", "type": "market_input",
+            "data": {
+                "values": [10, 11, 12],
+                "evidence": {
+                    "input_source": "provider:fixture",
+                    "retrieval_timestamp": "2026-11-10T12:30:00Z",
+                    "quality_status": "pass",
+                },
+            },
+        }]
+        out = execute_workflow(nodes, [], {})
+        self.assertEqual(out["tasks"][0]["status"], "completed")
+        self.assertEqual(out["tasks"][0]["evidence_status"], "validated_input_provenance")
+
+    def test_workflow_rejects_malformed_supplied_provenance(self):
+        nodes = [{
+            "id": "feed", "type": "market_input",
+            "data": {
+                "values": [10, 11, 12],
+                "evidence": {
+                    "input_source": "provider:fixture",
+                    "retrieval_timestamp": "2026-11-10T12:30:00",
+                    "quality_status": "pass",
+                },
+            },
+        }]
+        out = execute_workflow(nodes, [], {})
+        self.assertEqual(out["status"], "completed_with_errors")
+        self.assertEqual(out["tasks"][0]["status"], "failed")
+        self.assertIn("timezone", out["tasks"][0]["error"])
+
     def test_invalid_retry_limit_rejected(self):
         with self.assertRaisesRegex(ValueError, "max_retries"):
             execute_workflow(

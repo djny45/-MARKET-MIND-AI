@@ -313,9 +313,11 @@ def execute_queued_research_task(task_id: str) -> bool:
             return False
         _record_event(db, task_id, row["worker_id"], "task_claimed",
                       from_status="queued", to_status="running", occurred_at=now)
-        task_input = json.loads(row["input_json"])
         agent_id = row["worker_id"]
     try:
+        # Decode persisted input inside the guarded execution block. Corrupted
+        # rows must fail safely instead of remaining stuck in the running state.
+        task_input = json.loads(row["input_json"])
         # Build context inside the guarded execution block. A memory/configuration
         # failure must transition the claimed task to failed, not strand it as running.
         brain = brain_config(agent_id)

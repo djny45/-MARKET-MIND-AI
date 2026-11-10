@@ -79,7 +79,7 @@ class ResearchOrchestratorTests(unittest.TestCase):
         audit = result["report"]["evidence_audit"]
         self.assertEqual(audit["metrics"]["claim_disagreement_candidate_count"], 1)
         self.assertEqual(audit["disagreement_candidates"][0]["status"], "human_review_required")
-        self.assertTrue(any("does not verify source authenticity" in item
+        self.assertTrue(any("neither verifies source authenticity" in item
                             for item in result["report"]["limitations"]))
 
     def test_orchestration_without_claims_reports_audit_unavailable_coverage(self):

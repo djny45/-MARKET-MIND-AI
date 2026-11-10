@@ -173,6 +173,12 @@ class WorkflowTests(unittest.TestCase):
         out = execute_workflow(nodes, [], {})
         self.assertEqual(out["tasks"][0]["status"], "completed")
         self.assertEqual(out["tasks"][0]["evidence_status"], "validated_input_provenance")
+        self.assertEqual(out["tasks"][0]["evidence_provenance"], {
+            "input_source": "provider:fixture",
+            "retrieval_timestamp": "2026-11-10T12:30:00Z",
+            "quality_status": "pass",
+        })
+        self.assertNotIn("values", out["tasks"][0]["evidence_provenance"])
 
     def test_workflow_rejects_malformed_supplied_provenance(self):
         nodes = [{

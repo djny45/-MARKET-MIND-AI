@@ -241,5 +241,38 @@ class WorkerRegistryTests(unittest.TestCase):
         )
 
 
+    def test_registry_rejects_non_list_skill_catalog(self):
+        profile = {
+            "id": "worker_001", "name": "Test Worker", "department": "data_quality",
+            "specialty": "test", "kind": "ai_analytical_worker",
+            "model": EXPECTED_CORE, "memory_namespace": "workers/test",
+            "skill_refs": [], "status": "template",
+        }
+        with patch("app.worker_registry.list_workers", return_value=[profile]), \
+             patch("app.worker_registry.list_skills", return_value=None):
+            result = evaluate_registry()
+        self.assertFalse(result["valid"])
+        self.assertIn("skill_catalog_not_a_list", result["errors"])
+        self.assertEqual(result["skill_catalog_integrity"]["catalog_entry_count"], 0)
+
+    def test_registry_requires_boolean_catalog_availability_flag(self):
+        profile = {
+            "id": "worker_001", "name": "Test Worker", "department": "data_quality",
+            "specialty": "test", "kind": "ai_analytical_worker",
+            "model": EXPECTED_CORE, "memory_namespace": "workers/test",
+            "skill_refs": ["known-skill"], "status": "template",
+        }
+        catalog = [{"id": "known-skill", "available": 1}]
+        with patch("app.worker_registry.list_workers", return_value=[profile]), \
+             patch("app.worker_registry.list_skills", return_value=catalog):
+            result = evaluate_registry()
+        self.assertFalse(result["valid"])
+        self.assertIn("invalid_skill_catalog_entry", result["errors"])
+        self.assertEqual(
+            result["skill_catalog_integrity"]["malformed_entry_indexes"],
+            [0],
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

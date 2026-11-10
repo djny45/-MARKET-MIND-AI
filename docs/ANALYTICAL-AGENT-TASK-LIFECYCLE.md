@@ -15,6 +15,7 @@ This document describes the implemented task lifecycle and its current execution
 ## State and safety properties
 
 - A task is claimed with a conditional `queued` → `running` update, preventing duplicate dispatch from claiming the same queued task.
+- While execution is active, a background lease heartbeat refreshes `updated_at` only when the task is still `running` under the same execution token. This prevents ordinary long-running tasks from being mistaken for stale work; a stopped process stops refreshing and remains eligible for grace-period recovery.
 - Cancellation uses a conditional `queued` → `cancelled` update, so it cannot cancel a task after it has been claimed.
 - Task transitions are recorded in SQLite audit events.
 - Task input is bounded and JSON-validated before persistence.
@@ -24,7 +25,7 @@ This document describes the implemented task lifecycle and its current execution
 
 ## Not implemented by this lifecycle
 
-- Distributed/cloud queue or multi-process coordination. Startup recovery is safe only for the documented single-process SQLite deployment; multiple API processes sharing one database can mistakenly treat another process's active task as stale.
+- Distributed/cloud queue or broker-backed scheduling. SQLite task claims and token-fenced heartbeats coordinate shared-database task ownership, but this is not a substitute for a production distributed queue or high-availability scheduler.
 - Scheduled research or cloud workspaces. Stale recovery is bounded to three execution claims per task; manual retry creates a separate fresh task and is capped at one retry per failed original.
 - Live market-data execution as part of the task runner.
 - Broker or exchange order execution.

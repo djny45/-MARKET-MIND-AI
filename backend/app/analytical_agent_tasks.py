@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
+import threading
 import uuid
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -21,6 +22,7 @@ from .research_quality_eval import evaluate_research_draft
 
 MAX_TASK_INPUT_CHARS = 10000
 MAX_TASK_EXECUTION_ATTEMPTS = 3
+TASK_LEASE_HEARTBEAT_INTERVAL_SECONDS = 30
 TASK_TYPE = "research_brief"
 
 @contextmanager
@@ -294,6 +296,26 @@ def classify_research_task_failure(error: Exception) -> dict:
         "automatic_retry": False,
     }
 
+def _task_lease_heartbeat(task_id: str, execution_token: str, stop_event: threading.Event) -> None:
+    """Refresh a running task lease while its exact execution claim remains valid."""
+    while not stop_event.wait(TASK_LEASE_HEARTBEAT_INTERVAL_SECONDS):
+        now = datetime.now(timezone.utc).isoformat()
+        try:
+            with _connect() as db:
+                refreshed = db.execute(
+                    "UPDATE analytical_agent_tasks SET updated_at=? "
+                    "WHERE task_id=? AND status='running' AND execution_token=?",
+                    (now, task_id, execution_token),
+                )
+            if refreshed.rowcount != 1:
+                return
+        except sqlite3.Error:
+            # A transient heartbeat write failure must not mask task execution.
+            # If the process dies or the lease cannot be refreshed, normal stale
+            # recovery remains the bounded fallback.
+            continue
+
+
 def execute_queued_research_task(task_id: str) -> bool:
     """Execute one persisted queued task; safe to call from FastAPI BackgroundTasks."""
     with _connect() as db:
@@ -315,6 +337,14 @@ def execute_queued_research_task(task_id: str) -> bool:
                       from_status="queued", to_status="running", occurred_at=now)
         task_input = json.loads(row["input_json"])
         agent_id = row["worker_id"]
+    heartbeat_stop = threading.Event()
+    heartbeat_thread = threading.Thread(
+        target=_task_lease_heartbeat,
+        args=(task_id, execution_token, heartbeat_stop),
+        name="market-mind-task-lease",
+        daemon=True,
+    )
+    heartbeat_thread.start()
     try:
         # Build context inside the guarded execution block. A memory/configuration
         # failure must transition the claimed task to failed, not strand it as running.
@@ -374,6 +404,8 @@ def execute_queued_research_task(task_id: str) -> bool:
         failure = classify_research_task_failure(exc)
         result = {"error": "Research task failed safely.", **failure}
         status = "failed"
+    heartbeat_stop.set()
+    heartbeat_thread.join(timeout=TASK_LEASE_HEARTBEAT_INTERVAL_SECONDS + 1)
     updated = datetime.now(timezone.utc).isoformat()
     with _connect() as db:
         # Fence completion by the exact claim token. If stale recovery requeued

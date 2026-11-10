@@ -197,5 +197,49 @@ class WorkerRegistryTests(unittest.TestCase):
         self.assertIn("invalid_worker_skill_references", result["errors"])
 
 
+    def test_registry_rejects_duplicate_skill_catalog_ids(self):
+        profile = {
+            "id": "worker_001", "name": "Test Worker", "department": "data_quality",
+            "specialty": "test", "kind": "ai_analytical_worker",
+            "model": EXPECTED_CORE, "memory_namespace": "workers/test",
+            "skill_refs": ["known-skill"], "status": "template",
+        }
+        catalog = [
+            {"id": "known-skill", "available": True},
+            {"id": "known-skill", "available": True},
+        ]
+        with patch("app.worker_registry.list_workers", return_value=[profile]), \
+             patch("app.worker_registry.list_skills", return_value=catalog):
+            result = evaluate_registry()
+        self.assertFalse(result["valid"])
+        self.assertIn("duplicate_skill_catalog_id", result["errors"])
+        self.assertEqual(
+            result["skill_catalog_integrity"]["duplicate_skill_ids"],
+            ["known-skill"],
+        )
+
+    def test_registry_reports_malformed_skill_catalog_entries(self):
+        profile = {
+            "id": "worker_001", "name": "Test Worker", "department": "data_quality",
+            "specialty": "test", "kind": "ai_analytical_worker",
+            "model": EXPECTED_CORE, "memory_namespace": "workers/test",
+            "skill_refs": [], "status": "template",
+        }
+        catalog = [
+            {"id": "valid-skill", "available": True},
+            {"id": "", "available": "yes"},
+            None,
+        ]
+        with patch("app.worker_registry.list_workers", return_value=[profile]), \
+             patch("app.worker_registry.list_skills", return_value=catalog):
+            result = evaluate_registry()
+        self.assertFalse(result["valid"])
+        self.assertIn("invalid_skill_catalog_entry", result["errors"])
+        self.assertEqual(
+            result["skill_catalog_integrity"]["malformed_entry_indexes"],
+            [1, 2],
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

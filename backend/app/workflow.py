@@ -124,6 +124,8 @@ def execute_workflow(
     for node_id, record in task_records.items():
         if not isinstance(record, dict):
             raise ValueError(f"Checkpoint task {node_id} must be an object.")
+        if record.get("node_id") != node_id or record.get("node_type") != by_id[node_id].get("type"):
+            raise ValueError(f"Checkpoint task {node_id} has mismatched task identity.")
         status = record.get("status")
         if not isinstance(status, str) or status not in valid_task_statuses:
             raise ValueError(f"Checkpoint task {node_id} has an invalid status.")

@@ -147,8 +147,7 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
                 )
             return {"status": "completed", "summary": "Evaluated draft."}
 
-        with patch("app.analytical_agent_tasks.synthesize_research", side_effect=reclaim_during_synthesis), \\
-             patch("app.analytical_agent_tasks._persist_research_learning_candidate") as persist_memory:
+        with patch("app.analytical_agent_tasks.synthesize_research", side_effect=reclaim_during_synthesis), patch("app.analytical_agent_tasks._persist_research_learning_candidate") as persist_memory:
             self.assertFalse(execute_queued_research_task(queued["task_id"]))
             persist_memory.assert_not_called()
 

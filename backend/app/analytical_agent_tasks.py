@@ -207,11 +207,27 @@ def retry_failed_research_task(task_id: str) -> dict | None:
             "SELECT detail_json FROM analytical_agent_task_events "
             "WHERE task_id=? AND event_type='task_queued'", (task_id,)
         ).fetchall()
-        is_retry_task = any(
-            isinstance((detail := json.loads(event["detail_json"])), dict)
-            and detail.get("retry_of_task_id")
-            for event in queued_event_rows
-        )
+        is_retry_task = False
+        for event in queued_event_rows:
+            try:
+                detail = json.loads(event["detail_json"])
+            except (TypeError, ValueError):
+                # Retry lineage is a safety boundary: corrupted audit history
+                # must not silently make a retry task eligible for another retry.
+                return {
+                    "task_id": task_id, "status": "failed", "retried": False,
+                    "reason": "retry_history_unavailable",
+                    "retry_task_id": None, "retry_lineage_limit": 1,
+                }
+            if not isinstance(detail, dict):
+                return {
+                    "task_id": task_id, "status": "failed", "retried": False,
+                    "reason": "retry_history_unavailable",
+                    "retry_task_id": None, "retry_lineage_limit": 1,
+                }
+            if detail.get("retry_of_task_id"):
+                is_retry_task = True
+                break
         if is_retry_task:
             return {"task_id": task_id, "status": "failed", "retried": False,
                     "reason": "retry_limit_reached", "retry_limit": 1,

@@ -259,12 +259,10 @@ class WorkflowTests(unittest.TestCase):
               "tasks": {"feed": {"status": "completed"}, "unknown": {"status": "queued"}}},
              "task for a node that is not in this workflow"),
             ({"completed_node_ids": ["feed"], "results": {"feed": {"values": [1, 2, 3]}},
-              "tasks": {"feed": {"status": "completed"}} , "extra": "ignored"}, None),
+              "tasks": {"feed": {"status": []}}}, "invalid status"),
         ]
         for checkpoint, message in invalid_checkpoints:
             with self.subTest(checkpoint=checkpoint):
-                if message is None:
-                    continue
                 with self.assertRaisesRegex(ValueError, message):
                     execute_workflow(nodes, [{"source": "feed", "target": "sma"}], {},
                                      initial_checkpoint=checkpoint)

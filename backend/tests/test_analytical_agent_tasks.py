@@ -115,6 +115,46 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertEqual(evaluation["metrics"]["claim_reference_coverage"], 0.5)
         self.assertEqual(evaluation["metrics"]["known_source_reference_coverage"], 0.5)
 
+    def test_stale_executor_cannot_persist_quality_or_learning_side_effects(self):
+        import sqlite3
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, execute_queued_research_task,
+            get_task_quality_evaluation, get_research_task,
+        )
+        queued = enqueue_research_task(
+            "worker_014",
+            "Evaluate supplied claims after ownership changes",
+            {
+                "draft": "Draft includes limitations and unknowns.",
+                "claims": [{"text": "Claim with source", "source_refs": ["source-1"]}],
+                "source_registry": [{"source_id": "source-1"}],
+            },
+        )
+
+        def reclaim_during_synthesis(_payload):
+            # Simulate stale recovery followed by a different executor claiming
+            # the task before this executor reaches its finalization step.
+            with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+                db.execute(
+                    "UPDATE analytical_agent_tasks SET status='queued',execution_token=NULL "
+                    "WHERE task_id=?",
+                    (queued["task_id"],),
+                )
+                db.execute(
+                    "UPDATE analytical_agent_tasks SET status='running',execution_token=? "
+                    "WHERE task_id=?",
+                    ("replacement-owner-token", queued["task_id"]),
+                )
+            return {"status": "completed", "summary": "Evaluated draft."}
+
+        with patch("app.analytical_agent_tasks.synthesize_research", side_effect=reclaim_during_synthesis), \\
+             patch("app.analytical_agent_tasks._persist_research_learning_candidate") as persist_memory:
+            self.assertFalse(execute_queued_research_task(queued["task_id"]))
+            persist_memory.assert_not_called()
+
+        self.assertEqual(get_research_task(queued["task_id"])["status"], "running")
+        self.assertIsNone(get_task_quality_evaluation(queued["task_id"]))
+
     def test_task_audit_events_record_queue_claim_and_completion(self):
         from app.analytical_agent_tasks import (
             enqueue_research_task, execute_queued_research_task, list_task_audit_events,

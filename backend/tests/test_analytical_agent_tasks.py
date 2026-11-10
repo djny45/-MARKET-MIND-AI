@@ -302,6 +302,66 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertEqual(recovery["recovery_mode"], "manual_stale_requeue_no_dispatch")
         self.assertEqual(get_research_task(queued["task_id"])["status"], "queued")
 
+    def test_active_task_heartbeat_prevents_stale_recovery(self):
+        import sqlite3
+        import threading
+        import time
+        from datetime import datetime, timedelta, timezone
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, execute_queued_research_task,
+            recover_interrupted_research_tasks,
+        )
+
+        queued = enqueue_research_task("worker_005", "long-running task lease")
+        entered = threading.Event()
+        release = threading.Event()
+
+        def slow_synthesis(_payload):
+            entered.set()
+            release.wait(timeout=3)
+            return {"status": "completed", "summary": "bounded test result"}
+
+        def execute():
+            return execute_queued_research_task(queued["task_id"])
+
+        worker_thread = threading.Thread(target=execute)
+        try:
+            with patch("app.analytical_agent_tasks.TASK_LEASE_HEARTBEAT_INTERVAL_SECONDS", 0.02), \\
+                 patch("app.analytical_agent_tasks.synthesize_research", side_effect=slow_synthesis):
+                worker_thread.start()
+                self.assertTrue(entered.wait(timeout=2))
+                stale_timestamp = (
+                    datetime.now(timezone.utc) - timedelta(minutes=20)
+                ).isoformat()
+                with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+                    db.execute(
+                        "UPDATE analytical_agent_tasks SET updated_at=? WHERE task_id=?",
+                        (stale_timestamp, queued["task_id"]),
+                    )
+
+                refreshed = False
+                for _ in range(100):
+                    with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+                        row = db.execute(
+                            "SELECT updated_at FROM analytical_agent_tasks WHERE task_id=?",
+                            (queued["task_id"],),
+                        ).fetchone()
+                    if row and row[0] != stale_timestamp:
+                        refreshed = True
+                        break
+                    time.sleep(0.01)
+                self.assertTrue(refreshed, "active task lease was not refreshed")
+
+                recovery = recover_interrupted_research_tasks(stale_after_seconds=1)
+                self.assertEqual(recovery["requeued_interrupted_count"], 0)
+                self.assertEqual(get_research_task(queued["task_id"])["status"], "running")
+        finally:
+            release.set()
+            worker_thread.join(timeout=4)
+
+        self.assertFalse(worker_thread.is_alive())
+        self.assertEqual(get_research_task(queued["task_id"])["status"], "completed")
+
     def test_recovery_fails_stale_task_after_execution_attempt_limit(self):
         from app.analytical_agent_tasks import (
             enqueue_research_task, recover_interrupted_research_tasks,

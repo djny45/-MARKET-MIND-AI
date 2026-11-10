@@ -152,7 +152,8 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
             persist_memory.assert_not_called()
 
         self.assertEqual(get_research_task(queued["task_id"])["status"], "running")
-        self.assertIsNone(get_task_quality_evaluation(queued["task_id"]))
+        self.assertEqual(get_task_quality_evaluation(queued["task_id"])["status"], "not_evaluated")
+        self.assertIsNone(get_task_quality_evaluation(queued["task_id"])["evaluation"])
 
     def test_task_audit_events_record_queue_claim_and_completion(self):
         from app.analytical_agent_tasks import (

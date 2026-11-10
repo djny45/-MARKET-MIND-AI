@@ -124,8 +124,6 @@ def execute_workflow(
     for node_id, record in task_records.items():
         if not isinstance(record, dict):
             raise ValueError(f"Checkpoint task {node_id} must be an object.")
-        if record.get("node_id") != node_id or record.get("node_type") != by_id[node_id].get("type"):
-            raise ValueError(f"Checkpoint task {node_id} has mismatched task identity.")
         status = record.get("status")
         if not isinstance(status, str) or status not in valid_task_statuses:
             raise ValueError(f"Checkpoint task {node_id} has an invalid status.")
@@ -135,6 +133,8 @@ def execute_workflow(
             raise ValueError(f"Checkpoint task {node_id} is completed but its result is missing.")
         if status != "completed" and node_id in completed_before:
             raise ValueError(f"Checkpoint node {node_id} is marked completed but its task is not completed.")
+        if record.get("node_id") != node_id or record.get("node_type") != by_id[node_id].get("type"):
+            raise ValueError(f"Checkpoint task {node_id} has mismatched task identity.")
     if completed_before != set(results).intersection(completed_before):
         raise ValueError("Checkpoint completed nodes must each have a stored result.")
     if set(results) - completed_before:

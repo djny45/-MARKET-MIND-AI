@@ -213,6 +213,75 @@ class WorkflowTests(unittest.TestCase):
                 max_workers=0,
             )
 
+    def test_rejects_malformed_workflow_container_shapes(self):
+        valid_node = {"id": "x", "type": "market_input", "data": {"values": [1, 2]}}
+        invalid_cases = [
+            ({"nodes": "not-a-list", "edges": [], "inputs": {}}, "nodes"),
+            ({"nodes": [None], "edges": [], "inputs": {}}, "node must be an object"),
+            ({"nodes": [valid_node], "edges": [None], "inputs": {}}, "edges"),
+            ({"nodes": [valid_node], "edges": [], "inputs": []}, "inputs"),
+            ({"nodes": [{"id": "x", "type": "market_input", "data": []}], "edges": [], "inputs": {}}, "data must be an object"),
+            ({"nodes": [valid_node], "edges": [{"source": None, "target": "x"}], "inputs": {}}, "source and target"),
+        ]
+        for arguments, message in invalid_cases:
+            with self.subTest(arguments=arguments):
+                with self.assertRaisesRegex(ValueError, message):
+                    execute_workflow(**arguments)
+
+    def test_rejects_non_object_initial_checkpoint(self):
+        with self.assertRaisesRegex(ValueError, "checkpoint must be an object"):
+            execute_workflow(
+                [{"id": "x", "type": "market_input", "data": {"values": [1, 2]}}],
+                [], {}, initial_checkpoint=[],
+            )
+
+    def test_rejects_inconsistent_workflow_checkpoints(self):
+        nodes = [
+            {"id": "feed", "type": "market_input", "data": {"values": [1, 2, 3]}},
+            {"id": "sma", "type": "sma", "data": {"period": 2}},
+        ]
+        invalid_checkpoints = [
+            ({"completed_node_ids": "feed"}, "completed_node_ids"),
+            ({"completed_node_ids": ["missing"]}, "not in this workflow"),
+            ({"completed_node_ids": ["feed"], "results": [], "tasks": {}}, "results must be an object"),
+            ({"completed_node_ids": ["feed"], "results": {}, "tasks": []}, "tasks must be an object"),
+            ({"completed_node_ids": ["feed"], "results": {"feed": {"values": [1, 2, 3]}},
+              "tasks": {"feed": None}}, "task feed must be an object"),
+            ({"completed_node_ids": ["feed"], "results": {"feed": {"values": [1, 2, 3]}},
+              "tasks": {"feed": {"node_id": "other", "node_type": "market_input", "status": "completed"}}},
+             "mismatched task identity"),
+            ({"completed_node_ids": ["feed"], "results": {},
+              "tasks": {"feed": {"status": "completed"}}}, "result is missing"),
+            ({"completed_node_ids": ["feed"], "results": {"feed": {"values": [1, 2, 3]}},
+              "tasks": {"feed": {"status": "failed"}}}, "task is not completed"),
+            ({"completed_node_ids": ["feed", "feed"], "results": {"feed": {"values": [1, 2, 3]}},
+              "tasks": {"feed": {"status": "completed"}}}, "must not contain duplicates"),
+            ({"completed_node_ids": ["feed"], "results": {"feed": {"values": [1, 2, 3]}},
+              "tasks": {"feed": {"status": "completed"}, "unknown": {"status": "queued"}}},
+             "task for a node that is not in this workflow"),
+            ({"completed_node_ids": ["feed"], "results": {"feed": {"values": [1, 2, 3]}},
+              "tasks": {"feed": {"status": []}}}, "invalid status"),
+        ]
+        for checkpoint, message in invalid_checkpoints:
+            with self.subTest(checkpoint=checkpoint):
+                with self.assertRaisesRegex(ValueError, message):
+                    execute_workflow(nodes, [{"source": "feed", "target": "sma"}], {},
+                                     initial_checkpoint=checkpoint)
+
+    def test_checkpoint_cannot_skip_completed_dependency_without_result(self):
+        nodes = [
+            {"id": "feed", "type": "market_input", "data": {"values": [1, 2, 3]}},
+            {"id": "sma", "type": "sma", "data": {"period": 2}},
+        ]
+        checkpoint = {
+            "completed_node_ids": ["feed"],
+            "results": {},
+            "tasks": {"feed": {"status": "completed"}},
+        }
+        with self.assertRaisesRegex(ValueError, "result is missing"):
+            execute_workflow(nodes, [{"source": "feed", "target": "sma"}], {},
+                             initial_checkpoint=checkpoint)
+
     def test_cycle_rejected(self):
         nodes = [
             {"id": "a", "type": "market_input", "data": {"values": [1, 2]}},

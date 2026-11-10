@@ -16,7 +16,7 @@ This document describes the implemented task lifecycle and its current execution
 
 - A task is claimed with a conditional `queued` → `running` update, preventing duplicate dispatch from claiming the same queued task.
 - Cancellation uses a conditional `queued` → `cancelled` update, so it cannot cancel a task after it has been claimed.
-- Task transitions are recorded in SQLite audit events.
+- Task transitions are recorded in SQLite audit events. Dispatcher-level worker exceptions are also recorded as `task_dispatch_error` events with a dispatch ID and exception class, without storing exception messages or changing task state.
 - Task input is bounded and JSON-validated before persistence.
 - The worker context is isolated by worker ID and context hash, while inference uses one shared intelligence provider.
 - Research uses supplied data only; it does not fetch live market data or execute trades.

@@ -153,6 +153,10 @@ def execute_workflow(
                     if evidence is not None:
                         validate_evidence_provenance(evidence)
                         record["evidence_status"] = "validated_input_provenance"
+                        record["evidence_provenance"] = {
+                            key: evidence[key]
+                            for key in ("input_source", "retrieval_timestamp", "quality_status")
+                        }
                     validate_worker_input(kind, params.get("values", payload) if kind == "market_input" else payload)
                     value = _run_node(kind, payload, params)
                     validate_worker_output(kind, value)

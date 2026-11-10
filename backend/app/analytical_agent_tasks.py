@@ -581,11 +581,15 @@ def get_research_task(task_id: str) -> dict | None:
         row = db.execute("SELECT * FROM analytical_agent_tasks WHERE task_id=?", (task_id,)).fetchone()
     if row is None:
         return None
+    try:
+        task_input = json.loads(row["input_json"])
+    except (TypeError, ValueError):
+        task_input = {"error": "Stored task input is invalid JSON."}
     return {
         "task_id": row["task_id"], "agent_id": row["worker_id"], "worker_id": row["worker_id"],
         "task_type": row["task_type"], "status": row["status"],
         "execution_attempts": row["execution_attempts"],
-        "input": json.loads(row["input_json"]), "result": json.loads(row["result_json"]),
+        "input": task_input, "result": json.loads(row["result_json"]),
         "brain_context_sha256": row["brain_context_sha256"],
         "created_at": row["created_at"], "updated_at": row["updated_at"],
     }

@@ -155,5 +155,47 @@ class WorkerRegistryTests(unittest.TestCase):
         self.assertFalse(boundary["broker_execution"])
 
 
+    def test_registry_rejects_unknown_skill_reference(self):
+        profile = {
+            "id": "worker_001", "name": "Test Worker", "department": "data_quality",
+            "specialty": "test", "kind": "ai_analytical_worker",
+            "model": EXPECTED_CORE, "memory_namespace": "workers/test",
+            "skill_refs": ["unknown-skill"], "status": "template",
+        }
+        with patch("app.worker_registry.list_workers", return_value=[profile]), \
+             patch("app.worker_registry.list_skills", return_value=[]):
+            result = evaluate_registry()
+        self.assertFalse(result["valid"])
+        self.assertIn("unknown_skill_reference", result["errors"])
+
+    def test_registry_rejects_duplicate_skill_references(self):
+        profile = {
+            "id": "worker_001", "name": "Test Worker", "department": "data_quality",
+            "specialty": "test", "kind": "ai_analytical_worker",
+            "model": EXPECTED_CORE, "memory_namespace": "workers/test",
+            "skill_refs": ["known-skill", "known-skill"], "status": "template",
+        }
+        catalog = [{"id": "known-skill", "available": True}]
+        with patch("app.worker_registry.list_workers", return_value=[profile]), \
+             patch("app.worker_registry.list_skills", return_value=catalog):
+            result = evaluate_registry()
+        self.assertFalse(result["valid"])
+        self.assertIn("duplicate_worker_skill_reference", result["errors"])
+
+    def test_registry_rejects_non_string_skill_reference(self):
+        profile = {
+            "id": "worker_001", "name": "Test Worker", "department": "data_quality",
+            "specialty": "test", "kind": "ai_analytical_worker",
+            "model": EXPECTED_CORE, "memory_namespace": "workers/test",
+            "skill_refs": ["known-skill", 42], "status": "template",
+        }
+        catalog = [{"id": "known-skill", "available": True}]
+        with patch("app.worker_registry.list_workers", return_value=[profile]), \
+             patch("app.worker_registry.list_skills", return_value=catalog):
+            result = evaluate_registry()
+        self.assertFalse(result["valid"])
+        self.assertIn("invalid_worker_skill_references", result["errors"])
+
+
 if __name__ == "__main__":
     unittest.main()

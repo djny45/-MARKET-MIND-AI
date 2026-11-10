@@ -104,9 +104,20 @@ def get_task_quality_evaluation(task_id: str) -> dict | None:
         ).fetchone()
     if row is None:
         return {"task_id": task_id, "evaluation": None, "status": "not_evaluated"}
+    try:
+        evaluation = json.loads(row["evaluation_json"])
+    except (TypeError, ValueError):
+        evaluation = None
+    if not isinstance(evaluation, dict):
+        return {
+            "evaluation_id": row["evaluation_id"], "task_id": row["task_id"],
+            "worker_id": row["worker_id"], "evaluation": None,
+            "created_at": row["created_at"], "status": "invalid_record",
+            "error": "Stored quality evaluation is invalid JSON or is not an object.",
+        }
     return {
         "evaluation_id": row["evaluation_id"], "task_id": row["task_id"],
-        "worker_id": row["worker_id"], "evaluation": json.loads(row["evaluation_json"]),
+        "worker_id": row["worker_id"], "evaluation": evaluation,
         "created_at": row["created_at"], "status": "persisted",
     }
 

@@ -213,6 +213,28 @@ class WorkflowTests(unittest.TestCase):
                 max_workers=0,
             )
 
+    def test_rejects_malformed_workflow_container_shapes(self):
+        valid_node = {"id": "x", "type": "market_input", "data": {"values": [1, 2]}}
+        invalid_cases = [
+            ({"nodes": "not-a-list", "edges": [], "inputs": {}}, "nodes"),
+            ({"nodes": [None], "edges": [], "inputs": {}}, "node must be an object"),
+            ({"nodes": [valid_node], "edges": [None], "inputs": {}}, "edges"),
+            ({"nodes": [valid_node], "edges": [], "inputs": []}, "inputs"),
+            ({"nodes": [{"id": "x", "type": "market_input", "data": []}], "edges": [], "inputs": {}}, "data must be an object"),
+            ({"nodes": [valid_node], "edges": [{"source": None, "target": "x"}], "inputs": {}}, "source and target"),
+        ]
+        for arguments, message in invalid_cases:
+            with self.subTest(arguments=arguments):
+                with self.assertRaisesRegex(ValueError, message):
+                    execute_workflow(**arguments)
+
+    def test_rejects_non_object_initial_checkpoint(self):
+        with self.assertRaisesRegex(ValueError, "checkpoint must be an object"):
+            execute_workflow(
+                [{"id": "x", "type": "market_input", "data": {"values": [1, 2]}}],
+                [], {}, initial_checkpoint=[],
+            )
+
     def test_cycle_rejected(self):
         nodes = [
             {"id": "a", "type": "market_input", "data": {"values": [1, 2]}},

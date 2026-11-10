@@ -23,8 +23,33 @@ class ResearchOrchestratorTests(unittest.TestCase):
         self.assertEqual(result["report"]["summary"]["tasks_completed"], 3)
         self.assertEqual(len(result["report"]["findings"]), 3)
         self.assertEqual(result["report"]["findings"][-1]["node_type"], "research_summary")
-        self.assertEqual(result["report"]["findings"][0]["evidence_status"],
-                         "source_provenance_not_attached")
+        self.assertEqual(result["report"]["findings"][0]["evidence_status"], "not_supplied")
+        coverage = result["report"]["evidence_coverage"]
+        self.assertEqual(coverage["completed_findings"], 3)
+        self.assertEqual(coverage["findings_with_validated_provenance"], 0)
+        self.assertEqual(coverage["provenance_coverage_ratio"], 0)
+        self.assertEqual(len(coverage["unprovenanced_node_ids"]), 3)
+
+    def test_provenance_is_propagated_into_findings_and_coverage(self):
+        nodes = [
+            {"id": "feed", "type": "market_input", "data": {
+                "values": [10, 11, 12],
+                "evidence": {
+                    "input_source": "provider:fixture",
+                    "retrieval_timestamp": "2026-11-10T12:30:00Z",
+                    "quality_status": "warn",
+                },
+            }},
+        ]
+        result = orchestrate_research(nodes, [], {})
+        finding = result["report"]["findings"][0]
+        self.assertEqual(finding["evidence_status"], "validated_input_provenance")
+        self.assertEqual(finding["evidence_provenance"]["input_source"], "provider:fixture")
+        coverage = result["report"]["evidence_coverage"]
+        self.assertEqual(coverage["findings_with_validated_provenance"], 1)
+        self.assertEqual(coverage["provenance_coverage_ratio"], 1)
+        self.assertEqual(coverage["quality_status_counts"], {"warn": 1})
+        self.assertEqual(coverage["declared_sources"], ["provider:fixture"])
 
     def test_registry_digest_and_capability_boundary_are_included(self):
         result = orchestrate_research(self.nodes, self.edges, {})

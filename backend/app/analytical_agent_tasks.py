@@ -202,6 +202,18 @@ def retry_failed_research_task(task_id: str) -> dict | None:
         if row["status"] != "failed":
             return {"task_id": task_id, "status": row["status"], "retried": False,
                     "reason": "task_not_failed"}
+        # The retry ledger is the authoritative parent/child relation. Check it
+        # before consulting the audit payload, which may be malformed or incomplete.
+        retry_parent = db.execute(
+            "SELECT original_task_id FROM analytical_agent_task_retries WHERE retry_task_id=?",
+            (task_id,),
+        ).fetchone()
+        if retry_parent is not None:
+            return {
+                "task_id": task_id, "status": "failed", "retried": False,
+                "reason": "retry_limit_reached", "retry_limit": 1,
+                "retry_task_id": None, "retry_lineage_limit": 1,
+            }
         # Do not allow retry-of-retry chains: one retry maximum per task lineage.
         queued_event_rows = db.execute(
             "SELECT detail_json FROM analytical_agent_task_events "

@@ -40,7 +40,8 @@ This roadmap is a plan, not a claim that features already exist. Mark an item co
 
 ## Phase 4 — Intelligence and workflow canvas
 - [ ] Define complete typed specialist-worker input/output contracts.
-- [x] Add versioned v1.0.0 contract definitions and runtime shape validation for supported workflow node types; detailed domain schemas and mandatory provenance enforcement remain pending.\n  - [x] Validate optional supplied source provenance (non-empty source, timezone-aware ISO-8601 retrieval timestamp, and quality status); provider-wide mandatory provenance and propagation into final findings remain pending.
+- [x] Add versioned v1.0.0 contract definitions and runtime shape validation for supported workflow node types; detailed domain schemas and mandatory provenance enforcement remain pending.\n  - [x] Validate optional supplied source provenance (non-empty source, timezone-aware ISO-8601 retrieval timestamp, and quality status); provider-wide mandatory provenance remains pending.
+  - [x] Propagate validated provenance metadata into findings and report coverage metrics (coverage, unprovenanced nodes, declared source counts, and quality-status counts); these metadata checks do not prove source authenticity or claim entailment.
 - [ ] Build central research orchestrator with model-backed inference and evidence-grounded synthesis.
 - [x] Add optional single-core local Ollama provider boundary (loopback-only, disabled by default, bounded input, timeout/failure fallback and status API); evidence-citation prompts, human approval and model-backed integration tests remain pending.
 - [x] Implement initial deterministic shared-core orchestration API with worker result aggregation, contract references, registry integrity gate and descriptive report; model-backed inference and source-provenance attachment remain pending.
@@ -54,7 +55,7 @@ This roadmap is a plan, not a claim that features already exist. Mark an item co
 - [ ] Implement autonomous research scheduling and cloud workspaces (not implemented).
 - [ ] Implement evaluated learning loop with benchmark datasets, quality metrics, regression gates, and reviewed promotion.
 - [ ] Build visual node-based research workflows.
-- [ ] Add end-to-end explainability, evidence coverage, and disagreement reporting.
+- [x] Add initial provenance coverage and metadata-quality counts to orchestrated research reports; full source authenticity, claim entailment, and end-to-end explainability remain pending.
 
 Current boundary: worker routing invokes deterministic Python handlers. The 550 profiles are not independent models. Optional Ollama is a single shared, loopback-only summarization provider and is disabled by default; autonomous self-learning and brokerage execution remain disabled.
 

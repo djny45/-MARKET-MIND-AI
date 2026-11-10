@@ -48,6 +48,26 @@ def execute_workflow(
         raise ValueError("max_workers must be an integer between 1 and 16")
     if not isinstance(max_retries, int) or isinstance(max_retries, bool) or not 0 <= max_retries <= 3:
         raise ValueError("max_retries must be an integer between 0 and 3")
+    if not isinstance(nodes, list) or not nodes:
+        raise ValueError("Workflow nodes must be a non-empty list of objects.")
+    if any(not isinstance(node, dict) for node in nodes):
+        raise ValueError("Every workflow node must be an object.")
+    if not isinstance(edges, list) or any(not isinstance(edge, dict) for edge in edges):
+        raise ValueError("Workflow edges must be a list of objects.")
+    if not isinstance(inputs, dict):
+        raise ValueError("Workflow inputs must be an object.")
+    if initial_checkpoint is not None and not isinstance(initial_checkpoint, dict):
+        raise ValueError("Workflow checkpoint must be an object.")
+    for node in nodes:
+        node_id = node.get("id")
+        if not isinstance(node_id, str) or not node_id.strip():
+            raise ValueError("Every workflow node must have a non-empty string id.")
+        if node.get("data") is not None and not isinstance(node["data"], dict):
+            raise ValueError(f"Workflow node {node_id} data must be an object.")
+    for edge in edges:
+        if (not isinstance(edge.get("source"), str) or not edge["source"].strip()
+                or not isinstance(edge.get("target"), str) or not edge["target"].strip()):
+            raise ValueError("Every workflow edge must have non-empty string source and target ids.")
     by_id = {_node_id(node): node for node in nodes}
     if not nodes or any(not key for key in by_id) or len(by_id) != len(nodes):
         raise ValueError("Workflow must contain uniquely identified nodes.")

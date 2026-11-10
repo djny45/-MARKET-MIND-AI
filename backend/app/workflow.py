@@ -7,7 +7,10 @@ import math
 
 from . import indicators
 from .worker_runtime import assign_worker
-from .worker_contracts import (\n    get_worker_contract, validate_worker_input, validate_worker_output,\n    validate_evidence_provenance,\n)
+from .worker_contracts import (
+    get_worker_contract, validate_worker_input, validate_worker_output,
+    validate_evidence_provenance,
+)
 
 NODE_TYPES = {
  "market_input":{"type":"market_input","label":"Market Input","category":"data","inputs":[],"outputs":["data"],"description":"Accept normalized numeric observations."},
@@ -109,7 +112,8 @@ def execute_workflow(
                 "worker_specialty": worker_assignment["specialty"],
                 "intelligence_core": worker_assignment["intelligence_core"],
                 "execution_mode": worker_assignment["execution_mode"],
-                "worker_contract": get_worker_contract(kind),\n                "evidence_status": "not_supplied",
+                "worker_contract": get_worker_contract(kind),
+                "evidence_status": "not_supplied",
                 "dependency_ids": dependencies,
                 "layer": layer_index,
                 "status": "queued",

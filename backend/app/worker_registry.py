@@ -38,14 +38,33 @@ def evaluate_registry() -> dict:
         errors.append("unknown_department")
 
     catalog_skills = list_skills()
-    allowed_skill_ids = {
-        skill.get("id") for skill in catalog_skills
+    if not isinstance(catalog_skills, list):
+        catalog_skills = []
+        errors.append("skill_catalog_not_a_list")
+    malformed_catalog_entries = [
+        index for index, skill in enumerate(catalog_skills)
+        if not isinstance(skill, dict)
+        or not isinstance(skill.get("id"), str)
+        or not skill.get("id", "").strip()
+        or not isinstance(skill.get("available"), bool)
+    ]
+    if malformed_catalog_entries:
+        errors.append("invalid_skill_catalog_entry")
+    catalog_ids = [
+        skill["id"] for skill in catalog_skills
         if isinstance(skill, dict) and isinstance(skill.get("id"), str)
-    }
+        and skill["id"].strip()
+    ]
+    duplicate_catalog_ids = sorted({
+        skill_id for skill_id in catalog_ids if catalog_ids.count(skill_id) > 1
+    })
+    if duplicate_catalog_ids:
+        errors.append("duplicate_skill_catalog_id")
+    allowed_skill_ids = set(catalog_ids)
     available_skill_ids = {
-        skill.get("id") for skill in catalog_skills
+        skill["id"] for skill in catalog_skills
         if isinstance(skill, dict) and isinstance(skill.get("id"), str)
-        and skill.get("available") is True
+        and skill["id"].strip() and skill.get("available") is True
     }
     malformed_skill_refs = any(
         not isinstance(worker.get("skill_refs", []), list)
@@ -182,6 +201,12 @@ def evaluate_registry() -> dict:
             ),
         },
         "total_skill_reference_count": len(all_skill_refs),
+        "skill_catalog_integrity": {
+            "catalog_entry_count": len(catalog_skills),
+            "valid_entry_count": len(catalog_skills) - len(malformed_catalog_entries),
+            "malformed_entry_indexes": malformed_catalog_entries,
+            "duplicate_skill_ids": duplicate_catalog_ids,
+        },
         "skill_availability": {
             "catalog_available_skill_count": len(available_skill_ids),
             "assigned_unavailable_skill_ids": unavailable_assigned_skill_ids,

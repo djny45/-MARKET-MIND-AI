@@ -98,9 +98,48 @@ def execute_workflow(
         raise ValueError("Workflow contains a cycle.")
 
     checkpoint = initial_checkpoint or {}
-    completed_before = set(checkpoint.get("completed_node_ids", []))
-    results = dict(checkpoint.get("results", {}))
-    task_records = dict(checkpoint.get("tasks", {}))
+    completed_ids = checkpoint.get("completed_node_ids", [])
+    checkpoint_results = checkpoint.get("results", {})
+    checkpoint_tasks = checkpoint.get("tasks", {})
+    if not isinstance(completed_ids, list) or any(
+        not isinstance(node_id, str) or not node_id.strip() for node_id in completed_ids
+    ):
+        raise ValueError("Checkpoint completed_node_ids must be a list of non-empty strings.")
+    if len(set(completed_ids)) != len(completed_ids):
+        raise ValueError("Checkpoint completed_node_ids must not contain duplicates.")
+    if not isinstance(checkpoint_results, dict):
+        raise ValueError("Checkpoint results must be an object.")
+    if not isinstance(checkpoint_tasks, dict):
+        raise ValueError("Checkpoint tasks must be an object.")
+    if any(node_id not in by_id for node_id in completed_ids):
+        raise ValueError("Checkpoint references a completed node that is not in this workflow.")
+    if any(node_id not in by_id for node_id in checkpoint_tasks):
+        raise ValueError("Checkpoint contains a task for a node that is not in this workflow.")
+    if any(node_id not in by_id for node_id in checkpoint_results):
+        raise ValueError("Checkpoint contains a result for a node that is not in this workflow.")
+    completed_before = set(completed_ids)
+    results = dict(checkpoint_results)
+    task_records = dict(checkpoint_tasks)
+    valid_task_statuses = {"queued", "running", "completed", "failed", "skipped"}
+    for node_id, record in task_records.items():
+        if not isinstance(record, dict):
+            raise ValueError(f"Checkpoint task {node_id} must be an object.")
+        status = record.get("status")
+        if status not in valid_task_statuses:
+            raise ValueError(f"Checkpoint task {node_id} has an invalid status.")
+        if status == "completed" and node_id not in completed_before:
+            raise ValueError(f"Checkpoint task {node_id} is completed but missing from completed_node_ids.")
+        if status == "completed" and node_id not in results:
+            raise ValueError(f"Checkpoint task {node_id} is completed but its result is missing.")
+        if status != "completed" and node_id in completed_before:
+            raise ValueError(f"Checkpoint node {node_id} is marked completed but its task is not completed.")
+    if completed_before != set(results).intersection(completed_before):
+        raise ValueError("Checkpoint completed nodes must each have a stored result.")
+    if set(results) - completed_before:
+        raise ValueError("Checkpoint contains results for nodes not marked completed.")
+    for node_id in completed_before:
+        if node_id not in task_records:
+            raise ValueError(f"Checkpoint completed node {node_id} is missing its task record.")
     node_timings = {
         key: item.get("duration_ns", 0)
         for key, item in task_records.items()

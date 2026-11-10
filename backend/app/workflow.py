@@ -113,9 +113,9 @@ def execute_workflow(
         raise ValueError("Checkpoint tasks must be an object.")
     if any(node_id not in by_id for node_id in completed_ids):
         raise ValueError("Checkpoint references a completed node that is not in this workflow.")
-    if any(node_id not in by_id for node_id in checkpoint_tasks):
+    if any(not isinstance(node_id, str) or node_id not in by_id for node_id in checkpoint_tasks):
         raise ValueError("Checkpoint contains a task for a node that is not in this workflow.")
-    if any(node_id not in by_id for node_id in checkpoint_results):
+    if any(not isinstance(node_id, str) or node_id not in by_id for node_id in checkpoint_results):
         raise ValueError("Checkpoint contains a result for a node that is not in this workflow.")
     completed_before = set(completed_ids)
     results = dict(checkpoint_results)
@@ -125,7 +125,7 @@ def execute_workflow(
         if not isinstance(record, dict):
             raise ValueError(f"Checkpoint task {node_id} must be an object.")
         status = record.get("status")
-        if status not in valid_task_statuses:
+        if not isinstance(status, str) or status not in valid_task_statuses:
             raise ValueError(f"Checkpoint task {node_id} has an invalid status.")
         if status == "completed" and node_id not in completed_before:
             raise ValueError(f"Checkpoint task {node_id} is completed but missing from completed_node_ids.")

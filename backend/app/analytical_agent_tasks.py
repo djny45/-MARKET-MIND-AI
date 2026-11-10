@@ -358,11 +358,9 @@ def execute_queued_research_task(task_id: str) -> bool:
                     }
             else:
                 evaluation_status = "structured_claims_present_but_no_draft"
+        # Quality and learning side effects are deferred until this executor
+        # successfully finalizes the task with its current execution token.
         learning_candidate = {"status": "not_created"}
-        if evaluation is not None:
-            _persist_quality_evaluation(task_id, agent_id, evaluation)
-            if evaluation.get("status") != "invalid_input":
-                learning_candidate = _persist_research_learning_candidate(task_id, agent_id, evaluation)
         result = {"agent_id": agent_id, "brain_context_sha256": row["brain_context_sha256"],
                   "research_learning_candidate": learning_candidate,
                   "brief": task_input["brief"], "input_data_received": task_input["data"] is not None,
@@ -388,9 +386,33 @@ def execute_queued_research_task(task_id: str) -> bool:
         )
         if finalized.rowcount != 1:
             return False
+        if status == "completed" and evaluation is not None:
+            # Persist the evaluation in the same transaction as token-fenced
+            # completion. A stale executor cannot leave an orphaned evaluation.
+            db.execute(
+                """INSERT INTO research_quality_evaluations
+                   (task_id,worker_id,evaluation_json,created_at)
+                   VALUES (?,?,?,?)
+                   ON CONFLICT(task_id) DO UPDATE SET
+                     worker_id=excluded.worker_id,
+                     evaluation_json=excluded.evaluation_json,
+                     created_at=excluded.created_at""",
+                (task_id, agent_id, _json(evaluation), updated),
+            )
         _record_event(db, task_id, agent_id, "task_" + status,
                       from_status="running", to_status=status, occurred_at=updated,
                       detail={"error_type": result.get("error_type")} if status == "failed" else {})
+    # Append optional learning memory only after ownership-fenced completion.
+    # A worker whose token was replaced returned above and cannot reach here.
+    if status == "completed" and evaluation is not None and evaluation.get("status") != "invalid_input":
+        learning_candidate = _persist_research_learning_candidate(task_id, agent_id, evaluation)
+        result["research_learning_candidate"] = learning_candidate
+        with _connect() as db:
+            db.execute(
+                "UPDATE analytical_agent_tasks SET result_json=? "
+                "WHERE task_id=? AND status='completed'",
+                (_json(result), task_id),
+            )
     return True
 
 def recover_interrupted_research_tasks(stale_after_seconds: int = 900) -> dict:

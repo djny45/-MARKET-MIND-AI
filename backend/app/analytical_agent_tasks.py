@@ -313,9 +313,11 @@ def execute_queued_research_task(task_id: str) -> bool:
             return False
         _record_event(db, task_id, row["worker_id"], "task_claimed",
                       from_status="queued", to_status="running", occurred_at=now)
-        task_input = json.loads(row["input_json"])
         agent_id = row["worker_id"]
     try:
+        # Decode persisted input inside the guarded execution block. Corrupted
+        # rows must fail safely instead of remaining stuck in the running state.
+        task_input = json.loads(row["input_json"])
         # Build context inside the guarded execution block. A memory/configuration
         # failure must transition the claimed task to failed, not strand it as running.
         brain = brain_config(agent_id)
@@ -579,11 +581,15 @@ def get_research_task(task_id: str) -> dict | None:
         row = db.execute("SELECT * FROM analytical_agent_tasks WHERE task_id=?", (task_id,)).fetchone()
     if row is None:
         return None
+    try:
+        task_input = json.loads(row["input_json"])
+    except (TypeError, ValueError):
+        task_input = {"error": "Stored task input is invalid JSON."}
     return {
         "task_id": row["task_id"], "agent_id": row["worker_id"], "worker_id": row["worker_id"],
         "task_type": row["task_type"], "status": row["status"],
         "execution_attempts": row["execution_attempts"],
-        "input": json.loads(row["input_json"]), "result": json.loads(row["result_json"]),
+        "input": task_input, "result": json.loads(row["result_json"]),
         "brain_context_sha256": row["brain_context_sha256"],
         "created_at": row["created_at"], "updated_at": row["updated_at"],
     }

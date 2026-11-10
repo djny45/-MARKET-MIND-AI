@@ -43,10 +43,15 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
                 ("{malformed-json", queued["task_id"]),
             )
         self.assertTrue(execute_queued_research_task(queued["task_id"]))
-        saved = get_research_task(queued["task_id"])
-        self.assertEqual(saved["status"], "failed")
-        self.assertEqual(saved["result"]["error"], "Research task failed safely.")
-        self.assertEqual(saved["result"]["error_type"], "JSONDecodeError")
+        with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+            row = db.execute(
+                "SELECT status,result_json FROM analytical_agent_tasks WHERE task_id=?",
+                (queued["task_id"],),
+            ).fetchone()
+        self.assertEqual(row[0], "failed")
+        result = __import__("json").loads(row[1])
+        self.assertEqual(result["error"], "Research task failed safely.")
+        self.assertEqual(result["error_type"], "JSONDecodeError")
         events = list_task_audit_events(queued["task_id"])["events"]
         self.assertEqual(events[-1]["event_type"], "task_failed")
         self.assertEqual(events[-1]["to_status"], "failed")

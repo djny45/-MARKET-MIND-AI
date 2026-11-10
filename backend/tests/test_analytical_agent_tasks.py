@@ -423,6 +423,42 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertEqual(result["status"], "not_evaluated")
         self.assertIsNone(result["evaluation"])
 
+    def test_corrupt_quality_evaluation_is_reported_without_raising(self):
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, get_task_quality_evaluation,
+        )
+        import sqlite3
+
+        queued = enqueue_research_task("worker_018", "Corrupt evaluation read")
+        with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+            db.execute(
+                "INSERT INTO research_quality_evaluations "
+                "(task_id,worker_id,evaluation_json,created_at) VALUES (?,?,?,?)",
+                (queued["task_id"], "worker_018", "{malformed", "2026-11-10T00:00:00+00:00"),
+            )
+        saved = get_task_quality_evaluation(queued["task_id"])
+        self.assertEqual(saved["status"], "invalid_record")
+        self.assertIsNone(saved["evaluation"])
+        self.assertEqual(saved["task_id"], queued["task_id"])
+        self.assertIn("invalid JSON", saved["error"])
+
+    def test_non_object_quality_evaluation_is_reported_as_invalid(self):
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, get_task_quality_evaluation,
+        )
+        import sqlite3
+
+        queued = enqueue_research_task("worker_019", "Non-object evaluation read")
+        with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+            db.execute(
+                "INSERT INTO research_quality_evaluations "
+                "(task_id,worker_id,evaluation_json,created_at) VALUES (?,?,?,?)",
+                (queued["task_id"], "worker_019", "[]", "2026-11-10T00:00:00+00:00"),
+            )
+        saved = get_task_quality_evaluation(queued["task_id"])
+        self.assertEqual(saved["status"], "invalid_record")
+        self.assertIsNone(saved["evaluation"])
+
     def test_invalid_optional_traceability_input_does_not_fail_task(self):
         from app.analytical_agent_tasks import enqueue_research_task, execute_queued_research_task
         queued = enqueue_research_task(

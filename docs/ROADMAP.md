@@ -51,10 +51,10 @@ This roadmap is a plan, not a claim that features already exist. Mark an item co
 - [x] Add append-only worker-scoped evidence memory with provenance and quality labels.
 - [x] Add prototype evidence-aware review gate; source IDs must match a supplied registry. Reviewer authentication and persistent audit remain pending.
 - [x] Add conservative evidence traceability audit: unknown reference reporting, URL/declared-group source grouping, and explicitly keyed stance-disagreement candidates with human-review status. This is heuristic metadata analysis, not source authenticity, entailment, or truth verification.
-- [ ] Implement actual agent task execution with shared-core inference, isolated per-agent context, source retrieval and task lifecycle persistence.
-- [ ] Implement autonomous research scheduling and cloud workspaces (not implemented).
+- [x] Add bounded per-agent task submission, SQLite task persistence, supervisor dispatch, recovery, retry/cancel controls, and task audit endpoints; shared-core synthesis is configuration-dependent and source retrieval is not automatic. This is not a durable distributed queue or 550 always-on processes.
+- [x] Add bounded autonomous descriptive research over injected adapters plus stored-data and synthetic-fixture API routes; scheduled execution, cloud workspaces, and always-on autonomous loops remain unimplemented.
 - [ ] Implement evaluated learning loop with benchmark datasets, quality metrics, regression gates, and reviewed promotion.
-- [ ] Build visual node-based research workflows.
+- [x] Build the initial React Flow visual workflow editor and DAG execution path for supported node types; the full 550-profile catalogue is not equivalent to 550 executable workflow handlers.
 - [x] Add initial provenance coverage and metadata-quality counts to orchestrated research reports; full source authenticity, claim entailment, and end-to-end explainability remain pending.
 
 Current boundary: worker routing invokes deterministic Python handlers. The 550 profiles are not independent models. Optional Ollama is a single shared, loopback-only summarization provider and is disabled by default; autonomous self-learning and brokerage execution remain disabled.

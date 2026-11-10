@@ -326,8 +326,7 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
 
         worker_thread = threading.Thread(target=execute)
         try:
-            with patch("app.analytical_agent_tasks.TASK_LEASE_HEARTBEAT_INTERVAL_SECONDS", 0.02), \\
-                 patch("app.analytical_agent_tasks.synthesize_research", side_effect=slow_synthesis):
+            with patch("app.analytical_agent_tasks.TASK_LEASE_HEARTBEAT_INTERVAL_SECONDS", 0.02), patch("app.analytical_agent_tasks.synthesize_research", side_effect=slow_synthesis):
                 worker_thread.start()
                 self.assertTrue(entered.wait(timeout=2))
                 stale_timestamp = (

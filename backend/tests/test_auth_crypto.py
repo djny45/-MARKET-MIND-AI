@@ -19,15 +19,27 @@ class AuthenticationCryptoTests(unittest.TestCase):
         self.assertFalse(verify_password("incorrect password", first))
 
     def test_password_verification_rejects_malformed_hashes(self):
-        for malformed in ("", "scrypt$1$1$1$bad$bad", "plain-text-password", None):
+        malformed_hashes = (
+            "",
+            "scrypt$1$1$1$bad$bad",
+            "plain-text-password",
+            "scrypt$16384$8$1$" + "!" * 22 + "$" + "A" * 86,
+            "scrypt$16384$8$1$" + "A" * 21 + "=$" + "A" * 86,
+        )
+        for malformed in malformed_hashes:
             with self.subTest(malformed=malformed):
                 self.assertFalse(verify_password("anything", malformed))
+        self.assertFalse(verify_password("anything", None))
 
     def test_password_hash_rejects_empty_oversized_and_invalid_unicode(self):
         for invalid in ("", "x" * 1025, "\ud800"):
             with self.subTest(password=repr(invalid)):
                 with self.assertRaises(ValueError):
                     hash_password(invalid)
+
+    def test_password_verification_rejects_invalid_unicode(self):
+        encoded = hash_password("valid password")
+        self.assertFalse(verify_password("\ud800", encoded))
 
     def test_session_token_is_random_and_only_digest_is_persistable(self):
         first = generate_session_token()

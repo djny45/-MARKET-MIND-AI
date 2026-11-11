@@ -44,7 +44,7 @@ The login throttle is process-local and intended only for the current single-pro
 
 ## Frontend integration status
 
-The terminal frontend now includes a single-owner sign-in gate, session bootstrap, sign-out, automatic return to sign-in when a session expires, and a shared API client that sends CSRF headers for state-changing requests. Frontend API traffic in the Compose deployment is routed through the same-origin Nginx proxy.
+The terminal frontend now includes a single-owner sign-in gate, session bootstrap, sign-out, automatic return to sign-in when a session expires, and a shared API client that sends CSRF headers for state-changing requests. Frontend API traffic in the Compose deployment is routed through the same-origin Nginx proxy. The sign-out control checks the server response and only switches to the signed-out view after successful revocation; if revocation fails, it keeps the workspace visible and reports the failure rather than implying that the session ended.
 
 Interactive API documentation and the OpenAPI schema endpoints are disabled in the application to avoid exposing the route schema publicly. Health and readiness remain public for service monitoring; all other API routes require an authenticated owner session.
 

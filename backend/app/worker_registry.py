@@ -32,6 +32,10 @@ def evaluate_registry() -> dict:
         errors.append("agent_ids_not_contiguous_or_ordered")
     if len(set(item for item in ids if isinstance(item, str))) != len(ids):
         errors.append("duplicate_agent_ids")
+    memory_namespaces = [worker.get("memory_namespace") for worker in profiles]
+    valid_memory_namespaces = [item for item in memory_namespaces if isinstance(item, str) and item.strip()]
+    if len(set(valid_memory_namespaces)) != len(valid_memory_namespaces):
+        errors.append("duplicate_agent_memory_namespace")
     if any(worker.get("model") != EXPECTED_CORE for worker in profiles):
         errors.append("agent_core_mismatch")
     if any(worker.get("department") not in DEPARTMENTS for worker in profiles):

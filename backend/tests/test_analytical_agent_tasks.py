@@ -302,6 +302,41 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertEqual(recovery["recovery_mode"], "manual_stale_requeue_no_dispatch")
         self.assertEqual(get_research_task(queued["task_id"])["status"], "queued")
 
+    def test_concurrent_stale_recovery_requeues_task_and_audits_once(self):
+        import sqlite3
+        from concurrent.futures import ThreadPoolExecutor
+        from threading import Barrier
+        from datetime import datetime, timedelta, timezone
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, recover_interrupted_research_tasks, list_task_audit_events,
+        )
+        queued = enqueue_research_task("worker_036", "concurrent stale recovery")
+        stale_timestamp = (datetime.now(timezone.utc) - timedelta(seconds=1200)).isoformat()
+        with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+            db.execute(
+                "UPDATE analytical_agent_tasks SET status='running',updated_at=? WHERE task_id=?",
+                (stale_timestamp, queued["task_id"]),
+            )
+
+        barrier = Barrier(2)
+        def recover():
+            barrier.wait(timeout=5)
+            return recover_interrupted_research_tasks()
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results = list(pool.map(lambda _: recover(), range(2)))
+
+        self.assertEqual(
+            sum(result["requeued_interrupted_count"] for result in results),
+            1,
+        )
+        self.assertEqual(get_research_task(queued["task_id"])["status"], "queued")
+        events = list_task_audit_events(queued["task_id"])["events"]
+        self.assertEqual(
+            sum(event["event_type"] == "task_requeued" for event in events),
+            1,
+        )
+
     def test_recovery_fails_stale_task_after_execution_attempt_limit(self):
         from app.analytical_agent_tasks import (
             enqueue_research_task, recover_interrupted_research_tasks,

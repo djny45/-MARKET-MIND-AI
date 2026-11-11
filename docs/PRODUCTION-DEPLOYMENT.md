@@ -28,7 +28,7 @@ The named `market_mind_data` volume persists SQLite data when containers are rec
 
 ## Security boundary
 
-The frontend listener is bound to loopback (127.0.0.1), not all network interfaces. Compose drops Linux capabilities and enables `no-new-privileges`. This is deliberate: the current workspace API has no user authentication or per-user authorization. Do not publish it directly to the public internet or expose it on a shared network.
+The frontend listener is bound to loopback (127.0.0.1), not all network interfaces. Compose drops Linux capabilities and enables `no-new-privileges`. This is deliberate: the current workspace API has no user authentication or per-user authorization. Do not publish it directly to the public internet or expose it on a shared network. Browser CORS is restricted to explicit HTTP(S) origins; wildcard origins and URL paths are rejected, but CORS is not authentication and does not prevent non-browser clients from calling an exposed API.
 
 For remote access, use a separately maintained TLS reverse proxy and authentication layer in front of the loopback service. Restrict administrative access, apply request limits, and review proxy configuration before enabling access. The app remains a single-user research workspace.
 

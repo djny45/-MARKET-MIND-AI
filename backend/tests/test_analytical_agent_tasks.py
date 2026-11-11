@@ -454,6 +454,28 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             retry_failed_research_task(" ")
 
+
+    def test_corrupt_persisted_task_input_is_finalized_as_failed(self):
+        import sqlite3
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, execute_queued_research_task, list_task_audit_events,
+        )
+        queued = enqueue_research_task("worker_032", "corrupt persisted input")
+        with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+            db.execute(
+                "UPDATE analytical_agent_tasks SET input_json=? WHERE task_id=?",
+                ("{malformed-json", queued["task_id"]),
+            )
+
+        self.assertTrue(execute_queued_research_task(queued["task_id"]))
+        saved = get_research_task(queued["task_id"])
+        self.assertEqual(saved["status"], "failed")
+        self.assertEqual(saved["result"]["error"], "Research task failed safely.")
+        self.assertEqual(saved["result"]["error_type"], "JSONDecodeError")
+        events = list_task_audit_events(queued["task_id"])["events"]
+        self.assertEqual(events[-1]["event_type"], "task_failed")
+        self.assertEqual(events[-1]["to_status"], "failed")
+
 if __name__ == "__main__":
     unittest.main()
 

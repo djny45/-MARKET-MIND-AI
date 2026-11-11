@@ -21,7 +21,7 @@ This roadmap is a plan, not a claim that features already exist. Mark an item co
 - [x] Add stored-data research modes for single and multi-timeframe comparison.
 - [x] Add stored-data market overview with coverage, source labels, observation counts, and system-readiness summaries.
 - [x] Add a stored-return heatmap using the latest two distinct local observations per symbol/timeframe, with source/status labels and insufficient-history handling; it is not live or a complete-universe heatmap.
-- [x] Add a stored-data screener API with distinct-timestamp coverage filters, bounded result limits, and explicit non-live/non-signal disclosures; automated storage and route validation tests cover empty, short-history, and filtered datasets.
+- [ ] Add screeners.
 - [ ] Add saved layouts and keyboard navigation.
 
 ## Phase 3 — Research and analytics

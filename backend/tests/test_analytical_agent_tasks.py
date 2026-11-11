@@ -336,6 +336,30 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertEqual(first["status"], second["status"])
         self.assertEqual(first["updated_at"], second["updated_at"])
 
+    def test_concurrent_claim_race_executes_task_only_once(self):
+        from concurrent.futures import ThreadPoolExecutor
+        from threading import Barrier
+        from app.analytical_agent_tasks import enqueue_research_task, execute_queued_research_task
+
+        queued = enqueue_research_task("worker_032", "concurrent claim race")
+        start = Barrier(2)
+        real_execute = execute_queued_research_task
+
+        def race_execute(task_id):
+            start.wait(timeout=5)
+            return real_execute(task_id)
+
+        with patch("app.analytical_agent_tasks.synthesize_research") as synthesize:
+            synthesize.return_value = {"status": "completed", "summary": "single execution"}
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                results = list(pool.map(race_execute, [queued["task_id"], queued["task_id"]]))
+
+        self.assertEqual(sorted(results), [False, True])
+        self.assertEqual(synthesize.call_count, 1)
+        saved = get_research_task(queued["task_id"])
+        self.assertEqual(saved["status"], "completed")
+        self.assertEqual(saved["execution_attempts"], 1)
+
 
     def test_traceability_evaluation_is_persisted_and_retrievable(self):
         from app.analytical_agent_tasks import (

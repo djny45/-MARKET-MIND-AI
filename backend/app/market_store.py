@@ -243,6 +243,97 @@ def get_data_lineage(symbol: str, interval: str, limit: int = 5000) -> dict:
     }
 
 
+def get_stored_return_heatmap(interval: str = "1d", limit: int = 100) -> dict:
+    """Build a descriptive return heatmap from the latest two stored timestamps per symbol.
+
+    Multiple source observations at one timestamp are deduplicated by latest retrieval
+    time so a symbol is not counted twice. This is a stored-data snapshot, not a live
+    market ranking or a complete instrument universe.
+    """
+    safe_limit = max(1, min(int(limit), 200))
+    with _connect() as connection:
+        rows = connection.execute("""
+            WITH source_ranked AS (
+                SELECT symbol, interval, timestamp, close, status, source, retrieved_at,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY symbol, interval, timestamp
+                           ORDER BY retrieved_at DESC, source ASC
+                       ) AS source_rank
+                FROM market_bars
+                WHERE interval = ?
+            ),
+            timestamp_ranked AS (
+                SELECT symbol, interval, timestamp, close, status, source, retrieved_at,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY symbol, interval
+                           ORDER BY timestamp DESC
+                       ) AS timestamp_rank
+                FROM source_ranked
+                WHERE source_rank = 1
+            )
+            SELECT symbol, timestamp, close, status, source, retrieved_at, timestamp_rank
+            FROM timestamp_ranked
+            WHERE timestamp_rank <= 2
+            ORDER BY symbol, timestamp_rank
+        """, (interval,)).fetchall()
+
+    grouped = {}
+    for row in rows:
+        grouped.setdefault(row["symbol"], {})[row["timestamp_rank"]] = dict(row)
+
+    cells = []
+    insufficient_history_count = 0
+    for symbol, observations in grouped.items():
+        latest = observations.get(1)
+        previous = observations.get(2)
+        if not latest or not previous or previous["close"] == 0:
+            insufficient_history_count += 1
+            cells.append({
+                "symbol": symbol,
+                "interval": interval,
+                "status": "insufficient_history",
+                "change_pct": None,
+                "latest_timestamp": latest["timestamp"] if latest else None,
+                "previous_timestamp": None,
+                "sources": [latest["source"]] if latest else [],
+                "data_statuses": [latest["status"]] if latest else [],
+            })
+            continue
+        change_pct = ((latest["close"] - previous["close"]) / previous["close"]) * 100
+        cells.append({
+            "symbol": symbol,
+            "interval": interval,
+            "status": "calculated",
+            "change_pct": round(change_pct, 8),
+            "latest_timestamp": latest["timestamp"],
+            "previous_timestamp": previous["timestamp"],
+            "sources": sorted({latest["source"], previous["source"]}),
+            "data_statuses": sorted({latest["status"], previous["status"]}),
+        })
+
+    cells.sort(
+        key=lambda item: (
+            item["change_pct"] is None,
+            -abs(item["change_pct"]) if item["change_pct"] is not None else 0,
+            item["symbol"],
+        )
+    )
+    visible = cells[:safe_limit]
+    return {
+        "status": "stored_return_heatmap",
+        "interval": interval,
+        "instrument_count": len(visible),
+        "available_instrument_count": len(cells),
+        "insufficient_history_count": insufficient_history_count,
+        "cells": visible,
+        "limit": safe_limit,
+        "data_note": (
+            "Returns are calculated from the latest two distinct timestamps stored per symbol. "
+            "Duplicate source observations at a timestamp are reduced to the most recently retrieved "
+            "record. This is not live data, a complete market universe, or a trading signal."
+        ),
+    }
+
 def get_market_overview(limit: int = 200) -> dict:
     """Summarize local stored-data coverage; this is not a live market overview."""
     safe_limit = max(1, min(int(limit), 500))

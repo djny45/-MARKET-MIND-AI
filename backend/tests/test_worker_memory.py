@@ -192,6 +192,21 @@ class WorkerMemoryTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             list_improvement_proposals("worker_999")
 
+    def test_worker_id_validation_rejects_non_string_and_blank_values(self):
+        invalid_ids = [None, [], {}, 1, "", "   "]
+        operations = [
+            lambda worker_id: append_memory(worker_id, "observation", {"note": "x"}),
+            lambda worker_id: read_memory(worker_id),
+            lambda worker_id: recall_memory(worker_id, "RSI"),
+            lambda worker_id: list_learning_candidates(worker_id),
+            lambda worker_id: list_improvement_proposals(worker_id),
+        ]
+        for worker_id in invalid_ids:
+            for operation in operations:
+                with self.subTest(worker_id=worker_id, operation=operation):
+                    with self.assertRaises(ValueError):
+                        operation(worker_id)
+
     def test_rejects_unknown_worker_and_invalid_memory_type(self):
         with self.assertRaises(ValueError):
             append_memory("worker_9999", "observation", {})

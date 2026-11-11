@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -18,7 +17,6 @@ from .auth_crypto import (
     generate_csrf_token,
     generate_session_token,
     hash_csrf_token,
-    hash_password,
     hash_session_token,
     verify_password,
 )
@@ -38,6 +36,8 @@ _RATE_LOCK = threading.Lock()
 _LOGIN_ATTEMPTS: dict[str, deque[float]] = defaultdict(deque)
 _RATE_WINDOW_SECONDS = 900
 _RATE_MAX_ATTEMPTS = 8
+_STORE_INIT_LOCK = threading.Lock()
+_INITIALIZED_DATABASES: set[str] = set()
 
 
 class LoginRequest(BaseModel):
@@ -111,7 +111,12 @@ def _cookie_settings() -> dict[str, Any]:
 
 def _ensure_store() -> Path:
     path = _session_database()
-    initialize_auth_store(path)
+    key = str(path.resolve())
+    if key not in _INITIALIZED_DATABASES:
+        with _STORE_INIT_LOCK:
+            if key not in _INITIALIZED_DATABASES:
+                initialize_auth_store(path)
+                _INITIALIZED_DATABASES.add(key)
     return path
 
 

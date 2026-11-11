@@ -40,6 +40,11 @@ def parse_frontend_origins(raw: str) -> list[str]:
                 "credentials, queries, or fragments"
             )
 
+        # Restrict configured hostnames to ASCII (including explicit Punycode).
+        # Python's built-in IDNA codec uses IDNA2003, which can map Unicode
+        # labels differently from browser Origin serialization (for example ß).
+        if not hostname.isascii():
+            raise ValueError("FRONTEND_ORIGINS hostnames must use ASCII or Punycode")
         # Browser Origin serialization omits default ports. Normalize those too,
         # otherwise an allowlist entry ending in :443/:80 will never match.
         try:

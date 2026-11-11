@@ -347,3 +347,8 @@
 .global-globe-canvas{cursor:grab;touch-action:pan-y}.global-globe-canvas.is-dragging{cursor:grabbing;touch-action:none}
 
 .global-globe-visual{min-width:0}.global-globe-controls{display:flex;justify-content:center;align-items:center;gap:8px;margin-top:2px}.global-globe-controls button{min-width:34px;padding:6px 10px;border:1px solid #28516b;border-radius:4px;background:#101e2a;color:#9bdcff;font:9px 'DM Mono',monospace;cursor:pointer}.global-globe-controls button:hover{border-color:#49b9ed;background:#142a3b}.global-globe-controls button:focus-visible{outline:2px solid #67d4ff;outline-offset:2px}
+
+.agent-inspector-activity{display:flex;flex-direction:column;gap:4px;min-width:180px;padding-left:12px;border-left:1px solid #51432c}
+.agent-inspector-activity>span{color:#c5ced7;font-size:9px;overflow-wrap:anywhere}
+.agent-inspector-activity time{color:#8995a1;font-size:9px}
+@media(max-width:640px){.agent-network-inspector{align-items:flex-start;gap:10px}.agent-inspector-activity{width:100%;padding:8px 0 0;border-left:0;border-top:1px solid #51432c}.agent-network-inspector button{margin-left:0}}

@@ -166,9 +166,9 @@ class WorkerRegistryTests(unittest.TestCase):
             }
             for index in (1, 2)
         ]
-        with patch("app.worker_registry.list_workers", return_value=profiles), \\
-             patch("app.worker_registry.list_skills", return_value=[]):
-            result = evaluate_registry()
+        with patch("app.worker_registry.list_workers", return_value=profiles):
+            with patch("app.worker_registry.list_skills", return_value=[]):
+                result = evaluate_registry()
         self.assertFalse(result["valid"])
         self.assertIn("duplicate_agent_memory_namespace", result["errors"])
 

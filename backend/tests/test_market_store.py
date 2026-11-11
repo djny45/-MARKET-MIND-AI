@@ -4,7 +4,7 @@ import unittest
 from unittest.mock import patch
 
 from app.market_data import SyntheticFixtureAdapter
-from app.market_store import (get_audit_events, get_bars, get_data_lineage, get_market_overview, get_stored_return_heatmap, store_batch)
+from app.market_store import (get_audit_events, get_bars, get_data_lineage, get_market_overview, get_stored_market_screener, get_stored_return_heatmap, store_batch)
 
 
 class MarketStoreTests(unittest.IsolatedAsyncioTestCase):
@@ -149,6 +149,32 @@ class MarketStoreTests(unittest.IsolatedAsyncioTestCase):
                 limited = get_stored_return_heatmap("1d", limit=1)
                 self.assertEqual(limited["instrument_count"], 1)
                 self.assertEqual(limited["available_instrument_count"], 2)
+
+    async def test_stored_screener_filters_by_distinct_timestamp_coverage(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.dict(os.environ, {"MARKET_MIND_DB": os.path.join(directory, "test.sqlite")}):
+                enough = await SyntheticFixtureAdapter().get_bars("AAA", "1d", 5)
+                short = await SyntheticFixtureAdapter().get_bars("BBB", "1d", 1)
+                store_batch(enough)
+                store_batch(short)
+                result = get_stored_market_screener("1d", limit=100, min_observations=2)
+                self.assertEqual(result["status"], "stored_data_screener")
+                self.assertEqual(result["eligible_instrument_count"], 1)
+                self.assertEqual(result["cells"][0]["symbol"], "AAA")
+                self.assertEqual(result["cells"][0]["observation_count"], 5)
+                self.assertNotIn("BBB", [cell["symbol"] for cell in result["cells"]])
+                self.assertIn("not live data", result["data_note"])
+
+    async def test_stored_screener_reports_empty_and_applies_limit(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.dict(os.environ, {"MARKET_MIND_DB": os.path.join(directory, "test.sqlite")}):
+                empty = get_stored_market_screener("1d")
+                self.assertEqual(empty["cells"], [])
+                for symbol in ("AAA", "BBB"):
+                    store_batch(await SyntheticFixtureAdapter().get_bars(symbol, "1d", 5))
+                limited = get_stored_market_screener("1d", limit=1, min_observations=2)
+                self.assertEqual(limited["instrument_count"], 1)
+                self.assertEqual(limited["eligible_instrument_count"], 2)
 
     def test_unknown_symbol_returns_empty_history(self):
         with tempfile.TemporaryDirectory() as directory:

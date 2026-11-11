@@ -54,6 +54,16 @@ class PerformanceTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             performance_metrics([100, 101, 102], benchmark=[1e-308, 1e308, 1e308])
 
+    def test_non_finite_derived_statistics_are_rejected(self):
+        # Inputs and individual returns are finite, but variance accumulation
+        # exceeds IEEE-754 range and must not leak infinity into JSON output.
+        with self.assertRaises(ValueError):
+            performance_metrics([1.0, 1e154, 1.0, 1e154])
+
+        # A finite risk-free input can still overflow a derived Sharpe ratio.
+        with self.assertRaises(ValueError):
+            performance_metrics([100, 101, 102], risk_free_rate=1e308)
+
     def test_benchmark_requires_three_observations(self):
         with self.assertRaises(ValueError):
             performance_metrics([100, 101, 102], benchmark=[100, 101])

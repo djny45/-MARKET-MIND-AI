@@ -141,6 +141,8 @@ Specialist modules exchange deterministic records; per-agent brain-context and l
 | Area | Current state |
 |---|---|
 | React + TypeScript terminal shell | Implemented |
+| Motion-powered terminal transitions | Added; restrained entrance animations for the shell, research chart and agent-network workspace |
+| Three.js global research globe | Added procedural wireframe globe, network arcs and registered-profile/task counters; illustrative visualization, not live geospatial or exchange connectivity |
 | React Flow node graph | Implemented |
 | Node library and worker catalogue UI | Implemented |
 | FastAPI service and health endpoint | Implemented |

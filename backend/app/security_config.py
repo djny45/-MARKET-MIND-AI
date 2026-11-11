@@ -1,4 +1,5 @@
 """Strict parsing for browser CORS origin allowlists."""
+import ipaddress
 from urllib.parse import urlsplit
 
 
@@ -47,12 +48,17 @@ def parse_frontend_origins(raw: str) -> list[str]:
             raise ValueError("FRONTEND_ORIGINS hostnames must use ASCII or Punycode")
         # Browser Origin serialization omits default ports. Normalize those too,
         # otherwise an allowlist entry ending in :443/:80 will never match.
-        try:
-            host = hostname.encode("idna").decode("ascii").lower()
-        except UnicodeError as exc:
-            raise ValueError("FRONTEND_ORIGINS contains an invalid hostname") from exc
-        if ":" in host:
-            host = f"[{host}]"
+        if ":" in hostname:
+            # Browsers serialize IPv6 origins using the compressed literal form.
+            try:
+                host = f"[{ipaddress.IPv6Address(hostname).compressed}]"
+            except ipaddress.AddressValueError as exc:
+                raise ValueError("FRONTEND_ORIGINS contains an invalid IPv6 hostname") from exc
+        else:
+            try:
+                host = hostname.encode("idna").decode("ascii").lower()
+            except UnicodeError as exc:
+                raise ValueError("FRONTEND_ORIGINS contains an invalid hostname") from exc
         default_port = 80 if parsed.scheme.lower() == "http" else 443
         port_suffix = f":{port}" if port is not None and port != default_port else ""
         normalized = f"{parsed.scheme.lower()}://{host}{port_suffix}"

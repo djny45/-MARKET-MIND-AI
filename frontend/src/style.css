@@ -352,3 +352,19 @@
 .agent-inspector-activity>span{color:#c5ced7;font-size:9px;overflow-wrap:anywhere}
 .agent-inspector-activity time{color:#8995a1;font-size:9px}
 @media(max-width:640px){.agent-network-inspector{align-items:flex-start;gap:10px}.agent-inspector-activity{width:100%;padding:8px 0 0;border-left:0;border-top:1px solid #51432c}.agent-network-inspector button{margin-left:0}}
+
+.agent-network-timeline{display:flex;flex-direction:column;gap:12px;margin:4px 0 14px;padding:14px 16px;border:1px solid #303945;background:#10151b}
+.agent-network-timeline-head{display:flex;justify-content:space-between;align-items:flex-end;gap:14px;flex-wrap:wrap}
+.agent-network-timeline-head h2{margin:5px 0;color:#dce2e8;font-size:15px}
+.agent-network-timeline-head p{margin:0;color:#8793a0;font:9px 'DM Mono',monospace}
+.agent-network-timeline-head label{display:flex;flex-direction:column;gap:5px;color:#8e9aa6;font:9px 'DM Mono',monospace}
+.agent-network-timeline-head select{background:#171d24;border:1px solid #39434f;color:#dce2e8;padding:7px 9px;font:10px 'DM Mono',monospace}
+.agent-network-timeline-list{display:flex;flex-direction:column;gap:0;margin:0;padding:0;list-style:none}
+.agent-network-timeline-list li{display:grid;grid-template-columns:10px minmax(0,1fr) auto;align-items:start;gap:10px;padding:9px 0;border-top:1px solid #252d36}
+.agent-timeline-marker{width:7px;height:7px;margin-top:4px;border-radius:50%;background:#b98b43;box-shadow:0 0 8px #b98b4355}
+.agent-network-timeline-list li>div{display:flex;flex-direction:column;gap:3px;min-width:0}
+.agent-network-timeline-list strong{color:#cba66b;font:9px 'DM Mono',monospace;letter-spacing:.04em}
+.agent-network-timeline-list li>div span{color:#d0d7df;font:10px 'DM Mono',monospace;overflow-wrap:anywhere}
+.agent-network-timeline-list small,.agent-network-timeline-list time{color:#7f8b97;font:9px 'DM Mono',monospace}
+.agent-network-timeline-empty{margin:0;color:#8793a0;font:10px 'DM Mono',monospace}
+@media(max-width:640px){.agent-network-timeline{padding:11px}.agent-network-timeline-list li{grid-template-columns:8px minmax(0,1fr)}.agent-network-timeline-list time{grid-column:2}}

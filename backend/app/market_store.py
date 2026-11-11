@@ -292,6 +292,7 @@ def get_stored_return_heatmap(interval: str = "1d", limit: int = 100) -> dict:
 
     cells = []
     insufficient_history_count = 0
+    numeric_overflow_count = 0
     for symbol, observations in grouped.items():
         latest = observations.get(1)
         previous = observations.get(2)
@@ -309,6 +310,19 @@ def get_stored_return_heatmap(interval: str = "1d", limit: int = 100) -> dict:
             })
             continue
         change_pct = ((latest["close"] - previous["close"]) / previous["close"]) * 100
+        if not __import__("math").isfinite(change_pct):
+            numeric_overflow_count += 1
+            cells.append({
+                "symbol": symbol,
+                "interval": interval,
+                "status": "numeric_overflow",
+                "change_pct": None,
+                "latest_timestamp": latest["timestamp"],
+                "previous_timestamp": previous["timestamp"],
+                "sources": sorted({latest["source"], previous["source"]}),
+                "data_statuses": sorted({latest["status"], previous["status"]}),
+            })
+            continue
         cells.append({
             "symbol": symbol,
             "interval": interval,
@@ -334,6 +348,7 @@ def get_stored_return_heatmap(interval: str = "1d", limit: int = 100) -> dict:
         "instrument_count": len(visible),
         "available_instrument_count": len(cells),
         "insufficient_history_count": insufficient_history_count,
+        "numeric_overflow_count": numeric_overflow_count,
         "cells": visible,
         "limit": safe_limit,
         "data_note": (

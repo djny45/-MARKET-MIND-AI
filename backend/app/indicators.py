@@ -95,9 +95,11 @@ def bollinger(values, period=20, deviations=2):
     lower = []
     for i, mean in enumerate(middle):
         window = xs[max(0, i - p + 1):i + 1]
-        standard_deviation = sqrt(
-            sum((value - mean) ** 2 for value in window) / len(window)
-        )
+        try:
+            variance = sum((value - mean) ** 2 for value in window) / len(window)
+            standard_deviation = sqrt(variance)
+        except OverflowError as exc:
+            raise ValueError("Bollinger calculation exceeds supported numeric precision") from exc
         upper.append(mean + deviation_multiplier * standard_deviation)
         lower.append(mean - deviation_multiplier * standard_deviation)
     return {
@@ -111,9 +113,12 @@ def realized_volatility(prices, annualization=None):
     rs = returns(prices)
     if len(rs) < 2:
         raise ValueError("At least two returns are required.")
-    mean = sum(rs) / len(rs)
-    variance = sum((value - mean) ** 2 for value in rs) / (len(rs) - 1)
-    volatility = sqrt(variance)
+    try:
+        mean = sum(rs) / len(rs)
+        variance = sum((value - mean) ** 2 for value in rs) / (len(rs) - 1)
+        volatility = sqrt(variance)
+    except OverflowError as exc:
+        raise ValueError("realized volatility exceeds supported numeric precision") from exc
     result = {"per_observation": volatility, "observations": len(rs)}
     if annualization is not None:
         periods = float(annualization)

@@ -1,6 +1,7 @@
 """SQLite storage for normalized market bars with provenance metadata."""
 import os
 import sqlite3
+from math import isfinite
 from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
@@ -310,7 +311,7 @@ def get_stored_return_heatmap(interval: str = "1d", limit: int = 100) -> dict:
             })
             continue
         change_pct = ((latest["close"] - previous["close"]) / previous["close"]) * 100
-        if not __import__("math").isfinite(change_pct):
+        if not isfinite(change_pct):
             numeric_overflow_count += 1
             cells.append({
                 "symbol": symbol,

@@ -1459,7 +1459,7 @@ async def research_social_feeds(request: SocialResearchRequest):
   if not re.fullmatch(
    r"/(?:r/[A-Za-z0-9_]{1,21}|user/[A-Za-z0-9_-]{1,20})/\.rss",
    parsed.path,
-   flags=re.IGNORECASE,
+   flags=re.IGNORECASE | re.ASCII,
   ):
    raise HTTPException(status_code=400, detail="Feed path must be a canonical public Reddit subreddit or user RSS path")
   if feed.source in configured:

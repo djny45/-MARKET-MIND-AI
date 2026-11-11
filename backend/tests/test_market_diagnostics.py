@@ -31,10 +31,8 @@ class MarketDiagnosticsTests(unittest.TestCase):
         for field, value in (("close", float("nan")), ("volume", float("inf"))):
             sample = bars()
             sample[-1][field] = value
-            with self.subTest(field=field), self.assertEqual(
-                build_market_diagnostics(sample)["status"], "invalid_data"
-            ):
-                pass
+            with self.subTest(field=field):
+                self.assertEqual(build_market_diagnostics(sample)["status"], "invalid_data")
 
     def test_extreme_finite_prices_report_numeric_overflow(self):
         sample = [

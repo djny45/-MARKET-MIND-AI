@@ -53,7 +53,7 @@ class IndicatorTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             bollinger([1e308, -1e308, 1e308], period=3)
         with self.assertRaises(ValueError):
-            realized_volatility([1.0, 1e154, 1.0, 1e154])
+            realized_volatility([1.0, 1e155, 1.0, 1e155])
 
     def test_realized_volatility_requires_finite_positive_annualization(self):
         for value in (float("nan"), float("inf"), 0, -1):

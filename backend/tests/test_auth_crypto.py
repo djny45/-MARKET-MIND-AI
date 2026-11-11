@@ -23,11 +23,11 @@ class AuthenticationCryptoTests(unittest.TestCase):
             with self.subTest(malformed=malformed):
                 self.assertFalse(verify_password("anything", malformed))
 
-    def test_password_hash_rejects_empty_or_oversized_input(self):
-        with self.assertRaises(ValueError):
-            hash_password("")
-        with self.assertRaises(ValueError):
-            hash_password("x" * 1025)
+    def test_password_hash_rejects_empty_oversized_and_invalid_unicode(self):
+        for invalid in ("", "x" * 1025, "\ud800"):
+            with self.subTest(password=repr(invalid)):
+                with self.assertRaises(ValueError):
+                    hash_password(invalid)
 
     def test_session_token_is_random_and_only_digest_is_persistable(self):
         first = generate_session_token()

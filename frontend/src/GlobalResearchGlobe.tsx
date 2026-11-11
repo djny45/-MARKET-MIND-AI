@@ -121,12 +121,23 @@ export default function GlobalResearchGlobe({ profileCount, activityCount }: Pro
       element.classList.remove('is-dragging')
       if (element.hasPointerCapture(event.pointerId)) element.releasePointerCapture(event.pointerId)
     }
+    const handleLostPointerCapture = () => {
+      dragging = false
+      element.classList.remove('is-dragging')
+    }
+    const handleVisibility = () => {
+      if (document.hidden) cancelAnimationFrame(raf)
+      else if (!reducedMotion && !raf) raf = requestAnimationFrame(render)
+    }
     element.addEventListener('pointerdown', pointerDown)
     element.addEventListener('pointermove', pointerMove)
     element.addEventListener('pointerup', pointerUp)
     element.addEventListener('pointercancel', pointerUp)
+    element.addEventListener('lostpointercapture', handleLostPointerCapture)
+    document.addEventListener('visibilitychange', handleVisibility)
     function render() {
       raf = 0
+      if (document.hidden) return
       if (!reducedMotion && !dragging) globe.rotation.y += 0.0018
       renderer.render(scene,camera)
       if (!reducedMotion || dragging) raf = requestAnimationFrame(render)
@@ -139,6 +150,8 @@ export default function GlobalResearchGlobe({ profileCount, activityCount }: Pro
       element.removeEventListener('pointermove', pointerMove)
       element.removeEventListener('pointerup', pointerUp)
       element.removeEventListener('pointercancel', pointerUp)
+      element.removeEventListener('lostpointercapture', handleLostPointerCapture)
+      document.removeEventListener('visibilitychange', handleVisibility)
       observer.disconnect()
       globeGroup.current = null
       scene.traverse(object => {

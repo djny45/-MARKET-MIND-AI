@@ -1,4 +1,4 @@
-""""Small, dependency-free cryptographic primitives for the auth implementation.
+"""Small, dependency-free cryptographic primitives for the auth implementation.
 
 These helpers do not provide authentication by themselves. Callers must still
 persist/revoke sessions, enforce expiry, protect routes, and validate CSRF and
@@ -21,6 +21,7 @@ _PASSWORD_SALT_BYTES = 16
 _PASSWORD_DK_BYTES = 64
 _MAX_PASSWORD_BYTES = 1024
 _TOKEN_PATTERN = re.compile(r"^[A-Za-z0-9_-]{43}$")
+_BASE64URL_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")
 _SESSION_TOKEN_DOMAIN = b"market-mind-session-token-v1:"
 
 
@@ -29,7 +30,13 @@ def _b64encode(value: bytes) -> str:
 
 
 def _b64decode(value: str) -> bytes:
-    return base64.urlsafe_b64decode(value + "=" * (-len(value) % 4))
+    if not isinstance(value, str) or not _BASE64URL_PATTERN.fullmatch(value):
+        raise ValueError("invalid unpadded base64url value")
+    padded = value + "=" * (-len(value) % 4)
+    decoded = base64.b64decode(padded, altchars=b"-_", validate=True)
+    if _b64encode(decoded) != value:
+        raise ValueError("non-canonical base64url value")
+    return decoded
 
 
 def hash_password(password: str) -> str:

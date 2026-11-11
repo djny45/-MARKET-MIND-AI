@@ -9,6 +9,7 @@ import AgentNetwork from './AgentNetwork'
 import AgentPositionMonitor from './AgentPositionMonitor'
 import LearningLab from './LearningLab'
 import { API_BASE, apiFetch } from './api'
+import { summarizeStoredCoverage } from './overviewMetrics'
 
 const API = API_BASE
 type NodeData = { label: string; subtitle?: string; category?: string; period?: number; values?: number[]; result?: unknown }
@@ -545,8 +546,8 @@ export default function App() {
      <article className="overview-card"><span>WATCHLIST</span><strong>{watchlistItems.length}</strong><small>Saved instrument references</small></article>
      <article className="overview-card"><span>RESEARCH WORKERS</span><strong>{workers.length||550}</strong><small>Templates, not active autonomous agents</small></article>
      <article className="overview-card"><span>EXECUTION MODE</span><strong>DISABLED</strong><small>Broker connections and order execution are not configured</small></article>
-     <article className="overview-card"><span>STORED OBSERVATIONS</span><strong>{marketOverview?.coverage?.reduce((sum:number,item:any)=>sum+(item.observation_count||0),0)??'—'}</strong><small>Total locally stored OHLCV rows in this overview</small></article>
-     <article className="overview-card"><span>RECORDED SOURCES</span><strong>{marketOverview?.coverage?new Set(marketOverview.coverage.flatMap((item:any)=>item.sources||[])).size:'—'}</strong><small>Distinct source labels across stored coverage</small></article>
+     <article className="overview-card"><span>STORED OBSERVATIONS</span><strong>{summarizeStoredCoverage(marketOverview?.coverage).observations??'—'}</strong><small>Total locally stored OHLCV rows in this overview</small></article>
+     <article className="overview-card"><span>RECORDED SOURCES</span><strong>{summarizeStoredCoverage(marketOverview?.coverage).distinctSources??'—'}</strong><small>Distinct source labels across stored coverage</small></article>
     </div>
     <div className="overview-columns">
      <section className="overview-panel"><div className="overview-panel-head"><div><b>STORED MARKET DATA</b><small>Local historical observations only</small></div><button className="soft-btn" onClick={()=>setActiveTab('WATCHLIST')}>OPEN WATCHLIST</button></div>

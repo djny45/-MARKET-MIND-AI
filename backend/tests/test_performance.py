@@ -42,6 +42,18 @@ class PerformanceTests(unittest.TestCase):
             with self.subTest(prices=prices), self.assertRaises(ValueError):
                 performance_metrics([100, 101, 102], benchmark=prices)
 
+    def test_overflowing_primary_returns_are_rejected(self):
+        with self.assertRaises(ValueError):
+            performance_metrics([1e-308, 1e308, 1e308])
+
+    def test_overflowing_cumulative_return_is_rejected(self):
+        with self.assertRaises(ValueError):
+            performance_metrics([1e-308, 1e-308, 1e308])
+
+    def test_overflowing_benchmark_returns_are_rejected(self):
+        with self.assertRaises(ValueError):
+            performance_metrics([100, 101, 102], benchmark=[1e-308, 1e308, 1e308])
+
     def test_benchmark_requires_three_observations(self):
         with self.assertRaises(ValueError):
             performance_metrics([100, 101, 102], benchmark=[100, 101])

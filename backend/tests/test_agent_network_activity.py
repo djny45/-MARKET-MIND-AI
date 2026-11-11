@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from app.analytical_agent_tasks import enqueue_research_task, list_recent_task_activity, agent_task_performance
+from app.analytical_agent_tasks import enqueue_research_task, list_recent_task_activity, agent_task_performance, agent_research_quality_performance, _persist_quality_evaluation
 
 class AgentNetworkActivityTests(unittest.TestCase):
     def setUp(self):
@@ -44,6 +44,26 @@ class AgentNetworkActivityTests(unittest.TestCase):
     def test_agent_task_performance_rejects_invalid_limit(self):
         with self.assertRaises(ValueError):
             agent_task_performance(limit=0)
+
+    def test_research_quality_performance_averages_persisted_traceability(self):
+        first = enqueue_research_task("worker_quality_001", "quality fixture one")
+        second = enqueue_research_task("worker_quality_001", "quality fixture two")
+        _persist_quality_evaluation(first["task_id"], "worker_quality_001", {
+            "metrics": {"claim_reference_coverage": 0.75, "known_source_reference_coverage": 0.5}
+        })
+        _persist_quality_evaluation(second["task_id"], "worker_quality_001", {
+            "metrics": {"claim_reference_coverage": 1.0, "known_source_reference_coverage": 0.75}
+        })
+        report = agent_research_quality_performance(limit=20)
+        item = report["agents"]["worker_quality_001"]
+        self.assertEqual(item["evaluation_count"], 2)
+        self.assertEqual(item["claim_reference_coverage_mean"], 0.875)
+        self.assertEqual(item["known_source_reference_coverage_mean"], 0.625)
+        self.assertIn("does not establish", report["quality_boundary"])
+
+    def test_research_quality_performance_rejects_invalid_limit(self):
+        with self.assertRaises(ValueError):
+            agent_research_quality_performance(limit=551)
 
     def test_recent_activity_rejects_invalid_limit(self):
         with self.assertRaises(ValueError):

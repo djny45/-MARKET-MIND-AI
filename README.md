@@ -146,6 +146,7 @@ Specialist modules exchange deterministic records; per-agent brain-context and l
 | Agent detail inspector transitions | Added Motion entrance transition when selecting an agent node |
 | Agent-network keyboard access | Enabled keyboard-focusable nodes and edges; inspector follows React Flow selection changes |
 | Persisted agent task inspector | Selecting a registered profile shows its latest persisted task status, task ID and update time when available; empty states are explicit |
+| Persisted task audit timeline | Displays the bounded SQLite task-event history with filters for status changes, queued, completed and failed events |
 | Three.js global research globe | Added procedural wireframe globe, network arcs and registered-profile/task counters; illustrative visualization, not live geospatial or exchange connectivity |
 | React Flow node graph | Implemented |
 | Node library and worker catalogue UI | Implemented |

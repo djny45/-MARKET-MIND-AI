@@ -72,12 +72,12 @@ class AuthSessionStoreTests(unittest.TestCase):
         self.assertEqual(clock_rollback["last_seen_at"], 1200)
 
         still_active = get_session(
-            self.database_path, self.session_hash, now=1400, idle_ttl_seconds=300
+            self.database_path, self.session_hash, now=1600, idle_ttl_seconds=300
         )
         self.assertIsNotNone(still_active)
-        self.assertEqual(still_active["idle_expires_at"], 1700)
+        self.assertEqual(still_active["idle_expires_at"], 1900)
         capped = get_session(
-            self.database_path, self.session_hash, now=1700, idle_ttl_seconds=300
+            self.database_path, self.session_hash, now=1900, idle_ttl_seconds=300
         )
         self.assertIsNotNone(capped)
         self.assertEqual(capped["idle_expires_at"], 2000)

@@ -37,7 +37,7 @@ The platform is designed for research across four primary market groups: India, 
 - **Governed improvement:** worker changes are tested, versioned, reviewed, and reversible.
 - **Provider-neutral data layer:** connectors are modular and must respect provider terms, licences, rate limits, and redistribution rules.
 - **Synthetic data is labelled:** the sample endpoint is a deterministic development fixture, never a live or historical price feed.
-- **Research only:** research-only operation, brokerage credentials, order routing, or automated execution.
+- **Research only:** brokerage credentials, order routing, and automated execution are excluded.
 
 ## Historical data and forecasting research (educational)
 
@@ -465,7 +465,7 @@ Generated improvement proposals can now be reviewed through append-only records:
 - `GET /api/analytical-agents/{worker_id}/tasks?limit=20` — lists that worker's task history.
 - `GET /api/analytical-agent-tasks/{task_id}` — retrieves the stored input, status, result, and brain-context digest.
 
-Tasks are isolated by worker ID and retain the worker context hash. The first implementation is **bounded and synchronous**: it does not yet provide cloud workspaces, background scheduling, or 550 always-on autonomous processes. If the shared Ollama core is not configured, the result explicitly reports that synthesis is unavailable rather than fabricating analysis. Tasks use supplied data only; live market retrieval, broker execution, and paper trading are excluded.
+Tasks are isolated by worker ID and retain the worker context hash. The first implementation is **bounded and synchronous**: it does not yet provide cloud workspaces, background scheduling, or 550 always-on autonomous processes. If the shared Ollama core is not configured, the result explicitly reports that synthesis is unavailable rather than fabricating analysis. Tasks use supplied data only; live market retrieval, broker execution, and automated order routing are excluded.
 
 
 ## Human-reviewed staging experiment records

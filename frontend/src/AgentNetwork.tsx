@@ -114,7 +114,7 @@ export default function AgentNetwork({ agents }: { agents: AgentProfile[] }) {
       <button type="button" onClick={()=>{setQuery("");setDepartmentFilter("ALL DEPARTMENTS");setSelectedAgent(null)}}>RESET FILTERS</button>
     </div>
     <div className="agent-network-canvas">
-      <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} onNodeClick={(_, node)=>setSelectedAgent(node.data as AgentNodeData)} fitView fitViewOptions={{ padding: 0.12, minZoom: 0.04, maxZoom: 1.1 }} minZoom={0.025} maxZoom={2} defaultEdgeOptions={{ animated: false }} nodesDraggable={false}>
+      <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} nodesFocusable edgesFocusable onSelectionChange={({ nodes: selectedNodes })=>setSelectedAgent(selectedNodes[0] ? selectedNodes[0].data as AgentNodeData : null)} fitView fitViewOptions={{ padding: 0.12, minZoom: 0.04, maxZoom: 1.1 }} minZoom={0.025} maxZoom={2} defaultEdgeOptions={{ animated: false }} nodesDraggable={false}>
         <Background color="#262b32" gap={22} size={1}/>
         <MiniMap nodeColor={n => n.id === 'intelligence-core' ? '#d4a34c' : '#607c98'} maskColor="rgba(5,8,12,.76)"/>
         <Controls/>

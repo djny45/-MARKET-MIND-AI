@@ -59,6 +59,11 @@ export default function App() {
  const [busy,setBusy] = useState(false)
  const [result,setResult] = useState<any>(null)
  const [apiState,setApiState] = useState('CONNECTING')
+ const [authenticated,setAuthenticated] = useState(false)
+ const [authChecking,setAuthChecking] = useState(true)
+ const [loginPassword,setLoginPassword] = useState('')
+ const [loginBusy,setLoginBusy] = useState(false)
+ const [loginError,setLoginError] = useState('')
  const [validationPayload,setValidationPayload] = useState(JSON.stringify({symbol:'BTCUSD',interval:'1d',status:'historical',source:'manual-review',retrieved_at:new Date().toISOString(),bars:[]},null,2))
  const [validationReport,setValidationReport] = useState<any>(null)
  const [validationBusy,setValidationBusy] = useState(false)
@@ -130,7 +135,18 @@ export default function App() {
  const [sampleBusy,setSampleBusy] = useState(false)
  const [dataLabel,setDataLabel] = useState('MANUAL DEMO INPUT')
  const chartValues = useMemo(()=>values.split(',').map(v=>Number(v.trim())).filter(Number.isFinite),[values])
- useEffect(()=>{apiFetch(API+'/api/health').then(r=>r.json()).then(()=>setApiState('CONNECTED')).catch(()=>setApiState('OFFLINE'));apiFetch(API+'/api/workers?limit=550').then(r=>r.json()).then(d=>setWorkers(d.workers||[])).catch(()=>{});apiFetch(API+'/api/skills').then(r=>r.json()).then(d=>setSkills((d.skills||[]).filter((s:any)=>s.available))).catch(()=>{});refreshWorkspaces();refreshWatchlist();refreshExecutionRuns();loadMarketOverview()},[])
+ useEffect(()=>{
+  apiFetch(API+'/api/health').then(r=>r.json()).then(()=>setApiState('CONNECTED')).catch(()=>setApiState('OFFLINE'))
+  apiFetch(API+'/api/auth/session').then(async response=>{
+   if(!response.ok)throw new Error('Authentication required')
+   return response.json()
+  }).then(()=>{
+   setAuthenticated(true)
+   apiFetch(API+'/api/workers?limit=550').then(r=>r.json()).then(d=>setWorkers(d.workers||[])).catch(()=>{})
+   apiFetch(API+'/api/skills').then(r=>r.json()).then(d=>setSkills((d.skills||[]).filter((s:any)=>s.available))).catch(()=>{})
+   refreshWorkspaces();refreshWatchlist();refreshExecutionRuns();loadMarketOverview()
+  }).catch(()=>setAuthenticated(false)).finally(()=>setAuthChecking(false))
+ },[])
 
  const runOfflineBenchmark = async()=>{
   setBenchmarkBusy(true);setBenchmarkError('');setBenchmarkReport(null);
@@ -318,8 +334,34 @@ export default function App() {
   finally{setBusy(false)}
  }
  const filteredWorkers = useMemo(()=>workers.filter(w=>`${w.name} ${w.department} ${w.specialty}`.toLowerCase().includes(search.toLowerCase())).slice(0,80),[workers,search])
+ const submitLogin = async(e:React.FormEvent)=>{
+  e.preventDefault();setLoginBusy(true);setLoginError('')
+  try{
+   const response=await apiFetch(API+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:loginPassword})})
+   const data=await response.json()
+   if(!response.ok)throw new Error(data.detail||'Sign in failed')
+   setLoginPassword('');setAuthenticated(true)
+   apiFetch(API+'/api/workers?limit=550').then(r=>r.json()).then(d=>setWorkers(d.workers||[])).catch(()=>{})
+   apiFetch(API+'/api/skills').then(r=>r.json()).then(d=>setSkills((d.skills||[]).filter((s:any)=>s.available))).catch(()=>{})
+   refreshWorkspaces();refreshWatchlist();refreshExecutionRuns();loadMarketOverview()
+  }catch(error){setLoginError(error instanceof Error?error.message:'Sign in failed')}
+  finally{setLoginBusy(false)}
+ }
+ const signOut = async()=>{
+  try{await apiFetch(API+'/api/auth/logout',{method:'POST'})}finally{setAuthenticated(false)}
+ }
+ if(authChecking)return <div className="auth-screen"><div className="auth-card"><div className="brand-mark"><Activity size={19}/></div><h1>MARKET-MIND-AI</h1><p>Checking secure owner session…</p></div></div>
+ if(!authenticated)return <div className="auth-screen"><form className="auth-card" onSubmit={submitLogin}>
+  <div className="brand-mark"><Activity size={19}/></div><span className="eyebrow">PRIVATE RESEARCH WORKSPACE</span><h1>Owner sign in</h1>
+  <p>Authenticate to access the research terminal. New accounts and public registration are disabled.</p>
+  <label htmlFor="owner-password">OWNER PASSWORD</label>
+  <input id="owner-password" type="password" autoComplete="current-password" value={loginPassword} onChange={e=>setLoginPassword(e.target.value)} required maxLength={1024}/>
+  {loginError&&<p className="auth-error" role="alert">{loginError}</p>}
+  <button className="run-btn" type="submit" disabled={loginBusy||!loginPassword}>{loginBusy?'SIGNING IN…':'SIGN IN SECURELY'}</button>
+  <small>Private, single-owner access · Session cookies · CSRF protection</small>
+ </form></div>
  return <div className="app-shell">
-  <header className="topbar"><div className="brand"><div className="brand-mark"><Activity size={19}/></div><div><b>MARKET<span>-MIND</span>-AI</b><small>GLOBAL INTELLIGENCE TERMINAL</small></div></div><div className="top-center"><span className="live-dot"/><span>RESEARCH NETWORK</span><i/> <span>550 WORKER PROFILES</span><i/><span>NO EXECUTION LAYER</span></div><div className="top-right"><span className={apiState==='CONNECTED'?'status-ok':'status-off'}>{apiState}</span><a className="soft-btn" href="/market-terminal.html" target="_blank" rel="noreferrer">CLASSIC TERMINAL</a><button className="icon-btn"><CircleHelp size={17}/></button></div></header>
+  <header className="topbar"><div className="brand"><div className="brand-mark"><Activity size={19}/></div><div><b>MARKET<span>-MIND</span>-AI</b><small>GLOBAL INTELLIGENCE TERMINAL</small></div></div><div className="top-center"><span className="live-dot"/><span>RESEARCH NETWORK</span><i/> <span>550 WORKER PROFILES</span><i/><span>NO EXECUTION LAYER</span></div><div className="top-right"><span className={apiState==='CONNECTED'?'status-ok':'status-off'}>{apiState}</span><a className="soft-btn" href="/market-terminal.html" target="_blank" rel="noreferrer">CLASSIC TERMINAL</a><button className="soft-btn" onClick={signOut}>SIGN OUT</button><button className="icon-btn"><CircleHelp size={17}/></button></div></header>
   <div className="toolbar"><div className="crumb"><Workflow size={16}/> WORKSPACE <ChevronRight size={14}/> <b>GLOBAL RESEARCH GRAPH</b></div><div className="toolbar-actions"><div className="instrument-search"><input aria-label="Search instruments" placeholder="Find symbol or company…" value={instrumentQuery} onChange={e=>setInstrumentQuery(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')findInstruments()}}/><button className="soft-btn" onClick={findInstruments}><Search size={13}/> FIND</button>{instrumentResults.length>0&&<div className="instrument-results">{instrumentResults.map((item:any)=><div key={item.symbol}><b>{item.symbol}</b><span>{item.name}</span><small>{item.market} · {item.venue} · {item.currency}</small><button className="soft-btn" onClick={()=>addToWatchlist(item.symbol)} disabled={watchlistBusy}>ADD TO WATCHLIST</button></div>)}</div>}</div><input className="workspace-title" aria-label="Workspace name" value={workspaceTitle} onChange={e=>setWorkspaceTitle(e.target.value)} /><button className="soft-btn" onClick={saveWorkspace} disabled={workspaceBusy}>{workspaceBusy?'SAVING…':'SAVE GRAPH'}</button><select className="workspace-select" aria-label="Load saved workspace" defaultValue="" onChange={e=>loadWorkspace(e.target.value)}><option value="">LOAD WORKSPACE</option>{savedWorkflows.map(w=><option key={w.id} value={w.id}>{w.title}</option>)}</select><button className="soft-btn"><SlidersHorizontal size={14}/> Configure</button><button className="run-btn" onClick={run} disabled={busy}><Play size={14} fill="currentColor"/>{busy?'RUNNING…':'RUN WORKFLOW'}</button></div></div>
   <main className="layout"><aside className="sidebar"><div className="side-tabs"><button className={activeTab==='OVERVIEW'?'active':''} onClick={()=>setActiveTab('OVERVIEW')}><Activity size={15}/> OVERVIEW</button><button className={activeTab==='WORKFLOW'?'active':''} onClick={()=>setActiveTab('WORKFLOW')}><Boxes size={15}/> WORKFLOW</button><button className={activeTab==='AGENT_NETWORK'?'active':''} onClick={()=>setActiveTab('AGENT_NETWORK')}><Cable size={15}/> AGENT NETWORK</button><button className={activeTab==='AGENT_POSITIONS'?'active':''} onClick={()=>setActiveTab('AGENT_POSITIONS')}><Activity size={15}/> AGENT POSITIONS</button><button className={activeTab==='LEARNING'?'active':''} onClick={()=>setActiveTab('LEARNING')}><BrainCircuit size={15}/> LEARNING LAB</button><button className={activeTab==='WORKERS'?'active':''} onClick={()=>setActiveTab('WORKERS')}><BrainCircuit size={15}/> AGENT DIRECTORY</button><button className={activeTab==='RUNS'?'active':''} onClick={()=>{setActiveTab('RUNS');refreshExecutionRuns()}}><History size={15}/> RUNS</button><button className={activeTab==='NEWS'?'active':''} onClick={()=>setActiveTab('NEWS')}><Newspaper size={15}/> NEWS</button><button className={activeTab==='RESEARCH'?'active':''} onClick={()=>setActiveTab('RESEARCH')}><Activity size={15}/> RESEARCH</button><button className={activeTab==='VALIDATION'?'active':''} onClick={()=>setActiveTab('VALIDATION')}><ShieldCheck size={15}/> DATA VALIDATION</button><button className={activeTab==='WATCHLIST'?'active':''} onClick={()=>setActiveTab('WATCHLIST')}><Star size={15}/> WATCHLIST</button></div>
    {activeTab==='WATCHLIST'&&<div className="research-sidebar"><div className="side-label">SAVED INSTRUMENTS <span>{watchlistItems.length}</span></div><button className="soft-btn research-run" onClick={refreshWatchlist} disabled={watchlistBusy}>REFRESH WATCHLIST</button><div className="side-label">LOCAL DATA COVERAGE <span>STORED ONLY</span></div><button className="soft-btn research-run" onClick={loadMarketOverview} disabled={overviewBusy}>{overviewBusy?'LOADING COVERAGE…':'LOAD MARKET DATA OVERVIEW'}</button>{overviewError&&<small className="news-error">{overviewError}</small>}{marketOverview&&<div className="research-results"><b>{marketOverview.instrument_interval_count} SYMBOL / TIMEFRAME SETS</b>{marketOverview.coverage.map((item:any)=><div className="aligned-row" key={item.symbol+'-'+item.interval}><b>{item.symbol}</b><span>{item.interval}</span><span>{item.observation_count} observations</span><small>{item.sources.join(', ')} · {item.statuses.join(', ')} · last {item.last_timestamp||'—'}</small></div>)}<small>{marketOverview.data_note}</small></div>}{watchlistMessage&&<small className="research-note">{watchlistMessage}</small>}{watchlistItems.map(item=><div className="aligned-row" key={item.symbol}><b>{item.symbol}</b><small>Added {item.added_at}</small><button className="soft-btn" onClick={()=>{setResearchSymbol(item.symbol);setActiveTab('RESEARCH')}}>RESEARCH</button><button className="soft-btn" onClick={()=>removeFromWatchlist(item.symbol)} disabled={watchlistBusy}>REMOVE</button></div>)}{watchlistItems.length===0&&<small className="research-note">No saved instruments yet. Search an instrument in the header and choose ADD TO WATCHLIST.</small>}</div>}

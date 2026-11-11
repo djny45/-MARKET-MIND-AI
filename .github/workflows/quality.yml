@@ -45,6 +45,7 @@ jobs:
       - name: Run backend unit tests (require at least one test)
         env:
           PYTHONPATH: backend
+          MARKET_MIND_AUTH_REQUIRED: "false"
         run: |
           python - <<'PY'
           import unittest
@@ -63,6 +64,7 @@ jobs:
       - name: API runtime smoke test
         env:
           PYTHONPATH: backend
+          MARKET_MIND_AUTH_REQUIRED: "false"
           MARKET_MIND_DB: ${{ runner.temp }}/smoke.sqlite
         run: |
           set -euo pipefail

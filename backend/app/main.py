@@ -16,7 +16,7 @@ from .worker_registry import evaluate_registry, registry_manifest
 from .analytical_agent_runtime import runtime_manifest, brain_config, validate_learning_feedback, validate_update_proposal
 from .learning_engine import learning_overview, agent_learning_summary, run_feedback_improvement_cycle, build_feedback_staging_plan
 from .specialist_router import route_research_brief
-from .analytical_agent_tasks import retry_failed_research_task, cancel_queued_research_task, submit_research_task, get_research_task, list_research_tasks, enqueue_research_task, execute_queued_research_task, recover_interrupted_research_tasks, list_recent_task_activity, agent_task_performance, agent_research_quality_performance, agent_supervisor_status, dispatch_queued_research_tasks, list_task_audit_events, get_task_quality_evaluation
+from .analytical_agent_tasks import retry_failed_research_task, cancel_queued_research_task, submit_research_task, get_research_task, list_research_tasks, enqueue_research_task, execute_queued_research_task, recover_interrupted_research_tasks, list_recent_task_activity, agent_task_performance, agent_research_quality_performance, agent_supervisor_recommendations, agent_supervisor_status, dispatch_queued_research_tasks, list_task_audit_events, get_task_quality_evaluation
 from .research_orchestrator import orchestrate_research
 from .intelligence_core import intelligence_core_status, synthesize_research, IntelligenceCoreError
 from .synthesis_review import build_synthesis_review, build_synthesis_review_packet, validate_claim_review_checklist
@@ -1114,6 +1114,15 @@ def agent_network_research_quality(limit: int = 550):
   return agent_research_quality_performance(limit=limit)
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/agent-network/recommendations")
+def agent_network_recommendations(limit: int = 550):
+    """Return evidence-thresholded, advisory-only workflow review suggestions."""
+    try:
+        return agent_supervisor_recommendations(limit=limit)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.get("/api/analytical-agent-supervisor/status")

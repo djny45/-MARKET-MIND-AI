@@ -19,6 +19,9 @@ type ActivityEvent = { event_id: number; task_id: string; worker_id: string; eve
 type ActivitySnapshot = { task_count: number; status_counts: Record<string, number>; latest_by_agent: Record<string, { status: string; task_id: string; updated_at: string }>; recent_audit_events?: ActivityEvent[]; audit_event_count?: number; note?: string }
 type AgentPerformance = { task_count: number; agents: Record<string, { task_count: number; queued: number; running: number; completed: number; failed: number; finished_count: number; completion_rate: number | null; failure_rate: number | null; execution_attempts_total: number; average_execution_attempts_per_task: number }>; performance_boundary: string }
 type ResearchQuality = { evaluations_examined: number; invalid_or_unusable_evaluation_count: number; agents: Record<string, { evaluation_count: number; claim_reference_coverage_mean: number | null; claim_reference_coverage_count: number; known_source_reference_coverage_mean: number | null; known_source_reference_coverage_count: number }>; metric_definition: string; quality_boundary: string }
+type AgentRecommendation = { agent_id: string; priority: 'review' | 'observe'; reason_code: string; evidence: Record<string, number>; suggested_action: string }
+type RecommendationSnapshot = { recommendation_count: number; recommendations: AgentRecommendation[]; decision_mode: string; minimum_evidence: { finished_tasks: number; quality_evaluations: number }; limitations: string[]; source: string }
+
 
 function AgentNode({ data }: { data: AgentNodeData }) {
   return <div className={data.core ? 'agent-network-node core' : 'agent-network-node'}>
@@ -40,6 +43,7 @@ export default function AgentNetwork({ agents }: { agents: AgentProfile[] }) {
   const [activityError, setActivityError] = useState('')
   const [performance, setPerformance] = useState<AgentPerformance | null>(null)
   const [researchQuality, setResearchQuality] = useState<ResearchQuality | null>(null)
+  const [recommendations, setRecommendations] = useState<RecommendationSnapshot | null>(null)
   useEffect(() => {
     let alive = true
     const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000'
@@ -73,7 +77,17 @@ export default function AgentNetwork({ agents }: { agents: AgentProfile[] }) {
         if (alive) setResearchQuality(null)
       }
     }
-    const load = () => { void loadActivity(); void loadPerformance(); void loadResearchQuality() }
+    const loadRecommendations = async () => {
+      try {
+        const response = await fetch(apiBase + '/api/agent-network/recommendations?limit=550')
+        if (!response.ok) throw new Error('Recommendations endpoint unavailable')
+        const snapshot = await response.json()
+        if (alive) setRecommendations(snapshot)
+      } catch {
+        if (alive) setRecommendations(null)
+      }
+    }
+    const load = () => { void loadActivity(); void loadPerformance(); void loadResearchQuality(); void loadRecommendations() }
     load()
     const timer = window.setInterval(load, 20000)
     return () => { alive = false; window.clearInterval(timer) }
@@ -190,6 +204,16 @@ export default function AgentNetwork({ agents }: { agents: AgentProfile[] }) {
         </table> : <p className="agent-network-quality-note">No usable per-profile traceability evaluations are recorded yet.</p>}
       </div>
       <p className="agent-network-quality-note">{researchQuality.quality_boundary}</p>
+    </section>}
+    {recommendations && <section className="agent-network-recommendations" aria-label="Advisory workflow recommendations">
+      <div className="agent-network-recommendations-head"><div><span className="eyebrow">SUPERVISOR / EVIDENCE-THRESHOLDED</span><h2>Workflow review suggestions</h2><p>{recommendations.recommendation_count} suggestions · advisory only · no automatic reassignment</p></div><span>HUMAN REVIEW REQUIRED</span></div>
+      {recommendations.recommendations.length ? <ul className="agent-network-recommendations-list">{recommendations.recommendations.map((item,index)=><li key={item.agent_id + ':' + item.reason_code + ':' + index}>
+        <div><strong>{item.agent_id}</strong><span>{item.reason_code.replace(/_/g,' ')}</span></div>
+        <p>{item.suggested_action}</p>
+        <small>{Object.entries(item.evidence).map(([key,value])=>key.replace(/_/g,' ') + ': ' + (typeof value === 'number' && value <= 1 ? (value*100).toFixed(1)+'%' : value)).join(' · ')}</small>
+        <em>{item.priority.toUpperCase()}</em>
+      </li>)}</ul> : <p className="agent-network-recommendations-empty">No suggestions meet the minimum evidence thresholds. This is not a rating of agent intelligence.</p>}
+      <p className="agent-network-recommendations-note">{recommendations.limitations.join(' ')}</p>
     </section>}
     {activity && <section className="agent-network-timeline" aria-label="Persisted agent task timeline">
       <div className="agent-network-timeline-head"><div><span className="eyebrow">AUDIT TRAIL / SQLITE</span><h2>Recent task events</h2><p>{activity.audit_event_count || 0} recorded events · newest first · bounded history</p></div>

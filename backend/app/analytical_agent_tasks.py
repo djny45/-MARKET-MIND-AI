@@ -112,8 +112,11 @@ def get_task_quality_evaluation(task_id: str) -> dict | None:
 
 def _decode_event_detail(raw_value: str) -> dict:
     """Decode persisted audit metadata without letting one corrupt row break reads."""
+    def reject_nonstandard_constant(_constant):
+        raise ValueError("non-standard JSON constant")
+
     try:
-        value = json.loads(raw_value)
+        value = json.loads(raw_value, parse_constant=reject_nonstandard_constant)
     except (TypeError, ValueError):
         return {"status": "invalid_record", "error_type": "malformed_json"}
     if not isinstance(value, dict):

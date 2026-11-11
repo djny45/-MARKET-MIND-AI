@@ -1,5 +1,6 @@
 import os
 import tempfile
+import time
 import unittest
 from unittest.mock import patch
 
@@ -98,7 +99,7 @@ class AuthenticationApiTests(unittest.TestCase):
         old_session = get_session(
             os.path.join(self.temp.name, "auth.sqlite3"),
             old_hash,
-            now=2_000_000_000,
+            now=int(time.time()),
             idle_ttl_seconds=1800,
         )
         self.assertIsNone(old_session)

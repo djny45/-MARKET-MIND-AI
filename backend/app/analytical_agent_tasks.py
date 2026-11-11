@@ -583,11 +583,21 @@ def get_research_task(task_id: str) -> dict | None:
         row = db.execute("SELECT * FROM analytical_agent_tasks WHERE task_id=?", (task_id,)).fetchone()
     if row is None:
         return None
+    def decode_record(raw_value: str, field_name: str) -> dict:
+        try:
+            value = json.loads(raw_value)
+        except (TypeError, ValueError):
+            return {"status": "invalid_record", "error_type": "malformed_json"}
+        if not isinstance(value, dict):
+            return {"status": "invalid_record", "error_type": "invalid_structure"}
+        return value
+
     return {
         "task_id": row["task_id"], "agent_id": row["worker_id"], "worker_id": row["worker_id"],
         "task_type": row["task_type"], "status": row["status"],
         "execution_attempts": row["execution_attempts"],
-        "input": json.loads(row["input_json"]), "result": json.loads(row["result_json"]),
+        "input": decode_record(row["input_json"], "input"),
+        "result": decode_record(row["result_json"], "result"),
         "brain_context_sha256": row["brain_context_sha256"],
         "created_at": row["created_at"], "updated_at": row["updated_at"],
     }

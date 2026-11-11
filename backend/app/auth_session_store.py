@@ -8,8 +8,9 @@ from __future__ import annotations
 
 import re
 import sqlite3
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 
 _DIGEST_PATTERN = re.compile(r"^[0-9a-f]{64}$")
@@ -52,13 +53,27 @@ def _connect(database_path: str | Path) -> sqlite3.Connection:
     return connection
 
 
+@contextmanager
+def _session_connection(database_path: str | Path) -> Iterator[sqlite3.Connection]:
+    """Commit successful operations and always close the SQLite connection."""
+    connection = _connect(database_path)
+    try:
+        yield connection
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    finally:
+        connection.close()
+
+
 def initialize_auth_store(database_path: str | Path) -> None:
     """Create the session schema and restrict the database file on POSIX."""
     if not isinstance(database_path, (str, Path)) or not str(database_path).strip():
         raise ValueError("database_path must be a non-empty path")
     path = Path(database_path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    with _connect(path) as connection:
+    with _session_connection(path) as connection:
         connection.execute("PRAGMA journal_mode = WAL")
         connection.executescript(_SCHEMA)
     try:
@@ -90,7 +105,7 @@ def create_session(
 
     absolute_expires_at = now + absolute_ttl
     idle_expires_at = min(now + idle_ttl, absolute_expires_at)
-    with _connect(database_path) as connection:
+    with _session_connection(database_path) as connection:
         connection.execute(
             """
             INSERT INTO auth_sessions (

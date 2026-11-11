@@ -280,6 +280,29 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
             "status": "invalid_record", "error_type": "invalid_structure",
         })
 
+    def test_nonstandard_json_constants_in_audit_detail_are_marked_invalid(self):
+        import sqlite3
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, list_task_audit_events, list_recent_task_activity,
+        )
+        queued = enqueue_research_task("worker_038", "non-standard audit JSON constants")
+        for raw_value in ('{"value":NaN}', '{"value":Infinity}', '{"value":-Infinity}'):
+            with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+                db.execute(
+                    "UPDATE analytical_agent_task_events SET detail_json=? WHERE task_id=?",
+                    (raw_value, queued["task_id"]),
+                )
+            events = list_task_audit_events(queued["task_id"])["events"]
+            self.assertEqual(events[0]["detail"], {
+                "status": "invalid_record", "error_type": "malformed_json",
+            })
+            snapshot = list_recent_task_activity(limit=20)
+            matching = [event for event in snapshot["recent_audit_events"]
+                        if event["task_id"] == queued["task_id"]]
+            self.assertEqual(matching[0]["detail"], {
+                "status": "invalid_record", "error_type": "malformed_json",
+            })
+
     def test_task_audit_events_are_bounded_and_unknown_task_is_empty(self):
         from app.analytical_agent_tasks import enqueue_research_task, list_task_audit_events
         queued = enqueue_research_task("worker_008", "audit bounds")

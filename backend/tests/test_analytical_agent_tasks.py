@@ -247,6 +247,13 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertEqual(result["decision_mode"], "advisory_only")
         self.assertTrue(any("No autonomous" in item for item in result["limitations"]))
 
+    def test_network_activity_limit_rejects_boolean_values(self):
+        from app.analytical_agent_tasks import list_recent_task_activity
+        for value in (True, False):
+            with self.subTest(value=value):
+                with self.assertRaises(ValueError):
+                    list_recent_task_activity(limit=value)
+
     def test_network_activity_snapshot_includes_recent_audit_events(self):
         from app.analytical_agent_tasks import list_recent_task_activity
         result = submit_research_task("worker_011", "activity audit snapshot")

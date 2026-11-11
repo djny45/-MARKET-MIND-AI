@@ -48,7 +48,7 @@ def _connect():
 
 def append_memory(worker_id, memory_type, content, source_refs=None, quality_status="unverified"):
     _validate_worker_id(worker_id)
-    if memory_type not in _MEMORY_TYPES:
+    if not isinstance(memory_type, str) or memory_type not in _MEMORY_TYPES:
         raise ValueError("memory_type is unsupported")
     if not isinstance(content, dict):
         raise ValueError("content must be an object")
@@ -62,7 +62,7 @@ def append_memory(worker_id, memory_type, content, source_refs=None, quality_sta
     if (not isinstance(refs, list) or len(refs) > 20
             or any(not isinstance(ref, str) or not ref.strip() or len(ref) > 300 for ref in refs)):
         raise ValueError("source_refs must contain at most 20 non-empty strings of at most 300 characters")
-    if quality_status not in _QUALITY:
+    if not isinstance(quality_status, str) or quality_status not in _QUALITY:
         raise ValueError("quality_status is unsupported")
     memory_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc).isoformat()
@@ -82,7 +82,7 @@ def append_memory(worker_id, memory_type, content, source_refs=None, quality_sta
 
 def read_memory(worker_id, memory_type=None, limit=50):
     _validate_worker_id(worker_id)
-    if memory_type is not None and memory_type not in _MEMORY_TYPES:
+    if memory_type is not None and (not isinstance(memory_type, str) or memory_type not in _MEMORY_TYPES):
         raise ValueError("memory_type is unsupported")
     if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 200:
         raise ValueError("limit must be between 1 and 200")

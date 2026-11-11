@@ -39,6 +39,14 @@ export default function AuthGate({ children }: AuthGateProps) {
     return () => { active = false }
   }, [])
 
+  async function signOut() {
+    try {
+      await apiFetch(`${API_BASE}/api/auth/logout`, { method: 'POST' })
+    } finally {
+      setStatus('signed-out')
+    }
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setBusy(true)
@@ -63,7 +71,7 @@ export default function AuthGate({ children }: AuthGateProps) {
     }
   }
 
-  if (status === 'signed-in') return <>{children}</>
+  if (status === 'signed-in') return <><div className="auth-session-control"><button type="button" onClick={signOut}>Sign out</button></div>{children}</>
   if (status === 'checking') {
     return <main className="auth-shell"><section className="auth-card"><div className="auth-mark">MM</div><p className="auth-eyebrow">MARKET-MIND-AI</p><h1>Checking secure session</h1><p className="auth-muted">Verifying your private workspace access…</p></section></main>
   }

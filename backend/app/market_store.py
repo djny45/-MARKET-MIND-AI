@@ -8,6 +8,11 @@ from pathlib import Path
 from .market_data import MarketDataBatch
 
 
+def _utc_isoformat(value: datetime) -> str:
+    """Serialize an aware timestamp in one canonical UTC representation."""
+    return value.astimezone(timezone.utc).isoformat()
+
+
 def _database_path() -> Path:
     path = Path(os.getenv("MARKET_MIND_DB", "./data/market_mind.db"))
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -80,9 +85,9 @@ def store_batch(batch: MarketDataBatch) -> dict:
     ordered_bars = sorted(batch.bars, key=lambda bar: bar.timestamp)
     rows = [
         (
-            batch.symbol.upper(), batch.interval, bar.timestamp.isoformat(),
+            batch.symbol.upper(), batch.interval, _utc_isoformat(bar.timestamp),
             bar.open, bar.high, bar.low, bar.close, bar.volume,
-            batch.status.value, batch.source, batch.retrieved_at.isoformat(),
+            batch.status.value, batch.source, _utc_isoformat(batch.retrieved_at),
         )
         for bar in batch.bars
     ]
@@ -105,9 +110,9 @@ def store_batch(batch: MarketDataBatch) -> dict:
         """, (
             "market_data_batch_stored", batch.symbol.upper(), batch.interval,
             batch.source, batch.status.value, len(rows),
-            ordered_bars[0].timestamp.isoformat() if ordered_bars else None,
-            ordered_bars[-1].timestamp.isoformat() if ordered_bars else None,
-            batch.retrieved_at.isoformat(),
+            _utc_isoformat(ordered_bars[0].timestamp) if ordered_bars else None,
+            _utc_isoformat(ordered_bars[-1].timestamp) if ordered_bars else None,
+            _utc_isoformat(batch.retrieved_at),
         ))
     return {
         "stored": len(rows),
@@ -131,13 +136,13 @@ def get_bars(symbol: str, interval: str, limit: int = 500) -> dict:
                    status, source, retrieved_at
             FROM market_bars
             WHERE symbol=? AND interval=?
-            ORDER BY timestamp DESC LIMIT ?
+            ORDER BY datetime(timestamp) DESC LIMIT ?
         """, (symbol.strip().upper(), interval, safe_limit)).fetchall()
     observations = [dict(row) for row in reversed(rows)]
     sources = sorted({item["source"] for item in observations})
     statuses = sorted({item["status"] for item in observations})
     retrieved_values = [item["retrieved_at"] for item in observations if item.get("retrieved_at")]
-    unique_timestamps = {item["timestamp"] for item in observations}
+    unique_timestamps = {datetime.fromisoformat(item["timestamp"]).astimezone(timezone.utc) for item in observations}
     return {
         "symbol": symbol.strip().upper(),
         "interval": interval,
@@ -256,8 +261,8 @@ def get_stored_return_heatmap(interval: str = "1d", limit: int = 100) -> dict:
             WITH source_ranked AS (
                 SELECT symbol, interval, timestamp, close, status, source, retrieved_at,
                        ROW_NUMBER() OVER (
-                           PARTITION BY symbol, interval, timestamp
-                           ORDER BY retrieved_at DESC, source ASC
+                           PARTITION BY symbol, interval, datetime(timestamp)
+                           ORDER BY datetime(retrieved_at) DESC, source ASC
                        ) AS source_rank
                 FROM market_bars
                 WHERE interval = ?
@@ -266,7 +271,7 @@ def get_stored_return_heatmap(interval: str = "1d", limit: int = 100) -> dict:
                 SELECT symbol, interval, timestamp, close, status, source, retrieved_at,
                        ROW_NUMBER() OVER (
                            PARTITION BY symbol, interval
-                           ORDER BY timestamp DESC
+                           ORDER BY datetime(timestamp) DESC
                        ) AS timestamp_rank
                 FROM source_ranked
                 WHERE source_rank = 1

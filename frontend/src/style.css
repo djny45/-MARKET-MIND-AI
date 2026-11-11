@@ -343,3 +343,5 @@
 .global-globe-canvas{position:relative;min-width:0;height:220px}.global-globe-canvas canvas{display:block;width:100%;height:100%}.global-globe-fallback{display:none;position:absolute;inset:0;place-items:center;color:#8d9aa9;font:10px 'DM Mono',monospace}.global-globe-canvas[data-webgl="unavailable"] .global-globe-fallback{display:grid}
 .global-globe-tag{position:absolute;right:12px;bottom:9px;color:#526c80;font:8px 'DM Mono',monospace;letter-spacing:.7px}
 @media(max-width:760px){.global-globe-panel{grid-template-columns:1fr;padding:15px}.global-globe-canvas{height:190px}.global-globe-tag{bottom:7px}}
+
+.global-globe-canvas{cursor:grab;touch-action:pan-y}.global-globe-canvas.is-dragging{cursor:grabbing;touch-action:none}

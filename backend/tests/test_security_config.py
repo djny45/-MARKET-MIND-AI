@@ -34,6 +34,14 @@ class FrontendOriginConfigTests(unittest.TestCase):
             ["http://[::1]:5173"],
         )
 
+    def test_compresses_expanded_ipv6_to_browser_origin_form(self):
+        self.assertEqual(
+            parse_frontend_origins(
+                "http://[0:0:0:0:0:0:0:1]:5173,http://[::1]:5173"
+            ),
+            ["http://[::1]:5173"],
+        )
+
     def test_rejects_wildcard_origins(self):
         for value in ("*", "https://*", "http://localhost:5173,*"):
             with self.subTest(value=value):

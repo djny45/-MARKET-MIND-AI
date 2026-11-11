@@ -239,5 +239,33 @@ class WorkerMemoryTests(unittest.TestCase):
             read_memory("worker_001", limit=0)
 
 
+    def test_candidate_and_proposal_lists_are_worker_scoped(self):
+        own_candidate = append_memory(
+            "worker_001", "validation_result",
+            {"record_type": "research_quality_learning_candidate", "topic": "RSI worker one"},
+        )
+        other_candidate = append_memory(
+            "worker_002", "validation_result",
+            {"record_type": "research_quality_learning_candidate", "topic": "RSI worker two"},
+        )
+        review_learning_candidate("worker_001", own_candidate["memory_id"], "approved", "reviewer")
+        review_learning_candidate("worker_002", other_candidate["memory_id"], "approved", "reviewer")
+
+        own_candidates = list_learning_candidates("worker_001")["candidates"]
+        self.assertEqual([item["memory_id"] for item in own_candidates], [own_candidate["memory_id"]])
+        own_recall = recall_approved_learning_candidates("worker_001", "RSI")
+        self.assertEqual([item["memory_id"] for item in own_recall["candidates"]], [own_candidate["memory_id"]])
+
+        own_proposal = append_memory(
+            "worker_001", "method_note", {"update_proposal": {"title": "Worker one proposal"}},
+        )
+        other_proposal = append_memory(
+            "worker_002", "method_note", {"update_proposal": {"title": "Worker two proposal"}},
+        )
+        own_proposals = list_improvement_proposals("worker_001")["proposals"]
+        self.assertEqual([item["memory_id"] for item in own_proposals], [own_proposal["memory_id"]])
+        self.assertNotIn(other_proposal["memory_id"], [item["memory_id"] for item in own_proposals])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -3,7 +3,9 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from app.market_data import SyntheticFixtureAdapter
+from datetime import datetime, timezone
+
+from app.market_data import DataStatus, MarketDataBatch, OHLCVBar, SyntheticFixtureAdapter
 from app.market_store import (get_audit_events, get_bars, get_data_lineage, get_market_overview, get_stored_return_heatmap, store_batch)
 
 
@@ -35,6 +37,34 @@ class MarketStoreTests(unittest.IsolatedAsyncioTestCase):
                 store_batch(batch)
                 store_batch(batch)
                 self.assertEqual(get_bars("ETHUSD", "1d")["count"], 2)
+
+    def test_equivalent_timezone_offsets_upsert_as_one_utc_instant(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.dict(os.environ, {"MARKET_MIND_DB": os.path.join(directory, "test.sqlite")}):
+                retrieval = datetime(2026, 1, 2, tzinfo=timezone.utc)
+                first = MarketDataBatch(
+                    symbol="OFFSET", interval="1d", status=DataStatus.HISTORICAL,
+                    source="provider", retrieved_at=retrieval,
+                    bars=[OHLCVBar(
+                        timestamp=datetime.fromisoformat("2026-01-01T05:30:00+05:30"),
+                        open=10, high=12, low=9, close=11, volume=100,
+                    )],
+                )
+                equivalent = MarketDataBatch(
+                    symbol="OFFSET", interval="1d", status=DataStatus.HISTORICAL,
+                    source="provider", retrieved_at=retrieval,
+                    bars=[OHLCVBar(
+                        timestamp=datetime(2026, 1, 1, tzinfo=timezone.utc),
+                        open=10, high=13, low=9, close=12, volume=120,
+                    )],
+                )
+                store_batch(first)
+                store_batch(equivalent)
+                saved = get_bars("OFFSET", "1d")
+                self.assertEqual(saved["count"], 1)
+                self.assertEqual(saved["timestamp_count"], 1)
+                self.assertEqual(saved["bars"][0]["timestamp"], "2026-01-01T00:00:00+00:00")
+                self.assertEqual(saved["bars"][0]["close"], 12)
 
     async def test_store_batch_writes_audit_event_and_lineage(self):
         with tempfile.TemporaryDirectory() as directory:

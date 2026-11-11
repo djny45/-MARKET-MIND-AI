@@ -69,6 +69,13 @@ def _connect():
             FOREIGN KEY(task_id) REFERENCES analytical_agent_tasks(task_id)
         )""")
         db.execute("CREATE INDEX IF NOT EXISTS idx_quality_eval_worker_time ON research_quality_evaluations(worker_id,created_at)")
+        db.execute("""CREATE TABLE IF NOT EXISTS research_supervisor_leases (
+            lease_name TEXT PRIMARY KEY,
+            owner_id TEXT NOT NULL,
+            lease_token TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )""")
         yield db
         db.commit()
     except Exception:
@@ -937,6 +944,61 @@ def dispatch_queued_research_tasks(limit: int = 50, max_concurrency: int = 4) ->
         "note": "Tasks are persisted in SQLite; dispatch is explicit and process-local, not a continuously running distributed supervisor.",
     }
 
+def acquire_research_supervisor_lease(
+    owner_id: str, lease_seconds: int = 3600,
+) -> dict:
+    """Acquire the singleton SQLite supervisor lease or report its current owner."""
+    if not isinstance(owner_id, str) or not owner_id.strip() or len(owner_id) > 120:
+        raise ValueError("owner_id must be a non-empty string of at most 120 characters")
+    if isinstance(lease_seconds, bool) or not isinstance(lease_seconds, int) or not 60 <= lease_seconds <= 86400:
+        raise ValueError("lease_seconds must be between 60 and 86400")
+    now_dt = datetime.now(timezone.utc)
+    now = now_dt.isoformat()
+    expires = datetime.fromtimestamp(now_dt.timestamp() + lease_seconds, timezone.utc).isoformat()
+    token = str(uuid.uuid4())
+    with _connect() as db:
+        db.execute("BEGIN IMMEDIATE")
+        current = db.execute(
+            "SELECT owner_id,lease_token,expires_at FROM research_supervisor_leases WHERE lease_name='primary'"
+        ).fetchone()
+        if current is not None and current["expires_at"] > now:
+            return {
+                "acquired": False,
+                "reason": "lease_already_held",
+                "owner_id": current["owner_id"],
+                "expires_at": current["expires_at"],
+            }
+        db.execute(
+            """INSERT INTO research_supervisor_leases
+               (lease_name,owner_id,lease_token,expires_at,updated_at)
+               VALUES ('primary',?,?,?,?)
+               ON CONFLICT(lease_name) DO UPDATE SET
+                 owner_id=excluded.owner_id,lease_token=excluded.lease_token,
+                 expires_at=excluded.expires_at,updated_at=excluded.updated_at""",
+            (owner_id.strip(), token, expires, now),
+        )
+    return {
+        "acquired": True, "owner_id": owner_id.strip(),
+        "lease_token": token, "expires_at": expires,
+    }
+
+
+def release_research_supervisor_lease(owner_id: str, lease_token: str) -> bool:
+    """Release only the exact lease generation acquired by this supervisor."""
+    if not isinstance(owner_id, str) or not owner_id.strip():
+        raise ValueError("owner_id must be a non-empty string")
+    if not isinstance(lease_token, str) or not lease_token.strip():
+        raise ValueError("lease_token must be a non-empty string")
+    with _connect() as db:
+        db.execute("BEGIN IMMEDIATE")
+        result = db.execute(
+            "DELETE FROM research_supervisor_leases "
+            "WHERE lease_name='primary' AND owner_id=? AND lease_token=?",
+            (owner_id.strip(), lease_token),
+        )
+        return result.rowcount == 1
+
+
 def run_research_supervisor_cycle(
     limit: int = 50,
     max_concurrency: int = 4,
@@ -948,16 +1010,32 @@ def run_research_supervisor_cycle(
     It is deliberately not a daemon, distributed queue, or always-on agent
     service. Recovery and dispatch remain separately observable operations.
     """
-    recovery = recover_interrupted_research_tasks(stale_after_seconds)
-    dispatch = dispatch_queued_research_tasks(limit, max_concurrency)
-    return {
-        "supervisor": "bounded_research_supervisor_cycle",
-        "status": "completed",
-        "recovery": recovery,
-        "dispatch": dispatch,
-        "cycle_mode": "single_process_single_cycle",
-        "continuous_daemon": False,
-        "distributed_queue": False,
-        "broker_execution": False,
-    }
+    owner_id = "cycle-" + str(uuid.uuid4())
+    lease = acquire_research_supervisor_lease(owner_id, lease_seconds=3600)
+    if not lease["acquired"]:
+        return {
+            "supervisor": "bounded_research_supervisor_cycle",
+            "status": "skipped",
+            "reason": "another_supervisor_cycle_holds_the_lease",
+            "lease_owner": lease["owner_id"],
+            "lease_expires_at": lease["expires_at"],
+            "cycle_mode": "single_process_single_cycle",
+            "broker_execution": False,
+        }
+    try:
+        recovery = recover_interrupted_research_tasks(stale_after_seconds)
+        dispatch = dispatch_queued_research_tasks(limit, max_concurrency)
+        return {
+            "supervisor": "bounded_research_supervisor_cycle",
+            "status": "completed",
+            "recovery": recovery,
+            "dispatch": dispatch,
+            "cycle_mode": "single_process_single_cycle",
+            "lease": {"acquired": True, "expires_at": lease["expires_at"]},
+            "continuous_daemon": False,
+            "distributed_queue": False,
+            "broker_execution": False,
+        }
+    finally:
+        release_research_supervisor_lease(owner_id, lease["lease_token"])
 

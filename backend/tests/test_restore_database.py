@@ -69,6 +69,23 @@ class DatabaseRestoreTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "backup_and_destination_must_differ"):
                 restore_backup(backup, backup)
 
+    def test_restores_database_from_path_with_uri_reserved_characters(self):
+        with tempfile.TemporaryDirectory() as directory:
+            unusual_directory = Path(directory) / "backup #? directory"
+            unusual_directory.mkdir()
+            backup = unusual_directory / "market #?.db"
+            target = Path(directory) / "restored #?.db"
+            self._database(backup, "BTCUSD")
+
+            result = restore_backup(backup, target)
+
+            self.assertEqual(result["status"], "restored_and_verified")
+            with sqlite3.connect(target) as connection:
+                self.assertEqual(
+                    connection.execute("SELECT symbol FROM market_bars").fetchone()[0],
+                    "BTCUSD",
+                )
+
 
 if __name__ == "__main__":
     unittest.main()

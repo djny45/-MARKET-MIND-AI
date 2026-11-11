@@ -94,6 +94,20 @@ class MarketStoreTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(get_audit_events("ETHUSD", "1d")["count"], 2)
                 self.assertEqual(get_bars("ETHUSD", "1d")["count"], 2)
 
+    def test_existing_database_receives_heatmap_interval_index(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database = os.path.join(directory, "existing.sqlite")
+            with patch.dict(os.environ, {"MARKET_MIND_DB": database}):
+                get_bars("BTCUSD", "1d")
+                import sqlite3
+                with sqlite3.connect(database) as connection:
+                    indexes = {
+                        row[0] for row in connection.execute(
+                            "SELECT name FROM sqlite_master WHERE type='index'"
+                        ).fetchall()
+                    }
+                self.assertIn("idx_market_bars_interval_timestamp", indexes)
+
     def test_existing_database_receives_schema_migration_baseline(self):
         with tempfile.TemporaryDirectory() as directory:
             database = os.path.join(directory, "existing.sqlite")

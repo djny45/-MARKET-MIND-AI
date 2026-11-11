@@ -214,5 +214,30 @@ class AuthenticationApiTests(unittest.TestCase):
         self.assertEqual(self.client.cookies.get("market_mind_session"), original_token)
 
 
+    def test_session_and_csrf_cookie_security_attributes(self):
+        with patch.dict(os.environ, {"MARKET_MIND_COOKIE_SECURE": "true"}):
+            response = self.client.post(
+                "/api/auth/login",
+                json={"password": self.password},
+                headers={"Origin": "http://testserver"},
+            )
+        self.assertEqual(response.status_code, 200)
+        set_cookie_headers = response.headers.get_list("set-cookie")
+        session_cookie = next(
+            value for value in set_cookie_headers
+            if value.startswith("market_mind_session=")
+        )
+        csrf_cookie = next(
+            value for value in set_cookie_headers
+            if value.startswith("market_mind_csrf=")
+        )
+        self.assertIn("httponly", session_cookie.lower())
+        self.assertIn("secure", session_cookie.lower())
+        self.assertIn("samesite=strict", session_cookie.lower())
+        self.assertNotIn("httponly", csrf_cookie.lower())
+        self.assertIn("secure", csrf_cookie.lower())
+        self.assertIn("samesite=strict", csrf_cookie.lower())
+
+
 if __name__ == "__main__":
     unittest.main()

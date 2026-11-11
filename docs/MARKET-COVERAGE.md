@@ -52,3 +52,9 @@ The product organizes coverage into four top-level groups while retaining asset 
 The API uses `market_group` for these domains and retains `market` for asset class. Example: `GET /api/instruments?market_group=india&market=equities`.
 
 The current directory is a curated reference catalogue, not an exchange-supplied security master. It contains no live quotes and does not prove data availability. See [FOUR-MARKET-PLATFORM.md](FOUR-MARKET-PLATFORM.md) for canonical identity, event schemas and provider readiness.
+
+## Stored-return heatmap
+
+The private workspace exposes `GET /api/market-data/heatmap?interval=1d&limit=100`. It calculates a descriptive percentage change from the latest two distinct timestamps already stored for each symbol in the selected interval. If multiple sources have observations at one timestamp, the calculation selects the observation with the latest retrieval timestamp for that timestamp. Symbols with fewer than two distinct timestamps are returned with `status=insufficient_history` and no percentage change.
+
+The result is limited to the locally stored symbol set and is ordered by absolute calculated change. It is not a live quote, a complete market-universe heatmap, a ranking of all exchange-listed instruments, or a trading signal. Source and data-status labels remain attached to each cell. The API's normal workspace authentication and CSRF/Origin controls apply.

@@ -23,6 +23,7 @@ _MAX_PASSWORD_BYTES = 1024
 _TOKEN_PATTERN = re.compile(r"^[A-Za-z0-9_-]{43}$")
 _BASE64URL_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")
 _SESSION_TOKEN_DOMAIN = b"market-mind-session-token-v1:"
+_CSRF_TOKEN_DOMAIN = b"market-mind-csrf-token-v1:"
 
 
 def _b64encode(value: bytes) -> str:
@@ -121,6 +122,13 @@ def hash_session_token(token: str) -> str:
 def generate_csrf_token() -> str:
     """Create a high-entropy CSRF token for binding to a server-side session."""
     return secrets.token_urlsafe(32)
+
+
+def hash_csrf_token(token: str) -> str:
+    """Return a domain-separated SHA-256 digest for server-side CSRF storage."""
+    if not isinstance(token, str) or not _TOKEN_PATTERN.fullmatch(token):
+        raise ValueError("CSRF token must be a generated 256-bit URL-safe token")
+    return hashlib.sha256(_CSRF_TOKEN_DOMAIN + token.encode("ascii")).hexdigest()
 
 
 def verify_csrf_token(supplied: str, expected: str) -> bool:

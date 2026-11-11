@@ -140,7 +140,7 @@ def get_bars(symbol: str, interval: str, limit: int = 500) -> dict:
                    status, source, retrieved_at
             FROM market_bars
             WHERE symbol=? AND interval=?
-            ORDER BY julianday(timestamp) DESC LIMIT ?
+            ORDER BY timestamp DESC LIMIT ?
         """, (symbol.strip().upper(), interval, safe_limit)).fetchall()
     observations = [dict(row) for row in reversed(rows)]
     sources = sorted({item["source"] for item in observations})
@@ -265,8 +265,8 @@ def get_stored_return_heatmap(interval: str = "1d", limit: int = 100) -> dict:
             WITH source_ranked AS (
                 SELECT symbol, interval, timestamp, close, status, source, retrieved_at,
                        ROW_NUMBER() OVER (
-                           PARTITION BY symbol, interval, julianday(timestamp)
-                           ORDER BY julianday(retrieved_at) DESC, source ASC
+                           PARTITION BY symbol, interval, timestamp
+                           ORDER BY retrieved_at DESC, source ASC
                        ) AS source_rank
                 FROM market_bars
                 WHERE interval = ?
@@ -275,7 +275,7 @@ def get_stored_return_heatmap(interval: str = "1d", limit: int = 100) -> dict:
                 SELECT symbol, interval, timestamp, close, status, source, retrieved_at,
                        ROW_NUMBER() OVER (
                            PARTITION BY symbol, interval
-                           ORDER BY julianday(timestamp) DESC
+                           ORDER BY timestamp DESC
                        ) AS timestamp_rank
                 FROM source_ranked
                 WHERE source_rank = 1

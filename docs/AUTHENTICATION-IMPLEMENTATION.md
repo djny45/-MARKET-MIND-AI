@@ -44,6 +44,15 @@ The login throttle is process-local and intended only for the current single-pro
 
 ## Frontend integration status
 
-The backend rejects unauthenticated workspace API requests by default. The existing terminal frontend still needs its login screen, session bootstrap, CSRF header injection for state-changing requests, and unauthenticated-state handling. Until that frontend work is complete, use the API login endpoint with a compatible client or keep the application private and do not treat the UI as ready for normal use.
+The terminal frontend now includes a single-owner sign-in gate, session bootstrap, sign-out, automatic return to sign-in when a session expires, and a shared API client that sends CSRF headers for state-changing requests. Frontend API traffic in the Compose deployment is routed through the same-origin Nginx proxy.
+
+Interactive API documentation and the OpenAPI schema endpoints are disabled in the application to avoid exposing the route schema publicly. Health and readiness remain public for service monitoring; all other API routes require an authenticated owner session.
+
+## Remaining deployment gates
+
+- Keep the current Compose HTTP setup bound to loopback only.
+- For HTTPS hosting, set MARKET_MIND_COOKIE_SECURE=true, configure the exact frontend origin, and terminate TLS at a reviewed reverse proxy.
+- The login throttle is process-local. Replace it with a shared persistent limiter before using multiple API workers.
+- Complete independent security review and end-to-end browser testing before any public deployment.
 
 This implementation does not add public registration, multi-user accounts, OAuth, or brokerage execution.

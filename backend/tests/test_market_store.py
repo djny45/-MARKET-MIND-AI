@@ -4,7 +4,7 @@ import unittest
 from unittest.mock import patch
 
 from app.market_data import SyntheticFixtureAdapter
-from app.market_store import get_audit_events, get_bars, get_data_lineage, get_market_overview, store_batch
+from app.market_store import (get_audit_events, get_bars, get_data_lineage, get_market_overview, get_stored_return_heatmap, store_batch)
 
 
 class MarketStoreTests(unittest.IsolatedAsyncioTestCase):
@@ -88,6 +88,67 @@ class MarketStoreTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(btc_row["observation_count"], 3)
                 self.assertEqual(btc_row["statuses"], ["synthetic"])
                 self.assertIn("not a live quote", overview["data_note"])
+
+
+    async def test_stored_return_heatmap_uses_latest_two_distinct_timestamps(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.dict(os.environ, {"MARKET_MIND_DB": os.path.join(directory, "test.sqlite")}):
+                batch = await SyntheticFixtureAdapter().get_bars("BTCUSD", "1d", 5)
+                store_batch(batch)
+                heatmap = get_stored_return_heatmap("1d")
+                self.assertEqual(heatmap["status"], "stored_return_heatmap")
+                self.assertEqual(heatmap["instrument_count"], 1)
+                cell = heatmap["cells"][0]
+                self.assertEqual(cell["symbol"], "BTCUSD")
+                self.assertEqual(cell["status"], "calculated")
+                self.assertAlmostEqual(cell["change_pct"], (105.0 - 103.5) / 103.5 * 100, places=6)
+                self.assertEqual(cell["sources"], ["synthetic-fixture"])
+                self.assertIn("not live data", heatmap["data_note"])
+
+    async def test_stored_return_heatmap_deduplicates_sources_and_flags_short_history(self):
+        from datetime import datetime, timedelta, timezone
+        from app.market_data import DataStatus, MarketDataBatch, OHLCVBar
+
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.dict(os.environ, {"MARKET_MIND_DB": os.path.join(directory, "test.sqlite")}):
+                retrieved = datetime(2026, 2, 1, tzinfo=timezone.utc)
+                bars_a = [
+                    OHLCVBar(timestamp=datetime(2026, 1, 1, tzinfo=timezone.utc), open=100, high=101, low=99, close=100, volume=10),
+                    OHLCVBar(timestamp=datetime(2026, 1, 2, tzinfo=timezone.utc), open=100, high=111, low=99, close=110, volume=12),
+                ]
+                first = MarketDataBatch(symbol="AAA", interval="1d", status=DataStatus.HISTORICAL,
+                    source="source-a", retrieved_at=retrieved, bars=bars_a)
+                second = MarketDataBatch(symbol="AAA", interval="1d", status=DataStatus.HISTORICAL,
+                    source="source-b", retrieved_at=retrieved + timedelta(hours=1), bars=[
+                        bars_a[1].model_copy(update={"close": 105, "open": 100, "high": 106})
+                    ])
+                one_bar = MarketDataBatch(symbol="BBB", interval="1d", status=DataStatus.SYNTHETIC,
+                    source="fixture", retrieved_at=retrieved, bars=[bars_a[0].model_copy()])
+                store_batch(first)
+                store_batch(second)
+                store_batch(one_bar)
+
+                heatmap = get_stored_return_heatmap("1d")
+                aaa = next(cell for cell in heatmap["cells"] if cell["symbol"] == "AAA")
+                bbb = next(cell for cell in heatmap["cells"] if cell["symbol"] == "BBB")
+                self.assertAlmostEqual(aaa["change_pct"], 5.0)
+                self.assertEqual(aaa["sources"], ["source-a", "source-b"])
+                self.assertEqual(bbb["status"], "insufficient_history")
+                self.assertIsNone(bbb["change_pct"])
+                self.assertEqual(heatmap["insufficient_history_count"], 1)
+
+    async def test_stored_return_heatmap_respects_limit_and_empty_dataset(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.dict(os.environ, {"MARKET_MIND_DB": os.path.join(directory, "test.sqlite")}):
+                empty = get_stored_return_heatmap("1d")
+                self.assertEqual(empty["cells"], [])
+                batch_a = await SyntheticFixtureAdapter().get_bars("AAA", "1d", 5)
+                batch_b = await SyntheticFixtureAdapter().get_bars("BBB", "1d", 5)
+                store_batch(batch_a)
+                store_batch(batch_b)
+                limited = get_stored_return_heatmap("1d", limit=1)
+                self.assertEqual(limited["instrument_count"], 1)
+                self.assertEqual(limited["available_instrument_count"], 2)
 
     def test_unknown_symbol_returns_empty_history(self):
         with tempfile.TemporaryDirectory() as directory:

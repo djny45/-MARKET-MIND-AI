@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import hmac
 import threading
 import time
 from collections import defaultdict, deque
@@ -227,10 +228,10 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
                 return JSONResponse({"detail": "Origin not allowed"}, status_code=403)
             supplied = request.headers.get(CSRF_HEADER, "")
             csrf_cookie = request.cookies.get(CSRF_COOKIE, "")
-            if not supplied or supplied != csrf_cookie:
+            if not supplied or not hmac.compare_digest(supplied, csrf_cookie):
                 return JSONResponse({"detail": "CSRF validation failed"}, status_code=403)
             try:
-                if hash_csrf_token(supplied) != session["csrf_token_hash"]:
+                if not hmac.compare_digest(hash_csrf_token(supplied), session["csrf_token_hash"]):
                     return JSONResponse({"detail": "CSRF validation failed"}, status_code=403)
             except ValueError:
                 return JSONResponse({"detail": "CSRF validation failed"}, status_code=403)

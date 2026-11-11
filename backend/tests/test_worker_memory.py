@@ -213,6 +213,19 @@ class WorkerMemoryTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             append_memory("worker_001", "system_prompt", {})
 
+    def test_memory_type_and_quality_status_reject_unhashable_values(self):
+        for invalid in ([], {}, 1, None):
+            with self.subTest(field="memory_type", value=invalid):
+                with self.assertRaises(ValueError):
+                    append_memory("worker_001", invalid, {"note": "x"})
+            with self.subTest(field="quality_status", value=invalid):
+                with self.assertRaises(ValueError):
+                    append_memory("worker_001", "observation", {"note": "x"}, quality_status=invalid)
+            with self.subTest(field="read_memory_type", value=invalid):
+                if invalid is not None:
+                    with self.assertRaises(ValueError):
+                        read_memory("worker_001", memory_type=invalid)
+
     def test_rejects_non_json_or_oversized_content(self):
         with self.assertRaises(ValueError):
             append_memory("worker_001", "observation", {"bad": float("nan")})

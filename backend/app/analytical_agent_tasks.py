@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
+import threading
 import uuid
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -983,6 +984,28 @@ def acquire_research_supervisor_lease(
     }
 
 
+def renew_research_supervisor_lease(
+    owner_id: str, lease_token: str, lease_seconds: int = 3600,
+) -> bool:
+    """Extend an active lease only for its exact owner/token generation."""
+    if not isinstance(owner_id, str) or not owner_id.strip():
+        raise ValueError("owner_id must be a non-empty string")
+    if not isinstance(lease_token, str) or not lease_token.strip():
+        raise ValueError("lease_token must be a non-empty string")
+    if isinstance(lease_seconds, bool) or not isinstance(lease_seconds, int) or not 60 <= lease_seconds <= 86400:
+        raise ValueError("lease_seconds must be between 60 and 86400")
+    now_dt = datetime.now(timezone.utc)
+    now = now_dt.isoformat()
+    expires = datetime.fromtimestamp(now_dt.timestamp() + lease_seconds, timezone.utc).isoformat()
+    with _connect() as db:
+        changed = db.execute(
+            "UPDATE research_supervisor_leases SET expires_at=?,updated_at=? "
+            "WHERE lease_name='primary' AND owner_id=? AND lease_token=? AND expires_at>?",
+            (expires, now, owner_id.strip(), lease_token, now),
+        )
+        return changed.rowcount == 1
+
+
 def release_research_supervisor_lease(owner_id: str, lease_token: str) -> bool:
     """Release only the exact lease generation acquired by this supervisor."""
     if not isinstance(owner_id, str) or not owner_id.strip():
@@ -1022,6 +1045,28 @@ def run_research_supervisor_cycle(
             "cycle_mode": "single_process_single_cycle",
             "broker_execution": False,
         }
+    heartbeat_stop = threading.Event()
+    heartbeat_state = {"renewals": 0, "lost": False}
+
+    def keep_lease_alive():
+        while not heartbeat_stop.wait(120):
+            try:
+                renewed = renew_research_supervisor_lease(
+                    owner_id, lease["lease_token"], lease_seconds=3600,
+                )
+            except Exception:
+                renewed = False
+            if not renewed:
+                heartbeat_state["lost"] = True
+                return
+            heartbeat_state["renewals"] += 1
+
+    heartbeat = threading.Thread(
+        target=keep_lease_alive,
+        name="market-mind-supervisor-lease",
+        daemon=True,
+    )
+    heartbeat.start()
     try:
         recovery = recover_interrupted_research_tasks(stale_after_seconds)
         dispatch = dispatch_queued_research_tasks(limit, max_concurrency)
@@ -1031,11 +1076,18 @@ def run_research_supervisor_cycle(
             "recovery": recovery,
             "dispatch": dispatch,
             "cycle_mode": "single_process_single_cycle",
-            "lease": {"acquired": True, "expires_at": lease["expires_at"]},
+            "lease": {
+                "acquired": True,
+                "expires_at": lease["expires_at"],
+                "heartbeat_renewals": heartbeat_state["renewals"],
+                "lost": heartbeat_state["lost"],
+            },
             "continuous_daemon": False,
             "distributed_queue": False,
             "broker_execution": False,
         }
     finally:
+        heartbeat_stop.set()
+        heartbeat.join(timeout=5)
         release_research_supervisor_lease(owner_id, lease["lease_token"])
 

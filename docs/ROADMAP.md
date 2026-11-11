@@ -20,7 +20,8 @@ This roadmap is a plan, not a claim that features already exist. Mark an item co
 - [x] Add local persistent instrument watchlist with search-to-save, list, research handoff, and removal (single-user; authentication remains required before public deployment).
 - [x] Add stored-data research modes for single and multi-timeframe comparison.
 - [x] Add stored-data market overview with coverage, source labels, observation counts, and system-readiness summaries.
-- [ ] Add market heatmaps and screeners.
+- [x] Add a stored-return heatmap using the latest two distinct local observations per symbol/timeframe, with source/status labels and insufficient-history handling; it is not live or a complete-universe heatmap.
+- [ ] Add screeners.
 - [ ] Add saved layouts and keyboard navigation.
 
 ## Phase 3 — Research and analytics

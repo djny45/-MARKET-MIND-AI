@@ -487,19 +487,20 @@ def submit_research_task(agent_id: str, brief: str, data: dict | list | None = N
                       from_status=None, to_status="running", occurred_at=now,
                       detail={"execution_mode": "bounded_synchronous_shared_core"})
 
-    # The configured core sees only supplied user data and the agent's role.
-    research_payload = {
-        "agent": {"id": agent_id, "department": brain["department"], "specialty": brain["specialty"]},
-        "agent_context": brain["brain_context"],
-        "retrieved_memory": recall_memory(
-            agent_id, brief.strip() + " " + json.dumps(data, ensure_ascii=False)[:6000],
-            limit=5,
-        ),
-        "task": task_input,
-        "constraints": ["Use supplied data only.", "Distinguish facts, assumptions, and unknowns.",
-                       "Do not invent missing market data.", "No trade execution or investment certainty."],
-    }
     try:
+        # Context and memory preparation must be inside the failure boundary:
+        # the task is already persisted as running at this point.
+        research_payload = {
+            "agent": {"id": agent_id, "department": brain["department"], "specialty": brain["specialty"]},
+            "agent_context": brain["brain_context"],
+            "retrieved_memory": recall_memory(
+                agent_id, brief.strip() + " " + json.dumps(data, ensure_ascii=False)[:6000],
+                limit=5,
+            ),
+            "task": task_input,
+            "constraints": ["Use supplied data only.", "Distinguish facts, assumptions, and unknowns.",
+                           "Do not invent missing market data.", "No trade execution or investment certainty."],
+        }
         synthesis = synthesize_research(research_payload)
         result = {
             "agent_id": agent_id,

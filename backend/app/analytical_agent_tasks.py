@@ -583,7 +583,7 @@ def get_research_task(task_id: str) -> dict | None:
         row = db.execute("SELECT * FROM analytical_agent_tasks WHERE task_id=?", (task_id,)).fetchone()
     if row is None:
         return None
-    def decode_record(raw_value: str, field_name: str) -> dict:
+    def decode_record(raw_value: str) -> dict:
         try:
             value = json.loads(raw_value)
         except (TypeError, ValueError):
@@ -596,8 +596,8 @@ def get_research_task(task_id: str) -> dict | None:
         "task_id": row["task_id"], "agent_id": row["worker_id"], "worker_id": row["worker_id"],
         "task_type": row["task_type"], "status": row["status"],
         "execution_attempts": row["execution_attempts"],
-        "input": decode_record(row["input_json"], "input"),
-        "result": decode_record(row["result_json"], "result"),
+        "input": decode_record(row["input_json"]),
+        "result": decode_record(row["result_json"]),
         "brain_context_sha256": row["brain_context_sha256"],
         "created_at": row["created_at"], "updated_at": row["updated_at"],
     }

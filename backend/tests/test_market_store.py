@@ -196,6 +196,32 @@ class MarketStoreTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(limited["instrument_count"], 1)
                 self.assertEqual(limited["available_instrument_count"], 2)
 
+    def test_bar_reads_and_heatmap_preserve_microsecond_distinctions(self):
+        from datetime import timedelta
+
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.dict(os.environ, {"MARKET_MIND_DB": os.path.join(directory, "test.sqlite")}):
+                base = datetime(2026, 3, 1, tzinfo=timezone.utc)
+                batch = MarketDataBatch(
+                    symbol="MICRO", interval="1d", status=DataStatus.HISTORICAL,
+                    source="microsecond-fixture", retrieved_at=base + timedelta(days=1),
+                    bars=[
+                        OHLCVBar(timestamp=base, open=100, high=101, low=99, close=100, volume=10),
+                        OHLCVBar(timestamp=base + timedelta(microseconds=1), open=100, high=102, low=99, close=101, volume=11),
+                    ],
+                )
+                store_batch(batch)
+
+                latest_only = get_bars("MICRO", "1d", limit=1)
+                self.assertEqual(latest_only["count"], 1)
+                self.assertEqual(
+                    latest_only["bars"][0]["timestamp"],
+                    (base + timedelta(microseconds=1)).isoformat(),
+                )
+                heatmap = get_stored_return_heatmap("1d")
+                self.assertEqual(heatmap["cells"][0]["status"], "calculated")
+                self.assertAlmostEqual(heatmap["cells"][0]["change_pct"], 1.0)
+
     def test_unknown_symbol_returns_empty_history(self):
         with tempfile.TemporaryDirectory() as directory:
             with patch.dict(os.environ, {"MARKET_MIND_DB": os.path.join(directory, "test.sqlite")}):

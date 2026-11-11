@@ -52,7 +52,7 @@ This roadmap is a plan, not a claim that features already exist. Mark an item co
 - [x] Add prototype evidence-aware review gate; source IDs must match a supplied registry. Reviewer authentication and persistent audit remain pending.
 - [x] Add conservative evidence traceability audit: unknown reference reporting, URL/declared-group source grouping, and explicitly keyed stance-disagreement candidates with human-review status. This is heuristic metadata analysis, not source authenticity, entailment, or truth verification.
 - [ ] Implement actual agent task execution with shared-core inference, isolated per-agent context, source retrieval and task lifecycle persistence.
-- [x] Add a bounded one-shot recovery-and-dispatch supervisor API; external scheduling, distributed workers, and cloud workspaces remain unimplemented.
+- [x] Add a bounded one-shot recovery-and-dispatch supervisor API with a singleton SQLite lease; external scheduling, lease renewal, distributed workers, and cloud workspaces remain unimplemented.
 - [ ] Implement autonomous research scheduling and cloud workspaces (not implemented).
 - [ ] Implement evaluated learning loop with benchmark datasets, quality metrics, regression gates, and reviewed promotion.
 - [ ] Build visual node-based research workflows.

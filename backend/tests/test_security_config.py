@@ -49,6 +49,7 @@ class FrontendOriginConfigTests(unittest.TestCase):
             "https://market.example.com#fragment",
             "https://market.example.com:bad",
             "https://market.example.com:",
+            "https://market example.com",
         )
         for value in invalid:
             with self.subTest(value=value):

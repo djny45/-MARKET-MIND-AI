@@ -425,6 +425,39 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertEqual(second["reason"], "retry_limit_reached")
         self.assertEqual(first["task_id"], second["retry_task_id"])
 
+    def test_concurrent_retry_requests_create_exactly_one_retry_task(self):
+        from concurrent.futures import ThreadPoolExecutor
+        from threading import Barrier
+        import sqlite3
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, execute_queued_research_task, retry_failed_research_task,
+        )
+
+        queued = enqueue_research_task("worker_034", "concurrent retry race")
+        with patch("app.analytical_agent_tasks.synthesize_research",
+                   side_effect=RuntimeError("provider unavailable")):
+            self.assertTrue(execute_queued_research_task(queued["task_id"]))
+
+        start = Barrier(2)
+        def request_retry(_):
+            start.wait(timeout=5)
+            return retry_failed_research_task(queued["task_id"])
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results = list(pool.map(request_retry, range(2)))
+
+        created = [item for item in results if item["retried"]]
+        blocked = [item for item in results if not item["retried"]]
+        self.assertEqual(len(created), 1)
+        self.assertEqual(len(blocked), 1)
+        self.assertEqual(blocked[0]["retry_task_id"], created[0]["task_id"])
+        with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+            retry_count = db.execute(
+                "SELECT COUNT(*) FROM analytical_agent_task_retries WHERE original_task_id=?",
+                (queued["task_id"],),
+            ).fetchone()[0]
+        self.assertEqual(retry_count, 1)
+
     def test_retry_lineage_cannot_be_retried_again(self):
         from app.analytical_agent_tasks import (
             enqueue_research_task, execute_queued_research_task,

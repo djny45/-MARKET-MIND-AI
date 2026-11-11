@@ -46,6 +46,7 @@ from .volume_indicators import calculate_volume_indicators
 from .liquidity_indicators import calculate_volume_profile
 from .performance import performance_metrics
 from . import workspace
+from .security_config import parse_frontend_origins
 from .market_data import SyntheticFixtureAdapter, MarketDataBatch
 from .yahoo_finance_adapter import YahooFinanceAdapter
 from .market_data_validation import validate_market_data_payload
@@ -90,11 +91,9 @@ app = FastAPI(
  lifespan=lifespan,
 )
 # Keep browser origins explicit using a comma-separated allowlist.
-_frontend_origins = [
-    origin.strip().rstrip("/")
-    for origin in os.getenv("FRONTEND_ORIGINS", "http://localhost:5173").split(",")
-    if origin.strip()
-]
+_frontend_origins = parse_frontend_origins(
+    os.getenv("FRONTEND_ORIGINS", "http://localhost:5173")
+)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_frontend_origins,

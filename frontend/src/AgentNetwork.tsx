@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ReactFlow, Background, Controls, MiniMap, Handle, Position, type Node, type Edge } from '@xyflow/react'
 import { Network, BrainCircuit } from 'lucide-react'
-import { apiFetch } from './api'
+import { API_BASE, apiFetch } from './api'
 
 type AgentProfile = {
   id?: string
@@ -34,7 +34,7 @@ export default function AgentNetwork({ agents }: { agents: AgentProfile[] }) {
   const [selectedAgent, setSelectedAgent] = useState<AgentNodeData | null>(null)
   const [activity, setActivity] = useState<ActivitySnapshot | null>(null)
   const [activityError, setActivityError] = useState('')
-  useEffect(() => { let alive = true; const load = async () => { try { const response = await apiFetch((import.meta.env.VITE_API_URL || 'http://localhost:8000') + '/api/agent-network/activity?limit=500'); if (!response.ok) throw new Error('Activity endpoint unavailable'); const snapshot = await response.json(); if (alive) { setActivity(snapshot); setActivityError('') } } catch { if (alive) setActivityError('API activity unavailable — showing registered profiles only') } }; load(); const timer = window.setInterval(load, 20000); return () => { alive = false; window.clearInterval(timer) } }, [])
+  useEffect(() => { let alive = true; const load = async () => { try { const response = await apiFetch(API_BASE + '/api/agent-network/activity?limit=500'); if (!response.ok) throw new Error('Activity endpoint unavailable'); const snapshot = await response.json(); if (alive) { setActivity(snapshot); setActivityError('') } } catch { if (alive) setActivityError('API activity unavailable — showing registered profiles only') } }; load(); const timer = window.setInterval(load, 20000); return () => { alive = false; window.clearInterval(timer) } }, [])
   const departments = useMemo(() => ['ALL DEPARTMENTS', ...Array.from(new Set(agents.map(a => a.department || 'General Research'))).sort()], [agents])
   const filteredProfiles = useMemo(() => agents.slice(0, 550).filter(profile => {
     const haystack = [profile.id, profile.name, profile.department, profile.specialty, profile.kind].join(' ').toLowerCase()

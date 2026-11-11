@@ -38,7 +38,34 @@ export default function AgentNetwork({ agents }: { agents: AgentProfile[] }) {
   const [activity, setActivity] = useState<ActivitySnapshot | null>(null)
   const [activityError, setActivityError] = useState('')
   const [performance, setPerformance] = useState<AgentPerformance | null>(null)
-  useEffect(() => { let alive = true; const load = async () => { try { const response = await fetch((import.meta.env.VITE_API_URL || 'http://localhost:8000') + '/api/agent-network/activity?limit=500'); if (!response.ok) throw new Error('Activity endpoint unavailable'); const snapshot = await response.json(); const performanceResponse = await fetch((import.meta.env.VITE_API_URL || 'http://localhost:8000') + '/api/agent-network/performance?limit=550'); if (!performanceResponse.ok) throw new Error('Performance endpoint unavailable'); const performanceSnapshot = await performanceResponse.json(); if (alive) { setActivity(snapshot); setPerformance(performanceSnapshot); setActivityError('') } } catch { if (alive) setActivityError('API activity unavailable — showing registered profiles only') } }; load(); const timer = window.setInterval(load, 20000); return () => { alive = false; window.clearInterval(timer) } }, [])
+  useEffect(() => {
+    let alive = true
+    const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+    const loadActivity = async () => {
+      try {
+        const response = await fetch(apiBase + '/api/agent-network/activity?limit=500')
+        if (!response.ok) throw new Error('Activity endpoint unavailable')
+        const snapshot = await response.json()
+        if (alive) { setActivity(snapshot); setActivityError('') }
+      } catch {
+        if (alive) setActivityError('API activity unavailable — showing registered profiles only')
+      }
+    }
+    const loadPerformance = async () => {
+      try {
+        const response = await fetch(apiBase + '/api/agent-network/performance?limit=550')
+        if (!response.ok) throw new Error('Performance endpoint unavailable')
+        const snapshot = await response.json()
+        if (alive) setPerformance(snapshot)
+      } catch {
+        if (alive) setPerformance(null)
+      }
+    }
+    const load = () => { void loadActivity(); void loadPerformance() }
+    load()
+    const timer = window.setInterval(load, 20000)
+    return () => { alive = false; window.clearInterval(timer) }
+  }, [])
   const departments = useMemo(() => ['ALL DEPARTMENTS', ...Array.from(new Set(agents.map(a => a.department || 'General Research'))).sort()], [agents])
   const [eventFilter, setEventFilter] = useState('ALL EVENTS')
   const recentEvents = useMemo(() => (activity?.recent_audit_events || []).filter(event => eventFilter === 'ALL EVENTS' || (eventFilter === 'STATUS CHANGES' ? Boolean(event.from_status && event.to_status) : event.event_type.toUpperCase().includes(eventFilter))).slice(-12).reverse(), [activity, eventFilter])

@@ -576,5 +576,6 @@ The agent network view reads persisted task activity, descriptive task outcomes,
 - `GET /api/agent-network/activity?limit=500` — bounded task and audit-event history.
 - `GET /api/agent-network/performance?limit=550` — descriptive task outcomes and execution-attempt counts.
 - `GET /api/agent-network/research-quality?limit=550` — mean claim-reference and known-source-reference coverage from persisted evaluations.
+- `GET /api/agent-network/recommendations?limit=550` — thresholded advisory review suggestions from persisted outcomes and traceability evidence; no automatic reassignment or promotion.
 
 Traceability coverage measures whether research claims and known sources are linked in the stored evaluation. It does **not** verify source authenticity, factual correctness, entailment, analytical capability, or investment performance. The dashboard keeps these measurements separate from task outcomes and agent-profile counts.

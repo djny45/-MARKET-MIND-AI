@@ -497,6 +497,16 @@ def market_data_overview(limit: int = 200):
  return market_store.get_market_overview(limit)
 
 
+@app.get("/api/market-data/heatmap")
+def market_data_heatmap(interval: str = "1d", limit: int = 100):
+ """Calculate descriptive returns from the latest stored observations."""
+ if interval not in SUPPORTED_INTERVALS:
+  raise HTTPException(status_code=400, detail="interval must be one of 15m,1h,4h,1d")
+ if limit < 1 or limit > 200:
+  raise HTTPException(status_code=400, detail="limit must be between 1 and 200")
+ return market_store.get_stored_return_heatmap(interval, limit)
+
+
 @app.get("/api/market-data/lineage")
 def market_data_lineage(symbol: str, interval: str = "1h", limit: int = 5000):
  """Summarize stored observations by source and status."""

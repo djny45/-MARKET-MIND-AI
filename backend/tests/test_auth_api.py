@@ -128,5 +128,68 @@ class AuthenticationApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 503)
 
 
+    def test_authenticated_mutation_rejects_bad_csrf_and_untrusted_origin(self):
+        origin = {"Origin": "http://testserver"}
+        login = self.client.post(
+            "/api/auth/login", json={"password": self.password}, headers=origin
+        )
+        self.assertEqual(login.status_code, 200)
+        csrf = self.client.cookies.get("market_mind_csrf")
+
+        bad_csrf = self.client.post(
+            "/api/watchlist",
+            json={"symbol": "BTCUSD"},
+            headers={**origin, "x-csrf-token": "not-the-csrf-token"},
+        )
+        self.assertEqual(bad_csrf.status_code, 403)
+        self.assertEqual(bad_csrf.json()["detail"], "CSRF validation failed")
+
+        bad_origin = self.client.post(
+            "/api/watchlist",
+            json={"symbol": "BTCUSD"},
+            headers={"Origin": "https://attacker.invalid", "x-csrf-token": csrf},
+        )
+        self.assertEqual(bad_origin.status_code, 403)
+        self.assertEqual(bad_origin.json()["detail"], "Origin not allowed")
+
+    def test_login_throttle_blocks_repeated_failures(self):
+        from app.auth_api import _LOGIN_ATTEMPTS, _RATE_LOCK, _clear_login_attempts
+
+        client_key = "testclient"
+        with _RATE_LOCK:
+            _LOGIN_ATTEMPTS.pop(client_key, None)
+        try:
+            with patch("app.auth_api._RATE_MAX_ATTEMPTS", 1):
+                first = self.client.post(
+                    "/api/auth/login",
+                    json={"password": "incorrect"},
+                    headers={"Origin": "http://testserver"},
+                )
+                second = self.client.post(
+                    "/api/auth/login",
+                    json={"password": "incorrect"},
+                    headers={"Origin": "http://testserver"},
+                )
+            self.assertEqual(first.status_code, 401)
+            self.assertEqual(second.status_code, 429)
+        finally:
+            _clear_login_attempts(client_key)
+
+    def test_authenticated_request_fails_closed_when_session_store_is_unavailable(self):
+        origin = {"Origin": "http://testserver"}
+        login = self.client.post(
+            "/api/auth/login", json={"password": self.password}, headers=origin
+        )
+        self.assertEqual(login.status_code, 200)
+
+        with patch(
+            "app.auth_api._ensure_store",
+            side_effect=sqlite3.OperationalError("db unavailable"),
+        ):
+            response = self.client.get("/api/watchlist")
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()["detail"], "Authentication storage unavailable")
+
+
 if __name__ == "__main__":
     unittest.main()

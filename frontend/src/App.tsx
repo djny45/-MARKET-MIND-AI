@@ -136,6 +136,8 @@ export default function App() {
  const [dataLabel,setDataLabel] = useState('MANUAL DEMO INPUT')
  const chartValues = useMemo(()=>values.split(',').map(v=>Number(v.trim())).filter(Number.isFinite),[values])
  useEffect(()=>{
+  const handleAuthExpired=()=>setAuthenticated(false)
+  window.addEventListener('market-mind-auth-expired',handleAuthExpired)
   apiFetch(API+'/api/health').then(r=>r.json()).then(()=>setApiState('CONNECTED')).catch(()=>setApiState('OFFLINE'))
   apiFetch(API+'/api/auth/session').then(async response=>{
    if(!response.ok)throw new Error('Authentication required')
@@ -146,6 +148,7 @@ export default function App() {
    apiFetch(API+'/api/skills').then(r=>r.json()).then(d=>setSkills((d.skills||[]).filter((s:any)=>s.available))).catch(()=>{})
    refreshWorkspaces();refreshWatchlist();refreshExecutionRuns();loadMarketOverview()
   }).catch(()=>setAuthenticated(false)).finally(()=>setAuthChecking(false))
+  return ()=>window.removeEventListener('market-mind-auth-expired',handleAuthExpired)
  },[])
 
  const runOfflineBenchmark = async()=>{

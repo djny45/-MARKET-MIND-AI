@@ -43,6 +43,20 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertEqual(events[-1]["event_type"], "task_failed")
         self.assertEqual(events[-1]["to_status"], "failed")
 
+    def test_synchronous_memory_preparation_failure_finalizes_task(self):
+        from app.analytical_agent_tasks import list_task_audit_events
+        with patch("app.analytical_agent_tasks.recall_memory", side_effect=RuntimeError("memory unavailable")):
+            result = submit_research_task("worker_033", "sync memory preparation failure")
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(result["result"]["error"], "Research task failed safely.")
+        self.assertEqual(result["result"]["error_type"], "RuntimeError")
+        saved = get_research_task(result["task_id"])
+        self.assertEqual(saved["status"], "failed")
+        events = list_task_audit_events(result["task_id"])["events"]
+        self.assertEqual([event["event_type"] for event in events],
+                         ["task_submitted", "task_failed"])
+        self.assertEqual(events[-1]["to_status"], "failed")
+
     def test_task_without_configured_provider_is_explicit(self):
         result = submit_research_task("worker_003", "Summarize provided facts", {"facts": ["A", "B"]})
         self.assertEqual(result["result"]["shared_core_result"]["status"], "not_configured")

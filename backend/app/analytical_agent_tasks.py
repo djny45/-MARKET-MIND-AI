@@ -110,6 +110,20 @@ def get_task_quality_evaluation(task_id: str) -> dict | None:
         "created_at": row["created_at"], "status": "persisted",
     }
 
+def _decode_event_detail(raw_value: str) -> dict:
+    """Decode persisted audit metadata without letting one corrupt row break reads."""
+    def reject_nonstandard_constant(_constant):
+        raise ValueError("non-standard JSON constant")
+
+    try:
+        value = json.loads(raw_value, parse_constant=reject_nonstandard_constant)
+    except (TypeError, ValueError):
+        return {"status": "invalid_record", "error_type": "malformed_json"}
+    if not isinstance(value, dict):
+        return {"status": "invalid_record", "error_type": "invalid_structure"}
+    return value
+
+
 def _record_event(db, task_id, worker_id, event_type, from_status=None, to_status=None, detail=None, occurred_at=None):
     db.execute(
         """INSERT INTO analytical_agent_task_events
@@ -566,7 +580,7 @@ def list_task_audit_events(
     events = []
     for row in reversed(rows):
         event = dict(row)
-        event["detail"] = json.loads(event.pop("detail_json"))
+        event["detail"] = _decode_event_detail(event.pop("detail_json"))
         events.append(event)
     next_cursor = rows[-1]["event_id"] if len(rows) == limit else None
     return {
@@ -619,7 +633,7 @@ def list_recent_task_activity(limit: int = 500) -> dict:
     recent_events = []
     for row in reversed(event_rows):
         event = dict(row)
-        event["detail"] = json.loads(event.pop("detail_json"))
+        event["detail"] = _decode_event_detail(event.pop("detail_json"))
         recent_events.append(event)
     counts = {status: sum(task["status"] == status for task in tasks)
               for status in ("queued", "running", "completed", "failed")}

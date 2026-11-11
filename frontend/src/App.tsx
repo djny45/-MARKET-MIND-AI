@@ -117,6 +117,9 @@ export default function App() {
  const [marketOverview,setMarketOverview] = useState<any>(null)
  const [overviewBusy,setOverviewBusy] = useState(false)
  const [overviewError,setOverviewError] = useState('')
+ const [storedHeatmap,setStoredHeatmap] = useState<any>(null)
+ const [heatmapBusy,setHeatmapBusy] = useState(false)
+ const [heatmapError,setHeatmapError] = useState('')
  const [newsItems,setNewsItems] = useState<any[]>([])
  const [newsBusy,setNewsBusy] = useState(false)
  const [newsError,setNewsError] = useState('')
@@ -135,7 +138,7 @@ export default function App() {
   apiFetch(API+'/api/health').then(r=>r.json()).then(()=>setApiState('CONNECTED')).catch(()=>setApiState('OFFLINE'))
   apiFetch(API+'/api/workers?limit=550').then(r=>r.json()).then(d=>setWorkers(d.workers||[])).catch(()=>{})
   apiFetch(API+'/api/skills').then(r=>r.json()).then(d=>setSkills((d.skills||[]).filter((s:any)=>s.available))).catch(()=>{})
-  refreshWorkspaces();refreshWatchlist();refreshExecutionRuns();loadMarketOverview()
+  refreshWorkspaces();refreshWatchlist();refreshExecutionRuns();loadMarketOverview();loadStoredHeatmap()
  },[])
 
  const runOfflineBenchmark = async()=>{
@@ -164,6 +167,7 @@ export default function App() {
  const inspectExecutionRun = async(id:string)=>{try{const r=await apiFetch(API+'/api/workflows/runs/'+encodeURIComponent(id));const d=await r.json();if(!r.ok)throw new Error(d.detail||'Could not load run');setSelectedRun(d);setResult({...d.result,run_id:d.id,run_record:{id:d.id,status:d.status,parent_run_id:d.parent_run_id}})}catch(e){setRunsError(e instanceof Error?e.message:'Could not load run')}}
  const replayExecutionRun = async(id:string)=>{setReplayBusy(true);setRunsError('');try{const r=await apiFetch(API+'/api/workflows/runs/'+encodeURIComponent(id)+'/resume',{method:'POST'});const d=await r.json();if(!r.ok)throw new Error(d.detail||'Replay failed');setResult(d);setSelectedRun({...d,id:d.run_id,status:d.status||'completed',created_at:new Date().toISOString()});await refreshExecutionRuns()}catch(e){setRunsError(e instanceof Error?e.message:'Replay failed')}finally{setReplayBusy(false)}}
  const loadMarketOverview = async()=>{setOverviewBusy(true);setOverviewError('');try{const r=await apiFetch(API+'/api/market-data/overview?limit=200');const d=await r.json();if(!r.ok)throw new Error(d.detail||'Stored-data overview unavailable');setMarketOverview(d)}catch(e){setMarketOverview(null);setOverviewError(e instanceof Error?e.message:'Overview unavailable')}finally{setOverviewBusy(false)}}
+ const loadStoredHeatmap = async(interval='1d')=>{setHeatmapBusy(true);setHeatmapError('');try{const r=await apiFetch(API+'/api/market-data/heatmap?interval='+encodeURIComponent(interval)+'&limit=100');const d=await r.json();if(!r.ok)throw new Error(d.detail||'Stored return heatmap unavailable');setStoredHeatmap(d)}catch(e){setStoredHeatmap(null);setHeatmapError(e instanceof Error?e.message:'Heatmap unavailable')}finally{setHeatmapBusy(false)}}
  const refreshWatchlist = async()=>{try{const r=await apiFetch(API+'/api/watchlist');const d=await r.json();if(!r.ok)throw new Error('Watchlist unavailable');setWatchlistItems(d.symbols||[])}catch{setWatchlistItems([])}}
  const addToWatchlist = async(symbol:string)=>{setWatchlistBusy(true);setWatchlistMessage('');try{const r=await apiFetch(API+'/api/watchlist',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({symbol})});const d=await r.json();if(!r.ok)throw new Error(d.detail||'Could not save symbol');await refreshWatchlist();setWatchlistMessage(d.already_present?symbol+' ALREADY SAVED':symbol+' ADDED')}catch(e){setWatchlistMessage(e instanceof Error?e.message:'Watchlist update failed')}finally{setWatchlistBusy(false)}}
  const removeFromWatchlist = async(symbol:string)=>{setWatchlistBusy(true);setWatchlistMessage('');try{const r=await apiFetch(API+'/api/watchlist/'+encodeURIComponent(symbol),{method:'DELETE'});const d=await r.json();if(!r.ok)throw new Error(d.detail||'Could not remove symbol');await refreshWatchlist();setWatchlistMessage(symbol+' REMOVED')}catch(e){setWatchlistMessage(e instanceof Error?e.message:'Watchlist update failed')}finally{setWatchlistBusy(false)}}
@@ -549,6 +553,11 @@ export default function App() {
      <article className="overview-card"><span>STORED OBSERVATIONS</span><strong>{summarizeStoredCoverage(marketOverview?.coverage).observations??'—'}</strong><small>Total locally stored OHLCV rows in this overview</small></article>
      <article className="overview-card"><span>RECORDED SOURCES</span><strong>{summarizeStoredCoverage(marketOverview?.coverage).distinctSources??'—'}</strong><small>Distinct source labels across stored coverage</small></article>
     </div>
+    <section className="overview-panel stored-heatmap-panel"><div className="overview-panel-head"><div><b>STORED RETURN HEATMAP</b><small>Latest two distinct stored observations · 1D interval</small></div><button className="soft-btn" onClick={()=>loadStoredHeatmap('1d')} disabled={heatmapBusy}>{heatmapBusy?'CALCULATING…':'REFRESH HEATMAP'}</button></div>
+     {heatmapError&&<p className="news-error">{heatmapError}</p>}
+     {storedHeatmap?.cells?.length? <div className="heatmap-grid">{storedHeatmap.cells.map((cell:any)=><div className="heatmap-cell" key={cell.symbol}><b>{cell.symbol}</b><strong className={cell.change_pct===null?'heat-neutral':cell.change_pct>0?'heat-positive':cell.change_pct<0?'heat-negative':'heat-neutral'}>{cell.change_pct===null?'N/A':(cell.change_pct>0?'+':'')+cell.change_pct.toFixed(2)+'%'}</strong><small>{cell.status==='calculated'?cell.data_statuses?.join(', ')||'stored':'Need 2 timestamps'}</small></div>)}</div>:<div className="overview-empty">{heatmapBusy?'Calculating from locally stored history…':'No stored observations are available for this interval yet.'}</div>}
+     <small className="heatmap-note">{storedHeatmap?.data_note||'This panel uses locally stored data only. It is not a live quote, complete market universe or trading signal.'}</small>
+    </section>
     <div className="overview-columns">
      <section className="overview-panel"><div className="overview-panel-head"><div><b>STORED MARKET DATA</b><small>Local historical observations only</small></div><button className="soft-btn" onClick={()=>setActiveTab('WATCHLIST')}>OPEN WATCHLIST</button></div>
       {marketOverview?.coverage?.length?marketOverview.coverage.map((item:any)=><div className="coverage-row" key={item.symbol+'-'+item.interval}><div><b>{item.symbol}</b><small>{item.interval} · {item.sources?.join(', ')||'source unavailable'}</small></div><span>{item.observation_count} bars</span><small>{item.statuses?.join(', ')||'status unavailable'} · latest {item.last_timestamp||'—'}</small><button className="soft-btn" onClick={()=>{setResearchSymbol(item.symbol);setResearchInterval(item.interval);setActiveTab('RESEARCH')}}>ANALYZE</button></div>):<div className="overview-empty">No stored market history found. Import a historical OHLCV CSV in Research to populate this workspace. Synthetic fixtures are clearly labelled and are not market prices.</div>}

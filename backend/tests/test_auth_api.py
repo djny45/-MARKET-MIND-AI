@@ -191,5 +191,28 @@ class AuthenticationApiTests(unittest.TestCase):
         self.assertEqual(response.json()["detail"], "Authentication storage unavailable")
 
 
+    def test_login_rotation_fails_closed_when_previous_session_cannot_be_revoked(self):
+        origin = {"Origin": "http://testserver"}
+        first = self.client.post(
+            "/api/auth/login", json={"password": self.password}, headers=origin
+        )
+        self.assertEqual(first.status_code, 200)
+        original_token = self.client.cookies.get("market_mind_session")
+
+        with patch(
+            "app.auth_api.revoke_session",
+            side_effect=sqlite3.OperationalError("db unavailable"),
+        ):
+            second = self.client.post(
+                "/api/auth/login", json={"password": self.password}, headers=origin
+            )
+
+        self.assertEqual(second.status_code, 503)
+        self.assertEqual(
+            second.json()["detail"], "Authentication storage unavailable"
+        )
+        self.assertEqual(self.client.cookies.get("market_mind_session"), original_token)
+
+
 if __name__ == "__main__":
     unittest.main()

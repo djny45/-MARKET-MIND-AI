@@ -237,6 +237,39 @@ class AuthenticationApiTests(unittest.TestCase):
         )
 
 
+    def test_login_throttle_bounds_distinct_client_buckets(self):
+        from app.auth_api import (
+            _LOGIN_ATTEMPTS,
+            _RATE_LOCK,
+            _RATE_OVERFLOW_KEY,
+            _clear_login_attempts,
+            _login_rate_limited,
+        )
+
+        keys = ("bucket-test-a", "bucket-test-b", "bucket-test-c", "bucket-test-d")
+        with _RATE_LOCK:
+            for key in (*keys, _RATE_OVERFLOW_KEY):
+                _LOGIN_ATTEMPTS.pop(key, None)
+
+        try:
+            with patch("app.auth_api._RATE_MAX_KEYS", 2), patch(
+                "app.auth_api._RATE_MAX_ATTEMPTS", 10
+            ):
+                self.assertFalse(_login_rate_limited(keys[0], now=100))
+                self.assertFalse(_login_rate_limited(keys[1], now=100))
+                self.assertFalse(_login_rate_limited(keys[2], now=100))
+                self.assertFalse(_login_rate_limited(keys[3], now=100))
+
+            with _RATE_LOCK:
+                self.assertIn(_RATE_OVERFLOW_KEY, _LOGIN_ATTEMPTS)
+                self.assertNotIn(keys[2], _LOGIN_ATTEMPTS)
+                self.assertNotIn(keys[3], _LOGIN_ATTEMPTS)
+                self.assertLessEqual(len(_LOGIN_ATTEMPTS), 3)
+        finally:
+            for key in (*keys, _RATE_OVERFLOW_KEY):
+                _clear_login_attempts(key)
+
+
     def test_session_and_csrf_cookie_security_attributes(self):
         with patch.dict(os.environ, {"MARKET_MIND_COOKIE_SECURE": "true"}):
             response = self.client.post(

@@ -15,6 +15,7 @@ function pointOnSphere(lat: number, lon: number, radius: number) {
 
 export default function GlobalResearchGlobe({ profileCount, activityCount }: Props) {
   const host = useRef<HTMLDivElement | null>(null)
+  const globeGroup = useRef<THREE.Group | null>(null)
 
   useEffect(() => {
     const element = host.current
@@ -34,6 +35,7 @@ export default function GlobalResearchGlobe({ profileCount, activityCount }: Pro
     const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100)
     camera.position.set(0, 0, 7.2)
     const globe = new THREE.Group()
+    globeGroup.current = globe
     scene.add(globe)
 
     const sphere = new THREE.Mesh(
@@ -138,6 +140,7 @@ export default function GlobalResearchGlobe({ profileCount, activityCount }: Pro
       element.removeEventListener('pointerup', pointerUp)
       element.removeEventListener('pointercancel', pointerUp)
       observer.disconnect()
+      globeGroup.current = null
       scene.traverse(object => {
         if (object instanceof THREE.Mesh || object instanceof THREE.Line || object instanceof THREE.Points) {
           object.geometry.dispose()
@@ -153,7 +156,14 @@ export default function GlobalResearchGlobe({ profileCount, activityCount }: Pro
 
   return <section className="global-globe-panel" aria-label="Three-dimensional global research network">
     <div className="global-globe-copy"><span className="eyebrow">GLOBAL RESEARCH TOPOLOGY</span><h2>Market intelligence, visualized in 3D</h2><p>Rotating network illustration. It visualizes registered profiles, not live exchange connectivity.</p><div className="global-globe-metrics"><span><b>{profileCount}</b><small>REGISTERED PROFILES</small></span><span><b>{activityCount}</b><small>RECORDED TASKS</small></span><span><b>1</b><small>SHARED CORE</small></span></div></div>
-    <div className="global-globe-canvas" ref={host} role="img" aria-label="Rotating wireframe globe with research connection arcs"><div className="global-globe-fallback">3D globe requires WebGL support</div></div>
+    <div className="global-globe-visual">
+      <div className="global-globe-canvas" ref={host} role="img" aria-label="Rotating wireframe globe with research connection arcs"><div className="global-globe-fallback">3D globe requires WebGL support</div></div>
+      <div className="global-globe-controls" aria-label="Globe view controls">
+        <button type="button" onClick={() => { if (globeGroup.current) globeGroup.current.rotation.y -= 0.35 }} aria-label="Rotate globe left">←</button>
+        <button type="button" onClick={() => { if (globeGroup.current) globeGroup.current.rotation.set(0, 0, 0) }}>RESET VIEW</button>
+        <button type="button" onClick={() => { if (globeGroup.current) globeGroup.current.rotation.y += 0.35 }} aria-label="Rotate globe right">→</button>
+      </div>
+    </div>
     <div className="global-globe-tag">THREE.JS · MOTION-ENABLED TERMINAL</div>
   </section>
 }

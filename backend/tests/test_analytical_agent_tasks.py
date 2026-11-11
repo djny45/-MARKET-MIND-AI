@@ -532,3 +532,49 @@ if __name__ == "__main__":
         self.assertEqual(result["status"], "failed")
         self.assertEqual(result["error_type"], "RuntimeError")
         self.assertNotIn("secret database detail", str(result))
+
+    def test_supervisor_cycle_recovers_and_dispatches_queued_tasks(self):
+        from datetime import datetime, timedelta, timezone
+        import sqlite3
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, get_research_task, list_task_audit_events,
+            run_research_supervisor_cycle,
+        )
+
+        interrupted = enqueue_research_task("worker_041", "recover interrupted task")
+        queued = enqueue_research_task("worker_042", "dispatch queued task")
+        stale_time = (datetime.now(timezone.utc) - timedelta(minutes=5)).isoformat()
+        with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+            db.execute(
+                "UPDATE analytical_agent_tasks SET status='running', updated_at=? WHERE task_id=?",
+                (stale_time, interrupted["task_id"]),
+            )
+
+        result = run_research_supervisor_cycle(
+            limit=10, max_concurrency=2, stale_after_seconds=60,
+        )
+
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual(result["recovery"]["requeued_interrupted_count"], 1)
+        self.assertEqual(result["dispatch"]["dispatched"], 2)
+        self.assertEqual(get_research_task(interrupted["task_id"])["status"], "completed")
+        self.assertEqual(get_research_task(queued["task_id"])["status"], "completed")
+        event_types = [
+            event["event_type"]
+            for event in list_task_audit_events(interrupted["task_id"])["events"]
+        ]
+        self.assertIn("task_requeued", event_types)
+        self.assertIn("task_claimed", event_types)
+        self.assertIn("task_completed", event_types)
+        self.assertFalse(result["continuous_daemon"])
+        self.assertFalse(result["distributed_queue"])
+        self.assertFalse(result["broker_execution"])
+
+    def test_supervisor_cycle_reports_idle_without_queued_tasks(self):
+        from app.analytical_agent_tasks import run_research_supervisor_cycle
+
+        result = run_research_supervisor_cycle(limit=5, max_concurrency=1)
+        self.assertEqual(result["dispatch"]["status"], "idle")
+        self.assertEqual(result["dispatch"]["dispatched"], 0)
+        self.assertEqual(result["recovery"]["requeued_interrupted_count"], 0)
+

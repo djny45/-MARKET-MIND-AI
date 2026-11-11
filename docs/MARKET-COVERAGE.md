@@ -58,3 +58,7 @@ The current directory is a curated reference catalogue, not an exchange-supplied
 The private workspace exposes `GET /api/market-data/heatmap?interval=1d&limit=100`. It calculates a descriptive percentage change from the latest two distinct timestamps already stored for each symbol in the selected interval. If multiple sources have observations at one timestamp, the calculation selects the observation with the latest retrieval timestamp for that timestamp. Symbols with fewer than two distinct timestamps are returned with `status=insufficient_history` and no percentage change.
 
 The result is limited to the locally stored symbol set and is ordered by absolute calculated change. It is not a live quote, a complete market-universe heatmap, a ranking of all exchange-listed instruments, or a trading signal. Source and data-status labels remain attached to each cell. The API's normal workspace authentication and CSRF/Origin controls apply.
+
+## Timestamp normalization
+
+Stored OHLCV timestamps and retrieval timestamps are serialized in UTC before upsert. Reads and heatmap grouping compare timestamp instants rather than their original offset-formatted text, so equivalent values such as `2026-01-01T05:30:00+05:30` and `2026-01-01T00:00:00+00:00` cannot create duplicate observations for new writes. This does not certify provider clock accuracy or repair arbitrary malformed legacy records.

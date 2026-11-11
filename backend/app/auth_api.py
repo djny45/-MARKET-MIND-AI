@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 import hmac
+import sqlite3
 import threading
 import time
 from collections import defaultdict, deque
@@ -146,23 +147,26 @@ def login(payload: LoginRequest, request: Request):
     if previous_token:
         try:
             revoke_session(_ensure_store(), hash_session_token(previous_token), now=int(time.time()))
-        except (ValueError, OSError):
+        except (ValueError, OSError, sqlite3.Error):
             pass
 
     now = int(time.time())
     session_ttl = _ttl("MARKET_MIND_SESSION_IDLE_TTL", 1800)
     absolute_ttl = _ttl("MARKET_MIND_SESSION_ABSOLUTE_TTL", 43200)
-    database = _ensure_store()
     session_token = generate_session_token()
     csrf_token = generate_csrf_token()
-    create_session(
-        database,
-        hash_session_token(session_token),
-        hash_csrf_token(csrf_token),
-        now=now,
-        idle_ttl_seconds=session_ttl,
-        absolute_ttl_seconds=absolute_ttl,
-    )
+    try:
+        database = _ensure_store()
+        create_session(
+            database,
+            hash_session_token(session_token),
+            hash_csrf_token(csrf_token),
+            now=now,
+            idle_ttl_seconds=session_ttl,
+            absolute_ttl_seconds=absolute_ttl,
+        )
+    except (OSError, sqlite3.Error, RuntimeError, ValueError) as exc:
+        raise HTTPException(status_code=503, detail="Authentication storage unavailable") from exc
     response = JSONResponse({"authenticated": True, "expires_in": absolute_ttl})
     settings = _cookie_settings()
     response.set_cookie(
@@ -197,7 +201,10 @@ def current_session(request: Request):
 def logout(request: Request):
     session_hash = getattr(request.state, "auth_session_hash", None)
     if session_hash:
-        revoke_session(_ensure_store(), session_hash, now=int(time.time()))
+        try:
+            revoke_session(_ensure_store(), session_hash, now=int(time.time()))
+        except (OSError, sqlite3.Error, RuntimeError) as exc:
+            raise HTTPException(status_code=503, detail="Authentication storage unavailable") from exc
     response = JSONResponse({"authenticated": False})
     settings = _cookie_settings()
     response.delete_cookie(SESSION_COOKIE, path=settings["path"], secure=settings["secure"], httponly=True, samesite=settings["samesite"])
@@ -226,6 +233,9 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
             return JSONResponse({"detail": "Authentication required"}, status_code=401)
         try:
             session_hash = hash_session_token(session_token)
+        except ValueError:
+            return JSONResponse({"detail": "Authentication required"}, status_code=401)
+        try:
             database = _ensure_store()
             session = get_session(
                 database,
@@ -233,9 +243,10 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
                 now=int(time.time()),
                 idle_ttl_seconds=_ttl("MARKET_MIND_SESSION_IDLE_TTL", 1800),
             )
-        except (ValueError, RuntimeError, OSError):
-            session = None
-            session_hash = None
+        except (RuntimeError, OSError, sqlite3.Error):
+            return JSONResponse(
+                {"detail": "Authentication storage unavailable"}, status_code=503
+            )
         if not session:
             return JSONResponse({"detail": "Authentication required"}, status_code=401)
 

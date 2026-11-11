@@ -89,6 +89,13 @@ export default function AgentNetwork({ agents }: { agents: AgentProfile[] }) {
       sourceCoverage: sourceCount ? sourceWeighted / sourceCount : null,
     }
   }, [researchQuality])
+  const qualityDiagnostics = useMemo(() => Object.entries(researchQuality?.agents || {})
+    .map(([agentId, metrics]) => {
+      const profile = agents.find(item => String(item.id) === agentId)
+      return { agentId, name: profile?.name || agentId, department: profile?.department || 'General Research', ...metrics }
+    })
+    .sort((left, right) => right.evaluation_count - left.evaluation_count || left.agentId.localeCompare(right.agentId))
+    .slice(0, 8), [agents, researchQuality])
   const departments = useMemo(() => ['ALL DEPARTMENTS', ...Array.from(new Set(agents.map(a => a.department || 'General Research'))).sort()], [agents])
   const [eventFilter, setEventFilter] = useState('ALL EVENTS')
   const recentEvents = useMemo(() => (activity?.recent_audit_events || []).filter(event => eventFilter === 'ALL EVENTS' || (eventFilter === 'STATUS CHANGES' ? Boolean(event.from_status && event.to_status) : event.event_type.toUpperCase().includes(eventFilter))).slice(-12).reverse(), [activity, eventFilter])
@@ -170,6 +177,18 @@ export default function AgentNetwork({ agents }: { agents: AgentProfile[] }) {
     {researchQuality && <section className="agent-network-quality" aria-label="Persisted research traceability coverage">
       <div className="agent-network-quality-head"><div><span className="eyebrow">EVIDENCE / PERSISTED EVALUATIONS</span><h2>Research traceability coverage</h2><p>{researchQuality.evaluations_examined} evaluations examined · {Object.keys(researchQuality.agents).length} specialist profiles</p></div><span>STRUCTURAL COVERAGE ONLY</span></div>
       <div className="agent-network-quality-grid"><article><strong>{qualitySummary.claimCoverage === null ? '—' : (qualitySummary.claimCoverage * 100).toFixed(1) + '%'}</strong><small>CLAIM REFERENCE COVERAGE</small></article><article><strong>{qualitySummary.sourceCoverage === null ? '—' : (qualitySummary.sourceCoverage * 100).toFixed(1) + '%'}</strong><small>KNOWN-SOURCE REFERENCE COVERAGE</small></article><article><strong>{researchQuality.evaluations_examined}</strong><small>EVALUATIONS EXAMINED</small></article><article><strong>{researchQuality.invalid_or_unusable_evaluation_count}</strong><small>UNUSABLE EVALUATIONS</small></article></div>
+      <div className="agent-network-quality-table-wrap">
+        <h3>Specialist evidence diagnostics <small>ordered by evaluation sample count · not a quality ranking</small></h3>
+        {qualityDiagnostics.length ? <table className="agent-network-quality-table">
+          <thead><tr><th>PROFILE</th><th>EVALUATIONS</th><th>CLAIM REFS</th><th>KNOWN-SOURCE REFS</th></tr></thead>
+          <tbody>{qualityDiagnostics.map(item=><tr key={item.agentId}>
+            <td><strong>{item.name}</strong><small>{item.department} · {item.agentId}</small></td>
+            <td>{item.evaluation_count}</td>
+            <td>{item.claim_reference_coverage_mean === null ? '—' : (item.claim_reference_coverage_mean * 100).toFixed(1) + '%'}<small>n={item.claim_reference_coverage_count}</small></td>
+            <td>{item.known_source_reference_coverage_mean === null ? '—' : (item.known_source_reference_coverage_mean * 100).toFixed(1) + '%'}<small>n={item.known_source_reference_coverage_count}</small></td>
+          </tr>)}</tbody>
+        </table> : <p className="agent-network-quality-note">No usable per-profile traceability evaluations are recorded yet.</p>}
+      </div>
       <p className="agent-network-quality-note">{researchQuality.quality_boundary}</p>
     </section>}
     {activity && <section className="agent-network-timeline" aria-label="Persisted agent task timeline">

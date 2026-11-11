@@ -3,6 +3,7 @@ import unittest
 from app.auth_crypto import (
     generate_csrf_token,
     generate_session_token,
+    hash_csrf_token,
     hash_password,
     hash_session_token,
     verify_csrf_token,
@@ -59,6 +60,13 @@ class AuthenticationCryptoTests(unittest.TestCase):
         self.assertFalse(verify_csrf_token(supplied, expected))
         self.assertFalse(verify_csrf_token("", expected))
         self.assertFalse(verify_csrf_token(None, expected))
+
+    def test_csrf_hash_is_domain_separated_and_validated(self):
+        token = generate_csrf_token()
+        self.assertEqual(len(hash_csrf_token(token)), 64)
+        self.assertNotEqual(hash_csrf_token(token), hash_session_token(token))
+        with self.assertRaises(ValueError):
+            hash_csrf_token("not-a-csrf-token")
 
 
 if __name__ == "__main__":

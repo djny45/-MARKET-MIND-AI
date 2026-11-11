@@ -507,20 +507,6 @@ def market_data_heatmap(interval: str = "1d", limit: int = 100):
  return market_store.get_stored_return_heatmap(interval, limit)
 
 
-@app.get("/api/market-data/screener")
-def market_data_screener(
- interval: str = "1d", limit: int = 100, min_observations: int = 2
-):
- """Filter locally stored descriptive returns by distinct timestamp coverage."""
- if interval not in SUPPORTED_INTERVALS:
-  raise HTTPException(status_code=400, detail="interval must be one of 15m,1h,4h,1d")
- if limit < 1 or limit > 200:
-  raise HTTPException(status_code=400, detail="limit must be between 1 and 200")
- if min_observations < 1 or min_observations > 5000:
-  raise HTTPException(status_code=400, detail="min_observations must be between 1 and 5000")
- return market_store.get_stored_market_screener(interval, limit, min_observations)
-
-
 @app.get("/api/market-data/lineage")
 def market_data_lineage(symbol: str, interval: str = "1h", limit: int = 5000):
  """Summarize stored observations by source and status."""

@@ -12,6 +12,8 @@ def parse_frontend_origins(raw: str) -> list[str]:
 
     origins: list[str] = []
     for value in values:
+        if any(character.isspace() for character in value):
+            raise ValueError("FRONTEND_ORIGINS entries must not contain whitespace")
         if value == "*" or "*" in value:
             raise ValueError("FRONTEND_ORIGINS does not permit wildcard origins")
         try:
@@ -40,7 +42,10 @@ def parse_frontend_origins(raw: str) -> list[str]:
 
         # Browser Origin serialization omits default ports. Normalize those too,
         # otherwise an allowlist entry ending in :443/:80 will never match.
-        host = hostname.encode("idna").decode("ascii").lower()
+        try:
+            host = hostname.encode("idna").decode("ascii").lower()
+        except UnicodeError as exc:
+            raise ValueError("FRONTEND_ORIGINS contains an invalid hostname") from exc
         if ":" in host:
             host = f"[{host}]"
         default_port = 80 if parsed.scheme.lower() == "http" else 443

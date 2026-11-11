@@ -2,5 +2,6 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import '@xyflow/react/dist/style.css'
 import App from './App'
+import AuthGate from './AuthGate'
 import './style.css'
-ReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode><App /></React.StrictMode>)
+ReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode><AuthGate><App /></AuthGate></React.StrictMode>)

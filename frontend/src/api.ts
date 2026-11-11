@@ -20,9 +20,14 @@ export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {})
     const csrf = readCookie('market_mind_csrf')
     if (csrf) headers.set('X-CSRF-Token', csrf)
   }
-  return fetch(input, {
+  const response = await fetch(input, {
     ...init,
     headers,
     credentials: 'include',
   })
+  const requestUrl = String(input)
+  if (response.status === 401 && !requestUrl.includes('/api/auth/login')) {
+    window.dispatchEvent(new Event('market-mind-auth-expired'))
+  }
+  return response
 }

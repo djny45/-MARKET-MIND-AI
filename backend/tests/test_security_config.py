@@ -20,6 +20,14 @@ class FrontendOriginConfigTests(unittest.TestCase):
             ["https://market.example.com"],
         )
 
+    def test_normalizes_default_ports_to_browser_origin_form(self):
+        self.assertEqual(
+            parse_frontend_origins(
+                "https://market.example.com:443,http://localhost:80"
+            ),
+            ["https://market.example.com", "http://localhost"],
+        )
+
     def test_accepts_ipv6_loopback_origin(self):
         self.assertEqual(
             parse_frontend_origins("http://[::1]:5173"),
@@ -40,6 +48,7 @@ class FrontendOriginConfigTests(unittest.TestCase):
             "https://market.example.com?debug=1",
             "https://market.example.com#fragment",
             "https://market.example.com:bad",
+            "https://market.example.com:",
         )
         for value in invalid:
             with self.subTest(value=value):

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'motion/react'
 import { ReactFlow, Background, Controls, MiniMap, Handle, Position, type Node, type Edge } from '@xyflow/react'
 import { Network, BrainCircuit } from 'lucide-react'
+import GlobalResearchGlobe from './GlobalResearchGlobe'
 
 type AgentProfile = {
   id?: string
@@ -104,6 +105,7 @@ export default function AgentNetwork({ agents }: { agents: AgentProfile[] }) {
     </div>
     {activityError && <div className="agent-network-activity-note">{activityError}</div>}
     {activity && <div className="agent-network-activity-note">TASK ACTIVITY · {activity.task_count} persisted tasks · refreshes every 20 seconds · {activity.note}</div>}
+    <GlobalResearchGlobe profileCount={agents.length || 550} activityCount={activity?.task_count || 0} />
     <div className="agent-network-legend"><span><i className="core-dot"/> Shared intelligence core</span><span><i className="dept-dot"/> Department links</span><span><i className="agent-dot"/> Agent profile → core</span><span><BrainCircuit size={13}/> Shared model architecture · no paper trading</span></div>
     <div className="agent-network-filterbar">
       <label className="agent-network-search"><Network size={14}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search agent name, specialty, department…" aria-label="Search agent network"/></label>

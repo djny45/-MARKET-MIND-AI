@@ -15,7 +15,8 @@ type AgentProfile = {
 }
 
 type AgentNodeData = { label: string; department: string; specialty: string; status: string; core?: boolean; agentId?: string }
-type ActivitySnapshot = { task_count: number; status_counts: Record<string, number>; latest_by_agent: Record<string, { status: string; task_id: string; updated_at: string }>; note?: string }
+type ActivityEvent = { event_id: number; task_id: string; worker_id: string; event_type: string; from_status: string | null; to_status: string | null; occurred_at: string; detail: Record<string, unknown> }
+type ActivitySnapshot = { task_count: number; status_counts: Record<string, number>; latest_by_agent: Record<string, { status: string; task_id: string; updated_at: string }>; recent_audit_events?: ActivityEvent[]; audit_event_count?: number; note?: string }
 
 function AgentNode({ data }: { data: AgentNodeData }) {
   return <div className={data.core ? 'agent-network-node core' : 'agent-network-node'}>
@@ -37,6 +38,8 @@ export default function AgentNetwork({ agents }: { agents: AgentProfile[] }) {
   const [activityError, setActivityError] = useState('')
   useEffect(() => { let alive = true; const load = async () => { try { const response = await fetch((import.meta.env.VITE_API_URL || 'http://localhost:8000') + '/api/agent-network/activity?limit=500'); if (!response.ok) throw new Error('Activity endpoint unavailable'); const snapshot = await response.json(); if (alive) { setActivity(snapshot); setActivityError('') } } catch { if (alive) setActivityError('API activity unavailable — showing registered profiles only') } }; load(); const timer = window.setInterval(load, 20000); return () => { alive = false; window.clearInterval(timer) } }, [])
   const departments = useMemo(() => ['ALL DEPARTMENTS', ...Array.from(new Set(agents.map(a => a.department || 'General Research'))).sort()], [agents])
+  const [eventFilter, setEventFilter] = useState('ALL EVENTS')
+  const recentEvents = useMemo(() => (activity?.recent_audit_events || []).filter(event => eventFilter === 'ALL EVENTS' || (eventFilter === 'STATUS CHANGES' ? Boolean(event.from_status && event.to_status) : event.event_type.toUpperCase().includes(eventFilter))).slice(-12).reverse(), [activity, eventFilter])
   const filteredProfiles = useMemo(() => agents.slice(0, 550).filter(profile => {
     const haystack = [profile.id, profile.name, profile.department, profile.specialty, profile.kind].join(' ').toLowerCase()
     return haystack.includes(query.toLowerCase()) && (departmentFilter === 'ALL DEPARTMENTS' || (profile.department || 'General Research') === departmentFilter)
@@ -107,6 +110,12 @@ export default function AgentNetwork({ agents }: { agents: AgentProfile[] }) {
     {activity && <div className="agent-network-activity-note">TASK ACTIVITY · {activity.task_count} persisted tasks · refreshes every 20 seconds · {activity.note}</div>}
     <GlobalResearchGlobe profileCount={agents.length || 550} activityCount={activity?.task_count || 0} />
     <div className="agent-network-legend"><span><i className="core-dot"/> Shared intelligence core</span><span><i className="dept-dot"/> Department links</span><span><i className="agent-dot"/> Agent profile → core</span><span><BrainCircuit size={13}/> Shared model architecture · no paper trading</span></div>
+    {activity && <section className="agent-network-timeline" aria-label="Persisted agent task timeline">
+      <div className="agent-network-timeline-head"><div><span className="eyebrow">AUDIT TRAIL / SQLITE</span><h2>Recent task events</h2><p>{activity.audit_event_count || 0} recorded events · newest first · bounded history</p></div>
+        <label>EVENT FILTER<select value={eventFilter} onChange={e=>setEventFilter(e.target.value)}><option>ALL EVENTS</option><option>STATUS CHANGES</option><option>QUEUED</option><option>COMPLETED</option><option>FAILED</option></select></label>
+      </div>
+      {recentEvents.length ? <ol className="agent-network-timeline-list">{recentEvents.map(event=><li key={event.event_id}><span className="agent-timeline-marker"/><div><strong>{event.event_type.replaceAll("_"," ").toUpperCase()}</strong><span>{event.worker_id} · {event.task_id}</span><small>{event.from_status && event.to_status ? event.from_status + " → " + event.to_status : event.to_status || "Recorded event"}</small></div><time dateTime={event.occurred_at}>{new Date(event.occurred_at).toLocaleString()}</time></li>)}</ol> : <p className="agent-network-timeline-empty">No persisted events match this filter.</p>}
+    </section>}
     <div className="agent-network-filterbar">
       <label className="agent-network-search"><Network size={14}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search agent name, specialty, department…" aria-label="Search agent network"/></label>
       <select value={departmentFilter} onChange={e=>setDepartmentFilter(e.target.value)} aria-label="Filter by department">{departments.map(department=><option key={department}>{department}</option>)}</select>

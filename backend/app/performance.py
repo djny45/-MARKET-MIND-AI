@@ -36,17 +36,20 @@ def performance_metrics(prices, benchmark=None, periods_per_year=None, risk_free
     if not isfinite(risk_free):
         raise ValueError("risk_free_rate must be finite")
 
-    rs = returns(xs)
+    rs = _finite(returns(xs), "price returns")
     mean = sum(rs) / len(rs)
     variance = sum((value - mean) ** 2 for value in rs) / (len(rs) - 1)
     volatility = sqrt(variance)
     downside = [min(value, 0.0) for value in rs]
     downside_deviation = sqrt(sum(value * value for value in downside) / len(downside))
     excess = mean - risk_free
+    cumulative_return = xs[-1] / xs[0] - 1.0
+    if not isfinite(cumulative_return):
+        raise ValueError("price range exceeds supported numeric precision")
     out = {
         "observations": len(xs),
         "return_observations": len(rs),
-        "cumulative_return": xs[-1] / xs[0] - 1.0,
+        "cumulative_return": cumulative_return,
         "mean_period_return": mean,
         "sample_volatility": volatility,
         "max_drawdown": max_drawdown(xs),
@@ -72,7 +75,7 @@ def performance_metrics(prices, benchmark=None, periods_per_year=None, risk_free
             raise ValueError("At least three benchmark prices are required")
         if any(value <= 0 for value in benchmark_prices):
             raise ValueError("benchmark prices must be positive")
-        benchmark_returns = returns(benchmark_prices)
+        benchmark_returns = _finite(returns(benchmark_prices), "benchmark returns")
         if len(benchmark_returns) != len(rs):
             raise ValueError("benchmark must have the same number of return observations")
         benchmark_mean = sum(benchmark_returns) / len(benchmark_returns)
@@ -88,4 +91,7 @@ def performance_metrics(prices, benchmark=None, periods_per_year=None, risk_free
             covariance / (volatility * sqrt(benchmark_variance))
             if volatility and benchmark_variance else None
         )
+    for name, value in out.items():
+        if isinstance(value, (int, float)) and not isinstance(value, bool) and not isfinite(value):
+            raise ValueError(f"{name} exceeds supported numeric precision")
     return out

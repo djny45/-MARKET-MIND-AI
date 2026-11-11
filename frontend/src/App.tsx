@@ -8,8 +8,9 @@ import PriceChart from './PriceChart'
 import AgentNetwork from './AgentNetwork'
 import AgentPositionMonitor from './AgentPositionMonitor'
 import LearningLab from './LearningLab'
+import { API_BASE, apiFetch } from './api'
 
-const API = (import.meta.env.VITE_API_URL ?? 'http://localhost:8000').replace(/\/$/, '')
+const API = API_BASE
 type NodeData = { label: string; subtitle?: string; category?: string; period?: number; values?: number[]; result?: unknown }
 const initialNodes: Node<NodeData>[] = [
  {id:'feed',type:'market',position:{x:40,y:210},data:{label:'Market Data Feed',subtitle:'Input · OHLC / close series',category:'data'}},
@@ -129,7 +130,7 @@ export default function App() {
  const [sampleBusy,setSampleBusy] = useState(false)
  const [dataLabel,setDataLabel] = useState('MANUAL DEMO INPUT')
  const chartValues = useMemo(()=>values.split(',').map(v=>Number(v.trim())).filter(Number.isFinite),[values])
- useEffect(()=>{fetch(API+'/api/health').then(r=>r.json()).then(()=>setApiState('CONNECTED')).catch(()=>setApiState('OFFLINE'));fetch(API+'/api/workers?limit=550').then(r=>r.json()).then(d=>setWorkers(d.workers||[])).catch(()=>{});fetch(API+'/api/skills').then(r=>r.json()).then(d=>setSkills((d.skills||[]).filter((s:any)=>s.available))).catch(()=>{});refreshWorkspaces();refreshWatchlist();refreshExecutionRuns();loadMarketOverview()},[])
+ useEffect(()=>{apiFetch(API+'/api/health').then(r=>r.json()).then(()=>setApiState('CONNECTED')).catch(()=>setApiState('OFFLINE'));apiFetch(API+'/api/workers?limit=550').then(r=>r.json()).then(d=>setWorkers(d.workers||[])).catch(()=>{});apiFetch(API+'/api/skills').then(r=>r.json()).then(d=>setSkills((d.skills||[]).filter((s:any)=>s.available))).catch(()=>{});refreshWorkspaces();refreshWatchlist();refreshExecutionRuns();loadMarketOverview()},[])
 
  const runOfflineBenchmark = async()=>{
   setBenchmarkBusy(true);setBenchmarkError('');setBenchmarkReport(null);
@@ -144,7 +145,7 @@ export default function App() {
    }
    const threshold=Number(benchmarkThreshold)
    if(!Number.isFinite(threshold)||threshold<0||threshold>1)throw new Error('Regression threshold must be between 0 and 1')
-   const r=await fetch(API+'/api/research/benchmark',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({baseline,regression_threshold:threshold,cases:[
+   const r=await apiFetch(API+'/api/research/benchmark',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({baseline,regression_threshold:threshold,cases:[
     {case_id:'fixture-valid-reference',draft:'Synthetic fixture; factual meaning is not validated.',claims:[{text:'Synthetic claim A',source_refs:['fixture-source-a']}],source_registry:[{source_id:'fixture-source-a'}]},
     {case_id:'fixture-unknown-reference',draft:'Synthetic fixture with an unknown source reference.',claims:[{text:'Synthetic claim B',source_refs:['unknown-fixture-source']}],source_registry:[{source_id:'fixture-source-a'}]}
    ]})});
@@ -152,25 +153,25 @@ export default function App() {
   }catch(e){setBenchmarkError(e instanceof Error?e.message:'Offline benchmark failed')}
   finally{setBenchmarkBusy(false)}
  }
- const refreshWorkspaces = async()=>{try{const r=await fetch(API+'/api/workspaces');const d=await r.json();setSavedWorkflows(d.workflows||[])}catch{setSavedWorkflows([])}}
- const refreshExecutionRuns = async()=>{setRunsBusy(true);setRunsError('');try{const r=await fetch(API+'/api/workflows/runs?limit=50');const d=await r.json();if(!r.ok)throw new Error(d.detail||'Execution history unavailable');setExecutionRuns(d.runs||[])}catch(e){setRunsError(e instanceof Error?e.message:'Execution history unavailable')}finally{setRunsBusy(false)}}
- const inspectExecutionRun = async(id:string)=>{try{const r=await fetch(API+'/api/workflows/runs/'+encodeURIComponent(id));const d=await r.json();if(!r.ok)throw new Error(d.detail||'Could not load run');setSelectedRun(d);setResult({...d.result,run_id:d.id,run_record:{id:d.id,status:d.status,parent_run_id:d.parent_run_id}})}catch(e){setRunsError(e instanceof Error?e.message:'Could not load run')}}
- const replayExecutionRun = async(id:string)=>{setReplayBusy(true);setRunsError('');try{const r=await fetch(API+'/api/workflows/runs/'+encodeURIComponent(id)+'/resume',{method:'POST'});const d=await r.json();if(!r.ok)throw new Error(d.detail||'Replay failed');setResult(d);setSelectedRun({...d,id:d.run_id,status:d.status||'completed',created_at:new Date().toISOString()});await refreshExecutionRuns()}catch(e){setRunsError(e instanceof Error?e.message:'Replay failed')}finally{setReplayBusy(false)}}
- const loadMarketOverview = async()=>{setOverviewBusy(true);setOverviewError('');try{const r=await fetch(API+'/api/market-data/overview?limit=200');const d=await r.json();if(!r.ok)throw new Error(d.detail||'Stored-data overview unavailable');setMarketOverview(d)}catch(e){setMarketOverview(null);setOverviewError(e instanceof Error?e.message:'Overview unavailable')}finally{setOverviewBusy(false)}}
- const refreshWatchlist = async()=>{try{const r=await fetch(API+'/api/watchlist');const d=await r.json();if(!r.ok)throw new Error('Watchlist unavailable');setWatchlistItems(d.symbols||[])}catch{setWatchlistItems([])}}
- const addToWatchlist = async(symbol:string)=>{setWatchlistBusy(true);setWatchlistMessage('');try{const r=await fetch(API+'/api/watchlist',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({symbol})});const d=await r.json();if(!r.ok)throw new Error(d.detail||'Could not save symbol');await refreshWatchlist();setWatchlistMessage(d.already_present?symbol+' ALREADY SAVED':symbol+' ADDED')}catch(e){setWatchlistMessage(e instanceof Error?e.message:'Watchlist update failed')}finally{setWatchlistBusy(false)}}
- const removeFromWatchlist = async(symbol:string)=>{setWatchlistBusy(true);setWatchlistMessage('');try{const r=await fetch(API+'/api/watchlist/'+encodeURIComponent(symbol),{method:'DELETE'});const d=await r.json();if(!r.ok)throw new Error(d.detail||'Could not remove symbol');await refreshWatchlist();setWatchlistMessage(symbol+' REMOVED')}catch(e){setWatchlistMessage(e instanceof Error?e.message:'Watchlist update failed')}finally{setWatchlistBusy(false)}}
- const saveWorkspace = async()=>{setWorkspaceBusy(true);try{const r=await fetch(API+'/api/workspaces',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:workspaceTitle,description:'Saved visual research graph',nodes,edges})});const d=await r.json();if(!r.ok)throw new Error(d.detail||'Save failed');await refreshWorkspaces();setResult({status:'saved',workspace:d})}catch(e){setResult({status:'error',message:e instanceof Error?e.message:'Save failed'})}finally{setWorkspaceBusy(false)}}
- const loadWorkspace = async(id:string)=>{if(!id)return;try{const r=await fetch(API+'/api/workspaces/'+id);const d=await r.json();if(!r.ok)throw new Error(d.detail||'Load failed');setNodes(d.nodes||[]);setEdges(d.edges||[]);setWorkspaceTitle(d.title||'Loaded workspace');setResult({status:'loaded',title:d.title})}catch(e){setResult({status:'error',message:e instanceof Error?e.message:'Load failed'})}}
- const loadSyntheticSample = async()=>{setSampleBusy(true);try{const r=await fetch(API+'/api/market-data/sample?symbol=BTCUSD&interval=1d&limit=5');const d=await r.json();if(!r.ok)throw new Error(d.detail||'Sample data unavailable');setValues(d.bars.map((b:any)=>String(b.close)).join(','));setDataLabel('SYNTHETIC FIXTURE · NOT MARKET PRICES');setResult({status:'sample_loaded',symbol:d.symbol,interval:d.interval,source:d.source,data_status:d.status,retrieved_at:d.retrieved_at,warnings:d.warnings})}catch(e){setResult({status:'error',message:e instanceof Error?e.message:'Sample data unavailable'})}finally{setSampleBusy(false)}}
- const findInstruments = async()=>{try{const q=encodeURIComponent(instrumentQuery);const r=await fetch(API+'/api/instrument-master?q='+q+'&limit=100');const d=await r.json();if(!r.ok)throw new Error(d.detail||'Instrument search unavailable');setInstrumentResults(d.instruments||[])}catch{setInstrumentResults([])}}
- const loadNews = async()=>{setNewsBusy(true);setNewsError('');try{const r=await fetch(API+'/api/news');const d=await r.json();setNewsItems((d.items||[]).filter((x:any)=>x.title));const errs=(d.items||[]).filter((x:any)=>x.error);if(errs.length)setNewsError(errs.map((x:any)=>x.source+': '+x.error).join(' · '))}catch(e){setNewsError(e instanceof Error?e.message:'News feed unavailable')}finally{setNewsBusy(false)}}
+ const refreshWorkspaces = async()=>{try{const r=await apiFetch(API+'/api/workspaces');const d=await r.json();setSavedWorkflows(d.workflows||[])}catch{setSavedWorkflows([])}}
+ const refreshExecutionRuns = async()=>{setRunsBusy(true);setRunsError('');try{const r=await apiFetch(API+'/api/workflows/runs?limit=50');const d=await r.json();if(!r.ok)throw new Error(d.detail||'Execution history unavailable');setExecutionRuns(d.runs||[])}catch(e){setRunsError(e instanceof Error?e.message:'Execution history unavailable')}finally{setRunsBusy(false)}}
+ const inspectExecutionRun = async(id:string)=>{try{const r=await apiFetch(API+'/api/workflows/runs/'+encodeURIComponent(id));const d=await r.json();if(!r.ok)throw new Error(d.detail||'Could not load run');setSelectedRun(d);setResult({...d.result,run_id:d.id,run_record:{id:d.id,status:d.status,parent_run_id:d.parent_run_id}})}catch(e){setRunsError(e instanceof Error?e.message:'Could not load run')}}
+ const replayExecutionRun = async(id:string)=>{setReplayBusy(true);setRunsError('');try{const r=await apiFetch(API+'/api/workflows/runs/'+encodeURIComponent(id)+'/resume',{method:'POST'});const d=await r.json();if(!r.ok)throw new Error(d.detail||'Replay failed');setResult(d);setSelectedRun({...d,id:d.run_id,status:d.status||'completed',created_at:new Date().toISOString()});await refreshExecutionRuns()}catch(e){setRunsError(e instanceof Error?e.message:'Replay failed')}finally{setReplayBusy(false)}}
+ const loadMarketOverview = async()=>{setOverviewBusy(true);setOverviewError('');try{const r=await apiFetch(API+'/api/market-data/overview?limit=200');const d=await r.json();if(!r.ok)throw new Error(d.detail||'Stored-data overview unavailable');setMarketOverview(d)}catch(e){setMarketOverview(null);setOverviewError(e instanceof Error?e.message:'Overview unavailable')}finally{setOverviewBusy(false)}}
+ const refreshWatchlist = async()=>{try{const r=await apiFetch(API+'/api/watchlist');const d=await r.json();if(!r.ok)throw new Error('Watchlist unavailable');setWatchlistItems(d.symbols||[])}catch{setWatchlistItems([])}}
+ const addToWatchlist = async(symbol:string)=>{setWatchlistBusy(true);setWatchlistMessage('');try{const r=await apiFetch(API+'/api/watchlist',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({symbol})});const d=await r.json();if(!r.ok)throw new Error(d.detail||'Could not save symbol');await refreshWatchlist();setWatchlistMessage(d.already_present?symbol+' ALREADY SAVED':symbol+' ADDED')}catch(e){setWatchlistMessage(e instanceof Error?e.message:'Watchlist update failed')}finally{setWatchlistBusy(false)}}
+ const removeFromWatchlist = async(symbol:string)=>{setWatchlistBusy(true);setWatchlistMessage('');try{const r=await apiFetch(API+'/api/watchlist/'+encodeURIComponent(symbol),{method:'DELETE'});const d=await r.json();if(!r.ok)throw new Error(d.detail||'Could not remove symbol');await refreshWatchlist();setWatchlistMessage(symbol+' REMOVED')}catch(e){setWatchlistMessage(e instanceof Error?e.message:'Watchlist update failed')}finally{setWatchlistBusy(false)}}
+ const saveWorkspace = async()=>{setWorkspaceBusy(true);try{const r=await apiFetch(API+'/api/workspaces',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:workspaceTitle,description:'Saved visual research graph',nodes,edges})});const d=await r.json();if(!r.ok)throw new Error(d.detail||'Save failed');await refreshWorkspaces();setResult({status:'saved',workspace:d})}catch(e){setResult({status:'error',message:e instanceof Error?e.message:'Save failed'})}finally{setWorkspaceBusy(false)}}
+ const loadWorkspace = async(id:string)=>{if(!id)return;try{const r=await apiFetch(API+'/api/workspaces/'+id);const d=await r.json();if(!r.ok)throw new Error(d.detail||'Load failed');setNodes(d.nodes||[]);setEdges(d.edges||[]);setWorkspaceTitle(d.title||'Loaded workspace');setResult({status:'loaded',title:d.title})}catch(e){setResult({status:'error',message:e instanceof Error?e.message:'Load failed'})}}
+ const loadSyntheticSample = async()=>{setSampleBusy(true);try{const r=await apiFetch(API+'/api/market-data/sample?symbol=BTCUSD&interval=1d&limit=5');const d=await r.json();if(!r.ok)throw new Error(d.detail||'Sample data unavailable');setValues(d.bars.map((b:any)=>String(b.close)).join(','));setDataLabel('SYNTHETIC FIXTURE · NOT MARKET PRICES');setResult({status:'sample_loaded',symbol:d.symbol,interval:d.interval,source:d.source,data_status:d.status,retrieved_at:d.retrieved_at,warnings:d.warnings})}catch(e){setResult({status:'error',message:e instanceof Error?e.message:'Sample data unavailable'})}finally{setSampleBusy(false)}}
+ const findInstruments = async()=>{try{const q=encodeURIComponent(instrumentQuery);const r=await apiFetch(API+'/api/instrument-master?q='+q+'&limit=100');const d=await r.json();if(!r.ok)throw new Error(d.detail||'Instrument search unavailable');setInstrumentResults(d.instruments||[])}catch{setInstrumentResults([])}}
+ const loadNews = async()=>{setNewsBusy(true);setNewsError('');try{const r=await apiFetch(API+'/api/news');const d=await r.json();setNewsItems((d.items||[]).filter((x:any)=>x.title));const errs=(d.items||[]).filter((x:any)=>x.error);if(errs.length)setNewsError(errs.map((x:any)=>x.source+': '+x.error).join(' · '))}catch(e){setNewsError(e instanceof Error?e.message:'News feed unavailable')}finally{setNewsBusy(false)}}
  const loadVolumeIndicators = async()=> {
   if(researchBars.length<2){setVolumeError('At least two stored OHLCV bars are required. Load historical data first.');return}
   setVolumeBusy(true);setVolumeError('')
   try {
    const body={high:researchBars.map((bar:any)=>Number(bar.high)),low:researchBars.map((bar:any)=>Number(bar.low)),close:researchBars.map((bar:any)=>Number(bar.close)),volume:researchBars.map((bar:any)=>Number(bar.volume)),period:20}
-   const response=await fetch(API+'/api/indicators/volume',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+   const response=await apiFetch(API+'/api/indicators/volume',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
    const data=await response.json()
    if(!response.ok)throw new Error(data.detail||'Volume indicator calculation failed')
    setVolumeReport(data)
@@ -188,7 +189,7 @@ export default function App() {
     volume:researchBars.map((bar:any)=>Number(bar.volume)),
     bins:48,value_area_pct:70
    }
-   const response=await fetch(API+'/api/indicators/liquidity-profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+   const response=await apiFetch(API+'/api/indicators/liquidity-profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
    const data=await response.json()
    if(!response.ok)throw new Error(data.detail||'Liquidity profile calculation failed')
    setLiquidityProfile(data)
@@ -199,7 +200,7 @@ export default function App() {
   setQualityBusy(true);setQualityError('')
   try {
    const params=new URLSearchParams({symbol:researchSymbol.trim(),interval,limit:'500'})
-   const response=await fetch(API+'/api/research/data-quality?'+params.toString())
+   const response=await apiFetch(API+'/api/research/data-quality?'+params.toString())
    const body=await response.json()
    if(!response.ok)throw new Error(body.detail||'Data-quality report unavailable')
    setQualityReport(body)
@@ -211,8 +212,8 @@ export default function App() {
   try {
    const params=new URLSearchParams({symbol:researchSymbol.trim(),interval,limit:'5000'})
    const [lineageResponse,auditResponse]=await Promise.all([
-    fetch(API+'/api/market-data/lineage?'+params.toString()),
-    fetch(API+'/api/audit/events?'+new URLSearchParams({symbol:researchSymbol.trim(),interval,limit:'20'}).toString())
+    apiFetch(API+'/api/market-data/lineage?'+params.toString()),
+    apiFetch(API+'/api/audit/events?'+new URLSearchParams({symbol:researchSymbol.trim(),interval,limit:'20'}).toString())
    ])
    const [lineage,audit]=await Promise.all([lineageResponse.json(),auditResponse.json()])
    if(!lineageResponse.ok)throw new Error(lineage.detail||'Lineage unavailable')
@@ -225,7 +226,7 @@ export default function App() {
   setSourceComparisonBusy(true);setSourceComparisonError('')
   try {
    const params=new URLSearchParams({symbol:researchSymbol.trim(),interval,limit:'500'})
-   const response=await fetch(API+'/api/research/source-comparison?'+params.toString())
+   const response=await apiFetch(API+'/api/research/source-comparison?'+params.toString())
    const body=await response.json()
    if(!response.ok)throw new Error(body.detail||'Source comparison unavailable')
    setSourceComparison(body)
@@ -240,7 +241,7 @@ export default function App() {
     if(file.size>10_000_000)throw new Error(file.name+' exceeds the 10 MB limit')
     return JSON.parse(await file.text())
    }))
-   const response=await fetch(API+'/api/research/compare-exports',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({before,after})})
+   const response=await apiFetch(API+'/api/research/compare-exports',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({before,after})})
    const body=await response.json()
    if(!response.ok)throw new Error(body.detail||'Export comparison failed')
    setExportDiff(body)
@@ -260,14 +261,14 @@ export default function App() {
  const importHistoricalCSV = async()=> {
   setCsvBusy(true);setCsvMessage('')
   try {
-   const response=await fetch(API+'/api/market-data/import-csv',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({csv_text:csvText,symbol:researchSymbol,interval:researchInterval,source:csvSource})})
+   const response=await apiFetch(API+'/api/market-data/import-csv',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({csv_text:csvText,symbol:researchSymbol,interval:researchInterval,source:csvSource})})
    const body=await response.json()
    if(!response.ok)throw new Error(body.detail||'CSV import failed')
    setCsvMessage('IMPORTED '+body.stored+' BARS · '+body.symbol+' · '+body.interval+' · '+body.source)
-   const historyResponse=await fetch(API+'/api/market-data/history?'+new URLSearchParams({symbol:researchSymbol.trim(),interval:researchInterval,limit:'500'}).toString())
+   const historyResponse=await apiFetch(API+'/api/market-data/history?'+new URLSearchParams({symbol:researchSymbol.trim(),interval:researchInterval,limit:'500'}).toString())
    const historyBody=await historyResponse.json()
    if(historyResponse.ok){setVolumeReport(null);setVolumeError('');setLiquidityProfile(null);setLiquidityError('');setResearchBars(historyBody.bars||[]);setHistoryMeta({source:historyBody.source,status:historyBody.status,retrieved_at:historyBody.retrieved_at,source_count:historyBody.source_count,timestamp_count:historyBody.timestamp_count,duplicate_timestamp_observations:historyBody.duplicate_timestamp_observations,first_timestamp:historyBody.first_timestamp,last_timestamp:historyBody.last_timestamp,sources:historyBody.sources})}
-   const timelineResponse=await fetch(API+'/api/research/timeline?'+new URLSearchParams({symbol:researchSymbol.trim(),interval:researchInterval,limit:'200'}).toString())
+   const timelineResponse=await apiFetch(API+'/api/research/timeline?'+new URLSearchParams({symbol:researchSymbol.trim(),interval:researchInterval,limit:'200'}).toString())
    const timelineBody=await timelineResponse.json()
    if(timelineResponse.ok){setResearchTimeline(timelineBody.events||[]);setTimelineError('')}else{setTimelineError(timelineBody.detail||'Timeline refresh unavailable')}
    await loadHistoricalQuality(researchInterval)
@@ -279,19 +280,19 @@ export default function App() {
   setResearchBusy(true);setResearchError('');setResearchReport(null)
   try {
    const params = new URLSearchParams({symbol:researchSymbol.trim(),intervals:researchIntervals,limit:'500',compare_symbols:researchCompare,breadth_symbols:researchCompare})
-   const response = await fetch(API+'/api/research/deep?'+params.toString())
+   const response = await apiFetch(API+'/api/research/deep?'+params.toString())
    const body = await response.json()
    if(!response.ok)throw new Error(body.detail||'Deep research unavailable')
    setResearchReport(body)
    const chosen=researchIntervals.split(',').map(x=>x.trim()).includes(researchInterval)?researchInterval:researchIntervals.split(',')[0].trim()
    setResearchInterval(chosen);setSelectedCluster(null)
    await loadHistoricalQuality(chosen)
-   const historyResponse=await fetch(API+'/api/market-data/history?'+new URLSearchParams({symbol:researchSymbol.trim(),interval:chosen,limit:'500'}).toString())
+   const historyResponse=await apiFetch(API+'/api/market-data/history?'+new URLSearchParams({symbol:researchSymbol.trim(),interval:chosen,limit:'500'}).toString())
    const historyBody=await historyResponse.json()
    if(historyResponse.ok){setVolumeReport(null);setVolumeError('');setResearchBars(historyBody.bars||[]);setHistoryMeta({source:historyBody.source,status:historyBody.status,retrieved_at:historyBody.retrieved_at,source_count:historyBody.source_count,timestamp_count:historyBody.timestamp_count,duplicate_timestamp_observations:historyBody.duplicate_timestamp_observations,first_timestamp:historyBody.first_timestamp,last_timestamp:historyBody.last_timestamp,sources:historyBody.sources})}
    else {setResearchBars([]);setHistoryMeta(null)}
    setTimelineBusy(true);setTimelineError('')
-   const timelineResponse=await fetch(API+'/api/research/timeline?'+new URLSearchParams({symbol:researchSymbol.trim(),interval:chosen,limit:'200'}).toString())
+   const timelineResponse=await apiFetch(API+'/api/research/timeline?'+new URLSearchParams({symbol:researchSymbol.trim(),interval:chosen,limit:'200'}).toString())
    const timelineBody=await timelineResponse.json()
    if(timelineResponse.ok)setResearchTimeline(timelineBody.events||[])
    else {setResearchTimeline([]);setTimelineError(timelineBody.detail||'Timeline unavailable')}
@@ -310,7 +311,7 @@ export default function App() {
   const parsed = values.split(',').map(v=>Number(v.trim())).filter(Number.isFinite)
   const mapped = nodes.map(n=>({...n,type: n.id==='feed'?'market_input':n.id==='quality'?'data_quality':n.id==='trend'?'sma':n.id==='vol'?'volatility':n.id==='report'?'research_summary':(n.data as any).nodeType || ((n.data as NodeData).category==='technical'?'sma':(n.data as NodeData).category==='quant'?'volatility':'research_summary'),data:{period:(n.data as NodeData).period||20}}))
   try {
-   const response=await fetch(API+'/api/workflows/execute',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nodes:mapped,edges:edges.map(e=>({source:e.source,target:e.target})),inputs:{data:parsed},skill_ids:Array.from(new Set([...selectedSkillIds,...nodes.flatMap(n=>(n.data as any).skillRefs||[])]))})})
+   const response=await apiFetch(API+'/api/workflows/execute',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nodes:mapped,edges:edges.map(e=>({source:e.source,target:e.target})),inputs:{data:parsed},skill_ids:Array.from(new Set([...selectedSkillIds,...nodes.flatMap(n=>(n.data as any).skillRefs||[])]))})})
    const body=await response.json();if(!response.ok)throw new Error(body.detail||'Execution failed')
    setResult(body)
   } catch(e){setResult({status:'error',message:e instanceof Error?e.message:'API unavailable'})}
@@ -484,7 +485,7 @@ export default function App() {
        <small>Exact timestamp matches only; no interpolation or forward-filling. These are historical calculations, not signals.</small>
       </div>}
       <div className="research-cluster-tools">
-       <label>CHART TIMEFRAME</label><select value={researchInterval} onChange={async e=>{const interval=e.target.value;setResearchInterval(interval);setSelectedCluster(null);setVolumeReport(null);setVolumeError('');await loadHistoricalQuality(interval);try{const r=await fetch(API+'/api/market-data/history?'+new URLSearchParams({symbol:researchSymbol.trim(),interval,limit:'500'}).toString());const d=await r.json();setVolumeReport(null);setVolumeError('');setResearchBars(r.ok?(d.bars||[]):[]);setHistoryMeta(r.ok?{source:d.source,status:d.status,retrieved_at:d.retrieved_at}:null)}catch{setResearchBars([]);setHistoryMeta(null)}}}>{researchIntervals.split(',').map(x=>x.trim()).filter(Boolean).map(x=><option key={x} value={x}>{x}</option>)}</select>
+       <label>CHART TIMEFRAME</label><select value={researchInterval} onChange={async e=>{const interval=e.target.value;setResearchInterval(interval);setSelectedCluster(null);setVolumeReport(null);setVolumeError('');await loadHistoricalQuality(interval);try{const r=await apiFetch(API+'/api/market-data/history?'+new URLSearchParams({symbol:researchSymbol.trim(),interval,limit:'500'}).toString());const d=await r.json();setVolumeReport(null);setVolumeError('');setResearchBars(r.ok?(d.bars||[]):[]);setHistoryMeta(r.ok?{source:d.source,status:d.status,retrieved_at:d.retrieved_at}:null)}catch{setResearchBars([]);setHistoryMeta(null)}}}>{researchIntervals.split(',').map(x=>x.trim()).filter(Boolean).map(x=><option key={x} value={x}>{x}</option>)}</select>
        <small>{researchBars.length} stored observations · {historyMeta?.source||'source unavailable'} · {historyMeta?.status||'status unavailable'}</small>
        {historyMeta&&<small>Sources {historyMeta.source_count??'—'} · distinct timestamps {historyMeta.timestamp_count??'—'} · overlapping observations {historyMeta.duplicate_timestamp_observations??'—'}</small>}
        {historyMeta&&<small>Range {historyMeta.first_timestamp||'—'} → {historyMeta.last_timestamp||'—'} · retrieved {historyMeta.retrieved_at||'—'}</small>}
@@ -525,7 +526,7 @@ export default function App() {
     <div className="overview-panel validation-panel">
       <label>PAYLOAD JSON</label>
       <textarea className="validation-input" value={validationPayload} onChange={e=>setValidationPayload(e.target.value)} spellCheck={false}/>
-      <div className="validation-actions"><button className="run-btn" disabled={validationBusy} onClick={async()=>{setValidationBusy(true);setValidationError('');setValidationReport(null);try{const payload=JSON.parse(validationPayload);const response=await fetch(API+'/api/market-data/validate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({payload})});const data=await response.json();if(!response.ok)throw new Error(data.detail||'Validation request failed');setValidationReport(data)}catch(e){setValidationError(e instanceof Error?e.message:'Validation failed')}finally{setValidationBusy(false)}}}>{validationBusy?'VALIDATING…':'VALIDATE PAYLOAD'}</button><button className="soft-btn" onClick={()=>{setValidationPayload(JSON.stringify({symbol:'BTCUSD',interval:'1d',status:'historical',source:'manual-review',retrieved_at:new Date().toISOString(),bars:[{timestamp:new Date(Date.now()-86400000).toISOString(),open:100,high:105,low:98,close:102,volume:1200}]},null,2));setValidationReport(null);setValidationError('')}}>LOAD SAMPLE</button></div>
+      <div className="validation-actions"><button className="run-btn" disabled={validationBusy} onClick={async()=>{setValidationBusy(true);setValidationError('');setValidationReport(null);try{const payload=JSON.parse(validationPayload);const response=await apiFetch(API+'/api/market-data/validate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({payload})});const data=await response.json();if(!response.ok)throw new Error(data.detail||'Validation request failed');setValidationReport(data)}catch(e){setValidationError(e instanceof Error?e.message:'Validation failed')}finally{setValidationBusy(false)}}}>{validationBusy?'VALIDATING…':'VALIDATE PAYLOAD'}</button><button className="soft-btn" onClick={()=>{setValidationPayload(JSON.stringify({symbol:'BTCUSD',interval:'1d',status:'historical',source:'manual-review',retrieved_at:new Date().toISOString(),bars:[{timestamp:new Date(Date.now()-86400000).toISOString(),open:100,high:105,low:98,close:102,volume:1200}]},null,2));setValidationReport(null);setValidationError('')}}>LOAD SAMPLE</button></div>
       {validationError&&<p className="news-error">{validationError}</p>}
       {validationReport&&<div className="research-results"><div className="overview-status"><span className={validationReport.valid?'status-ok':'status-off'}>{validationReport.result?.toUpperCase()}</span><span>{validationReport.error_count} ERRORS</span><span>{validationReport.bar_count??'—'} BARS</span></div>{Array.isArray(validationReport.errors)&&validationReport.errors.length>0&&<div className="validation-details"><strong>ERROR DETAILS</strong><ul>{validationReport.errors.map((item:any,index:number)=><li key={index}><code>{Array.isArray(item.location)?item.location.join(' → '):item.location||'payload'}</code>: {item.message||item.type||'Invalid value'}</li>)}</ul></div>}{Array.isArray(validationReport.warnings)&&validationReport.warnings.length>0&&<div className="validation-details"><strong>WARNINGS</strong><ul>{validationReport.warnings.map((item:any,index:number)=><li key={index}>{typeof item==='string'?item:item.message||JSON.stringify(item)}</li>)}</ul></div>}<details><summary>RAW VALIDATION REPORT</summary><pre>{JSON.stringify(validationReport,null,2)}</pre></details></div>}
       <small>Structural validation only. It does not verify source authenticity, licensing, freshness or market-session completeness.</small>

@@ -120,7 +120,7 @@ export default function AgentNetwork({ agents }: { agents: AgentProfile[] }) {
         <Controls/>
       </ReactFlow>
     </div>
-    {selectedAgent && <div className="agent-network-inspector"><div><b>{selectedAgent.label}</b><small>{selectedAgent.core ? "Central intelligence core" : selectedAgent.department}</small></div><span>{selectedAgent.specialty}</span><span className="agent-inspector-status">{selectedAgent.status}</span><button type="button" onClick={()=>setSelectedAgent(null)}>CLOSE</button></div>}
+    {selectedAgent && <motion.div className="agent-network-inspector" initial={{ opacity: 0, y: 10, scale: 0.99 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.22, ease: "easeOut" }}><div><b>{selectedAgent.label}</b><small>{selectedAgent.core ? "Central intelligence core" : selectedAgent.department}</small></div><span>{selectedAgent.specialty}</span><span className="agent-inspector-status">{selectedAgent.status}</span><button type="button" onClick={()=>setSelectedAgent(null)}>CLOSE</button></motion.div>}
     <div className="agent-network-foot"><span>Registered profiles · department-level connectivity · shared core</span><span>Research-only architecture · no broker / order execution</span></div>
   </motion.section>
 }

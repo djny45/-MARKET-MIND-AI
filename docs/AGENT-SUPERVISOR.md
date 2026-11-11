@@ -50,4 +50,4 @@ An idle dispatch is a successful cycle with no queued tasks. A task can still fi
 - The shared intelligence provider may be unavailable. The task records this explicitly; no provider key is required for the deterministic task lifecycle tests.
 - All tasks are research-only. No brokerage credentials, trade recommendations, order routing, or execution are part of the supervisor.
 
-Before unattended scheduling is added, implement a dedicated service identity or machine-to-machine authentication, a dedicated service identity, a single-owner scheduler, operational monitoring, and host-specific recovery tests.
+Before unattended scheduling is added, implement a dedicated service identity or machine-to-machine authentication, a single-owner scheduler, operational monitoring, and host-specific recovery tests.

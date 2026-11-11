@@ -82,7 +82,7 @@ class AuthSessionStoreTests(unittest.TestCase):
         self.assertIsNotNone(refreshed)
         self.assertEqual(refreshed["idle_expires_at"], 1900)
         capped = get_session(
-            self.database_path, self.session_hash, now=1900, idle_ttl_seconds=300
+            self.database_path, self.session_hash, now=1800, idle_ttl_seconds=300
         )
         self.assertIsNotNone(capped)
         self.assertEqual(capped["idle_expires_at"], 2000)

@@ -23,3 +23,7 @@ Annualized values are mathematical rescalings based on the caller-supplied obser
 ## Indicator numeric-input contract
 
 All deterministic indicator functions reject NaN and infinite observations. Derived return series and reported indicator values are checked for finite floating-point results before they are returned. Moving-average accumulation, return ratios and volatility calculations that exceed supported numeric precision fail with `ValueError` instead of emitting non-finite values. Realized-volatility annualization must be finite and positive. These guards improve numerical hygiene; they do not replace timestamp alignment, data-quality checks or independent validation of source observations.
+
+## Market-diagnostics numeric boundary
+
+The OHLCV market-diagnostics summary requires finite positive closes and finite non-negative volumes. Missing or invalid raw fields return `status=invalid_data`. If finite inputs produce an unrepresentable return, variance, volatility or relative-volume result, the function returns `status=numeric_overflow` with a limitation message instead of emitting non-finite JSON numbers. These are data-quality and numeric-safety outcomes, not market classifications.

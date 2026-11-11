@@ -577,5 +577,38 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertEqual(result["recovery"]["requeued_interrupted_count"], 0)
 
 
+    def test_supervisor_lease_serializes_cycles_and_requires_matching_token(self):
+        from app.analytical_agent_tasks import (
+            acquire_research_supervisor_lease, release_research_supervisor_lease,
+        )
+
+        first = acquire_research_supervisor_lease("scheduler-a", lease_seconds=300)
+        self.assertTrue(first["acquired"])
+        blocked = acquire_research_supervisor_lease("scheduler-b", lease_seconds=300)
+        self.assertFalse(blocked["acquired"])
+        self.assertEqual(blocked["reason"], "lease_already_held")
+        self.assertEqual(blocked["owner_id"], "scheduler-a")
+        self.assertFalse(release_research_supervisor_lease("scheduler-b", first["lease_token"]))
+        self.assertTrue(release_research_supervisor_lease("scheduler-a", first["lease_token"]))
+        second = acquire_research_supervisor_lease("scheduler-b", lease_seconds=300)
+        self.assertTrue(second["acquired"])
+        self.assertTrue(release_research_supervisor_lease("scheduler-b", second["lease_token"]))
+
+    def test_supervisor_cycle_skips_when_another_owner_holds_lease(self):
+        from app.analytical_agent_tasks import (
+            acquire_research_supervisor_lease, release_research_supervisor_lease,
+            run_research_supervisor_cycle,
+        )
+
+        lease = acquire_research_supervisor_lease("external-scheduler", lease_seconds=300)
+        try:
+            result = run_research_supervisor_cycle(limit=5, max_concurrency=1)
+            self.assertEqual(result["status"], "skipped")
+            self.assertEqual(result["lease_owner"], "external-scheduler")
+            self.assertEqual(result["reason"], "another_supervisor_cycle_holds_the_lease")
+        finally:
+            release_research_supervisor_lease("external-scheduler", lease["lease_token"])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -198,7 +198,14 @@ class WorkerMemoryTests(unittest.TestCase):
             lambda worker_id: append_memory(worker_id, "observation", {"note": "x"}),
             lambda worker_id: read_memory(worker_id),
             lambda worker_id: recall_memory(worker_id, "RSI"),
+            lambda worker_id: review_learning_candidate(
+                worker_id, "memory-id", "approved", "reviewer",
+            ),
             lambda worker_id: list_learning_candidates(worker_id),
+            lambda worker_id: recall_approved_learning_candidates(worker_id, "RSI"),
+            lambda worker_id: review_improvement_proposal(
+                worker_id, "memory-id", "rejected", "reviewer",
+            ),
             lambda worker_id: list_improvement_proposals(worker_id),
         ]
         for worker_id in invalid_ids:

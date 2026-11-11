@@ -1,4 +1,4 @@
-"""Small, dependency-free cryptographic primitives for the auth implementation.
+""""Small, dependency-free cryptographic primitives for the auth implementation.
 
 These helpers do not provide authentication by themselves. Callers must still
 persist/revoke sessions, enforce expiry, protect routes, and validate CSRF and
@@ -36,7 +36,10 @@ def hash_password(password: str) -> str:
     """Return a salted scrypt password hash suitable for server-side storage."""
     if not isinstance(password, str) or not password:
         raise ValueError("password must be a non-empty string")
-    password_bytes = password.encode("utf-8")
+    try:
+        password_bytes = password.encode("utf-8")
+    except UnicodeError as exc:
+        raise ValueError("password must contain valid Unicode text") from exc
     if len(password_bytes) > _MAX_PASSWORD_BYTES:
         raise ValueError("password exceeds the maximum supported length")
 

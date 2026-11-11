@@ -630,7 +630,7 @@ def list_recent_task_activity(limit: int = 500) -> dict:
     recent_events = []
     for row in reversed(event_rows):
         event = dict(row)
-        event["detail"] = json.loads(event.pop("detail_json"))
+        event["detail"] = _decode_event_detail(event.pop("detail_json"))
         recent_events.append(event)
     counts = {status: sum(task["status"] == status for task in tasks)
               for status in ("queued", "running", "completed", "failed")}

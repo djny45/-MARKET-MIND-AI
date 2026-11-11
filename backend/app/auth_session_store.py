@@ -54,9 +54,9 @@ def _connect(database_path: str | Path) -> sqlite3.Connection:
 
 def initialize_auth_store(database_path: str | Path) -> None:
     """Create the session schema and restrict the database file on POSIX."""
-    path = Path(database_path)
-    if not str(path).strip():
+    if not isinstance(database_path, (str, Path)) or not str(database_path).strip():
         raise ValueError("database_path must be a non-empty path")
+    path = Path(database_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     with _connect(path) as connection:
         connection.execute("PRAGMA journal_mode = WAL")
@@ -141,31 +141,32 @@ def get_session(
         if row is None or row["revoked_at"] is not None:
             connection.commit()
             return None
-        if now >= row["idle_expires_at"] or now >= row["absolute_expires_at"]:
+        effective_now = max(now, row["last_seen_at"])
+        if effective_now >= row["idle_expires_at"] or effective_now >= row["absolute_expires_at"]:
             connection.execute(
                 """
                 UPDATE auth_sessions SET revoked_at = ?
                 WHERE session_token_hash = ? AND revoked_at IS NULL
                 """,
-                (now, session_token_hash),
+                (effective_now, session_token_hash),
             )
             connection.commit()
             return None
 
-        next_idle_expiry = min(now + idle_ttl, row["absolute_expires_at"])
+        next_idle_expiry = min(effective_now + idle_ttl, row["absolute_expires_at"])
         connection.execute(
             """
             UPDATE auth_sessions
             SET last_seen_at = ?, idle_expires_at = ?
             WHERE session_token_hash = ? AND revoked_at IS NULL
             """,
-            (now, next_idle_expiry, session_token_hash),
+            (effective_now, next_idle_expiry, session_token_hash),
         )
         connection.commit()
         return {
             "csrf_token_hash": row["csrf_token_hash"],
             "created_at": row["created_at"],
-            "last_seen_at": now,
+            "last_seen_at": effective_now,
             "idle_expires_at": next_idle_expiry,
             "absolute_expires_at": row["absolute_expires_at"],
         }

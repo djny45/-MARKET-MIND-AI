@@ -22,7 +22,7 @@ class IndicatorTests(unittest.TestCase):
         self.assertEqual(len(macd(list(range(1, 40)))["histogram"]), 39)
 
     def test_bollinger(self):
-        self.assertEqual(len(bollinger(list(range(1, 25))["upper"]), 24)
+        self.assertEqual(len(bollinger(list(range(1, 25)))["upper"]), 24)
 
     def test_volatility(self):
         self.assertGreater(realized_volatility([100, 101, 99, 102])["per_observation"], 0)

@@ -472,6 +472,9 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertEqual(saved["status"], "failed")
         self.assertEqual(saved["result"]["error"], "Research task failed safely.")
         self.assertEqual(saved["result"]["error_type"], "JSONDecodeError")
+        self.assertEqual(saved["input"], {
+            "status": "invalid_record", "error_type": "malformed_json",
+        })
         events = list_task_audit_events(queued["task_id"])["events"]
         self.assertEqual(events[-1]["event_type"], "task_failed")
         self.assertEqual(events[-1]["to_status"], "failed")

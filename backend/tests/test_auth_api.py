@@ -78,6 +78,36 @@ class AuthenticationApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 401)
         self.assertNotIn("market_mind_session", self.client.cookies)
 
+    def test_login_rotation_revokes_previous_session(self):
+        from app.auth_crypto import hash_session_token
+        from app.auth_session_store import get_session
+
+        origin = {"Origin": "http://testserver"}
+        first = self.client.post(
+            "/api/auth/login", json={"password": self.password}, headers=origin
+        )
+        self.assertEqual(first.status_code, 200)
+        old_token = self.client.cookies.get("market_mind_session")
+        old_hash = hash_session_token(old_token)
+
+        second = self.client.post(
+            "/api/auth/login", json={"password": self.password}, headers=origin
+        )
+        self.assertEqual(second.status_code, 200)
+        self.assertNotEqual(self.client.cookies.get("market_mind_session"), old_token)
+        old_session = get_session(
+            os.path.join(self.temp.name, "auth.sqlite3"),
+            old_hash,
+            now=2_000_000_000,
+            idle_ttl_seconds=1800,
+        )
+        self.assertIsNone(old_session)
+
+    def test_missing_owner_secret_fails_closed(self):
+        with patch.dict(os.environ, {"MARKET_MIND_OWNER_PASSWORD_HASH": ""}):
+            response = self.client.get("/api/watchlist")
+        self.assertEqual(response.status_code, 503)
+
 
 if __name__ == "__main__":
     unittest.main()

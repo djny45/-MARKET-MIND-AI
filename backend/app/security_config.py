@@ -26,6 +26,7 @@ def parse_frontend_origins(raw: str) -> list[str]:
             parsed.scheme not in {"http", "https"}
             or not parsed.netloc
             or not hostname
+            or parsed.netloc.endswith(":")
             or parsed.username is not None
             or parsed.password is not None
             or parsed.path not in {"", "/"}
@@ -37,12 +38,14 @@ def parse_frontend_origins(raw: str) -> list[str]:
                 "credentials, queries, or fragments"
             )
 
-        # Normalize scheme/host casing and the optional root slash while preserving
-        # IPv6 brackets and an explicitly configured port.
-        host = parsed.netloc.rsplit("@", 1)[-1]
-        normalized = f"{parsed.scheme.lower()}://{host.lower()}"
-        if normalized.endswith("/"):
-            normalized = normalized[:-1]
+        # Browser Origin serialization omits default ports. Normalize those too,
+        # otherwise an allowlist entry ending in :443/:80 will never match.
+        host = hostname.encode("idna").decode("ascii").lower()
+        if ":" in host:
+            host = f"[{host}]"
+        default_port = 80 if parsed.scheme.lower() == "http" else 443
+        port_suffix = f":{port}" if port is not None and port != default_port else ""
+        normalized = f"{parsed.scheme.lower()}://{host}{port_suffix}"
         if normalized not in origins:
             origins.append(normalized)
     return origins

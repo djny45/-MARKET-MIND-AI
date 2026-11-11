@@ -32,7 +32,9 @@ class SocialSourceTests(unittest.TestCase):
             )
         self.assertEqual(result["status"], "error")
         self.assertEqual(result["count"], 0)
-        self.assertIn("offline", result["error"])
+        self.assertEqual(result["error"], "Feed fetch failed")
+        self.assertEqual(result["error_type"], "OSError")
+        self.assertNotIn("offline", result["error"])
 
     def test_configured_feed_ingestion_deduplicates_items(self):
         async def fake_fetch(source, url):

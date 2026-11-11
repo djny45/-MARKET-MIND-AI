@@ -77,6 +77,10 @@ def _connect():
         "CREATE INDEX IF NOT EXISTS idx_market_bars_lookup "
         "ON market_bars(symbol, interval, timestamp)"
     )
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_market_bars_interval_timestamp "
+        "ON market_bars(interval, timestamp)"
+    )
     return connection
 
 

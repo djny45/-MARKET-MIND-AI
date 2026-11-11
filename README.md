@@ -567,3 +567,14 @@ The dashboard is a convenience view over existing append-only experiment records
 ### Verify staging audit export integrity
 
 The staging audit JSON export includes a SHA-256 digest over the canonical bundle fields before the `integrity` object is added. To verify it, remove `integrity`, serialize the remaining JSON using UTF-8, sorted keys, and separators `(",", ":")`, then compute SHA-256. This detects accidental modification; it is **not** a digital signature, source authentication, or proof that the data is true. Exporting is read-only and does not train, deploy, fetch live market data, or trade.
+
+
+## Agent network observability
+
+The agent network view reads persisted task activity, descriptive task outcomes, and structural research traceability evaluations from the API:
+
+- `GET /api/agent-network/activity?limit=500` — bounded task and audit-event history.
+- `GET /api/agent-network/performance?limit=550` — descriptive task outcomes and execution-attempt counts.
+- `GET /api/agent-network/research-quality?limit=550` — mean claim-reference and known-source-reference coverage from persisted evaluations.
+
+Traceability coverage measures whether research claims and known sources are linked in the stored evaluation. It does **not** verify source authenticity, factual correctness, entailment, analytical capability, or investment performance. The dashboard keeps these measurements separate from task outcomes and agent-profile counts.

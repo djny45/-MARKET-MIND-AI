@@ -334,6 +334,52 @@ def get_stored_return_heatmap(interval: str = "1d", limit: int = 100) -> dict:
         ),
     }
 
+
+def get_stored_market_screener(
+    interval: str = "1d", limit: int = 100, min_observations: int = 2
+) -> dict:
+    """Filter the local stored-return snapshot by distinct timestamp coverage.
+
+    This is a descriptive data-discovery view only. It does not rank securities
+    by expected performance or generate trading recommendations.
+    """
+    safe_limit = max(1, min(int(limit), 200))
+    safe_min_observations = max(1, min(int(min_observations), 5000))
+    heatmap = get_stored_return_heatmap(interval, limit=200)
+    with _connect() as connection:
+        rows = connection.execute("""
+            SELECT symbol, COUNT(DISTINCT timestamp) AS observation_count
+            FROM market_bars
+            WHERE interval = ?
+            GROUP BY symbol
+        """, (interval,)).fetchall()
+    observation_counts = {
+        row["symbol"]: int(row["observation_count"]) for row in rows
+    }
+    eligible = []
+    for cell in heatmap["cells"]:
+        count = observation_counts.get(cell["symbol"], 0)
+        if count < safe_min_observations:
+            continue
+        eligible.append({**cell, "observation_count": count})
+    visible = eligible[:safe_limit]
+    return {
+        "status": "stored_data_screener",
+        "interval": interval,
+        "instrument_count": len(visible),
+        "eligible_instrument_count": len(eligible),
+        "available_instrument_count": heatmap["available_instrument_count"],
+        "min_observations": safe_min_observations,
+        "cells": visible,
+        "limit": safe_limit,
+        "data_note": (
+            "This screener filters only the locally stored symbol set by distinct timestamp "
+            "coverage and displays descriptive historical changes. It is not live data, a "
+            "complete market universe, an expected-return ranking, or a trading signal."
+        ),
+    }
+
+
 def get_market_overview(limit: int = 200) -> dict:
     """Summarize local stored-data coverage; this is not a live market overview."""
     safe_limit = max(1, min(int(limit), 500))

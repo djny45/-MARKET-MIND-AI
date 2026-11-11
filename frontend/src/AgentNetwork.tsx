@@ -18,6 +18,7 @@ type AgentNodeData = { label: string; department: string; specialty: string; sta
 type ActivityEvent = { event_id: number; task_id: string; worker_id: string; event_type: string; from_status: string | null; to_status: string | null; occurred_at: string; detail: Record<string, unknown> }
 type ActivitySnapshot = { task_count: number; status_counts: Record<string, number>; latest_by_agent: Record<string, { status: string; task_id: string; updated_at: string }>; recent_audit_events?: ActivityEvent[]; audit_event_count?: number; note?: string }
 type AgentPerformance = { task_count: number; agents: Record<string, { task_count: number; queued: number; running: number; completed: number; failed: number; finished_count: number; completion_rate: number | null; failure_rate: number | null; execution_attempts_total: number; average_execution_attempts_per_task: number }>; performance_boundary: string }
+type ResearchQuality = { evaluations_examined: number; invalid_or_unusable_evaluation_count: number; agents: Record<string, { evaluation_count: number; claim_reference_coverage_mean: number | null; claim_reference_coverage_count: number; known_source_reference_coverage_mean: number | null; known_source_reference_coverage_count: number }>; metric_definition: string; quality_boundary: string }
 
 function AgentNode({ data }: { data: AgentNodeData }) {
   return <div className={data.core ? 'agent-network-node core' : 'agent-network-node'}>
@@ -38,6 +39,7 @@ export default function AgentNetwork({ agents }: { agents: AgentProfile[] }) {
   const [activity, setActivity] = useState<ActivitySnapshot | null>(null)
   const [activityError, setActivityError] = useState('')
   const [performance, setPerformance] = useState<AgentPerformance | null>(null)
+  const [researchQuality, setResearchQuality] = useState<ResearchQuality | null>(null)
   useEffect(() => {
     let alive = true
     const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000'
@@ -61,11 +63,32 @@ export default function AgentNetwork({ agents }: { agents: AgentProfile[] }) {
         if (alive) setPerformance(null)
       }
     }
-    const load = () => { void loadActivity(); void loadPerformance() }
+    const loadResearchQuality = async () => {
+      try {
+        const response = await fetch(apiBase + '/api/agent-network/research-quality?limit=550')
+        if (!response.ok) throw new Error('Research quality endpoint unavailable')
+        const snapshot = await response.json()
+        if (alive) setResearchQuality(snapshot)
+      } catch {
+        if (alive) setResearchQuality(null)
+      }
+    }
+    const load = () => { void loadActivity(); void loadPerformance(); void loadResearchQuality() }
     load()
     const timer = window.setInterval(load, 20000)
     return () => { alive = false; window.clearInterval(timer) }
   }, [])
+  const qualitySummary = useMemo(() => {
+    const items = Object.values(researchQuality?.agents || {})
+    const claimCount = items.reduce((sum, item) => sum + item.claim_reference_coverage_count, 0)
+    const sourceCount = items.reduce((sum, item) => sum + item.known_source_reference_coverage_count, 0)
+    const claimWeighted = items.reduce((sum, item) => sum + (item.claim_reference_coverage_mean || 0) * item.claim_reference_coverage_count, 0)
+    const sourceWeighted = items.reduce((sum, item) => sum + (item.known_source_reference_coverage_mean || 0) * item.known_source_reference_coverage_count, 0)
+    return {
+      claimCoverage: claimCount ? claimWeighted / claimCount : null,
+      sourceCoverage: sourceCount ? sourceWeighted / sourceCount : null,
+    }
+  }, [researchQuality])
   const departments = useMemo(() => ['ALL DEPARTMENTS', ...Array.from(new Set(agents.map(a => a.department || 'General Research'))).sort()], [agents])
   const [eventFilter, setEventFilter] = useState('ALL EVENTS')
   const recentEvents = useMemo(() => (activity?.recent_audit_events || []).filter(event => eventFilter === 'ALL EVENTS' || (eventFilter === 'STATUS CHANGES' ? Boolean(event.from_status && event.to_status) : event.event_type.toUpperCase().includes(eventFilter))).slice(-12).reverse(), [activity, eventFilter])
@@ -143,6 +166,11 @@ export default function AgentNetwork({ agents }: { agents: AgentProfile[] }) {
       <div className="agent-network-performance-head"><div><span className="eyebrow">OPERATIONS / PERSISTED SQLITE</span><h2>Research task performance</h2><p>{performance.task_count} recorded tasks · descriptive operational metrics</p></div><span>NOT AN INTELLIGENCE SCORE</span></div>
       <div className="agent-network-performance-grid"><article><strong>{performance.task_count}</strong><small>TOTAL TASKS</small></article><article><strong>{Object.values(performance.agents).reduce((sum,item)=>sum+item.completed,0)}</strong><small>COMPLETED</small></article><article><strong>{Object.values(performance.agents).reduce((sum,item)=>sum+item.failed,0)}</strong><small>FAILED</small></article><article><strong>{Object.values(performance.agents).reduce((sum,item)=>sum+item.execution_attempts_total,0)}</strong><small>EXECUTION ATTEMPTS</small></article></div>
       <p className="agent-network-performance-note">{performance.performance_boundary}</p>
+    </section>}
+    {researchQuality && <section className="agent-network-quality" aria-label="Persisted research traceability coverage">
+      <div className="agent-network-quality-head"><div><span className="eyebrow">EVIDENCE / PERSISTED EVALUATIONS</span><h2>Research traceability coverage</h2><p>{researchQuality.evaluations_examined} evaluations examined · {Object.keys(researchQuality.agents).length} specialist profiles</p></div><span>STRUCTURAL COVERAGE ONLY</span></div>
+      <div className="agent-network-quality-grid"><article><strong>{qualitySummary.claimCoverage === null ? '—' : (qualitySummary.claimCoverage * 100).toFixed(1) + '%'}</strong><small>CLAIM REFERENCE COVERAGE</small></article><article><strong>{qualitySummary.sourceCoverage === null ? '—' : (qualitySummary.sourceCoverage * 100).toFixed(1) + '%'}</strong><small>KNOWN-SOURCE REFERENCE COVERAGE</small></article><article><strong>{researchQuality.evaluations_examined}</strong><small>EVALUATIONS EXAMINED</small></article><article><strong>{researchQuality.invalid_or_unusable_evaluation_count}</strong><small>UNUSABLE EVALUATIONS</small></article></div>
+      <p className="agent-network-quality-note">{researchQuality.quality_boundary}</p>
     </section>}
     {activity && <section className="agent-network-timeline" aria-label="Persisted agent task timeline">
       <div className="agent-network-timeline-head"><div><span className="eyebrow">AUDIT TRAIL / SQLITE</span><h2>Recent task events</h2><p>{activity.audit_event_count || 0} recorded events · newest first · bounded history</p></div>

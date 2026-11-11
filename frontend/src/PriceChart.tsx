@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { motion } from 'motion/react'
 import { createChart, ColorType, CandlestickSeries, LineSeries, HistogramSeries, createSeriesMarkers, type IChartApi, type ISeriesApi, type ISeriesMarkersPluginApi, type Time } from 'lightweight-charts'
 
 type Bar = {timestamp:string;open:number;high:number;low:number;close:number;volume?:number;source?:string;status?:string;retrieved_at?:string}
@@ -63,5 +64,5 @@ export default function PriceChart({values=[],bars=[],selectedCluster=null,selec
  },[values,bars,selectedCluster,selectedTimestamp])
  const source=bars.length?Array.from(new Set(bars.map(b=>b.source||'unknown'))).join(', '):'manual / synthetic input'
  const status=bars.length?Array.from(new Set(bars.map(b=>b.status||'unknown'))).join(', '):'not historical market data'
- return <div className="chart-shell"><div className="chart-heading"><div><b>{bars.length?'STORED OHLCV HISTORY':'PRICE SERIES'}</b><span> · {interval||'SAMPLE INPUT'}</span></div><small>{bars.length?source+' · '+status+' · RETRIEVED '+(retrievedAt||'timestamp unavailable'):'NOT A LIVE QUOTE'}</small></div><div className="chart-legend"><span><i className="legend-candle"/> OHLC candles</span><span><i className="legend-volume"/> Volume histogram</span><span>Volume uses an independent scale</span></div><div ref={host} className="chart-host"/></div>
+ return <motion.div className="chart-shell" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.42, ease: "easeOut" }}><div className="chart-heading"><div><b>{bars.length?'STORED OHLCV HISTORY':'PRICE SERIES'}</b><span> · {interval||'SAMPLE INPUT'}</span></div><small>{bars.length?source+' · '+status+' · RETRIEVED '+(retrievedAt||'timestamp unavailable'):'NOT A LIVE QUOTE'}</small></div><div className="chart-legend"><span><i className="legend-candle"/> OHLC candles</span><span><i className="legend-volume"/> Volume histogram</span><span>Volume uses an independent scale</span></div><div ref={host} className="chart-host"/></motion.div>
 }

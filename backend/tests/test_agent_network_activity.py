@@ -65,6 +65,24 @@ class AgentNetworkActivityTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             agent_research_quality_performance(limit=551)
 
+    def test_research_quality_api_returns_persisted_metrics(self):
+        from app.main import agent_network_research_quality
+        queued = enqueue_research_task("worker_009", "quality route fixture")
+        _persist_quality_evaluation(queued["task_id"], "worker_009", {
+            "metrics": {"claim_reference_coverage": 0.5, "known_source_reference_coverage": 1.0}
+        })
+        report = agent_network_research_quality(limit=20)
+        self.assertEqual(report["evaluations_examined"], 1)
+        self.assertEqual(report["agents"]["worker_009"]["claim_reference_coverage_mean"], 0.5)
+        self.assertIn("factual accuracy", report["quality_boundary"])
+
+    def test_research_quality_api_translates_invalid_limit_to_http_400(self):
+        from fastapi import HTTPException
+        from app.main import agent_network_research_quality
+        with self.assertRaises(HTTPException) as raised:
+            agent_network_research_quality(limit=551)
+        self.assertEqual(raised.exception.status_code, 400)
+
     def test_recent_activity_rejects_invalid_limit(self):
         with self.assertRaises(ValueError):
             list_recent_task_activity(limit=0)

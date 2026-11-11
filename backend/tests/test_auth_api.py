@@ -1,4 +1,5 @@
 import os
+import sqlite3
 import tempfile
 import time
 import unittest
@@ -108,6 +109,18 @@ class AuthenticationApiTests(unittest.TestCase):
             idle_ttl_seconds=1800,
         )
         self.assertIsNone(old_session)
+
+    def test_login_returns_service_unavailable_when_session_store_fails(self):
+        from unittest.mock import patch
+
+        with patch("app.auth_api._ensure_store", side_effect=sqlite3.OperationalError("db unavailable")):
+            response = self.client.post(
+                "/api/auth/login",
+                json={"password": self.password},
+                headers={"Origin": "http://testserver"},
+            )
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()["detail"], "Authentication storage unavailable")
 
     def test_missing_owner_secret_fails_closed(self):
         with patch.dict(os.environ, {"MARKET_MIND_OWNER_PASSWORD_HASH": ""}):

@@ -93,18 +93,50 @@ export default function GlobalResearchGlobe({ profileCount, activityCount }: Pro
     observer.observe(element)
     resize()
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    let frame = 0
     let raf = 0
-    const render = () => {
-      if (!reducedMotion) globe.rotation.y += 0.0018
+    let dragging = false
+    let lastX = 0
+    let lastY = 0
+    const pointerDown = (event: PointerEvent) => {
+      dragging = true
+      lastX = event.clientX
+      lastY = event.clientY
+      element.setPointerCapture(event.pointerId)
+      element.classList.add('is-dragging')
+    }
+    const pointerMove = (event: PointerEvent) => {
+      if (!dragging) return
+      const deltaX = event.clientX - lastX
+      const deltaY = event.clientY - lastY
+      lastX = event.clientX
+      lastY = event.clientY
+      globe.rotation.y += deltaX * 0.006
+      globe.rotation.x = THREE.MathUtils.clamp(globe.rotation.x + deltaY * 0.004, -0.65, 0.65)
+      if (reducedMotion && !raf) raf = requestAnimationFrame(render)
+    }
+    const pointerUp = (event: PointerEvent) => {
+      dragging = false
+      element.classList.remove('is-dragging')
+      if (element.hasPointerCapture(event.pointerId)) element.releasePointerCapture(event.pointerId)
+    }
+    element.addEventListener('pointerdown', pointerDown)
+    element.addEventListener('pointermove', pointerMove)
+    element.addEventListener('pointerup', pointerUp)
+    element.addEventListener('pointercancel', pointerUp)
+    function render() {
+      raf = 0
+      if (!reducedMotion && !dragging) globe.rotation.y += 0.0018
       renderer.render(scene,camera)
-      frame++
-      if (!reducedMotion || frame < 2) raf = requestAnimationFrame(render)
+      if (!reducedMotion || dragging) raf = requestAnimationFrame(render)
     }
     render()
 
     return () => {
       cancelAnimationFrame(raf)
+      element.removeEventListener('pointerdown', pointerDown)
+      element.removeEventListener('pointermove', pointerMove)
+      element.removeEventListener('pointerup', pointerUp)
+      element.removeEventListener('pointercancel', pointerUp)
       observer.disconnect()
       scene.traverse(object => {
         if (object instanceof THREE.Mesh || object instanceof THREE.Line || object instanceof THREE.Points) {

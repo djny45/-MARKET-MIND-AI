@@ -59,6 +59,17 @@ The private workspace exposes `GET /api/market-data/heatmap?interval=1d&limit=10
 
 The result is limited to the locally stored symbol set and is ordered by absolute calculated change. It is not a live quote, a complete market-universe heatmap, a ranking of all exchange-listed instruments, or a trading signal. Source and data-status labels remain attached to each cell. The API's normal workspace authentication and CSRF/Origin controls apply.
 
+## Stored heatmap query index
+
+SQLite creates the additive `idx_market_bars_interval_timestamp` index on
+`(interval, timestamp)` alongside the symbol-scoped lookup index. It supports
+the heatmap's interval filter without changing stored rows or the schema
+version. The index is created with `IF NOT EXISTS`, so existing databases
+receive it automatically when the application opens the database. Its benefit
+depends on data distribution and SQLite's query planner; confirm with
+`EXPLAIN QUERY PLAN` and representative production-sized data before claiming
+a measured speedup.
+
 ## Timestamp normalization
 
 Stored OHLCV timestamps and retrieval timestamps are serialized in UTC before upsert. Reads and heatmap grouping compare timestamp instants rather than their original offset-formatted text, so equivalent values such as `2026-01-01T05:30:00+05:30` and `2026-01-01T00:00:00+00:00` cannot create duplicate observations for new writes. This does not certify provider clock accuracy or repair arbitrary malformed legacy records.

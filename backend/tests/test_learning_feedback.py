@@ -96,5 +96,29 @@ class LearningFeedbackTests(unittest.TestCase):
             evaluate_learning_feedback("worker_001", {"sample_count": 1}, tolerance=10 ** 1000)
 
 
+    def test_feedback_comparison_never_reads_another_workers_approved_candidates(self):
+        own = self._candidate(
+            "worker_001", {"claim_reference_coverage": 0.7}, "worker one evidence",
+        )
+        other = self._candidate(
+            "worker_002", {"claim_reference_coverage": 0.99}, "worker two evidence",
+        )
+        worker_memory.review_learning_candidate(
+            "worker_001", own["memory_id"], "approved", "reviewer",
+        )
+        worker_memory.review_learning_candidate(
+            "worker_002", other["memory_id"], "approved", "reviewer",
+        )
+
+        result = evaluate_learning_feedback(
+            "worker_001", {"claim_reference_coverage": 0.7},
+        )
+        compared_ids = [
+            item["candidate_memory_id"] for item in result["comparisons"]
+        ]
+        self.assertEqual(compared_ids, [own["memory_id"]])
+        self.assertNotIn(other["memory_id"], compared_ids)
+
+
 if __name__ == "__main__":
     unittest.main()

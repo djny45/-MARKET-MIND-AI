@@ -22,7 +22,7 @@ This roadmap is a plan, not a claim that features already exist. Mark an item co
 - [x] Add stored-data market overview with coverage, source labels, observation counts, and system-readiness summaries.
 - [x] Add a stored-return heatmap using the latest two distinct local observations per symbol/timeframe, with source/status labels and insufficient-history handling; it is not live or a complete-universe heatmap.
 - [ ] Add screeners.
-- [ ] Add saved layouts and keyboard navigation.
+- [x] Add saved layouts and keyboard navigation (server-persisted workflow graphs plus Alt+number tab shortcuts and Alt+Arrow tab cycling; editable fields are excluded).
 
 ## Phase 3 — Research and analytics
 - [x] Implement tested indicator library and initial technical dictionary.

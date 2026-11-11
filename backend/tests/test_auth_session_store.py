@@ -65,6 +65,12 @@ class AuthSessionStoreTests(unittest.TestCase):
         self.assertEqual(active["idle_expires_at"], 1500)
         self.assertEqual(active["absolute_expires_at"], 2000)
 
+        clock_rollback = get_session(
+            self.database_path, self.session_hash, now=1100, idle_ttl_seconds=300
+        )
+        self.assertIsNotNone(clock_rollback)
+        self.assertEqual(clock_rollback["last_seen_at"], 1200)
+
         still_active = get_session(
             self.database_path, self.session_hash, now=1400, idle_ttl_seconds=300
         )
@@ -141,6 +147,10 @@ class AuthSessionStoreTests(unittest.TestCase):
         )
         revoke_session(self.database_path, second_hash, now=1050)
         self.assertEqual(purge_expired_sessions(self.database_path, now=1100), 2)
+
+    def test_rejects_empty_database_path(self):
+        with self.assertRaises(ValueError):
+            initialize_auth_store("")
 
     def test_rejects_invalid_digests_and_ttls(self):
         with self.assertRaises(ValueError):

@@ -222,6 +222,45 @@ class MarketStoreTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(heatmap["cells"][0]["status"], "calculated")
                 self.assertAlmostEqual(heatmap["cells"][0]["change_pct"], 1.0)
 
+    def test_heatmap_flags_non_finite_percentage_change(self):
+        from datetime import timedelta
+
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.dict(os.environ, {"MARKET_MIND_DB": os.path.join(directory, "test.sqlite")}):
+                base = datetime(2026, 4, 1, tzinfo=timezone.utc)
+                batch = MarketDataBatch(
+                    symbol="EXTREME",
+                    interval="1d",
+                    status=DataStatus.HISTORICAL,
+                    source="numeric-boundary-fixture",
+                    retrieved_at=base + timedelta(days=2),
+                    bars=[
+                        OHLCVBar(
+                            timestamp=base,
+                            open=1e-308,
+                            high=1e-308,
+                            low=1e-308,
+                            close=1e-308,
+                            volume=1,
+                        ),
+                        OHLCVBar(
+                            timestamp=base + timedelta(days=1),
+                            open=1e308,
+                            high=1e308,
+                            low=1e308,
+                            close=1e308,
+                            volume=1,
+                        ),
+                    ],
+                )
+                store_batch(batch)
+
+                heatmap = get_stored_return_heatmap("1d")
+                cell = heatmap["cells"][0]
+                self.assertEqual(cell["status"], "numeric_overflow")
+                self.assertIsNone(cell["change_pct"])
+                self.assertEqual(heatmap["numeric_overflow_count"], 1)
+
     def test_unknown_symbol_returns_empty_history(self):
         with tempfile.TemporaryDirectory() as directory:
             with patch.dict(os.environ, {"MARKET_MIND_DB": os.path.join(directory, "test.sqlite")}):

@@ -75,6 +75,7 @@ import json
 import os
 import uuid
 from fastapi.responses import Response
+from .auth_api import AuthenticationMiddleware, router as auth_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -102,6 +103,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+# Authentication is default-deny for API routes. Only health/readiness and login
+# are public; configure the owner password hash before using the workspace.
+app.add_middleware(AuthenticationMiddleware)
+app.include_router(auth_router)
 app.include_router(agent_council_router)
 
 

@@ -454,8 +454,6 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             retry_failed_research_task(" ")
 
-if __name__ == "__main__":
-    unittest.main()
 
 
 
@@ -578,3 +576,6 @@ if __name__ == "__main__":
         self.assertEqual(result["dispatch"]["dispatched"], 0)
         self.assertEqual(result["recovery"]["requeued_interrupted_count"], 0)
 
+
+if __name__ == "__main__":
+    unittest.main()

@@ -142,13 +142,22 @@ def login(payload: LoginRequest, request: Request):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     _clear_login_attempts(client_key)
 
-    # Revoke a previously issued cookie session before rotating credentials.
+    # Rotation must fail closed if an existing session cannot be revoked.
+    # Ignore only malformed client-supplied tokens; storage errors must not
+    # silently leave the previous authenticated session active.
     previous_token = request.cookies.get(SESSION_COOKIE, "")
     if previous_token:
         try:
-            revoke_session(_ensure_store(), hash_session_token(previous_token), now=int(time.time()))
-        except (ValueError, OSError, sqlite3.Error):
-            pass
+            previous_hash = hash_session_token(previous_token)
+        except ValueError:
+            previous_hash = None
+        if previous_hash:
+            try:
+                revoke_session(_ensure_store(), previous_hash, now=int(time.time()))
+            except (OSError, sqlite3.Error, RuntimeError) as exc:
+                raise HTTPException(
+                    status_code=503, detail="Authentication storage unavailable"
+                ) from exc
 
     now = int(time.time())
     session_ttl = _ttl("MARKET_MIND_SESSION_IDLE_TTL", 1800)

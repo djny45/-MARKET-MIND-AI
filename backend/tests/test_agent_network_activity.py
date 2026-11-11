@@ -46,16 +46,16 @@ class AgentNetworkActivityTests(unittest.TestCase):
             agent_task_performance(limit=0)
 
     def test_research_quality_performance_averages_persisted_traceability(self):
-        first = enqueue_research_task("worker_quality_001", "quality fixture one")
-        second = enqueue_research_task("worker_quality_001", "quality fixture two")
-        _persist_quality_evaluation(first["task_id"], "worker_quality_001", {
+        first = enqueue_research_task("worker_009", "quality fixture one")
+        second = enqueue_research_task("worker_009", "quality fixture two")
+        _persist_quality_evaluation(first["task_id"], "worker_009", {
             "metrics": {"claim_reference_coverage": 0.75, "known_source_reference_coverage": 0.5}
         })
-        _persist_quality_evaluation(second["task_id"], "worker_quality_001", {
+        _persist_quality_evaluation(second["task_id"], "worker_009", {
             "metrics": {"claim_reference_coverage": 1.0, "known_source_reference_coverage": 0.75}
         })
         report = agent_research_quality_performance(limit=20)
-        item = report["agents"]["worker_quality_001"]
+        item = report["agents"]["worker_009"]
         self.assertEqual(item["evaluation_count"], 2)
         self.assertEqual(item["claim_reference_coverage_mean"], 0.875)
         self.assertEqual(item["known_source_reference_coverage_mean"], 0.625)

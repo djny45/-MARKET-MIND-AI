@@ -41,6 +41,7 @@ from .pipeline import system_capabilities
 from .news import ingest_news
 from . import social_sources
 from urllib.parse import urlparse
+import re
 from . import indicators
 from .volume_indicators import calculate_volume_indicators
 from .liquidity_indicators import calculate_volume_profile
@@ -1453,10 +1454,14 @@ async def research_social_feeds(request: SocialResearchRequest):
    raise HTTPException(status_code=400, detail="Feed URL must not include credentials or a nonstandard port")
   if parsed.query or parsed.fragment:
    raise HTTPException(status_code=400, detail="Feed URL must not include query parameters or fragments")
-  if not parsed.path.endswith(".rss") or not (
-   parsed.path.startswith("/r/") or parsed.path.startswith("/user/")
+  # Accept only canonical subreddit/user RSS paths. Reject encoded separators,
+  # dot segments, extra path components, and arbitrary Reddit-hosted endpoints.
+  if not re.fullmatch(
+   r"/(?:r/[A-Za-z0-9_]{1,21}|user/[A-Za-z0-9_-]{1,20})/\.rss",
+   parsed.path,
+   flags=re.IGNORECASE,
   ):
-   raise HTTPException(status_code=400, detail="Feed path must be a public Reddit subreddit or user RSS path")
+   raise HTTPException(status_code=400, detail="Feed path must be a canonical public Reddit subreddit or user RSS path")
   if feed.source in configured:
    raise HTTPException(status_code=400, detail="Feed source labels must be unique")
   configured[feed.source] = feed.feed_url

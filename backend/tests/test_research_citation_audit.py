@@ -125,5 +125,43 @@ class ResearchCitationAuditTests(unittest.TestCase):
         self.assertEqual(result["metrics"]["claims_without_valid_citations"], 1)
 
 
+    def test_partial_chunk_provenance_cannot_pass_as_plain_excerpt_match(self):
+        import hashlib
+        source_text = "context exact excerpt tail"
+        result = audit_claim_citations(
+            claims=[{"text": "Claim.", "citations": [{
+                "source_id": "src",
+                "excerpt": "exact excerpt",
+                "chunk_sha256": hashlib.sha256(source_text.encode("utf-8")).hexdigest(),
+            }]}],
+            source_registry=[{"source_id": "src", "text": source_text}],
+        )
+        citation = result["claims"][0]["citations"][0]
+        self.assertEqual(citation["status"], "provenance_mismatch")
+        self.assertFalse(citation["source_text_match"])
+        self.assertFalse(citation["chunk_provenance_verified"])
+        self.assertEqual(result["status"], "needs_review")
+
+    def test_boolean_excerpt_offsets_are_rejected_as_provenance(self):
+        import hashlib
+        source_text = "exact excerpt"
+        source_hash = hashlib.sha256(source_text.encode("utf-8")).hexdigest()
+        result = audit_claim_citations(
+            claims=[{"text": "Claim.", "citations": [{
+                "source_id": "src", "excerpt": "exact excerpt",
+                "source_sha256": source_hash, "chunk_sha256": source_hash,
+                "chunk_text": source_text, "chunk_index": 0,
+                "source_start_char": 0, "source_end_char": len(source_text),
+                "excerpt_start_char": False, "excerpt_end_char": len(source_text),
+            }]}],
+            source_registry=[{"source_id": "src", "text": source_text}],
+        )
+        citation = result["claims"][0]["citations"][0]
+        self.assertEqual(citation["status"], "provenance_mismatch")
+        self.assertFalse(citation["chunk_provenance_verified"])
+        self.assertEqual(result["metrics"]["claims_without_valid_citations"], 1)
+
+
+
 if __name__ == "__main__":
     unittest.main()

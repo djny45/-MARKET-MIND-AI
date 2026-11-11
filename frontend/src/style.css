@@ -345,3 +345,5 @@
 @media(max-width:760px){.global-globe-panel{grid-template-columns:1fr;padding:15px}.global-globe-canvas{height:190px}.global-globe-tag{bottom:7px}}
 
 .global-globe-canvas{cursor:grab;touch-action:pan-y}.global-globe-canvas.is-dragging{cursor:grabbing;touch-action:none}
+
+.global-globe-visual{min-width:0}.global-globe-controls{display:flex;justify-content:center;align-items:center;gap:8px;margin-top:2px}.global-globe-controls button{min-width:34px;padding:6px 10px;border:1px solid #28516b;border-radius:4px;background:#101e2a;color:#9bdcff;font:9px 'DM Mono',monospace;cursor:pointer}.global-globe-controls button:hover{border-color:#49b9ed;background:#142a3b}.global-globe-controls button:focus-visible{outline:2px solid #67d4ff;outline-offset:2px}

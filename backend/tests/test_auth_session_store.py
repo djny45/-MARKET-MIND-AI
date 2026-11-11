@@ -65,11 +65,20 @@ class AuthSessionStoreTests(unittest.TestCase):
         self.assertEqual(active["idle_expires_at"], 1500)
         self.assertEqual(active["absolute_expires_at"], 2000)
 
+        still_active = get_session(
+            self.database_path, self.session_hash, now=1400, idle_ttl_seconds=300
+        )
+        self.assertIsNotNone(still_active)
         capped = get_session(
             self.database_path, self.session_hash, now=1900, idle_ttl_seconds=300
         )
         self.assertIsNotNone(capped)
         self.assertEqual(capped["idle_expires_at"], 2000)
+        self.assertIsNone(
+            get_session(
+                self.database_path, self.session_hash, now=2000, idle_ttl_seconds=300
+            )
+        )
 
     def test_idle_and_absolute_expiry_fail_closed(self):
         create_session(

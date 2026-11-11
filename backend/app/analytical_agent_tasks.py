@@ -313,11 +313,15 @@ def execute_queued_research_task(task_id: str) -> bool:
             return False
         _record_event(db, task_id, row["worker_id"], "task_claimed",
                       from_status="queued", to_status="running", occurred_at=now)
-        task_input = json.loads(row["input_json"])
+        raw_input_json = row["input_json"]
         agent_id = row["worker_id"]
     try:
-        # Build context inside the guarded execution block. A memory/configuration
-        # failure must transition the claimed task to failed, not strand it as running.
+        # Decode persisted input inside the guarded execution block. A corrupt
+        # database payload must transition the claimed task to failed rather
+        # than strand it in running state.
+        task_input = json.loads(raw_input_json)
+        if not isinstance(task_input, dict) or not isinstance(task_input.get("brief"), str):
+            raise ValueError("Persisted research task input has an invalid structure.")
         brain = brain_config(agent_id)
         payload = {
             "agent": {"id": agent_id, "department": brain["department"], "specialty": brain["specialty"]},

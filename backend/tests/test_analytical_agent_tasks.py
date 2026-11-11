@@ -205,6 +205,26 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             agent_research_quality_performance("worker_023", limit=0)
 
+    def test_supervisor_status_flags_stale_running_tasks(self):
+        import sqlite3
+        from datetime import datetime, timedelta, timezone
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, agent_supervisor_status,
+        )
+        queued = enqueue_research_task("worker_031", "stale heartbeat monitor")
+        with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+            db.execute(
+                "UPDATE analytical_agent_tasks SET status='running', updated_at=? WHERE task_id=?",
+                ((datetime.now(timezone.utc) - timedelta(hours=1)).isoformat(),
+                 queued["task_id"]),
+            )
+        status = agent_supervisor_status(stale_after_seconds=300)
+        self.assertEqual(status["status"], "degraded")
+        self.assertEqual(status["stale_running_count"], 1)
+        self.assertEqual(status["status_counts"]["running"], 1)
+        with self.assertRaises(ValueError):
+            agent_supervisor_status(stale_after_seconds=True)
+
     def test_supervisor_recommendations_are_advisory_and_evidence_gated(self):
         from app.analytical_agent_tasks import agent_supervisor_recommendations
         with patch("app.analytical_agent_tasks.agent_task_performance", return_value={

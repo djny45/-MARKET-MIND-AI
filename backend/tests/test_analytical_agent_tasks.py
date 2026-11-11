@@ -479,6 +479,23 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertEqual(events[-1]["event_type"], "task_failed")
         self.assertEqual(events[-1]["to_status"], "failed")
 
+
+    def test_task_read_marks_non_object_persisted_result_invalid(self):
+        import sqlite3
+        from app.analytical_agent_tasks import enqueue_research_task
+        queued = enqueue_research_task("worker_033", "non-object persisted result")
+        with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+            db.execute(
+                "UPDATE analytical_agent_tasks SET result_json=? WHERE task_id=?",
+                ("[]", queued["task_id"]),
+            )
+
+        saved = get_research_task(queued["task_id"])
+        self.assertEqual(saved["status"], "queued")
+        self.assertEqual(saved["result"], {
+            "status": "invalid_record", "error_type": "invalid_structure",
+        })
+
 if __name__ == "__main__":
     unittest.main()
 

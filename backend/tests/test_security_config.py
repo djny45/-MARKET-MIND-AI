@@ -56,6 +56,10 @@ class FrontendOriginConfigTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     parse_frontend_origins(value)
 
+    def test_rejects_non_ascii_hostnames_to_avoid_idna_mismatch(self):
+        with self.assertRaisesRegex(ValueError, "ASCII"):
+            parse_frontend_origins("https://faß.de")
+
     def test_rejects_empty_allowlist(self):
         for value in ("", " ,  "):
             with self.subTest(value=value):

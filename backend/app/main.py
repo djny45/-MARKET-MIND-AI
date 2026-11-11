@@ -97,7 +97,8 @@ _frontend_origins = parse_frontend_origins(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_frontend_origins,
-    allow_credentials=True,
+    # No cookie/session authentication is implemented; keep cross-origin credentials disabled.
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

@@ -114,12 +114,17 @@ def _cookie_settings() -> dict[str, Any]:
 def _ensure_store() -> Path:
     path = _session_database()
     key = str(path.resolve())
-    if key not in _INITIALIZED_DATABASES:
+    if key not in _INITIALIZED_DATABASES or not path.exists():
         with _STORE_INIT_LOCK:
-            if key not in _INITIALIZED_DATABASES:
+            if key not in _INITIALIZED_DATABASES or not path.exists():
                 initialize_auth_store(path)
                 _INITIALIZED_DATABASES.add(key)
     return path
+
+
+def _clear_login_attempts(key: str) -> None:
+    with _RATE_LOCK:
+        _LOGIN_ATTEMPTS.pop(key, None)
 
 
 @router.post("/login")
@@ -131,8 +136,18 @@ def login(payload: LoginRequest, request: Request):
         raise HTTPException(status_code=503, detail="Owner authentication is not configured")
     if _login_rate_limited(_client_key(request)):
         raise HTTPException(status_code=429, detail="Too many login attempts")
+    client_key = _client_key(request)
     if not verify_password(payload.password, password_hash):
         raise HTTPException(status_code=401, detail="Invalid credentials")
+    _clear_login_attempts(client_key)
+
+    # Revoke a previously issued cookie session before rotating credentials.
+    previous_token = request.cookies.get(SESSION_COOKIE, "")
+    if previous_token:
+        try:
+            revoke_session(_ensure_store(), hash_session_token(previous_token), now=int(time.time()))
+        except (ValueError, OSError):
+            pass
 
     now = int(time.time())
     session_ttl = _ttl("MARKET_MIND_SESSION_IDLE_TTL", 1800)

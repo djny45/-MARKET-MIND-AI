@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import {
   ReactFlow, Background, Controls, MiniMap, Handle, Position, addEdge,
   useEdgesState, useNodesState, type Node, type Edge, type Connection
@@ -334,7 +334,7 @@ export default function App() {
   finally{setBusy(false)}
  }
  const filteredWorkers = useMemo(()=>workers.filter(w=>`${w.name} ${w.department} ${w.specialty}`.toLowerCase().includes(search.toLowerCase())).slice(0,80),[workers,search])
- const submitLogin = async(e:React.FormEvent)=>{
+ const submitLogin = async(e:FormEvent)=>{
   e.preventDefault();setLoginBusy(true);setLoginError('')
   try{
    const response=await apiFetch(API+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:loginPassword})})

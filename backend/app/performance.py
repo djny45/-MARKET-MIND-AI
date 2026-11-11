@@ -25,7 +25,7 @@ def max_drawdown(prices):
     return worst
 
 
-def performance_metrics(prices, benchmark=None, periods_per_year=None, risk_free_rate=0.0):
+def _performance_metrics(prices, benchmark=None, periods_per_year=None, risk_free_rate=0.0):
     xs = _finite(prices, "prices")
     if len(xs) < 3:
         raise ValueError("At least three prices are required")
@@ -95,3 +95,17 @@ def performance_metrics(prices, benchmark=None, periods_per_year=None, risk_free
         if isinstance(value, (int, float)) and not isinstance(value, bool) and not isfinite(value):
             raise ValueError(f"{name} exceeds supported numeric precision")
     return out
+
+
+
+def performance_metrics(prices, benchmark=None, periods_per_year=None, risk_free_rate=0.0):
+    """Return finite historical statistics or raise ValueError on numeric overflow."""
+    try:
+        return _performance_metrics(
+            prices,
+            benchmark=benchmark,
+            periods_per_year=periods_per_year,
+            risk_free_rate=risk_free_rate,
+        )
+    except OverflowError as exc:
+        raise ValueError("performance statistics exceed supported numeric precision") from exc

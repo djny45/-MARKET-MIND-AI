@@ -17,6 +17,12 @@ _MEMORY_TYPES = {"observation", "method_note", "validation_result", "open_questi
 _QUALITY = {"verified_by_importer", "partial", "unverified", "synthetic"}
 
 
+def _validate_worker_id(worker_id):
+    """Reject malformed identifiers consistently before set membership or SQL use."""
+    if not isinstance(worker_id, str) or not worker_id.strip() or worker_id not in _WORKER_IDS:
+        raise ValueError("worker_id must identify a registered worker template")
+
+
 def _connect():
     path = Path(os.getenv("MARKET_MIND_DB", "./data/market_mind.db"))
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -41,9 +47,8 @@ def _connect():
 
 
 def append_memory(worker_id, memory_type, content, source_refs=None, quality_status="unverified"):
-    if worker_id not in _WORKER_IDS:
-        raise ValueError("worker_id must identify a registered worker template")
-    if memory_type not in _MEMORY_TYPES:
+    _validate_worker_id(worker_id)
+    if not isinstance(memory_type, str) or memory_type not in _MEMORY_TYPES:
         raise ValueError("memory_type is unsupported")
     if not isinstance(content, dict):
         raise ValueError("content must be an object")
@@ -57,7 +62,7 @@ def append_memory(worker_id, memory_type, content, source_refs=None, quality_sta
     if (not isinstance(refs, list) or len(refs) > 20
             or any(not isinstance(ref, str) or not ref.strip() or len(ref) > 300 for ref in refs)):
         raise ValueError("source_refs must contain at most 20 non-empty strings of at most 300 characters")
-    if quality_status not in _QUALITY:
+    if not isinstance(quality_status, str) or quality_status not in _QUALITY:
         raise ValueError("quality_status is unsupported")
     memory_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc).isoformat()
@@ -76,9 +81,8 @@ def append_memory(worker_id, memory_type, content, source_refs=None, quality_sta
 
 
 def read_memory(worker_id, memory_type=None, limit=50):
-    if worker_id not in _WORKER_IDS:
-        raise ValueError("worker_id must identify a registered worker template")
-    if memory_type is not None and memory_type not in _MEMORY_TYPES:
+    _validate_worker_id(worker_id)
+    if memory_type is not None and (not isinstance(memory_type, str) or memory_type not in _MEMORY_TYPES):
         raise ValueError("memory_type is unsupported")
     if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 200:
         raise ValueError("limit must be between 1 and 200")
@@ -122,8 +126,7 @@ def recall_memory(worker_id, query, limit=5):
     are evidence references only and must never override current task instructions
     or be treated as verified truth.
     """
-    if worker_id not in _WORKER_IDS:
-        raise ValueError("worker_id must identify a registered worker template")
+    _validate_worker_id(worker_id)
     if not isinstance(query, str) or not query.strip() or len(query) > 12000:
         raise ValueError("query must be a non-empty string of at most 12000 characters")
     if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 10:
@@ -196,8 +199,7 @@ _REVIEW_DECISIONS = {"approved", "rejected", "needs_revision"}
 
 def review_learning_candidate(worker_id, memory_id, decision, reviewer, rationale=""):
     """Append a review event for a research-learning candidate; never mutates candidate memory."""
-    if worker_id not in _WORKER_IDS:
-        raise ValueError("worker_id must identify a registered worker template")
+    _validate_worker_id(worker_id)
     if not isinstance(memory_id, str) or not memory_id.strip() or len(memory_id) > 64:
         raise ValueError("memory_id must be a non-empty identifier of at most 64 characters")
     if not isinstance(decision, str) or decision not in _REVIEW_DECISIONS:
@@ -244,8 +246,7 @@ def review_learning_candidate(worker_id, memory_id, decision, reviewer, rational
 
 def list_learning_candidates(worker_id, limit=50):
     """Return bounded candidate summaries with their latest append-only review decision."""
-    if worker_id not in _WORKER_IDS:
-        raise ValueError("worker_id must identify a registered worker template")
+    _validate_worker_id(worker_id)
     if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 200:
         raise ValueError("limit must be between 1 and 200")
     with _connect() as db:
@@ -290,8 +291,7 @@ def list_learning_candidates(worker_id, limit=50):
 
 def recall_approved_learning_candidates(worker_id, query, limit=5):
     """Retrieve approved candidate evidence by keyword overlap; never return it as instructions."""
-    if worker_id not in _WORKER_IDS:
-        raise ValueError("worker_id must identify a registered worker template")
+    _validate_worker_id(worker_id)
     if not isinstance(query, str) or not query.strip() or len(query) > 12000:
         raise ValueError("query must be a non-empty string of at most 12000 characters")
     if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 10:
@@ -341,8 +341,7 @@ _PROPOSAL_REVIEW_DECISIONS = {"approved_for_staging", "rejected", "needs_revisio
 
 def review_improvement_proposal(worker_id, proposal_memory_id, decision, reviewer, rationale=""):
     """Append a human review event for a generated proposal; approval never deploys it."""
-    if worker_id not in _WORKER_IDS:
-        raise ValueError("worker_id must identify a registered worker template")
+    _validate_worker_id(worker_id)
     if (not isinstance(proposal_memory_id, str) or not proposal_memory_id.strip()
             or len(proposal_memory_id) > 64):
         raise ValueError("proposal_memory_id must be a non-empty identifier of at most 64 characters")
@@ -388,8 +387,7 @@ def review_improvement_proposal(worker_id, proposal_memory_id, decision, reviewe
 
 def list_improvement_proposals(worker_id, limit=50):
     """List bounded generated proposals and derive latest review from append-only events."""
-    if worker_id not in _WORKER_IDS:
-        raise ValueError("worker_id must identify a registered worker template")
+    _validate_worker_id(worker_id)
     if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 200:
         raise ValueError("limit must be between 1 and 200")
     with _connect() as db:

@@ -154,8 +154,10 @@ async def fetch_public_rss(source: str, feed_url: str, timeout: int = 8) -> dict
         return {"source": source, "feed_url": feed_url, "status": "ok",
                 "count": len(items), "items": items}
     except Exception as exc:
+        # Do not expose transport details, proxy information, or internal addresses.
         return {"source": source, "feed_url": feed_url, "status": "error",
-                "count": 0, "items": [], "error": str(exc)}
+                "count": 0, "items": [], "error": "Feed fetch failed",
+                "error_type": type(exc).__name__}
 
 
 async def ingest_public_social_feeds(feeds: dict[str, str],

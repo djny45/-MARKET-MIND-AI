@@ -33,7 +33,10 @@ async def ingest_news(feeds=None,concurrency=4):
  async def run(name,url):
   async with sem:
    try: return await fetch_feed(name,url)
-   except Exception as exc: return [{"source":name,"feed_url":url,"error":str(exc)}]
+   except Exception as exc:
+    # Keep network and server internals out of public API error payloads.
+    return [{"source":name,"feed_url":url,"error":"Feed fetch failed",
+             "error_type":type(exc).__name__}]
  batches=await asyncio.gather(*(run(n,u) for n,u in configured.items()))
  unique={x.get("id",str(x)):x for batch in batches for x in batch}
  return {"items":list(unique.values()),"sources":len(configured),"count":len(unique),

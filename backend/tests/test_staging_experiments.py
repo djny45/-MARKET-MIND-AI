@@ -413,5 +413,29 @@ class StagingExperimentTests(unittest.TestCase):
             summarize_research_quality_dashboard("worker_001", 0)
 
 
+    def test_staging_history_and_dashboards_are_isolated_by_worker(self):
+        review_improvement_proposal(
+            "worker_001", self.proposal["memory_id"],
+            "approved_for_staging", "reviewer",
+        )
+        run_staging_benchmark("worker_001", self.proposal["memory_id"], {
+            "baseline_cases": self._benchmark_cases("missing"),
+            "candidate_cases": self._benchmark_cases("known"),
+            "reviewer": "reviewer",
+        })
+
+        self.assertEqual(list_staging_experiments("worker_001")["count"], 1)
+        self.assertEqual(list_staging_experiments("worker_002")["count"], 0)
+        self.assertEqual(summarize_staging_experiments("worker_002")["experiment_count"], 0)
+        self.assertEqual(summarize_repeatability("worker_002")["groups_meeting_min_trials"], 0)
+        self.assertEqual(summarize_staging_provenance("worker_002")["record_count"], 0)
+        self.assertEqual(summarize_research_quality_dashboard("worker_002")["experiment_count"], 0)
+
+        with self.assertRaisesRegex(ValueError, "proposal was not found for this worker"):
+            create_staging_experiment(
+                "worker_002", self.proposal["memory_id"], self._payload(),
+            )
+
+
 if __name__ == "__main__":
     unittest.main()

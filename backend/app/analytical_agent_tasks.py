@@ -602,8 +602,8 @@ def list_research_tasks(agent_id: str, limit: int = 20) -> dict:
 
 def list_recent_task_activity(limit: int = 500) -> dict:
     """Return a bounded cross-agent task activity snapshot for the network UI."""
-    if not isinstance(limit, int) or not 1 <= limit <= 1000:
-        raise ValueError("limit must be between 1 and 1000")
+    if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 1000:
+        raise ValueError("limit must be an integer between 1 and 1000")
     with _connect() as db:
         rows = db.execute(
             """SELECT task_id,worker_id,task_type,status,created_at,updated_at
@@ -850,20 +850,32 @@ def agent_supervisor_recommendations(agent_id: str | None = None, limit: int = 5
     }
 
 
-def agent_supervisor_status() -> dict:
-    """Return a point-in-time health snapshot of persisted agent task states."""
+def agent_supervisor_status(stale_after_seconds: int = 900) -> dict:
+    """Return task counts and flag running tasks whose heartbeat has gone stale."""
+    if (isinstance(stale_after_seconds, bool) or not isinstance(stale_after_seconds, int)
+            or stale_after_seconds < 1):
+        raise ValueError("stale_after_seconds must be a positive integer")
+    cutoff = datetime.fromtimestamp(
+        datetime.now(timezone.utc).timestamp() - stale_after_seconds, timezone.utc
+    ).isoformat()
     with _connect() as db:
         rows = db.execute(
             "SELECT status, COUNT(*) AS count FROM analytical_agent_tasks GROUP BY status"
         ).fetchall()
         total = db.execute("SELECT COUNT(*) FROM analytical_agent_tasks").fetchone()[0]
+        stale_running_count = db.execute(
+            "SELECT COUNT(*) FROM analytical_agent_tasks WHERE status='running' AND updated_at < ?",
+            (cutoff,),
+        ).fetchone()[0]
     counts = {state: 0 for state in ("queued", "running", "completed", "failed")}
     counts.update({row["status"]: row["count"] for row in rows})
     return {
         "supervisor": "manual_dispatch_supervisor",
-        "status": "healthy",
+        "status": "degraded" if stale_running_count else "healthy",
         "task_count": total,
         "status_counts": counts,
+        "stale_running_count": stale_running_count,
+        "stale_after_seconds": stale_after_seconds,
         "registered_agent_count": 550,
         "dispatch_mode": "explicit_bounded_dispatch",
         "continuous_daemon": False,

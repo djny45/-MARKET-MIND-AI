@@ -192,11 +192,46 @@ class WorkerMemoryTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             list_improvement_proposals("worker_999")
 
+    def test_worker_id_validation_rejects_non_string_and_blank_values(self):
+        invalid_ids = [None, [], {}, 1, "", "   "]
+        operations = [
+            lambda worker_id: append_memory(worker_id, "observation", {"note": "x"}),
+            lambda worker_id: read_memory(worker_id),
+            lambda worker_id: recall_memory(worker_id, "RSI"),
+            lambda worker_id: review_learning_candidate(
+                worker_id, "memory-id", "approved", "reviewer",
+            ),
+            lambda worker_id: list_learning_candidates(worker_id),
+            lambda worker_id: recall_approved_learning_candidates(worker_id, "RSI"),
+            lambda worker_id: review_improvement_proposal(
+                worker_id, "memory-id", "rejected", "reviewer",
+            ),
+            lambda worker_id: list_improvement_proposals(worker_id),
+        ]
+        for worker_id in invalid_ids:
+            for operation in operations:
+                with self.subTest(worker_id=worker_id, operation=operation):
+                    with self.assertRaises(ValueError):
+                        operation(worker_id)
+
     def test_rejects_unknown_worker_and_invalid_memory_type(self):
         with self.assertRaises(ValueError):
             append_memory("worker_9999", "observation", {})
         with self.assertRaises(ValueError):
             append_memory("worker_001", "system_prompt", {})
+
+    def test_memory_type_and_quality_status_reject_unhashable_values(self):
+        for invalid in ([], {}, 1, None):
+            with self.subTest(field="memory_type", value=invalid):
+                with self.assertRaises(ValueError):
+                    append_memory("worker_001", invalid, {"note": "x"})
+            with self.subTest(field="quality_status", value=invalid):
+                with self.assertRaises(ValueError):
+                    append_memory("worker_001", "observation", {"note": "x"}, quality_status=invalid)
+            with self.subTest(field="read_memory_type", value=invalid):
+                if invalid is not None:
+                    with self.assertRaises(ValueError):
+                        read_memory("worker_001", memory_type=invalid)
 
     def test_rejects_non_json_or_oversized_content(self):
         with self.assertRaises(ValueError):
@@ -209,6 +244,34 @@ class WorkerMemoryTests(unittest.TestCase):
             append_memory("worker_001", "observation", {}, [""])
         with self.assertRaises(ValueError):
             read_memory("worker_001", limit=0)
+
+
+    def test_candidate_and_proposal_lists_are_worker_scoped(self):
+        own_candidate = append_memory(
+            "worker_001", "validation_result",
+            {"record_type": "research_quality_learning_candidate", "topic": "RSI worker one"},
+        )
+        other_candidate = append_memory(
+            "worker_002", "validation_result",
+            {"record_type": "research_quality_learning_candidate", "topic": "RSI worker two"},
+        )
+        review_learning_candidate("worker_001", own_candidate["memory_id"], "approved", "reviewer")
+        review_learning_candidate("worker_002", other_candidate["memory_id"], "approved", "reviewer")
+
+        own_candidates = list_learning_candidates("worker_001")["candidates"]
+        self.assertEqual([item["memory_id"] for item in own_candidates], [own_candidate["memory_id"]])
+        own_recall = recall_approved_learning_candidates("worker_001", "RSI")
+        self.assertEqual([item["memory_id"] for item in own_recall["candidates"]], [own_candidate["memory_id"]])
+
+        own_proposal = append_memory(
+            "worker_001", "method_note", {"update_proposal": {"title": "Worker one proposal"}},
+        )
+        other_proposal = append_memory(
+            "worker_002", "method_note", {"update_proposal": {"title": "Worker two proposal"}},
+        )
+        own_proposals = list_improvement_proposals("worker_001")["proposals"]
+        self.assertEqual([item["memory_id"] for item in own_proposals], [own_proposal["memory_id"]])
+        self.assertNotIn(other_proposal["memory_id"], [item["memory_id"] for item in own_proposals])
 
 
 if __name__ == "__main__":

@@ -454,6 +454,48 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             retry_failed_research_task(" ")
 
+
+    def test_corrupt_persisted_task_input_is_finalized_as_failed(self):
+        import sqlite3
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, execute_queued_research_task, list_task_audit_events,
+        )
+        queued = enqueue_research_task("worker_032", "corrupt persisted input")
+        with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+            db.execute(
+                "UPDATE analytical_agent_tasks SET input_json=? WHERE task_id=?",
+                ("{malformed-json", queued["task_id"]),
+            )
+
+        self.assertTrue(execute_queued_research_task(queued["task_id"]))
+        saved = get_research_task(queued["task_id"])
+        self.assertEqual(saved["status"], "failed")
+        self.assertEqual(saved["result"]["error"], "Research task failed safely.")
+        self.assertEqual(saved["result"]["error_type"], "JSONDecodeError")
+        self.assertEqual(saved["input"], {
+            "status": "invalid_record", "error_type": "malformed_json",
+        })
+        events = list_task_audit_events(queued["task_id"])["events"]
+        self.assertEqual(events[-1]["event_type"], "task_failed")
+        self.assertEqual(events[-1]["to_status"], "failed")
+
+
+    def test_task_read_marks_non_object_persisted_result_invalid(self):
+        import sqlite3
+        from app.analytical_agent_tasks import enqueue_research_task
+        queued = enqueue_research_task("worker_033", "non-object persisted result")
+        with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+            db.execute(
+                "UPDATE analytical_agent_tasks SET result_json=? WHERE task_id=?",
+                ("[]", queued["task_id"]),
+            )
+
+        saved = get_research_task(queued["task_id"])
+        self.assertEqual(saved["status"], "queued")
+        self.assertEqual(saved["result"], {
+            "status": "invalid_record", "error_type": "invalid_structure",
+        })
+
 if __name__ == "__main__":
     unittest.main()
 

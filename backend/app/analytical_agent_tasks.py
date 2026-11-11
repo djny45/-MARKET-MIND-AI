@@ -313,11 +313,15 @@ def execute_queued_research_task(task_id: str) -> bool:
             return False
         _record_event(db, task_id, row["worker_id"], "task_claimed",
                       from_status="queued", to_status="running", occurred_at=now)
-        task_input = json.loads(row["input_json"])
+        raw_input_json = row["input_json"]
         agent_id = row["worker_id"]
     try:
-        # Build context inside the guarded execution block. A memory/configuration
-        # failure must transition the claimed task to failed, not strand it as running.
+        # Decode persisted input inside the guarded execution block. A corrupt
+        # database payload must transition the claimed task to failed rather
+        # than strand it in running state.
+        task_input = json.loads(raw_input_json)
+        if not isinstance(task_input, dict) or not isinstance(task_input.get("brief"), str):
+            raise ValueError("Persisted research task input has an invalid structure.")
         brain = brain_config(agent_id)
         payload = {
             "agent": {"id": agent_id, "department": brain["department"], "specialty": brain["specialty"]},
@@ -579,11 +583,21 @@ def get_research_task(task_id: str) -> dict | None:
         row = db.execute("SELECT * FROM analytical_agent_tasks WHERE task_id=?", (task_id,)).fetchone()
     if row is None:
         return None
+    def decode_record(raw_value: str) -> dict:
+        try:
+            value = json.loads(raw_value)
+        except (TypeError, ValueError):
+            return {"status": "invalid_record", "error_type": "malformed_json"}
+        if not isinstance(value, dict):
+            return {"status": "invalid_record", "error_type": "invalid_structure"}
+        return value
+
     return {
         "task_id": row["task_id"], "agent_id": row["worker_id"], "worker_id": row["worker_id"],
         "task_type": row["task_type"], "status": row["status"],
         "execution_attempts": row["execution_attempts"],
-        "input": json.loads(row["input_json"]), "result": json.loads(row["result_json"]),
+        "input": decode_record(row["input_json"]),
+        "result": decode_record(row["result_json"]),
         "brain_context_sha256": row["brain_context_sha256"],
         "created_at": row["created_at"], "updated_at": row["updated_at"],
     }

@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from app.analytical_agent_tasks import enqueue_research_task, list_recent_task_activity, agent_task_performance, agent_research_quality_performance, _persist_quality_evaluation
+from app.analytical_agent_tasks import enqueue_research_task, list_recent_task_activity, agent_task_performance, agent_research_quality_performance, agent_supervisor_recommendations, _persist_quality_evaluation
 
 class AgentNetworkActivityTests(unittest.TestCase):
     def setUp(self):
@@ -81,6 +81,30 @@ class AgentNetworkActivityTests(unittest.TestCase):
         from app.main import agent_network_research_quality
         with self.assertRaises(HTTPException) as raised:
             agent_network_research_quality(limit=551)
+        self.assertEqual(raised.exception.status_code, 400)
+
+    def test_supervisor_recommendations_are_advisory_and_require_minimum_evidence(self):
+        report = agent_supervisor_recommendations(limit=20)
+        self.assertEqual(report["decision_mode"], "advisory_only")
+        self.assertEqual(report["minimum_evidence"]["finished_tasks"], 5)
+        self.assertIn("not measures of intelligence", " ".join(report["limitations"]))
+        self.assertEqual(report["recommendation_count"], len(report["recommendations"]))
+
+    def test_supervisor_recommendations_reject_invalid_limit(self):
+        with self.assertRaises(ValueError):
+            agent_supervisor_recommendations(limit=551)
+
+    def test_supervisor_recommendations_api_returns_advisory_payload(self):
+        from app.main import agent_network_recommendations
+        report = agent_network_recommendations(limit=20)
+        self.assertEqual(report["decision_mode"], "advisory_only")
+        self.assertIn("recommendations", report)
+
+    def test_supervisor_recommendations_api_translates_invalid_limit_to_http_400(self):
+        from fastapi import HTTPException
+        from app.main import agent_network_recommendations
+        with self.assertRaises(HTTPException) as raised:
+            agent_network_recommendations(limit=551)
         self.assertEqual(raised.exception.status_code, 400)
 
     def test_recent_activity_rejects_invalid_limit(self):

@@ -35,6 +35,11 @@ class AuthenticationApiTests(unittest.TestCase):
         response = self.client.get("/api/watchlist")
         self.assertEqual(response.status_code, 401)
 
+    def test_api_schema_and_interactive_docs_are_disabled(self):
+        for path in ("/docs", "/redoc", "/openapi.json"):
+            with self.subTest(path=path):
+                self.assertEqual(self.client.get(path).status_code, 404)
+
     def test_login_session_csrf_and_logout_lifecycle(self):
         origin = {"Origin": "http://testserver"}
         denied = self.client.post("/api/auth/login", json={"password": self.password})

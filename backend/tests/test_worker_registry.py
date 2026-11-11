@@ -155,6 +155,23 @@ class WorkerRegistryTests(unittest.TestCase):
         self.assertFalse(boundary["broker_execution"])
 
 
+    def test_registry_rejects_duplicate_memory_namespaces(self):
+        profiles = [
+            {
+                "id": f"worker_{index:03d}", "name": f"Test Worker {index}",
+                "department": "data_quality", "specialty": "test",
+                "kind": "ai_analytical_worker", "model": EXPECTED_CORE,
+                "memory_namespace": "workers/shared", "skill_refs": [],
+                "status": "template",
+            }
+            for index in (1, 2)
+        ]
+        with patch("app.worker_registry.list_workers", return_value=profiles):
+            with patch("app.worker_registry.list_skills", return_value=[]):
+                result = evaluate_registry()
+        self.assertFalse(result["valid"])
+        self.assertIn("duplicate_agent_memory_namespace", result["errors"])
+
     def test_registry_rejects_unknown_skill_reference(self):
         profile = {
             "id": "worker_001", "name": "Test Worker", "department": "data_quality",

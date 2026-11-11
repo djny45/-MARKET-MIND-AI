@@ -89,6 +89,9 @@ app = FastAPI(
  version="0.2.0",
  description="Multi-market, evidence-first research pipeline. No brokerage execution.",
  lifespan=lifespan,
+ docs_url=None,
+ redoc_url=None,
+ openapi_url=None,
 )
 # Keep browser origins explicit using a comma-separated allowlist.
 _frontend_origins = [

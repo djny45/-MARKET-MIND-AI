@@ -11,6 +11,8 @@ export default function AuthGate({ children }: AuthGateProps) {
 
   useEffect(() => {
     let active = true
+    const handleAuthExpired = () => setStatus('signed-out')
+    window.addEventListener('market-mind-auth-expired', handleAuthExpired)
     apiFetch(`${API_BASE}/api/auth/session`)
       .then(async response => {
         if (!active) return
@@ -36,7 +38,10 @@ export default function AuthGate({ children }: AuthGateProps) {
           setError('Cannot reach the authentication service.')
         }
       })
-    return () => { active = false }
+    return () => {
+      active = false
+      window.removeEventListener('market-mind-auth-expired', handleAuthExpired)
+    }
   }, [])
 
   async function signOut() {

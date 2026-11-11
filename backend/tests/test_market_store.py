@@ -58,8 +58,10 @@ class MarketStoreTests(unittest.IsolatedAsyncioTestCase):
                         open=10, high=13, low=9, close=12, volume=120,
                     )],
                 )
-                store_batch(first)
-                store_batch(equivalent)
+                first_result = store_batch(first)
+                second_result = store_batch(equivalent)
+                self.assertEqual(first_result["first_timestamp"], "2026-01-01T00:00:00+00:00")
+                self.assertEqual(second_result["last_timestamp"], "2026-01-01T00:00:00+00:00")
                 saved = get_bars("OFFSET", "1d")
                 self.assertEqual(saved["count"], 1)
                 self.assertEqual(saved["timestamp_count"], 1)

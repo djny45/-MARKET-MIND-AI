@@ -936,3 +936,28 @@ def dispatch_queued_research_tasks(limit: int = 50, max_concurrency: int = 4) ->
         "dispatch_mode": "bounded_process_local_queue_snapshot",
         "note": "Tasks are persisted in SQLite; dispatch is explicit and process-local, not a continuously running distributed supervisor.",
     }
+
+def run_research_supervisor_cycle(
+    limit: int = 50,
+    max_concurrency: int = 4,
+    stale_after_seconds: int = 900,
+) -> dict:
+    """Run one bounded recovery-and-dispatch cycle on the current process.
+
+    This is suitable for an operator-triggered call or an external scheduler.
+    It is deliberately not a daemon, distributed queue, or always-on agent
+    service. Recovery and dispatch remain separately observable operations.
+    """
+    recovery = recover_interrupted_research_tasks(stale_after_seconds)
+    dispatch = dispatch_queued_research_tasks(limit, max_concurrency)
+    return {
+        "supervisor": "bounded_research_supervisor_cycle",
+        "status": "completed",
+        "recovery": recovery,
+        "dispatch": dispatch,
+        "cycle_mode": "single_process_single_cycle",
+        "continuous_daemon": False,
+        "distributed_queue": False,
+        "broker_execution": False,
+    }
+

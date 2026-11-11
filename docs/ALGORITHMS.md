@@ -13,3 +13,9 @@ The current dependency-light module implements SMA, EMA, returns, RSI, MACD, Bol
 - Candles and structure: doji, engulfing, hammer, shooting star, swing structure and volatility-adjusted breakouts.
 
 Candidate modules are not represented as implemented. Each requires exact formulas, tests, warm-up and missing-data behavior, numerical stability checks, documentation and benchmark results. Hypotheses require out-of-sample evaluation and multiple-testing controls.
+
+## Historical performance-statistic input contract
+
+The descriptive performance module accepts finite, strictly positive price observations. A supplied benchmark must also contain at least three finite, strictly positive prices and have the same number of return observations as the primary series. The optional risk-free rate must be finite; optional annualization periods must be finite and positive. Invalid inputs raise `ValueError` rather than allowing NaN or infinity to contaminate the report.
+
+Annualized values are mathematical rescalings based on the caller-supplied observation frequency. The module does not infer frequency, align independently timestamped series, account for fees or corporate actions, or establish predictive value. Outputs remain historical descriptive statistics, not forecasts or recommendations.

@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 from fastapi import HTTPException
 
-from app.main import audit_events, market_data_heatmap, market_data_lineage, market_data_overview
+from app.main import audit_events, market_data_heatmap, market_data_lineage, market_data_overview, market_data_screener
 from app.market_data import SyntheticFixtureAdapter
 from app.market_store import store_batch
 
@@ -50,6 +50,23 @@ class AuditApiTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(HTTPException) as limit_error:
             market_data_heatmap("1d", 201)
         self.assertEqual(limit_error.exception.status_code, 400)
+
+    async def test_screener_route_returns_coverage_filtered_stored_data(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.dict(os.environ, {"MARKET_MIND_DB": os.path.join(directory, "test.sqlite")}):
+                batch = await SyntheticFixtureAdapter().get_bars("BTCUSD", "1d", 5)
+                store_batch(batch)
+                result = market_data_screener("1d", 100, 2)
+        self.assertEqual(result["status"], "stored_data_screener")
+        self.assertEqual(result["cells"][0]["symbol"], "BTCUSD")
+        self.assertEqual(result["cells"][0]["observation_count"], 5)
+
+    def test_screener_route_validates_interval_limit_and_coverage(self):
+        for args in (("5m", 100, 2), ("1d", 201, 2), ("1d", 100, 0), ("1d", 100, 5001)):
+            with self.subTest(args=args):
+                with self.assertRaises(HTTPException) as error:
+                    market_data_screener(*args)
+                self.assertEqual(error.exception.status_code, 400)
 
     def test_overview_route_validates_limit(self):
         with self.assertRaises(HTTPException) as error:

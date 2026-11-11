@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from app.analytical_agent_tasks import enqueue_research_task, list_recent_task_activity
+from app.analytical_agent_tasks import enqueue_research_task, list_recent_task_activity, agent_task_performance
 
 class AgentNetworkActivityTests(unittest.TestCase):
     def setUp(self):
@@ -31,6 +31,19 @@ class AgentNetworkActivityTests(unittest.TestCase):
         self.assertEqual(len(matching), 1)
         self.assertEqual(matching[0]["event_type"], "task_queued")
         self.assertEqual(snapshot["audit_event_count"], len(snapshot["recent_audit_events"]))
+
+    def test_agent_task_performance_reports_descriptive_persisted_counts(self):
+        enqueue_research_task("worker_009", "performance dashboard fixture")
+        report = agent_task_performance(limit=20)
+        self.assertEqual(report["task_count"], 1)
+        self.assertEqual(report["agents"]["worker_009"]["queued"], 1)
+        self.assertEqual(report["agents"]["worker_009"]["task_count"], 1)
+        self.assertIsNone(report["agents"]["worker_009"]["completion_rate"])
+        self.assertIn("not a capability or intelligence score", report["performance_boundary"])
+
+    def test_agent_task_performance_rejects_invalid_limit(self):
+        with self.assertRaises(ValueError):
+            agent_task_performance(limit=0)
 
     def test_recent_activity_rejects_invalid_limit(self):
         with self.assertRaises(ValueError):

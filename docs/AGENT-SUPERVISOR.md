@@ -43,11 +43,11 @@ An idle dispatch is a successful cycle with no queued tasks. A task can still fi
 
 ## Operational boundaries
 
-- This endpoint performs one cycle only. It does not start a daemon or schedule future cycles.\n- Each cycle acquires a singleton SQLite lease with a one-hour expiry and releases its exact lease token on completion. A crash leaves the lease until expiry; an operator should account for this before retrying.\n- The lease serializes cycles only when processes share the same SQLite database file. It is not a cross-host distributed lock and does not coordinate separate database copies.
+- This endpoint performs one cycle only. It does not start a daemon or schedule future cycles.\n- Each cycle acquires a singleton SQLite lease with a one-hour expiry, renews it every two minutes during the cycle, and releases its exact lease token on completion. A crash leaves the lease until expiry; an operator should account for this before retrying.\n- The lease serializes cycles only when processes share the same SQLite database file. It is not a cross-host distributed lock and does not coordinate separate database copies.
 - The SQLite task records are durable, but execution and concurrency are process-local.
 - Do not run multiple public API workers as though this were a distributed queue. The claim operation prevents duplicate claims in SQLite, but there is no distributed worker lease, broker, or cross-host supervisor.
 - Startup recovery and the cycle's recovery operation only requeue stale work; they do not imply that the task is safe to execute against live market feeds.
 - The shared intelligence provider may be unavailable. The task records this explicitly; no provider key is required for the deterministic task lifecycle tests.
 - All tasks are research-only. No brokerage credentials, trade recommendations, order routing, or execution are part of the supervisor.
 
-Before unattended scheduling is added, implement a dedicated service identity or machine-to-machine authentication, lease renewal for long-running cycles, a single-owner scheduler, operational monitoring, and host-specific recovery tests.
+Before unattended scheduling is added, implement a dedicated service identity or machine-to-machine authentication, a dedicated service identity, a single-owner scheduler, operational monitoring, and host-specific recovery tests.

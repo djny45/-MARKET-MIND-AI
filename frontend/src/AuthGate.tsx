@@ -8,6 +8,8 @@ export default function AuthGate({ children }: AuthGateProps) {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [signOutBusy, setSignOutBusy] = useState(false)
+  const [signOutError, setSignOutError] = useState('')
 
   useEffect(() => {
     let active = true
@@ -45,10 +47,19 @@ export default function AuthGate({ children }: AuthGateProps) {
   }, [])
 
   async function signOut() {
+    setSignOutBusy(true)
+    setSignOutError('')
     try {
-      await apiFetch(`${API_BASE}/api/auth/logout`, { method: 'POST' })
-    } finally {
+      const response = await apiFetch(`${API_BASE}/api/auth/logout`, { method: 'POST' })
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}))
+        throw new Error(payload.detail || 'Sign out failed; the server session may still be active.')
+      }
       setStatus('signed-out')
+    } catch (cause) {
+      setSignOutError(cause instanceof Error ? cause.message : 'Sign out failed')
+    } finally {
+      setSignOutBusy(false)
     }
   }
 
@@ -76,7 +87,7 @@ export default function AuthGate({ children }: AuthGateProps) {
     }
   }
 
-  if (status === 'signed-in') return <><div className="auth-session-control"><button type="button" onClick={signOut}>Sign out</button></div>{children}</>
+  if (status === 'signed-in') return <><div className="auth-session-control"><button type="button" onClick={signOut} disabled={signOutBusy}>{signOutBusy ? 'Signing out…' : 'Sign out'}</button>{signOutError && <p className="auth-error" role="alert">{signOutError}</p>}</div>{children}</>
   if (status === 'checking') {
     return <main className="auth-shell"><section className="auth-card"><div className="auth-mark">MM</div><p className="auth-eyebrow">MARKET-MIND-AI</p><h1>Checking secure session</h1><p className="auth-muted">Verifying your private workspace access…</p></section></main>
   }

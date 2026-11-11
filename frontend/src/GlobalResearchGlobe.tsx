@@ -126,8 +126,15 @@ export default function GlobalResearchGlobe({ profileCount, activityCount }: Pro
       element.classList.remove('is-dragging')
     }
     const handleVisibility = () => {
-      if (document.hidden) cancelAnimationFrame(raf)
-      else if (!reducedMotion && !raf) raf = requestAnimationFrame(render)
+      if (document.hidden) {
+        cancelAnimationFrame(raf)
+        raf = 0
+        dragging = false
+        element.classList.remove('is-dragging')
+        return
+      }
+      // Draw once on return even with reduced motion; normal animation resumes in render().
+      if (!raf) raf = requestAnimationFrame(render)
     }
     element.addEventListener('pointerdown', pointerDown)
     element.addEventListener('pointermove', pointerMove)

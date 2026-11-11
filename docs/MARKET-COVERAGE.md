@@ -73,3 +73,5 @@ a measured speedup.
 ## Timestamp normalization
 
 Stored OHLCV timestamps and retrieval timestamps are serialized in UTC before upsert. Because these values use one canonical UTC ISO-8601 representation, bar reads and heatmap ranking use exact timestamp text ordering/grouping rather than SQLite's lower-precision `julianday()` conversion; this preserves microsecond distinctions. Equivalent values such as `2026-01-01T05:30:00+05:30` and `2026-01-01T00:00:00+00:00` cannot create duplicate observations for new writes. This does not certify provider clock accuracy or repair arbitrary malformed legacy records.
+
+Heatmap calculations also guard against floating-point overflow. If finite stored prices produce a non-finite percentage change (for example, an extreme ratio outside representable precision), the affected cell is returned with `status=numeric_overflow` and `change_pct=null`; the aggregate `numeric_overflow_count` reports these cells. Such a cell is not silently ranked as a valid return.

@@ -214,6 +214,29 @@ class AuthenticationApiTests(unittest.TestCase):
         self.assertEqual(self.client.cookies.get("market_mind_session"), original_token)
 
 
+    def test_logout_fails_closed_when_session_revocation_storage_fails(self):
+        origin = {"Origin": "http://testserver"}
+        login = self.client.post(
+            "/api/auth/login", json={"password": self.password}, headers=origin
+        )
+        self.assertEqual(login.status_code, 200)
+        csrf = self.client.cookies.get("market_mind_csrf")
+
+        with patch(
+            "app.auth_api.revoke_session",
+            side_effect=sqlite3.OperationalError("db unavailable"),
+        ):
+            logout = self.client.post(
+                "/api/auth/logout",
+                headers={**origin, "x-csrf-token": csrf},
+            )
+
+        self.assertEqual(logout.status_code, 503)
+        self.assertEqual(
+            logout.json()["detail"], "Authentication storage unavailable"
+        )
+
+
     def test_session_and_csrf_cookie_security_attributes(self):
         with patch.dict(os.environ, {"MARKET_MIND_COOKIE_SECURE": "true"}):
             response = self.client.post(

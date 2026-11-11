@@ -90,6 +90,47 @@ class AgentNetworkActivityTests(unittest.TestCase):
         self.assertIn("not measures of intelligence", " ".join(report["limitations"]))
         self.assertEqual(report["recommendation_count"], len(report["recommendations"]))
 
+    def test_supervisor_recommendations_apply_evidence_thresholds(self):
+        task_report = {
+            "task_count": 10,
+            "agents": {
+                "worker_review": {
+                    "finished_count": 5, "failure_rate": 0.4,
+                },
+                "worker_observe": {
+                    "finished_count": 5, "failure_rate": 0.05,
+                },
+                "worker_insufficient": {
+                    "finished_count": 4, "failure_rate": 0.5,
+                },
+            },
+        }
+        quality_report = {
+            "agents": {
+                "worker_review": {
+                    "evaluation_count": 3,
+                    "known_source_reference_coverage_mean": 0.5,
+                },
+                "worker_observe": {
+                    "evaluation_count": 3,
+                    "known_source_reference_coverage_mean": 0.95,
+                },
+                "worker_insufficient": {
+                    "evaluation_count": 2,
+                    "known_source_reference_coverage_mean": 0.1,
+                },
+            },
+        }
+        with patch("app.analytical_agent_tasks.agent_task_performance", return_value=task_report), \
+             patch("app.analytical_agent_tasks.agent_research_quality_performance", return_value=quality_report):
+            report = agent_supervisor_recommendations(limit=20)
+        reasons = {(item["agent_id"], item["reason_code"]) for item in report["recommendations"]}
+        self.assertIn(("worker_review", "repeated_task_failures"), reasons)
+        self.assertIn(("worker_review", "low_source_reference_coverage"), reasons)
+        self.assertIn(("worker_observe", "consistent_structural_traceability"), reasons)
+        self.assertFalse(any(agent == "worker_insufficient" for agent, _ in reasons))
+        self.assertEqual(report["decision_mode"], "advisory_only")
+
     def test_supervisor_recommendations_reject_invalid_limit(self):
         with self.assertRaises(ValueError):
             agent_supervisor_recommendations(limit=551)

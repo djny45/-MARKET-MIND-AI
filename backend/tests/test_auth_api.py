@@ -270,6 +270,41 @@ class AuthenticationApiTests(unittest.TestCase):
                 _clear_login_attempts(key)
 
 
+
+    def test_login_throttle_prunes_expired_buckets_before_overflow(self):
+        from app.auth_api import (
+            _LOGIN_ATTEMPTS,
+            _RATE_LOCK,
+            _RATE_OVERFLOW_KEY,
+            _clear_login_attempts,
+            _login_rate_limited,
+        )
+
+        keys = ("bucket-expired-a", "bucket-expired-b", "bucket-expired-c")
+        with _RATE_LOCK:
+            for key in (*keys, _RATE_OVERFLOW_KEY):
+                _LOGIN_ATTEMPTS.pop(key, None)
+
+        try:
+            with patch("app.auth_api._RATE_MAX_KEYS", 2), patch(
+                "app.auth_api._RATE_WINDOW_SECONDS", 60
+            ):
+                self.assertFalse(_login_rate_limited(keys[0], now=10))
+                self.assertFalse(_login_rate_limited(keys[1], now=10))
+                # Both existing buckets have expired by this request. The new
+                # identity should get its own bucket, not the shared overflow.
+                self.assertFalse(_login_rate_limited(keys[2], now=71))
+
+            with _RATE_LOCK:
+                self.assertIn(keys[2], _LOGIN_ATTEMPTS)
+                self.assertNotIn(keys[0], _LOGIN_ATTEMPTS)
+                self.assertNotIn(keys[1], _LOGIN_ATTEMPTS)
+                self.assertNotIn(_RATE_OVERFLOW_KEY, _LOGIN_ATTEMPTS)
+        finally:
+            for key in (*keys, _RATE_OVERFLOW_KEY):
+                _clear_login_attempts(key)
+
+
     def test_session_and_csrf_cookie_security_attributes(self):
         with patch.dict(os.environ, {"MARKET_MIND_COOKIE_SECURE": "true"}):
             response = self.client.post(

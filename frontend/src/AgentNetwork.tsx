@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { motion } from 'motion/react'
 import { ReactFlow, Background, Controls, MiniMap, Handle, Position, type Node, type Edge } from '@xyflow/react'
 import { Network, BrainCircuit } from 'lucide-react'
 
@@ -96,7 +97,7 @@ export default function AgentNetwork({ agents }: { agents: AgentProfile[] }) {
     return { nodes, edges }
   }, [filteredProfiles, activity])
 
-  return <section className="agent-network-view">
+  return <motion.section className="agent-network-view" initial={{ opacity: 0, scale: 0.995 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.45, ease: "easeOut" }}>
     <div className="agent-network-heading">
       <div><span className="eyebrow">MARKET-MIND-AI / AGENT TOPOLOGY</span><h1><Network size={21}/> 550+ Analytical Agent Network</h1><p>Node-based visual map inspired by the reference image. Each card represents a registered specialist profile; the graph is a topology visualization, not proof that every agent is currently running.</p></div>
       <div className="agent-network-stats"><b>{agents.length || 550}</b><span>REGISTERED PROFILES</span><b>{edges.length.toLocaleString()}</b><span>VISUAL CONNECTIONS</span>{activity && <><b>{activity.status_counts.running || 0}</b><span>RUNNING TASKS</span><b>{activity.status_counts.queued || 0}</b><span>QUEUED TASKS</span></>}</div>
@@ -119,5 +120,5 @@ export default function AgentNetwork({ agents }: { agents: AgentProfile[] }) {
     </div>
     {selectedAgent && <div className="agent-network-inspector"><div><b>{selectedAgent.label}</b><small>{selectedAgent.core ? "Central intelligence core" : selectedAgent.department}</small></div><span>{selectedAgent.specialty}</span><span className="agent-inspector-status">{selectedAgent.status}</span><button type="button" onClick={()=>setSelectedAgent(null)}>CLOSE</button></div>}
     <div className="agent-network-foot"><span>Registered profiles · department-level connectivity · shared core</span><span>Research-only architecture · no broker / order execution</span></div>
-  </section>
+  </motion.section>
 }

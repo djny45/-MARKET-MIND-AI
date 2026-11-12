@@ -98,3 +98,8 @@ The deterministic research traceability evaluator now validates optional source 
 ### Claim evidence excerpt manifests
 
 Claims may optionally include supplied evidence excerpts, each tied to a source_id and required to match a source reference on that claim. The evaluator reports excerpts only when the excerpt is non-empty, within the size limit, and its source ID exists in the registry and in the claim's source_refs. Unknown or orphaned evidence references are reported separately. This is evidence-presence and reference-integrity checking only: excerpt text is not semantically compared with the claim, and no factual support or entailment is established.
+
+
+### Provenance field bounds
+
+Workflow evidence provenance now bounds the source identifier to 200 printable characters and the retrieval timestamp to 64 printable characters before ISO-8601/timezone validation. This prevents oversized or control-character metadata from being accepted as provenance. It does not authenticate the provider or prove the retrieval event occurred.

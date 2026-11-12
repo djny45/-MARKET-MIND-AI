@@ -45,10 +45,16 @@ export default function AuthGate({ children }: AuthGateProps) {
   }, [])
 
   async function signOut() {
+    setError('')
     try {
-      await apiFetch(`${API_BASE}/api/auth/logout`, { method: 'POST' })
-    } finally {
+      const response = await apiFetch(`${API_BASE}/api/auth/logout`, { method: 'POST' })
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(payload.detail || 'Sign out failed. Your session is still active.')
+      }
       setStatus('signed-out')
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Sign out failed. Your session is still active.')
     }
   }
 
@@ -76,7 +82,7 @@ export default function AuthGate({ children }: AuthGateProps) {
     }
   }
 
-  if (status === 'signed-in') return <><div className="auth-session-control"><button type="button" onClick={signOut}>Sign out</button></div>{children}</>
+  if (status === 'signed-in') return <><div className="auth-session-control"><button type="button" onClick={signOut}>Sign out</button>{error && <p className="auth-error" role="alert">{error}</p>}</div>{children}</>
   if (status === 'checking') {
     return <main className="auth-shell"><section className="auth-card"><div className="auth-mark">MM</div><p className="auth-eyebrow">MARKET-MIND-AI</p><h1>Checking secure session</h1><p className="auth-muted">Verifying your private workspace access…</p></section></main>
   }

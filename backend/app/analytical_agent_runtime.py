@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from contextvars import ContextVar, Token
 from .workers import list_workers
 
 CORE_ID = "shared_central_intelligence"
@@ -16,6 +17,46 @@ WORKERS = {item["id"]: item for item in list_workers()}
 MAX_CONTEXT_CHARS = 6000
 MAX_FEEDBACK_CHARS = 4000
 MAX_PROPOSAL_CHARS = 4000
+
+# A task-local scope prevents concurrent specialist agents from observing one
+# another's identity or task metadata. ContextVar follows asyncio task context;
+# callers crossing raw thread/process boundaries must propagate context explicitly.
+_AGENT_SCOPE: ContextVar[dict | None] = ContextVar("market_mind_agent_scope", default=None)
+
+
+def set_agent_scope(worker_id: str, task_id: str) -> Token:
+    """Bind an immutable-by-convention identity envelope for one task execution."""
+    brain = brain_config(worker_id)
+    if not isinstance(task_id, str) or not task_id.strip() or len(task_id) > 128:
+        raise ValueError("task_id must be a non-empty string of at most 128 characters")
+    scope = {
+        "worker_id": worker_id,
+        "task_id": task_id,
+        "memory_namespace": brain["memory_namespace"],
+        "intelligence_core": CORE_ID,
+    }
+    return _AGENT_SCOPE.set(scope)
+
+
+@__import__("contextlib").contextmanager
+def agent_scope(worker_id: str, task_id: str):
+    """Context manager for isolated per-agent execution scopes."""
+    token = set_agent_scope(worker_id, task_id)
+    try:
+        yield current_agent_scope()
+    finally:
+        reset_agent_scope(token)
+
+
+def current_agent_scope() -> dict | None:
+    """Return a defensive copy of the active task-local agent scope."""
+    scope = _AGENT_SCOPE.get()
+    return dict(scope) if scope is not None else None
+
+
+def reset_agent_scope(token: Token) -> None:
+    """Restore the caller's prior scope, including correctly nested executions."""
+    _AGENT_SCOPE.reset(token)
 
 def _bounded_text(value, field, limit):
     if not isinstance(value, str) or not value.strip() or len(value) > limit:

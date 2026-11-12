@@ -8,7 +8,7 @@
 
 A visual research environment where specialist analytical workers connect as reusable nodes, execute directed workflows, and produce traceable research outputs.
 
-[Four-Market Architecture](docs/FOUR-MARKET-PLATFORM.md) · [Architecture](docs/ARCHITECTURE.md) · [Workflow Guide](docs/WORKFLOW-GUIDE.md) · [Agent Supervisor](docs/AGENT-SUPERVISOR.md) · [Market Coverage](docs/MARKET-COVERAGE.md) · [Roadmap](docs/ROADMAP.md) · [Development Guide](docs/DEVELOPMENT.md) · [Private Deployment](docs/PRODUCTION-DEPLOYMENT.md) · [Operations & Recovery Runbook](docs/OPERATIONS-RECOVERY-RUNBOOK.md) · [FreeLLMAPI Setup](docs/FREELLMAPI-INTEGRATION.md) · [Open-Source Research Skill](.agents/skills/quant-research-evaluation/SKILL.md) · [PyneCore indicator cross-check](docs/PYNECORE-RESEARCH.md) · [300 Research Skills](.agents/skills/market-mind-300-research-skills/SKILL.md)
+[Four-Market Architecture](docs/FOUR-MARKET-PLATFORM.md) · [Architecture](docs/ARCHITECTURE.md) · [Workflow Guide](docs/WORKFLOW-GUIDE.md) · [Agent Supervisor](docs/AGENT-SUPERVISOR.md) · [Market Coverage](docs/MARKET-COVERAGE.md) · [Roadmap](docs/ROADMAP.md) · [Development Guide](docs/DEVELOPMENT.md) · [Private Deployment](docs/PRODUCTION-DEPLOYMENT.md) · [Operations & Recovery Runbook](docs/OPERATIONS-RECOVERY-RUNBOOK.md) · [Authentication Security Pre-review](docs/AUTHENTICATION-SECURITY-PREREVIEW.md) · [FreeLLMAPI Setup](docs/FREELLMAPI-INTEGRATION.md) · [Open-Source Research Skill](.agents/skills/quant-research-evaluation/SKILL.md) · [PyneCore indicator cross-check](docs/PYNECORE-RESEARCH.md) · [300 Research Skills](.agents/skills/market-mind-300-research-skills/SKILL.md)
 
 </div>
 

@@ -74,6 +74,14 @@ class WorkerContractTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, r"must be a number"):
                     validate_worker_output(node_type, output)
 
+    def test_rsi_output_allows_only_leading_warmup_nulls(self):
+        validate_worker_output("rsi", {"series": [None, None, 48.5, 52.0], "period": 3})
+        validate_worker_output("rsi", {"series": [None, None], "period": 14})
+        for series in ([48.5, None, 52.0], [None, "bad", 52.0], [None, True, 52.0]):
+            with self.subTest(series=series):
+                with self.assertRaises(ValueError):
+                    validate_worker_output("rsi", {"series": series, "period": 3})
+
     def test_period_output_must_be_a_positive_integer(self):
         for period in (0, -1, 2.5, True, "14"):
             with self.subTest(period=period):

@@ -8,7 +8,7 @@ import math
 from . import indicators
 from .worker_runtime import assign_worker
 from .worker_contracts import (
-    get_worker_contract, validate_worker_input, validate_worker_output,
+    get_worker_contract, is_contract_version_compatible, validate_worker_input, validate_worker_output,
     validate_evidence_provenance,
 )
 
@@ -112,7 +112,7 @@ def execute_workflow(
             saved_contract_version = task["worker_contract"].get("contract_version")
         current_contract_version = get_worker_contract(expected_type)["contract_version"]
         if (saved_contract_version is not None
-                and saved_contract_version != current_contract_version):
+                and not is_contract_version_compatible(saved_contract_version)):
             raise ValueError(
                 f"checkpoint contract version for node {completed_id} is unsupported"
             )
@@ -122,6 +122,11 @@ def execute_workflow(
             raise ValueError(
                 f"checkpoint result for node {completed_id} violates its worker contract: {exc}"
             ) from exc
+        # Explicitly migrate compatible legacy task metadata only after the
+        # saved result has passed the current output validator.
+        if saved_contract_version != current_contract_version:
+            task["contract_version"] = current_contract_version
+            task["worker_contract"] = get_worker_contract(expected_type)
     if set(checkpoint_results) != completed_before:
         raise ValueError("checkpoint results must match completed_node_ids")
     results = dict(checkpoint_results)

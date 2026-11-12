@@ -334,57 +334,57 @@ def execute_queued_research_task(task_id: str) -> bool:
         # Build context inside the guarded execution block. A memory/configuration
         # failure must transition the claimed task to failed, not strand it as running.
         brain = brain_config(agent_id)
-        payload = {
-            "agent": {"id": agent_id, "department": brain["department"], "specialty": brain["specialty"]},
-            "agent_context": brain["brain_context"],
-            "retrieved_memory": recall_memory(
-                agent_id, task_input["brief"] + " " + json.dumps(task_input.get("data"), ensure_ascii=False)[:6000],
-                limit=5,
-            ),
-            "task": task_input,
-            "constraints": ["Use supplied data only.", "Distinguish facts, assumptions, and unknowns.",
-                           "Do not invent missing market data.", "No trade execution or investment certainty."],
-        }
-        synthesis = synthesize_research(payload)
-        task_data = task_input.get("data")
-        evaluation = None
-        evaluation_status = "not_requested_or_missing_structured_claims"
-        if isinstance(task_data, dict) and isinstance(task_data.get("claims"), list) and isinstance(task_data.get("source_registry"), list):
-            candidate_draft = synthesis.get("summary") if synthesis.get("status") == "completed" else task_data.get("draft")
-            if isinstance(candidate_draft, str) and candidate_draft.strip():
-                try:
-                    evaluation = evaluate_research_draft(
-                        draft=candidate_draft,
-                        claims=task_data["claims"],
-                        source_registry=task_data["source_registry"],
-                        baseline=task_data.get("baseline"),
-                    )
-                    evaluation_status = "evaluated"
-                except ValueError as exc:
-                    # Optional quality metadata must not turn a successful research
-                    # synthesis into a failed task. Preserve the bounded error detail.
-                    evaluation_status = "invalid_evaluation_input"
-                    evaluation = {
-                        "status": "invalid_input",
-                        "error": str(exc)[:500],
-                        "evaluation_type": "deterministic_research_traceability_check",
-                    }
-            else:
-                evaluation_status = "structured_claims_present_but_no_draft"
-        learning_candidate = {"status": "not_created"}
-        if evaluation is not None:
-            _persist_quality_evaluation(task_id, agent_id, evaluation)
-            if evaluation.get("status") != "invalid_input":
-                learning_candidate = _persist_research_learning_candidate(task_id, agent_id, evaluation)
-        result = {"agent_id": agent_id, "brain_context_sha256": row["brain_context_sha256"],
-                  "research_learning_candidate": learning_candidate,
-                  "brief": task_input["brief"], "input_data_received": task_input["data"] is not None,
-                  "shared_core_result": synthesis,
-                  "research_quality_evaluation": evaluation,
-                  "research_quality_evaluation_status": evaluation_status,
-                  "result_mode": "shared_core_synthesis" if synthesis.get("status") == "completed" else "provider_unavailable_or_not_configured",
-                  "research_boundary": "supplied_data_only_no_live_market_fetch"}
-        status = "completed"
+            payload = {
+                "agent": {"id": agent_id, "department": brain["department"], "specialty": brain["specialty"]},
+                "agent_context": brain["brain_context"],
+                "retrieved_memory": recall_memory(
+                    agent_id, task_input["brief"] + " " + json.dumps(task_input.get("data"), ensure_ascii=False)[:6000],
+                    limit=5,
+                ),
+                "task": task_input,
+                "constraints": ["Use supplied data only.", "Distinguish facts, assumptions, and unknowns.",
+                               "Do not invent missing market data.", "No trade execution or investment certainty."],
+            }
+            synthesis = synthesize_research(payload)
+            task_data = task_input.get("data")
+            evaluation = None
+            evaluation_status = "not_requested_or_missing_structured_claims"
+            if isinstance(task_data, dict) and isinstance(task_data.get("claims"), list) and isinstance(task_data.get("source_registry"), list):
+                candidate_draft = synthesis.get("summary") if synthesis.get("status") == "completed" else task_data.get("draft")
+                if isinstance(candidate_draft, str) and candidate_draft.strip():
+                    try:
+                        evaluation = evaluate_research_draft(
+                            draft=candidate_draft,
+                            claims=task_data["claims"],
+                            source_registry=task_data["source_registry"],
+                            baseline=task_data.get("baseline"),
+                        )
+                        evaluation_status = "evaluated"
+                    except ValueError as exc:
+                        # Optional quality metadata must not turn a successful research
+                        # synthesis into a failed task. Preserve the bounded error detail.
+                        evaluation_status = "invalid_evaluation_input"
+                        evaluation = {
+                            "status": "invalid_input",
+                            "error": str(exc)[:500],
+                            "evaluation_type": "deterministic_research_traceability_check",
+                        }
+                else:
+                    evaluation_status = "structured_claims_present_but_no_draft"
+            learning_candidate = {"status": "not_created"}
+            if evaluation is not None:
+                _persist_quality_evaluation(task_id, agent_id, evaluation)
+                if evaluation.get("status") != "invalid_input":
+                    learning_candidate = _persist_research_learning_candidate(task_id, agent_id, evaluation)
+            result = {"agent_id": agent_id, "brain_context_sha256": row["brain_context_sha256"],
+                      "research_learning_candidate": learning_candidate,
+                      "brief": task_input["brief"], "input_data_received": task_input["data"] is not None,
+                      "shared_core_result": synthesis,
+                      "research_quality_evaluation": evaluation,
+                      "research_quality_evaluation_status": evaluation_status,
+                      "result_mode": "shared_core_synthesis" if synthesis.get("status") == "completed" else "provider_unavailable_or_not_configured",
+                      "research_boundary": "supplied_data_only_no_live_market_fetch"}
+            status = "completed"
     except Exception as exc:
         failure = classify_research_task_failure(exc)
         result = {"error": "Research task failed safely.", **failure}

@@ -9,6 +9,7 @@ import time
 from collections import defaultdict, deque
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -67,16 +68,57 @@ def _ttl(name: str, default: int) -> int:
     return value
 
 
+def _normalize_origin(value: str) -> str | None:
+    """Normalize one exact HTTP(S) origin; reject URLs with broader scope."""
+    if not isinstance(value, str) or not value or any(char.isspace() for char in value):
+        return None
+    try:
+        parsed = urlsplit(value)
+        scheme = parsed.scheme.lower()
+        hostname = parsed.hostname
+        port = parsed.port
+    except ValueError:
+        return None
+    if (
+        scheme not in {"http", "https"}
+        or not parsed.netloc
+        or not hostname
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.path not in {"", "/"}
+        or parsed.query
+        or parsed.fragment
+        or "*" in parsed.netloc
+        or "%" in parsed.netloc
+    ):
+        return None
+    hostname = hostname.lower()
+    host = f"[{hostname}]" if ":" in hostname else hostname
+    if port == (80 if scheme == "http" else 443):
+        port = None
+    authority = f"{host}:{port}" if port is not None else host
+    return f"{scheme}://{authority}"
+
+
 def _allowed_origins() -> set[str]:
-    return {
-        value.strip().rstrip("/")
-        for value in os.getenv("FRONTEND_ORIGINS", "http://localhost:5173").split(",")
-        if value.strip()
-    }
+    configured = os.getenv("FRONTEND_ORIGINS", "http://localhost:5173")
+    origins: set[str] = set()
+    for raw_value in configured.split(","):
+        value = raw_value.strip()
+        if not value:
+            continue
+        normalized = _normalize_origin(value)
+        if normalized is None:
+            raise RuntimeError(
+                "FRONTEND_ORIGINS must contain only exact HTTP(S) origins "
+                "without credentials, paths, query strings, fragments, or wildcards"
+            )
+        origins.add(normalized)
+    return origins
 
 
 def _check_origin(request: Request) -> bool:
-    origin = request.headers.get("origin", "").rstrip("/")
+    origin = _normalize_origin(request.headers.get("origin", ""))
     return bool(origin and origin in _allowed_origins())
 
 

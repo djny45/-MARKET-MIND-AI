@@ -159,11 +159,16 @@ def validate_worker_output(node_type: str, output) -> None:
             values = output[key]
             if not isinstance(values, list):
                 raise ValueError(f"{node_type} output {key} must be a numeric list")
+            warmup_nulls_allowed = node_type == "rsi" and key == "series"
+            seen_numeric_value = False
             for index, value in enumerate(values):
+                if value is None and warmup_nulls_allowed and not seen_numeric_value:
+                    continue
                 if isinstance(value, bool) or not isinstance(value, (int, float)):
                     raise ValueError(
                         f"{node_type} output {key}[{index}] must be a number"
                     )
+                seen_numeric_value = True
         if "period" in output:
             period = output["period"]
             if isinstance(period, bool) or not isinstance(period, int) or period < 1:

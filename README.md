@@ -8,17 +8,17 @@
 
 A visual research environment where specialist analytical workers connect as reusable nodes, execute directed workflows, and produce traceable research outputs.
 
-[Four-Market Architecture](docs/FOUR-MARKET-PLATFORM.md) · [Architecture](docs/ARCHITECTURE.md) · [Workflow Guide](docs/WORKFLOW-GUIDE.md) · [Market Coverage](docs/MARKET-COVERAGE.md) · [Roadmap](docs/ROADMAP.md) · [Development Guide](docs/DEVELOPMENT.md) · [Private Deployment](docs/PRODUCTION-DEPLOYMENT.md) · [FreeLLMAPI Setup](docs/FREELLMAPI-INTEGRATION.md) · [Open-Source Research Skill](.agents/skills/quant-research-evaluation/SKILL.md) · [PyneCore indicator cross-check](docs/PYNECORE-RESEARCH.md) · [300 Research Skills](.agents/skills/market-mind-300-research-skills/SKILL.md)
+[Local AI-harness setup](docs/LOCAL-AGENT-HARNESS.md) · [Four-Market Architecture](docs/FOUR-MARKET-PLATFORM.md) · [Architecture](docs/ARCHITECTURE.md) · [Workflow Guide](docs/WORKFLOW-GUIDE.md) · [Market Coverage](docs/MARKET-COVERAGE.md) · [Roadmap](docs/ROADMAP.md) · [Development Guide](docs/DEVELOPMENT.md) · [Private Deployment](docs/PRODUCTION-DEPLOYMENT.md) · [FreeLLMAPI Setup](docs/FREELLMAPI-INTEGRATION.md) · [Open-Source Research Skill](.agents/skills/quant-research-evaluation/SKILL.md) · [PyneCore indicator cross-check](docs/PYNECORE-RESEARCH.md) · [300 Research Skills](.agents/skills/market-mind-300-research-skills/SKILL.md)
 
 </div>
 
 ---
 
-## Deployment policy: Vercel-free
-For a GitHub Pages frontend-only deployment, see [Vercel-free GitHub Pages guide](docs/GITHUB-PAGES-DEPLOYMENT.md). Pages does not host the FastAPI backend or SQLite; the backend must remain separately hosted and secured.
+## Local-first development
 
+The current target is a locally run research workstation developed through Claude Code or another compatible AI coding harness. A public website, hosted app, and hosted database are not part of the current requirement. The existing React interface runs locally in a browser; see [Local AI-harness setup](docs/LOCAL-AGENT-HARNESS.md). Keep development services on loopback and retain local SQLite only for existing features that need local persistence. Do not deploy publicly unless the product owner explicitly changes this direction.
 
-MARKET-MIND-AI does not require or target Vercel. For a complete frontend + FastAPI stack, use the repository's private Docker deployment guide: [Private Docker deployment](docs/PRODUCTION-DEPLOYMENT.md). The supported baseline is self-hosted Docker Compose (or a manually managed host with equivalent network and security controls). GitHub Pages can serve static frontend assets only; it cannot host the FastAPI service or SQLite database. Keep the API private behind authentication and TLS before enabling remote access. Do not commit secrets or expose the research API publicly.
+Docker Compose remains an optional local development method, not a hosted deployment requirement. See [Development Guide](docs/DEVELOPMENT.md) for local startup and [Private Docker deployment](docs/PRODUCTION-DEPLOYMENT.md) only if a separately authorized private deployment is later needed.
 
 ## Overview
 

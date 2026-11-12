@@ -7,7 +7,8 @@ from copy import deepcopy
 from datetime import datetime
 import math
 
-CONTRACT_VERSION = "1.0.0"
+CONTRACT_VERSION = "1.1.0"
+COMPATIBLE_LEGACY_CONTRACT_VERSIONS = {"1.0.0"}
 
 # Shape names are intentionally small and stable; numerical domain validation
 # remains in workflow._numbers and the indicator implementations.
@@ -26,7 +27,7 @@ _CONTRACTS = {
             "output": {"kind": "object", "required_keys": ["series", "period"], "fields": {"series": "number_list", "period": "positive_integer"}},
             "evidence_requirements": ["input_source", "retrieval_timestamp", "period"]},
     "ema": {"input": {"kind": "numeric_series_or_object", "required": True},
-            "output": {"kind": "object", "required_keys": ["series", "period"]},
+            "output": {"kind": "object", "required_keys": ["series", "period"], "fields": {"series": "number_list", "period": "positive_integer"}},
             "evidence_requirements": ["input_source", "retrieval_timestamp", "period"]},
     "rsi": {"input": {"kind": "numeric_series_or_object", "required": True},
             "output": {"kind": "object", "required_keys": ["series", "period"]},
@@ -47,6 +48,11 @@ _CONTRACTS = {
                          "output": {"kind": "object", "required_keys": ["report"], "fields": {"report": "object"}},
                          "evidence_requirements": ["input_source", "retrieval_timestamp", "quality_status"]},
 }
+
+
+def is_contract_version_compatible(saved_version: str | None) -> bool:
+    """Allow current and explicitly supported legacy contracts for revalidation."""
+    return saved_version == CONTRACT_VERSION or saved_version in COMPATIBLE_LEGACY_CONTRACT_VERSIONS
 
 
 def get_worker_contract(node_type: str) -> dict:

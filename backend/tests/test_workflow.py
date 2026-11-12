@@ -217,7 +217,7 @@ class WorkflowTests(unittest.TestCase):
         snapshots = []
         nodes = [{"id": "feed", "type": "market_input", "data": {"values": [1, 2, 3]}}]
         execute_workflow(nodes, [], {}, checkpoint_callback=snapshots.append)
-        self.assertEqual(snapshots[0]["tasks"]["feed"]["contract_version"], "1.0.0")
+        self.assertEqual(snapshots[0]["tasks"]["feed"]["contract_version"], "1.1.0")
 
     def test_resume_rejects_checkpoint_task_type_mismatch(self):
         nodes = [{"id": "feed", "type": "market_input", "data": {"values": [1, 2, 3]}}]

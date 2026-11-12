@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 from contextvars import ContextVar, Token
+from contextlib import contextmanager
 from .workers import list_workers
 
 CORE_ID = "shared_central_intelligence"
@@ -38,7 +39,7 @@ def set_agent_scope(worker_id: str, task_id: str) -> Token:
     return _AGENT_SCOPE.set(scope)
 
 
-@__import__("contextlib").contextmanager
+@contextmanager
 def agent_scope(worker_id: str, task_id: str):
     """Context manager for isolated per-agent execution scopes."""
     token = set_agent_scope(worker_id, task_id)

@@ -1,4 +1,5 @@
 import unittest
+import urllib.error
 from unittest.mock import patch
 
 from app.market_data import DataStatus
@@ -64,6 +65,17 @@ class StooqAdapterTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(bars), 3)
         self.assertEqual([bar.timestamp.day for bar in bars], [1, 2, 3])
 
+
+    def test_network_error_does_not_echo_api_key_or_request_url(self):
+        secret = "test-secret-key"
+        adapter = StooqAdapter(api_key=secret)
+        with patch("urllib.request.urlopen", side_effect=urllib.error.URLError(
+            "https://stooq.com/q/d/l/?s=aapl.us&apikey=test-secret-key"
+        )):
+            with self.assertRaises(RuntimeError) as raised:
+                adapter._fetch_csv("aapl.us")
+        self.assertNotIn(secret, str(raised.exception))
+        self.assertNotIn("apikey=", str(raised.exception))
     def test_timeout_bounds(self):
         with self.assertRaises(ValueError):
             StooqAdapter(timeout_seconds=0.2)

@@ -467,12 +467,16 @@ class AutonomousResearchFixtureRequest(BaseModel):
 
 class MarketDataValidationRequest(BaseModel):
  payload: Any
+ max_retrieval_age_seconds: float | None = Field(default=None, ge=0, le=31536000)
 
 
 @app.post("/api/market-data/validate")
 def validate_market_data(request: MarketDataValidationRequest):
- """Return a structural validation report for a supplied market-data payload."""
- return validate_market_data_payload(request.payload)
+ """Return structural and optional caller-threshold freshness diagnostics."""
+ return validate_market_data_payload(
+  request.payload,
+  max_retrieval_age_seconds=request.max_retrieval_age_seconds,
+ )
 
 
 @app.get("/api/market-data/overview")

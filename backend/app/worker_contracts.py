@@ -14,16 +14,16 @@ CONTRACT_VERSION = "1.0.0"
 _CONTRACTS = {
     "market_input": {
         "input": {"kind": "numeric_series_or_object", "required": False},
-        "output": {"kind": "object", "required_keys": ["values"]},
+        "output": {"kind": "object", "required_keys": ["values"], "fields": {"values": "number_list"}},
         "evidence_requirements": ["input_source", "retrieval_timestamp", "quality_status"],
     },
     "data_quality": {
         "input": {"kind": "numeric_series_or_object", "required": True},
-        "output": {"kind": "object", "required_keys": ["data", "quality"]},
+        "output": {"kind": "object", "required_keys": ["data", "quality"], "fields": {"data": "object", "quality": "object"}},
         "evidence_requirements": ["input_source", "retrieval_timestamp"],
     },
     "sma": {"input": {"kind": "numeric_series_or_object", "required": True},
-            "output": {"kind": "object", "required_keys": ["series", "period"]},
+            "output": {"kind": "object", "required_keys": ["series", "period"], "fields": {"series": "number_list", "period": "positive_integer"}},
             "evidence_requirements": ["input_source", "retrieval_timestamp", "period"]},
     "ema": {"input": {"kind": "numeric_series_or_object", "required": True},
             "output": {"kind": "object", "required_keys": ["series", "period"]},
@@ -32,19 +32,19 @@ _CONTRACTS = {
             "output": {"kind": "object", "required_keys": ["series", "period"]},
             "evidence_requirements": ["input_source", "retrieval_timestamp", "period"]},
     "macd": {"input": {"kind": "numeric_series_or_object", "required": True},
-             "output": {"kind": "object", "required_keys": ["macd", "signal", "histogram"]},
+             "output": {"kind": "object", "required_keys": ["macd", "signal", "histogram"], "fields": {"macd": "number_list", "signal": "number_list", "histogram": "number_list"}},
              "evidence_requirements": ["input_source", "retrieval_timestamp"]},
     "bollinger": {"input": {"kind": "numeric_series_or_object", "required": True},
-                  "output": {"kind": "object", "required_keys": ["middle", "upper", "lower"]},
+                  "output": {"kind": "object", "required_keys": ["middle", "upper", "lower"], "fields": {"middle": "number_list", "upper": "number_list", "lower": "number_list", "period": "positive_integer"}},
                   "evidence_requirements": ["input_source", "retrieval_timestamp", "period"]},
     "returns": {"input": {"kind": "numeric_series_or_object", "required": True},
-                "output": {"kind": "object", "required_keys": ["series", "summary"]},
+                "output": {"kind": "object", "required_keys": ["series", "summary"], "fields": {"series": "number_list", "summary": "object"}},
                 "evidence_requirements": ["input_source", "retrieval_timestamp"]},
     "volatility": {"input": {"kind": "numeric_series_or_object", "required": True},
                    "output": {"kind": "number_or_object", "required_keys": []},
                    "evidence_requirements": ["input_source", "retrieval_timestamp"]},
     "research_summary": {"input": {"kind": "numeric_series_or_object", "required": True},
-                         "output": {"kind": "object", "required_keys": ["report"]},
+                         "output": {"kind": "object", "required_keys": ["report"], "fields": {"report": "object"}},
                          "evidence_requirements": ["input_source", "retrieval_timestamp", "quality_status"]},
 }
 
@@ -146,6 +146,35 @@ def validate_worker_output(node_type: str, output) -> None:
         raise ValueError(f"{node_type} output {path} contains an unsupported value")
 
     validate_finite(output, "value")
+
+    if isinstance(output, dict):
+        for field, field_type in contract["output"].get("fields", {}).items():
+            if field not in output:
+                continue
+            value = output[field]
+            if field_type == "object":
+                if not isinstance(value, dict):
+                    raise ValueError(f"{node_type} output {field} must be an object")
+            elif field_type == "positive_integer":
+                if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+                    raise ValueError(f"{node_type} output {field} must be a positive integer")
+            elif field_type == "number_list":
+                if not isinstance(value, list):
+                    raise ValueError(f"{node_type} output {field} must be a numeric list")
+                allow_leading_nulls = node_type == "rsi" and field == "series"
+                seen_number = False
+                for index, item in enumerate(value):
+                    if item is None and allow_leading_nulls and not seen_number:
+                        continue
+                    if isinstance(item, bool) or not isinstance(item, (int, float)):
+                        raise ValueError(f"{node_type} output {field}[{index}] must be a number")
+                    try:
+                        finite = math.isfinite(float(item))
+                    except (OverflowError, ValueError):
+                        finite = False
+                    if not finite:
+                        raise ValueError(f"{node_type} output {field}[{index}] must be finite")
+                    seen_number = True
 
     # Numerical workflow outputs must not smuggle strings, booleans, or nulls
     # into series fields: the generic finite-value walk intentionally permits

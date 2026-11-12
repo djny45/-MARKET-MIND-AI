@@ -58,3 +58,6 @@ Workflow resume checkpoints are validated before execution: completed node IDs m
 ## Analytical output contract enforcement
 
 Workflow output validation checks both the declared top-level shape and the value types of analytical fields. Series outputs (including MACD and Bollinger components) must be lists of finite numeric values; the RSI `series` may additionally contain leading `null` entries for its calculation warm-up, but nulls after the first numeric value are rejected. Period metadata and indicator period parameters must be positive integers; booleans, numeric strings, fractional values, zero, and negative values are rejected rather than silently coerced. Descriptive metadata may remain textual, but it cannot replace a numeric analytical series. This is structural validation only and does not establish that source data is authentic or that a calculation is economically meaningful.
+
+
+Checkpoint validation also verifies each completed task's recorded node type against the current DAG and re-runs that node type's output contract against its saved result before allowing resume. This prevents a structurally valid but malformed result, or a result recorded under the wrong worker type, from bypassing validation when downstream nodes consume it.

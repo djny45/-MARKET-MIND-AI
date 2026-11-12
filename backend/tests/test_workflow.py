@@ -23,6 +23,21 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(out["performance"]["node_count"], 3)
         self.assertEqual(out["execution_layers"], [["feed"], ["rsi", "macd"]])
 
+    def test_indicator_period_must_be_a_positive_integer(self):
+        for period in (0, -1, 2.5, True, "5"):
+            with self.subTest(period=period):
+                nodes = [
+                    {"id": "feed", "type": "market_input", "data": {"values": [10, 11, 12, 13, 14]}},
+                    {"id": "sma", "type": "sma", "data": {"period": period}},
+                ]
+                result = execute_workflow(
+                    nodes, [{"source": "feed", "target": "sma"}], {}
+                )
+                tasks = {task["node_id"]: task for task in result["tasks"]}
+                self.assertEqual(result["status"], "completed_with_errors")
+                self.assertEqual(tasks["sma"]["status"], "failed")
+                self.assertEqual(tasks["sma"]["error"], "period must be a positive integer")
+
     def test_parallel_independent_nodes_preserve_results(self):
         nodes = [
             {"id": "feed", "type": "market_input", "data": {"values": [10, 11, 12, 13, 14, 15]}},

@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import patch
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from app.market_data import DataStatus, OHLCVBar
 from app.yahoo_finance_adapter import YahooFinanceAdapter

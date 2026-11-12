@@ -50,6 +50,21 @@ class WorkerContractTests(unittest.TestCase):
             validate_worker_output("sma", {"series": [1.0]})
         validate_worker_output("volatility", 0.25)
 
+    def test_declared_typed_fields_are_enforced(self):
+        validate_worker_output("data_quality", {"data": {"values": [1, 2]}, "quality": {"status": "pass"}})
+        validate_worker_output("returns", {"series": [0.1, 0.2], "summary": {"mean": 0.15}})
+        validate_worker_output("research_summary", {"report": {"findings": []}})
+        invalid = (
+            ("data_quality", {"data": [], "quality": {}}),
+            ("returns", {"series": [0.1], "summary": []}),
+            ("research_summary", {"report": "not-an-object"}),
+            ("bollinger", {"middle": [1.0], "upper": [2.0], "lower": [0.0], "period": True}),
+        )
+        for node_type, output in invalid:
+            with self.subTest(node_type=node_type, output=output):
+                with self.assertRaises(ValueError):
+                    validate_worker_output(node_type, output)
+
     def test_output_contract_rejects_non_finite_nested_numbers(self):
         for output in (
             {"series": [1.0, float("nan")], "period": 2},

@@ -61,10 +61,15 @@ def validate_market_data_payload(
         }
 
     now = datetime.now(timezone.utc)
-    retrieval_age_seconds = max(0.0, (now - batch.retrieved_at).total_seconds())
+    retrieval_age_seconds = (now - batch.retrieved_at).total_seconds()
     retrieval_freshness = None
     warnings = list(batch.warnings)
-    if max_retrieval_age_seconds is not None:
+    if retrieval_age_seconds < 0:
+        retrieval_freshness = "future_timestamp"
+        warnings.append(
+            "Retrieval timestamp is in the future; verify provider clock and timestamp metadata."
+        )
+    elif max_retrieval_age_seconds is not None:
         retrieval_freshness = (
             "stale" if retrieval_age_seconds > max_retrieval_age_seconds else "within_threshold"
         )

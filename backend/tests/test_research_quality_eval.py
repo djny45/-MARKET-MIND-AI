@@ -76,7 +76,7 @@ class ResearchQualityEvalTests(unittest.TestCase):
             source_registry=[{"source_id": "src-1"}, {"source_id": "src-2"}],
         )
         self.assertEqual(result["metrics"]["claims_with_provided_excerpts"], 1)
-        self.assertAlmostEqual(result["metrics"]["claim_excerpt_coverage"], 1 / 3)
+        self.assertAlmostEqual(result["metrics"]["claim_excerpt_coverage"], 1 / 3, places=4)
         self.assertEqual([c["evidence_status"] for c in result["claims"]],
                          ["provided_excerpt", "unknown_source_ids", "not_in_source_refs"])
 

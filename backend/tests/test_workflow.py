@@ -200,6 +200,25 @@ class WorkflowTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "violates its worker contract"):
             execute_workflow(nodes, [], {}, initial_checkpoint=checkpoint)
 
+    def test_resume_rejects_checkpoint_contract_version_mismatch(self):
+        nodes = [{"id": "feed", "type": "market_input", "data": {"values": [1, 2, 3]}}]
+        checkpoint = {
+            "completed_node_ids": ["feed"],
+            "results": {"feed": {"values": [1, 2, 3]}},
+            "tasks": {"feed": {
+                "node_id": "feed", "node_type": "market_input",
+                "status": "completed", "contract_version": "0.9.0",
+            }},
+        }
+        with self.assertRaisesRegex(ValueError, "contract version"):
+            execute_workflow(nodes, [], {}, initial_checkpoint=checkpoint)
+
+    def test_new_task_records_include_contract_version(self):
+        snapshots = []
+        nodes = [{"id": "feed", "type": "market_input", "data": {"values": [1, 2, 3]}}]
+        execute_workflow(nodes, [], {}, checkpoint_callback=snapshots.append)
+        self.assertEqual(snapshots[0]["tasks"]["feed"]["contract_version"], "1.0.0")
+
     def test_resume_rejects_checkpoint_task_type_mismatch(self):
         nodes = [{"id": "feed", "type": "market_input", "data": {"values": [1, 2, 3]}}]
         checkpoint = {

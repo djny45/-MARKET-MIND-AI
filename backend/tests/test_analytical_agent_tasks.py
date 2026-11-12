@@ -81,6 +81,7 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertTrue(execute_queued_research_task(queued["task_id"]))
         saved = get_research_task(queued["task_id"])
         self.assertEqual(saved["status"], "failed")
+        self.assertEqual(saved["input"]["status"], "invalid_persisted_json")
         self.assertEqual(saved["result"]["error"], "Research task failed safely.")
         events = list_task_audit_events(queued["task_id"])["events"]
         self.assertEqual(events[-1]["event_type"], "task_failed")

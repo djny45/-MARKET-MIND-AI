@@ -104,6 +104,18 @@ def execute_workflow(
             raise ValueError("checkpoint completed nodes require a matching completed task and result")
         if expected_type not in NODE_TYPES:
             raise ValueError(f"Unsupported node type in checkpoint: {expected_type}")
+        # New checkpoints carry an explicit contract version. Older schema-v1
+        # snapshots without this field remain readable only after the current
+        # output validator accepts their saved result.
+        saved_contract_version = task.get("contract_version")
+        if saved_contract_version is None and isinstance(task.get("worker_contract"), dict):
+            saved_contract_version = task["worker_contract"].get("contract_version")
+        current_contract_version = get_worker_contract(expected_type)["contract_version"]
+        if (saved_contract_version is not None
+                and saved_contract_version != current_contract_version):
+            raise ValueError(
+                f"checkpoint contract version for node {completed_id} is unsupported"
+            )
         try:
             validate_worker_output(expected_type, checkpoint_results[completed_id])
         except (TypeError, ValueError) as exc:
@@ -146,6 +158,7 @@ def execute_workflow(
                 "intelligence_core": worker_assignment["intelligence_core"],
                 "execution_mode": worker_assignment["execution_mode"],
                 "worker_contract": get_worker_contract(kind),
+                "contract_version": get_worker_contract(kind)["contract_version"],
                 "evidence_status": "not_supplied",
                 "dependency_ids": dependencies,
                 "layer": layer_index,

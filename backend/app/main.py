@@ -48,6 +48,7 @@ from .performance import performance_metrics
 from . import workspace
 from .market_data import SyntheticFixtureAdapter, MarketDataBatch
 from .yahoo_finance_adapter import YahooFinanceAdapter
+from .stooq_adapter import StooqAdapter
 from .market_data_validation import validate_market_data_payload
 from . import market_store
 from .market_events import store_market_events, query_market_events
@@ -550,6 +551,13 @@ def provider_status():
    "credential_required": False,
    "purpose": "best-effort historical research; upstream availability and terms may change",
    "endpoint": "/api/market-data/yahoo",
+  }, {
+   "name": StooqAdapter.name,
+   "status": "implemented_not_probed",
+   "data_status": "historical",
+   "credential_required": False,
+   "purpose": "best-effort daily historical research; check provider terms before storage or redistribution",
+   "endpoint": "/api/market-data/stooq",
   }],
   "available_adapters": [{
    "name": SyntheticFixtureAdapter.name,
@@ -1747,6 +1755,38 @@ async def fetch_yahoo_historical_data(
  }
 
 
+
+@app.get("/api/market-data/stooq")
+async def fetch_stooq_historical_data(
+ symbol: str,
+ interval: str = "1d",
+ limit: int = 100,
+):
+ """Fetch best-effort Stooq daily history for research and persist provenance."""
+ if not symbol.strip() or len(symbol.strip()) > 32:
+  raise HTTPException(status_code=400, detail="symbol must contain 1 to 32 characters")
+ if interval != "1d":
+  raise HTTPException(status_code=400, detail="Stooq supports daily interval 1d only")
+ if limit < 1 or limit > 5000:
+  raise HTTPException(status_code=400, detail="limit must be between 1 and 5000")
+ try:
+  batch = await StooqAdapter().get_bars(symbol, interval, limit)
+  storage = market_store.store_batch(batch)
+ except (ValueError, RuntimeError) as exc:
+  raise HTTPException(status_code=502, detail=f"Historical provider unavailable or returned invalid data: {exc}") from exc
+ return {
+  "mode": "historical_research_ingestion",
+  "symbol": batch.symbol, "interval": batch.interval,
+  "source": batch.source, "status": batch.status.value,
+  "retrieved_at": batch.retrieved_at.isoformat(),
+  "observation_count": len(batch.bars),
+  "storage": storage,
+  "bars": [bar.model_dump(mode="json") for bar in batch.bars],
+  "execution": "disabled",
+  "warnings": batch.warnings + [
+   "Historical data only; no live trading, order routing, or buy/sell recommendation.",
+  ],
+ }
 @app.post("/api/research/autonomous-stored")
 async def autonomous_research_stored(
  symbol: str,

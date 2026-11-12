@@ -12,7 +12,7 @@ import math
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from .market_data import DataStatus, MarketDataBatch, OHLCVBar
@@ -72,6 +72,8 @@ class YahooFinanceAdapter:
                 ))
         except (KeyError, IndexError, TypeError, ValueError) as exc:
             raise ValueError("Yahoo response did not contain valid OHLCV chart data") from exc
+        if interval == "4h":
+            bars = self._aggregate_four_hour_bars(bars)
         bars = bars[-limit:]
         if not bars:
             raise ValueError(f"No OHLCV bars returned for {symbol}; verify symbol and provider availability")
@@ -85,12 +87,46 @@ class YahooFinanceAdapter:
             warnings=[
                 "Best-effort Yahoo Finance chart data; provider availability and licensing may change.",
                 "Historical research data only; not guaranteed real-time or suitable for execution.",
-                "Requested 4h bars are sourced from 1h data and are not aggregated.",
+                "Four-hour candles aggregate four consecutive hourly candles; incomplete groups around session gaps are omitted.",
             ] if interval == "4h" else [
                 "Best-effort Yahoo Finance chart data; provider availability and licensing may change.",
                 "Historical research data only; not guaranteed real-time or suitable for execution.",
             ],
         )
+
+    @staticmethod
+    def _aggregate_four_hour_bars(bars: list[OHLCVBar]) -> list[OHLCVBar]:
+        """Aggregate only complete runs of four contiguous hourly candles.
+
+        A gap starts a new group. Partial groups are discarded so a short session
+        or missing hour is never labelled as a complete four-hour candle.
+        """
+        aggregated: list[OHLCVBar] = []
+        group: list[OHLCVBar] = []
+
+        def flush_group() -> None:
+            if len(group) != 4:
+                return
+            first, last = group[0], group[-1]
+            aggregated.append(OHLCVBar(
+                timestamp=first.timestamp,
+                open=first.open,
+                high=max(bar.high for bar in group),
+                low=min(bar.low for bar in group),
+                close=last.close,
+                volume=sum(bar.volume for bar in group),
+                adjusted_close=last.adjusted_close,
+            ))
+
+        for bar in bars:
+            if group and bar.timestamp - group[-1].timestamp != timedelta(hours=1):
+                flush_group()
+                group = []
+            group.append(bar)
+            if len(group) == 4:
+                flush_group()
+                group = []
+        return aggregated
 
     def _fetch_chart(self, symbol: str, interval: str) -> dict[str, Any]:
         encoded_symbol = urllib.parse.quote(symbol, safe="")

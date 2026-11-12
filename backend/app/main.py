@@ -7,6 +7,7 @@ import json
 from datetime import datetime, timezone
 from contextlib import asynccontextmanager
 from .workflow import NODE_TYPES, execute_workflow
+from .worker_contracts import get_worker_contract
 from .workers import list_workers
 from .worker_runtime import worker_runtime_status
 from .worker_memory import append_memory, read_memory, recall_memory, review_learning_candidate, list_learning_candidates, recall_approved_learning_candidates, review_improvement_proposal, list_improvement_proposals
@@ -2161,9 +2162,23 @@ def _validate_checkpoint_integrity(request_payload: dict, checkpoint: dict, know
         or record.get("status") not in allowed_statuses
         for node_id, record in tasks.items()):
   raise HTTPException(status_code=409, detail="Checkpoint contains an invalid task record.")
- if any(node_id not in results or tasks.get(node_id, {}).get("status") != "completed"
-        for node_id in completed_ids):
-  raise HTTPException(status_code=409, detail="Checkpoint is incomplete or internally inconsistent.")
+ node_types = {
+  str(node.get("id", "")): node.get("type")
+  for node in request_payload.get("nodes", [])
+  if isinstance(node, dict)
+ }
+ for node_id in completed_ids:
+  task = tasks.get(node_id, {})
+  expected_type = node_types.get(node_id)
+  if (node_id not in results or task.get("status") != "completed"
+      or task.get("node_type") != expected_type
+      or expected_type not in NODE_TYPES):
+   raise HTTPException(status_code=409, detail="Checkpoint is incomplete or internally inconsistent.")
+  saved_version = task.get("contract_version")
+  if saved_version is None and isinstance(task.get("worker_contract"), dict):
+   saved_version = task["worker_contract"].get("contract_version")
+  if saved_version is not None and saved_version != get_worker_contract(expected_type)["contract_version"]:
+   raise HTTPException(status_code=409, detail="Checkpoint uses an unsupported worker contract version.")
  if not set(results).issubset(completed_ids):
   raise HTTPException(status_code=409, detail="Checkpoint contains results for nodes not marked completed.")
  completed_layers = checkpoint.get("completed_layers", 0)

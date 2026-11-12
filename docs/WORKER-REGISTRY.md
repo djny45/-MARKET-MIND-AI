@@ -83,3 +83,8 @@ Workflow runs persist the latest completed-layer snapshot in SQLite before the r
 ### Durable checkpoint write fencing
 
 Workflow-run checkpoints now carry a monotonically increasing `checkpoint_version` in SQLite. A writer can supply the version it previously read; the update is accepted only if that version is still current, and the version increments atomically with the checkpoint JSON and its SHA-256 digest. A stale writer receives a conflict instead of silently overwriting a newer checkpoint. Existing databases are migrated additively with version zero, and the first successful update establishes a verified digest. The digest detects accidental corruption; it is not a keyed MAC, digital signature, or protection against an attacker who can rewrite both data and digest. Workflow execution uses version-fenced writes for each completed layer and final status persistence.
+
+
+### Specialist schema validation update
+
+Contract v1.1 now enforces minimum observation counts for return and realized-volatility inputs, validates the RSI series and period fields explicitly, and requires realized-volatility object outputs to include a finite per-observation value and positive observation count (with optional finite annualized value). Scalar volatility outputs remain accepted for compatible implementations. These are structural/domain-shape checks, not a claim that source data is authentic or analytically correct.

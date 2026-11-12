@@ -270,6 +270,30 @@ For manual setup, see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 | POST | `/api/research/compare-exports` | Compare two compatible historical evidence bundles |\n\nDeep terminal report (single or multi-timeframe):\n\n```bash\ncd backend\nPYTHONPATH=. python terminal_chart_report.py --symbol BTCUSD --mode single --interval 1h --limit 500 --deep\nPYTHONPATH=. python terminal_chart_report.py --symbol BTCUSD --mode multi --intervals 15m,1h,4h,1d --limit 500 --deep\nPYTHONPATH=. python terminal_chart_report.py --symbol BTCUSD --mode single --interval 1h --limit 500 --deep --correlate-symbols ETHUSD,SOLUSD\nPYTHONPATH=. python terminal_chart_report.py --symbol BTCUSD --mode single --interval 1h --limit 500 --deep --breadth-symbols ETHUSD,SOLUSD\n```\n\nThe deep report adds structural data-quality diagnostics, optional cross-asset correlation and market-breadth summaries from exact timestamp matches, and a consolidated `dashboard` summary. It does not infer freshness or missing exchange sessions without provider-specific schedules. See [deep analysis guide](docs/DEEP-ANALYSIS.md).
 | POST | `/api/workflows/execute` | Execute a directed research graph |
 
+## Market-data validation API
+
+Use `POST /api/market-data/validate` to inspect a supplied normalized OHLCV batch before including it in a research workflow. The endpoint is non-mutating and returns structural errors, warnings, bar counts, timestamp bounds, and retrieval metadata.
+
+Example request:
+
+```json
+{
+  "payload": {
+    "symbol": "BTCUSD",
+    "interval": "1h",
+    "status": "historical",
+    "source": "authorized-provider",
+    "retrieved_at": "2026-11-12T08:00:00Z",
+    "bars": []
+  },
+  "max_retrieval_age_seconds": 3600
+}
+```
+
+`max_retrieval_age_seconds` is optional and represents a caller-selected threshold; it is not a universal definition of fresh data. When supplied, the response classifies retrieval metadata as `within_threshold` or `stale`. A future-dated `retrieved_at` is reported separately as `future_timestamp` and includes a clock/metadata warning. Without a threshold, the endpoint reports retrieval age but does not classify ordinary data as stale or fresh.
+
+This is a structural diagnostic only. It does not authenticate the provider, verify licensing, prove that bars are complete for an exchange session, or establish the accuracy of prices. Review warnings and provider-specific market calendars before relying on a dataset.
+
 ## Repository structure
 
 ```text

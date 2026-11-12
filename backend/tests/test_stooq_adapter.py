@@ -76,6 +76,7 @@ class StooqAdapterTests(unittest.IsolatedAsyncioTestCase):
                 adapter._fetch_csv("aapl.us")
         self.assertNotIn(secret, str(raised.exception))
         self.assertNotIn("apikey=", str(raised.exception))
+
     def test_timeout_bounds(self):
         with self.assertRaises(ValueError):
             StooqAdapter(timeout_seconds=0.2)

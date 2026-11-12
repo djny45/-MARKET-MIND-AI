@@ -40,7 +40,9 @@ This roadmap is a plan, not a claim that features already exist. Mark an item co
 
 ## Phase 4 — Intelligence and workflow canvas
 - [ ] Define complete typed specialist-worker input/output contracts.
-- [x] Add versioned v1.0.0 contract definitions and runtime shape validation for supported workflow node types; detailed domain schemas and mandatory provenance enforcement remain pending.\n  - [x] Validate optional supplied source provenance (non-empty source, timezone-aware ISO-8601 retrieval timestamp, and quality status); provider-wide mandatory provenance remains pending.
+- [x] Add versioned v1.0.0 contract definitions and runtime shape validation for supported workflow node types; detailed domain schemas and mandatory provenance enforcement remain pending.
+  - [x] Add field-level specialist output descriptors for finite numeric lists, positive integers, and object fields; full per-domain input schemas remain pending.
+  - [x] Validate optional supplied source provenance (non-empty source, timezone-aware ISO-8601 retrieval timestamp, and quality status); provider-wide mandatory provenance remains pending.
   - [x] Propagate validated provenance metadata into findings and report coverage metrics (coverage, unprovenanced nodes, declared source counts, and quality-status counts); these metadata checks do not prove source authenticity or claim entailment.
 - [ ] Build central research orchestrator with model-backed inference and evidence-grounded synthesis.
 - [x] Add optional single-core local Ollama provider boundary (loopback-only, disabled by default, bounded input, timeout/failure fallback and status API); evidence-citation prompts, human approval and model-backed integration tests remain pending.
@@ -52,12 +54,16 @@ This roadmap is a plan, not a claim that features already exist. Mark an item co
 - [x] Add prototype evidence-aware review gate; source IDs must match a supplied registry. Reviewer authentication and persistent audit remain pending.
 - [x] Add conservative evidence traceability audit: unknown reference reporting, URL/declared-group source grouping, and explicitly keyed stance-disagreement candidates with human-review status. This is heuristic metadata analysis, not source authenticity, entailment, or truth verification.
 - [ ] Implement actual agent task execution with shared-core inference, isolated per-agent context, source retrieval and task lifecycle persistence.
+  - [x] Harden queued-task lifecycle with guarded persisted-input parsing, terminal failure on corrupt input or scope cleanup errors, and safe inspection of malformed stored records.
+  - [x] Add concurrent duplicate-dispatch regression coverage for atomic task claiming, single execution, attempt counting, and audit-event uniqueness.
 - [ ] Implement autonomous research scheduling and cloud workspaces (not implemented).
 - [ ] Implement evaluated learning loop with benchmark datasets, quality metrics, regression gates, and reviewed promotion.
 - [ ] Build visual node-based research workflows.
 - [x] Add initial provenance coverage and metadata-quality counts to orchestrated research reports; full source authenticity, claim entailment, and end-to-end explainability remain pending.
 
 Current boundary: worker routing invokes deterministic Python handlers. The 550 profiles are not independent models. Optional Ollama is a single shared, loopback-only summarization provider and is disabled by default; autonomous self-learning and brokerage execution remain disabled.
+
+- [x] Add worker contract-version metadata to workflow task records and reject incompatible saved checkpoint contracts; legacy unversioned snapshots remain output-validated, not automatically transformed.
 
 ## Phase 5 — Reliability and governance
 - [x] Add historical evidence export, SHA-256 verification, batch verification, and before/after comparison with provenance.
@@ -69,6 +75,7 @@ Current boundary: worker routing invokes deterministic Python handlers. The 550 
 - [ ] Add observability, performance profiling, and load tests.
 - [ ] Add security review and dependency/licence inventory.
 - [ ] Complete host-specific backup/restore drills, retention policy, migration rollback, and incident procedures.
+  - [x] Add SHA-256 digests for newly persisted workflow checkpoints and block recovery when a stored digest mismatches; same-database digest is corruption detection, not authenticity.
 - [ ] Add authentication/authorization and TLS ingress before public deployment.
 
 ## Acceptance criteria

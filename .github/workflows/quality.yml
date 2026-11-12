@@ -329,6 +329,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
+      PYTHONPATH: backend
       MARKET_MIND_AUTH_REQUIRED: "true"
       MARKET_MIND_AUTH_DB: ${{ runner.temp }}/auth-e2e.sqlite
       MARKET_MIND_DB: ${{ runner.temp }}/market-e2e.sqlite

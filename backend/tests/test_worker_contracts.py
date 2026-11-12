@@ -62,6 +62,13 @@ class WorkerContractTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "finite numbers"):
                     validate_worker_output(node_type, output)
 
+    def test_market_input_output_requires_finite_numeric_values(self):
+        from app.worker_contracts import validate_worker_output
+        for values in (["12"], [True], [float("inf")], None):
+            with self.subTest(values=values):
+                with self.assertRaises(ValueError):
+                    validate_worker_output("market_input", {"values": values})
+
     def test_output_contract_rejects_non_numeric_analytical_series(self):
         invalid_outputs = (
             ("sma", {"series": [1.0, "bad"], "period": 2}),

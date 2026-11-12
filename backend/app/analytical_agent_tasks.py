@@ -315,8 +315,11 @@ def execute_queued_research_task(task_id: str) -> bool:
                       from_status="queued", to_status="running", occurred_at=now)
         task_input = json.loads(row["input_json"])
         agent_id = row["worker_id"]
-    scope_token = set_agent_scope(agent_id, task_id)
+    scope_token = None
     try:
+        # Scope setup is part of execution: if it fails, the claimed task must
+        # still be finalized as failed rather than stranded in the running state.
+        scope_token = set_agent_scope(agent_id, task_id)
         # Build context inside the guarded execution block. A memory/configuration
         # failure must transition the claimed task to failed, not strand it as running.
         brain = brain_config(agent_id)
@@ -376,7 +379,8 @@ def execute_queued_research_task(task_id: str) -> bool:
         result = {"error": "Research task failed safely.", **failure}
         status = "failed"
     finally:
-        reset_agent_scope(scope_token)
+        if scope_token is not None:
+            reset_agent_scope(scope_token)
     updated = datetime.now(timezone.utc).isoformat()
     with _connect() as db:
         # Fence completion by the exact claim token. If stale recovery requeued

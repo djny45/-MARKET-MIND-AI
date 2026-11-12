@@ -354,6 +354,62 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
 
 
 
+    def test_stale_recovery_fences_old_executor_after_new_claim(self):
+        import threading
+        import sqlite3
+        from concurrent.futures import ThreadPoolExecutor
+        from datetime import datetime, timedelta, timezone
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, execute_queued_research_task,
+            recover_interrupted_research_tasks,
+        )
+
+        queued = enqueue_research_task("worker_005", "fence stale executor")
+        first_entered, second_entered = threading.Event(), threading.Event()
+        release_first, release_second = threading.Event(), threading.Event()
+        calls = []
+
+        def controlled_synthesis(payload):
+            attempt = len(calls) + 1
+            calls.append(attempt)
+            gate = release_first if attempt == 1 else release_second
+            entered = first_entered if attempt == 1 else second_entered
+            entered.set()
+            if not gate.wait(timeout=8):
+                raise TimeoutError("test synthesis release timed out")
+            return {"status": "completed", "summary": f"attempt-{attempt}"}
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            with patch("app.analytical_agent_tasks.synthesize_research", side_effect=controlled_synthesis):
+                old_executor = pool.submit(execute_queued_research_task, queued["task_id"])
+                self.assertTrue(first_entered.wait(timeout=5))
+                stale_timestamp = (datetime.now(timezone.utc) - timedelta(seconds=1200)).isoformat()
+                with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+                    db.execute(
+                        "UPDATE analytical_agent_tasks SET updated_at=? WHERE task_id=?",
+                        (stale_timestamp, queued["task_id"]),
+                    )
+                recovery = recover_interrupted_research_tasks(stale_after_seconds=900)
+                self.assertEqual(recovery["requeued_interrupted_count"], 1)
+                new_executor = pool.submit(execute_queued_research_task, queued["task_id"])
+                self.assertTrue(second_entered.wait(timeout=5))
+
+                release_first.set()
+                self.assertFalse(old_executor.result(timeout=5))
+                # The old executor cannot overwrite the newer running claim.
+                interim = get_research_task(queued["task_id"])
+                self.assertEqual(interim["status"], "running")
+                self.assertEqual(interim["execution_attempts"], 2)
+
+                release_second.set()
+                self.assertTrue(new_executor.result(timeout=5))
+
+        saved = get_research_task(queued["task_id"])
+        self.assertEqual(saved["status"], "completed")
+        self.assertEqual(saved["result"]["shared_core_result"]["summary"], "attempt-2")
+        self.assertEqual(saved["execution_attempts"], 2)
+        self.assertEqual(calls, [1, 2])
+
     def test_recovery_requeues_stale_running_tasks_and_preserves_queued(self):
         from app.analytical_agent_tasks import enqueue_research_task, recover_interrupted_research_tasks
         from datetime import datetime, timedelta, timezone

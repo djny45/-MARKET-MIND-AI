@@ -43,7 +43,9 @@ class AuthenticationApiTests(unittest.TestCase):
                 self.assertEqual(self.client.get(path).status_code, 404)
 
     def test_cors_headers_are_present_on_auth_denials_and_preflight(self):
-        origin = "http://testserver"
+        # CORSMiddleware is configured when app.main is imported, before each
+        # test's environment patch is applied.
+        origin = "http://localhost:5173"
         denied = self.client.get("/api/watchlist", headers={"Origin": origin})
         self.assertEqual(denied.status_code, 401)
         self.assertEqual(denied.headers.get("access-control-allow-origin"), origin)

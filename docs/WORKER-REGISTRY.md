@@ -72,7 +72,7 @@ Concurrent duplicate task dispatch is tested with two simultaneous callers while
 
 ## Typed specialist output fields
 
-Worker output descriptors now declare field-level types in addition to required keys. Supported declarations include finite numeric lists, positive integers, and object fields. RSI series retain the narrow leading warm-up-null exception; nulls after the first numeric observation are rejected. The validator applies the declarations at runtime, so the registry metadata and output checks share one contract definition. The current version remains `1.0.0` because these descriptors formalize the existing accepted shapes; any future breaking shape change must increment the contract version and invalidate incompatible saved checkpoints.
+Worker output descriptors now declare field-level types in addition to required keys. Supported declarations include finite numeric lists, positive integers, and object fields. RSI series retain the narrow leading warm-up-null exception; nulls after the first numeric observation are rejected. The validator applies the declarations at runtime, so the registry metadata and output checks share one contract definition. The typed field descriptors are versioned as `1.1.0`. A saved `1.0.0` checkpoint is migrated only after its completed output passes the current `1.1.0` validator; its task metadata is then rewritten to the current contract. Unknown legacy versions are rejected. Any future breaking shape change must increment the contract version and define an explicit safe migration or require a new workflow run.
 
 
 ## Durable workflow checkpoint integrity

@@ -467,7 +467,7 @@ class AutonomousResearchFixtureRequest(BaseModel):
 
 class MarketDataValidationRequest(BaseModel):
  payload: Any
- max_retrieval_age_seconds: float | None = Field(default=None, ge=0, le=31536000)
+ max_retrieval_age_seconds: float | None = Field(default=None, ge=0, le=31536000, strict=True)
 
 
 @app.post("/api/market-data/validate")

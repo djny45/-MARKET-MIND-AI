@@ -79,6 +79,12 @@ class WorkerContractTests(unittest.TestCase):
              "quality_status": "pass"},
             {"input_source": "provider", "retrieval_timestamp": "2026-11-10T12:30:00Z",
              "quality_status": "unsupported"},
+            {"input_source": "x" * 201, "retrieval_timestamp": "2026-11-10T12:30:00Z",
+             "quality_status": "pass"},
+            {"input_source": "provider", "retrieval_timestamp": "x" * 65,
+             "quality_status": "pass"},
+            {"input_source": "provider", "retrieval_timestamp": "2026-11-10T12:30:00Z",
+             "quality_status": ["pass"]},
         ):
             with self.subTest(evidence=evidence):
                 with self.assertRaises(ValueError):

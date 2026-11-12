@@ -78,3 +78,8 @@ Worker output descriptors now declare field-level types in addition to required 
 ## Durable workflow checkpoint integrity
 
 Workflow runs persist the latest completed-layer snapshot in SQLite before the run advances. New checkpoint writes store a SHA-256 digest of the exact serialized checkpoint in a separate database column; reads verify the digest before exposing a snapshot for recovery. A mismatch is reported as a checkpoint integrity error and resume is blocked. Existing rows created before digest support are labelled `legacy_unverified` and remain subject to request-fingerprint, checkpoint-structure, node-type, contract-version, and output-contract validation. The digest detects accidental corruption; because the digest is stored in the same database, it is not an authenticity guarantee or a defense against a malicious database editor. Back up the SQLite database and verify restores before relying on recovery.
+
+
+### Durable checkpoint write fencing
+
+Workflow-run checkpoints now carry a monotonically increasing `checkpoint_version` in SQLite. A writer can supply the version it previously read; the update is accepted only if that version is still current, and the version increments atomically with the checkpoint JSON and its SHA-256 digest. A stale writer receives a conflict instead of silently overwriting a newer checkpoint. Existing databases are migrated additively with version zero, and the first successful update establishes a verified digest. The digest detects accidental corruption; it is not a keyed MAC, digital signature, or protection against an attacker who can rewrite both data and digest. Workflow execution uses version-fenced writes for each completed layer and final status persistence.

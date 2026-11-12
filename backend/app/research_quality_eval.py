@@ -121,6 +121,7 @@ def evaluate_research_draft(
     claims_with_known_refs = 0
     unknown_refs = set()
     reviewed = []
+    claims_with_excerpts = 0
     for claim in claims:
         if not isinstance(claim, dict):
             raise ValueError("claims entries must be objects")
@@ -137,11 +138,43 @@ def evaluate_research_draft(
         if refs and not missing:
             claims_with_known_refs += 1
         unknown_refs.update(missing)
+        evidence = claim.get("evidence", [])
+        if not isinstance(evidence, list) or len(evidence) > 30:
+            raise ValueError("claim evidence must be a list of at most 30 entries")
+        evidence_sources = set()
+        evidence_unknown = set()
+        for item in evidence:
+            if not isinstance(item, dict):
+                raise ValueError("claim evidence entries must be objects")
+            evidence_source_id = item.get("source_id")
+            excerpt = item.get("excerpt")
+            if not isinstance(evidence_source_id, str) or not evidence_source_id.strip():
+                raise ValueError("claim evidence requires a non-empty source_id")
+            if not isinstance(excerpt, str) or not excerpt.strip() or len(excerpt) > 2000:
+                raise ValueError("claim evidence excerpt must contain 1 to 2000 characters")
+            evidence_source_id = evidence_source_id.strip()
+            evidence_sources.add(evidence_source_id)
+            if evidence_source_id not in source_ids:
+                evidence_unknown.add(evidence_source_id)
+        evidence_unknown = sorted(evidence_unknown)
+        orphaned_evidence = sorted(evidence_sources - set(refs))
+        if evidence and not evidence_unknown and not orphaned_evidence:
+            claims_with_excerpts += 1
+        evidence_status = (
+            "missing" if not evidence else
+            ("unknown_source_ids" if evidence_unknown else
+             ("not_in_source_refs" if orphaned_evidence else "provided_excerpt"))
+        )
         reviewed.append({
             "claim": text.strip(),
             "source_refs": refs,
             "reference_status": "missing" if not refs else ("unknown_ids" if missing else "registry_match"),
             "unknown_source_ids": missing,
+            "evidence_status": evidence_status,
+            "evidence_source_ids": sorted(evidence_sources),
+            "unknown_evidence_source_ids": evidence_unknown,
+            "evidence_refs_not_in_source_refs": orphaned_evidence,
+            "provided_excerpt_count": len(evidence),
         })
 
     if (not isinstance(uncertainty_markers, (tuple, list)) or not uncertainty_markers
@@ -157,6 +190,8 @@ def evaluate_research_draft(
         "claim_count": total,
         "claims_with_source_refs": claims_with_refs,
         "claims_with_known_source_refs": claims_with_known_refs,
+        "claims_with_provided_excerpts": claims_with_excerpts,
+        "claim_excerpt_coverage": round(claims_with_excerpts / denominator, 4) if total else None,
         "claim_reference_coverage": round(claims_with_refs / denominator, 4) if total else None,
         "known_source_reference_coverage": round(claims_with_known_refs / denominator, 4) if total else None,
         "unknown_source_id_count": len(unknown_refs),

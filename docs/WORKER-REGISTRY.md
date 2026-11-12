@@ -53,6 +53,8 @@ Research-task execution binds a task-local agent scope using Python `ContextVar`
 
 This is in-process context isolation, not a distributed context-propagation system. Any future integration that crosses raw thread or process boundaries must explicitly propagate or re-establish the scope. The current implementation does not add NeMo Relay instrumentation or a new inference provider.
 
+Workflow resume checkpoints are validated before execution: completed node IDs must be unique and belong to the current DAG, and each completed node must have a matching completed task record and result. Result and task maps cannot reference unknown nodes. This prevents malformed or stale checkpoint state from silently skipping work. Checkpoints remain caller-supplied state; this validation does not provide durable storage or cryptographic authenticity.
+
 ## Analytical output contract enforcement
 
 Workflow output validation checks both the declared top-level shape and the value types of analytical fields. Series outputs (including MACD and Bollinger components) must be lists of finite numeric values; the RSI `series` may additionally contain leading `null` entries for its calculation warm-up, but nulls after the first numeric value are rejected. Period metadata and indicator period parameters must be positive integers; booleans, numeric strings, fractional values, zero, and negative values are rejected rather than silently coerced. Descriptive metadata may remain textual, but it cannot replace a numeric analytical series. This is structural validation only and does not establish that source data is authentic or that a calculation is economically meaningful.

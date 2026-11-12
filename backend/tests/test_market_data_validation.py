@@ -96,5 +96,18 @@ class MarketDataValidationReportTests(unittest.TestCase):
 
 
 
+    def test_future_retrieval_timestamp_is_flagged_not_called_fresh(self):
+        report = validate_market_data_payload({
+            "symbol": "BTCUSD", "interval": "1d", "status": "historical",
+            "source": "provider-x", "retrieved_at": "2099-01-02T00:00:00Z",
+            "bars": [],
+        }, max_retrieval_age_seconds=60)
+        self.assertTrue(report["valid"])
+        self.assertEqual(report["retrieval_freshness"], "future_timestamp")
+        self.assertLess(report["retrieval_age_seconds"], 0)
+        self.assertTrue(any("in the future" in item for item in report["warnings"]))
+
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -163,16 +163,17 @@ def validate_evidence_provenance(evidence) -> None:
             "Evidence provenance is missing required fields: " + ", ".join(missing)
         )
     source = evidence["input_source"]
-    if not isinstance(source, str) or not source.strip():
-        raise ValueError("Evidence provenance input_source must be a non-empty string")
+    if not isinstance(source, str) or not source.strip() or len(source.strip()) > 200:
+        raise ValueError("Evidence provenance input_source must contain 1 to 200 characters")
     timestamp = evidence["retrieval_timestamp"]
-    if not isinstance(timestamp, str) or not timestamp.strip():
-        raise ValueError("Evidence provenance retrieval_timestamp must be an ISO-8601 string")
+    if not isinstance(timestamp, str) or not timestamp.strip() or len(timestamp.strip()) > 64:
+        raise ValueError("Evidence provenance retrieval_timestamp must contain 1 to 64 characters")
     try:
         parsed = datetime.fromisoformat(timestamp.strip().replace("Z", "+00:00"))
     except ValueError as exc:
         raise ValueError("Evidence provenance retrieval_timestamp must be valid ISO-8601") from exc
     if parsed.tzinfo is None or parsed.utcoffset() is None:
         raise ValueError("Evidence provenance retrieval_timestamp must include a timezone")
-    if evidence["quality_status"] not in ("pass", "warn", "fail", "unknown"):
+    quality_status = evidence["quality_status"]
+    if not isinstance(quality_status, str) or quality_status not in ("pass", "warn", "fail", "unknown"):
         raise ValueError("Evidence provenance quality_status must be pass, warn, fail, or unknown")

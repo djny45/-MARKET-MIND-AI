@@ -1,5 +1,5 @@
 """SQLite persistence for named visual research workflows."""
-import json, os, sqlite3, uuid
+import hashlib, json, os, sqlite3, uuid
 from pathlib import Path
 from datetime import datetime, timezone
 
@@ -93,6 +93,13 @@ def get_execution(run_id):
           request_json TEXT NOT NULL, result_json TEXT NOT NULL,
           created_at TEXT NOT NULL, updated_at TEXT NOT NULL
         )""")
+        columns={row["name"] for row in con.execute("PRAGMA table_info(workflow_runs)")}
+        if "checkpoint_json" not in columns:
+            con.execute("ALTER TABLE workflow_runs ADD COLUMN checkpoint_json TEXT NOT NULL DEFAULT '{}'")
+        if "checkpoint_sha256" not in columns:
+            con.execute("ALTER TABLE workflow_runs ADD COLUMN checkpoint_sha256 TEXT NOT NULL DEFAULT ''")
+        if "checkpoint_version" not in columns:
+            con.execute("ALTER TABLE workflow_runs ADD COLUMN checkpoint_version INTEGER NOT NULL DEFAULT 0")
         row=con.execute("SELECT * FROM workflow_runs WHERE id=?",(run_id,)).fetchone()
     if row is None:
         return None
@@ -112,11 +119,19 @@ def get_execution(run_id):
         record["result"]={}
         record["result_error"]="Stored workflow result is malformed."
     checkpoint_json=record.pop("checkpoint_json", "{}")
+    stored_digest=record.pop("checkpoint_sha256", "")
+    if stored_digest:
+        actual_digest=hashlib.sha256(checkpoint_json.encode("utf-8")).hexdigest()
+        record["checkpoint_integrity"]="verified_sha256" if actual_digest == stored_digest else "digest_mismatch"
+    else:
+        record["checkpoint_integrity"]="legacy_unverified"
     try:
+        if record["checkpoint_integrity"] == "digest_mismatch":
+            raise ValueError("checkpoint digest mismatch")
         checkpoint=json.loads(checkpoint_json)
-    except (TypeError, json.JSONDecodeError):
+    except (TypeError, ValueError, json.JSONDecodeError):
         checkpoint={}
-        record["checkpoint_error"]="Stored checkpoint is malformed; it cannot be used for recovery."
+        record["checkpoint_error"]="Stored checkpoint is malformed or failed its integrity check; it cannot be used for recovery."
     if not isinstance(checkpoint, dict):
         checkpoint={}
         record["checkpoint_error"]="Stored checkpoint has an invalid format; it cannot be used for recovery."
@@ -124,7 +139,7 @@ def get_execution(run_id):
     return record
 
 
-def update_execution_checkpoint(run_id, checkpoint, status="running", result_payload=None):
+def update_execution_checkpoint(run_id, checkpoint, status="running", result_payload=None, expected_checkpoint_version=None):
     """Atomically persist the latest completed-layer checkpoint."""
     checkpoint_json=json.dumps(checkpoint,separators=(",",":"),allow_nan=False)
     result_json=json.dumps(result_payload,separators=(",",":"),allow_nan=False) if result_payload is not None else None
@@ -133,15 +148,28 @@ def update_execution_checkpoint(run_id, checkpoint, status="running", result_pay
         columns={row["name"] for row in con.execute("PRAGMA table_info(workflow_runs)")}
         if "checkpoint_json" not in columns:
             con.execute("ALTER TABLE workflow_runs ADD COLUMN checkpoint_json TEXT NOT NULL DEFAULT '{}'")
+        if "checkpoint_sha256" not in columns:
+            con.execute("ALTER TABLE workflow_runs ADD COLUMN checkpoint_sha256 TEXT NOT NULL DEFAULT ''")
+        if "checkpoint_version" not in columns:
+            con.execute("ALTER TABLE workflow_runs ADD COLUMN checkpoint_version INTEGER NOT NULL DEFAULT 0")
+        checkpoint_digest=hashlib.sha256(checkpoint_json.encode("utf-8")).hexdigest()
         if result_json is None:
-            con.execute("""UPDATE workflow_runs SET checkpoint_json=?,status=?,updated_at=? WHERE id=?""",
-              (checkpoint_json,status,now,run_id))
+            assignments="checkpoint_json=?,checkpoint_sha256=?,status=?,updated_at=?,checkpoint_version=checkpoint_version+1"
+            params=[checkpoint_json,checkpoint_digest,status,now,run_id]
         else:
-            con.execute("""UPDATE workflow_runs SET checkpoint_json=?,result_json=?,status=?,updated_at=? WHERE id=?""",
-              (checkpoint_json,result_json,status,now,run_id))
-        if con.total_changes == 0:
-            raise KeyError("Workflow run not found")
-    return {"id":run_id,"status":status,"updated_at":now}
+            assignments="checkpoint_json=?,checkpoint_sha256=?,result_json=?,status=?,updated_at=?,checkpoint_version=checkpoint_version+1"
+            params=[checkpoint_json,checkpoint_digest,result_json,status,now,run_id]
+        where="id=?"
+        if expected_checkpoint_version is not None:
+            where += " AND checkpoint_version=?"
+            params.append(expected_checkpoint_version)
+        cursor=con.execute(f"UPDATE workflow_runs SET {assignments} WHERE {where}",params)
+        if cursor.rowcount == 0:
+            if con.execute("SELECT 1 FROM workflow_runs WHERE id=?",(run_id,)).fetchone() is None:
+                raise KeyError("Workflow run not found")
+            raise RuntimeError("Checkpoint version conflict; reload the latest checkpoint before writing.")
+        new_version=con.execute("SELECT checkpoint_version FROM workflow_runs WHERE id=?",(run_id,)).fetchone()["checkpoint_version"]
+    return {"id":run_id,"status":status,"updated_at":now,"checkpoint_version":new_version}
 
 
 def create_execution(run_id, request_payload, parent_run_id=None):
@@ -157,11 +185,17 @@ def create_execution(run_id, request_payload, parent_run_id=None):
         columns={row["name"] for row in con.execute("PRAGMA table_info(workflow_runs)")}
         if "checkpoint_json" not in columns:
             con.execute("ALTER TABLE workflow_runs ADD COLUMN checkpoint_json TEXT NOT NULL DEFAULT '{}'")
+        if "checkpoint_sha256" not in columns:
+            con.execute("ALTER TABLE workflow_runs ADD COLUMN checkpoint_sha256 TEXT NOT NULL DEFAULT ''")
+        if "checkpoint_version" not in columns:
+            con.execute("ALTER TABLE workflow_runs ADD COLUMN checkpoint_version INTEGER NOT NULL DEFAULT 0")
+        empty_checkpoint="{}"
+        empty_digest=hashlib.sha256(empty_checkpoint.encode("utf-8")).hexdigest()
         con.execute("""INSERT INTO workflow_runs
-          (id,parent_run_id,status,request_json,result_json,checkpoint_json,created_at,updated_at)
-          VALUES (?,?,?,?,?,?,?,?)""",
-          (run_id,parent_run_id,"running",request_json,"{}","{}",now,now))
-    return {"id":run_id,"parent_run_id":parent_run_id,"status":"running","created_at":now,"updated_at":now}
+          (id,parent_run_id,status,request_json,result_json,checkpoint_json,checkpoint_sha256,checkpoint_version,created_at,updated_at)
+          VALUES (?,?,?,?,?,?,?,?,?,?)""",
+          (run_id,parent_run_id,"running",request_json,"{}",empty_checkpoint,empty_digest,0,now,now))
+    return {"id":run_id,"parent_run_id":parent_run_id,"status":"running","checkpoint_version":0,"created_at":now,"updated_at":now}
 
 
 def save_synthesis_review(review):

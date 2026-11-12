@@ -45,3 +45,61 @@ python -m unittest discover -s backend/tests -v
 ```
 
 The worker registry tests cover valid manifests, malformed profiles, invalid and duplicate worker skill references, unavailable skills, malformed catalog entries, duplicate catalog IDs, and explicit non-alignment claims.
+
+
+## Runtime context isolation
+
+Research-task execution binds a task-local agent scope using Python `ContextVar`. The scope carries the registered worker ID, task ID, worker memory namespace, and shared intelligence-core ID. Concurrent asyncio tasks receive independent context values, and nested scopes restore their parent value when closed. The executor resets its scope in a `finally` block on both successful and failed synthesis paths.
+
+This is in-process context isolation, not a distributed context-propagation system. Any future integration that crosses raw thread or process boundaries must explicitly propagate or re-establish the scope. The current implementation does not add NeMo Relay instrumentation or a new inference provider.
+
+Workflow resume checkpoints are validated before execution: completed node IDs must be unique and belong to the current DAG, and each completed node must have a matching completed task record and result. Result and task maps cannot reference unknown nodes. This prevents malformed or stale checkpoint state from silently skipping work. Checkpoints remain caller-supplied state; this validation does not provide durable storage or cryptographic authenticity.
+
+## Analytical output contract enforcement
+
+Workflow output validation checks both the declared top-level shape and the value types of analytical fields. Series outputs (including MACD and Bollinger components) must be lists of finite numeric values; the RSI `series` may additionally contain leading `null` entries for its calculation warm-up, but nulls after the first numeric value are rejected. Period metadata and indicator period parameters must be positive integers; booleans, numeric strings, fractional values, zero, and negative values are rejected rather than silently coerced. Descriptive metadata may remain textual, but it cannot replace a numeric analytical series. This is structural validation only and does not establish that source data is authentic or that a calculation is economically meaningful.
+
+
+Checkpoint validation also verifies each completed task's recorded node type against the current DAG and re-runs that node type's output contract against its saved result before allowing resume. This prevents a structurally valid but malformed result, or a result recorded under the wrong worker type, from bypassing validation when downstream nodes consume it.
+
+Queued agent task lifecycle hardening keeps persisted-input decoding inside the guarded execution block. A malformed stored input is finalized as a failed task rather than remaining in the running state. Task inspection returns a bounded `invalid_persisted_json` marker when stored input or result JSON cannot be decoded, so a corrupt record remains inspectable. Agent-scope cleanup errors are caught during finalization; an otherwise successful task is downgraded to failed rather than being left without a terminal status. These safeguards complement atomic task claiming, execution-token fencing, bounded stale recovery, and audit events.
+
+## Checkpoint contract compatibility
+
+New workflow task records carry an explicit worker `contract_version` alongside the full contract descriptor. Resume validation compares the saved node type and contract version with the current registry before restoring a completed result. A legacy checkpoint without an explicit version remains eligible for compatibility only when its stored result passes the current worker output validator; a checkpoint that declares an obsolete or unknown version is rejected rather than silently reinterpreted. This is a compatibility guard, not an automatic schema migration tool. Rebuild a workflow run when a breaking contract change cannot be safely validated.
+
+Concurrent duplicate task dispatch is tested with two simultaneous callers while the first claim is held in execution. The test verifies that only one caller claims the queued row, only one synthesis invocation occurs, the execution-attempt counter increments once, and one claim audit event is recorded. SQLite claim fencing and execution tokens remain the authoritative duplicate-execution protection.
+
+## Typed specialist output fields
+
+Worker output descriptors now declare field-level types in addition to required keys. Supported declarations include finite numeric lists, positive integers, and object fields. RSI series retain the narrow leading warm-up-null exception; nulls after the first numeric observation are rejected. The validator applies the declarations at runtime, so the registry metadata and output checks share one contract definition. The typed field descriptors are versioned as `1.1.0`. A saved `1.0.0` checkpoint is migrated only after its completed output passes the current `1.1.0` validator; its task metadata is then rewritten to the current contract. Unknown legacy versions are rejected. Any future breaking shape change must increment the contract version and define an explicit safe migration or require a new workflow run.
+
+
+## Durable workflow checkpoint integrity
+
+Workflow runs persist the latest completed-layer snapshot in SQLite before the run advances. New checkpoint writes store a SHA-256 digest of the exact serialized checkpoint in a separate database column; reads verify the digest before exposing a snapshot for recovery. A mismatch is reported as a checkpoint integrity error and resume is blocked. Existing rows created before digest support are labelled `legacy_unverified` and remain subject to request-fingerprint, checkpoint-structure, node-type, contract-version, and output-contract validation. The digest detects accidental corruption; because the digest is stored in the same database, it is not an authenticity guarantee or a defense against a malicious database editor. Back up the SQLite database and verify restores before relying on recovery.
+
+
+### Durable checkpoint write fencing
+
+Workflow-run checkpoints now carry a monotonically increasing `checkpoint_version` in SQLite. A writer can supply the version it previously read; the update is accepted only if that version is still current, and the version increments atomically with the checkpoint JSON and its SHA-256 digest. A stale writer receives a conflict instead of silently overwriting a newer checkpoint. Existing databases are migrated additively with version zero, and the first successful update establishes a verified digest. The digest detects accidental corruption; it is not a keyed MAC, digital signature, or protection against an attacker who can rewrite both data and digest. Workflow execution uses version-fenced writes for each completed layer and final status persistence.
+
+
+### Specialist schema validation update
+
+Contract v1.1 now enforces minimum observation counts for return and realized-volatility inputs, validates the RSI series and period fields explicitly, and requires realized-volatility object outputs to include a finite per-observation value and positive observation count (with optional finite annualized value). Scalar volatility outputs remain accepted for compatible implementations. These are structural/domain-shape checks, not a claim that source data is authentic or analytically correct.
+
+
+### Research source identity checks
+
+The deterministic research traceability evaluator now validates optional source identity fields when present: HTTP(S) URL syntax, timezone-aware ISO-8601 retrieval time, bounded title/publisher text, and a 64-character hexadecimal SHA-256 content digest. It reports the share of registered sources carrying all five identity fields. ID-only source fixtures remain accepted for backward compatibility and are counted as incomplete. These checks validate metadata shape only: they do not fetch URLs, authenticate publishers, prove that a document existed at retrieval time, or establish that a source supports a claim.
+
+
+### Claim evidence excerpt manifests
+
+Claims may optionally include supplied evidence excerpts, each tied to a source_id and required to match a source reference on that claim. The evaluator reports excerpts only when the excerpt is non-empty, within the size limit, and its source ID exists in the registry and in the claim's source_refs. Unknown or orphaned evidence references are reported separately. This is evidence-presence and reference-integrity checking only: excerpt text is not semantically compared with the claim, and no factual support or entailment is established.
+
+
+### Provenance field bounds
+
+Workflow evidence provenance now bounds the source identifier to 200 printable characters and the retrieval timestamp to 64 printable characters before ISO-8601/timezone validation. This prevents oversized or control-character metadata from being accepted as provenance. It does not authenticate the provider or prove the retrieval event occurred.

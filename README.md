@@ -37,7 +37,7 @@ The platform is designed for research across four primary market groups: India, 
 - **Governed improvement:** worker changes are tested, versioned, reviewed, and reversible.
 - **Provider-neutral data layer:** connectors are modular and must respect provider terms, licences, rate limits, and redistribution rules.
 - **Synthetic data is labelled:** the sample endpoint is a deterministic development fixture, never a live or historical price feed.
-- **Research only:** no paper trading, brokerage credentials, order routing, or automated execution.
+- **Research only:** brokerage credentials, order routing, and automated execution are excluded.
 
 ## Historical data and forecasting research (educational)
 
@@ -141,6 +141,14 @@ Specialist modules exchange deterministic records; per-agent brain-context and l
 | Area | Current state |
 |---|---|
 | React + TypeScript terminal shell | Implemented |
+| Motion-powered terminal transitions | Added; restrained entrance animations for the shell, research chart and agent-network workspace |
+| Interactive 3D globe controls | Added pointer-drag rotation, accessible left/right/reset controls, reduced-motion support and hidden-tab render pausing |
+| Agent detail inspector transitions | Added Motion entrance transition when selecting an agent node |
+| Agent-network keyboard access | Enabled keyboard-focusable nodes and edges; inspector follows React Flow selection changes |
+| Persisted agent task inspector | Selecting a registered profile shows its latest persisted task status, task ID and update time when available; empty states are explicit |
+| Persisted task audit timeline | Displays the bounded SQLite task-event history with filters for status changes, queued, completed and failed events |
+| Agent task performance dashboard | Summarizes persisted task counts, outcomes and execution attempts through a bounded API; explicitly not an intelligence or capability score |
+| Three.js global research globe | Added procedural wireframe globe, network arcs and registered-profile/task counters; illustrative visualization, not live geospatial or exchange connectivity |
 | React Flow node graph | Implemented |
 | Node library and worker catalogue UI | Implemented |
 | FastAPI service and health endpoint | Implemented |
@@ -261,6 +269,30 @@ For manual setup, see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 | GET | `/api/research/export` | Download provenance-preserving historical evidence JSON with SHA-256 integrity metadata |
 | POST | `/api/research/compare-exports` | Compare two compatible historical evidence bundles |\n\nDeep terminal report (single or multi-timeframe):\n\n```bash\ncd backend\nPYTHONPATH=. python terminal_chart_report.py --symbol BTCUSD --mode single --interval 1h --limit 500 --deep\nPYTHONPATH=. python terminal_chart_report.py --symbol BTCUSD --mode multi --intervals 15m,1h,4h,1d --limit 500 --deep\nPYTHONPATH=. python terminal_chart_report.py --symbol BTCUSD --mode single --interval 1h --limit 500 --deep --correlate-symbols ETHUSD,SOLUSD\nPYTHONPATH=. python terminal_chart_report.py --symbol BTCUSD --mode single --interval 1h --limit 500 --deep --breadth-symbols ETHUSD,SOLUSD\n```\n\nThe deep report adds structural data-quality diagnostics, optional cross-asset correlation and market-breadth summaries from exact timestamp matches, and a consolidated `dashboard` summary. It does not infer freshness or missing exchange sessions without provider-specific schedules. See [deep analysis guide](docs/DEEP-ANALYSIS.md).
 | POST | `/api/workflows/execute` | Execute a directed research graph |
+
+## Market-data validation API
+
+Use `POST /api/market-data/validate` to inspect a supplied normalized OHLCV batch before including it in a research workflow. The endpoint is non-mutating and returns structural errors, warnings, bar counts, timestamp bounds, and retrieval metadata.
+
+Example request:
+
+```json
+{
+  "payload": {
+    "symbol": "BTCUSD",
+    "interval": "1h",
+    "status": "historical",
+    "source": "authorized-provider",
+    "retrieved_at": "2026-11-12T08:00:00Z",
+    "bars": []
+  },
+  "max_retrieval_age_seconds": 3600
+}
+```
+
+`max_retrieval_age_seconds` is optional and represents a caller-selected threshold; it is not a universal definition of fresh data. When supplied, the response classifies retrieval metadata as `within_threshold` or `stale`. A future-dated `retrieved_at` is reported separately as `future_timestamp` and includes a clock/metadata warning. Without a threshold, the endpoint reports retrieval age but does not classify ordinary data as stale or fresh.
+
+This is a structural diagnostic only. It does not authenticate the provider, verify licensing, prove that bars are complete for an exchange session, or establish the accuracy of prices. Review warnings and provider-specific market calendars before relying on a dataset.
 
 ## Repository structure
 
@@ -457,7 +489,7 @@ Generated improvement proposals can now be reviewed through append-only records:
 - `GET /api/analytical-agents/{worker_id}/tasks?limit=20` — lists that worker's task history.
 - `GET /api/analytical-agent-tasks/{task_id}` — retrieves the stored input, status, result, and brain-context digest.
 
-Tasks are isolated by worker ID and retain the worker context hash. The first implementation is **bounded and synchronous**: it does not yet provide cloud workspaces, background scheduling, or 550 always-on autonomous processes. If the shared Ollama core is not configured, the result explicitly reports that synthesis is unavailable rather than fabricating analysis. Tasks use supplied data only; live market retrieval, broker execution, and paper trading are excluded.
+Tasks are isolated by worker ID and retain the worker context hash. The first implementation is **bounded and synchronous**: it does not yet provide cloud workspaces, background scheduling, or 550 always-on autonomous processes. If the shared Ollama core is not configured, the result explicitly reports that synthesis is unavailable rather than fabricating analysis. Tasks use supplied data only; live market retrieval, broker execution, and automated order routing are excluded.
 
 
 ## Human-reviewed staging experiment records
@@ -559,3 +591,15 @@ The dashboard is a convenience view over existing append-only experiment records
 ### Verify staging audit export integrity
 
 The staging audit JSON export includes a SHA-256 digest over the canonical bundle fields before the `integrity` object is added. To verify it, remove `integrity`, serialize the remaining JSON using UTF-8, sorted keys, and separators `(",", ":")`, then compute SHA-256. This detects accidental modification; it is **not** a digital signature, source authentication, or proof that the data is true. Exporting is read-only and does not train, deploy, fetch live market data, or trade.
+
+
+## Agent network observability
+
+The agent network view reads persisted task activity, descriptive task outcomes, and structural research traceability evaluations from the API:
+
+- `GET /api/agent-network/activity?limit=500` — bounded task and audit-event history.
+- `GET /api/agent-network/performance?limit=550` — descriptive task outcomes and execution-attempt counts.
+- `GET /api/agent-network/research-quality?limit=550` — mean claim-reference and known-source-reference coverage from persisted evaluations.
+- `GET /api/agent-network/recommendations?limit=550` — thresholded advisory review suggestions from persisted outcomes and traceability evidence; no automatic reassignment or promotion.
+
+Traceability coverage measures whether research claims and known sources are linked in the stored evaluation. It does **not** verify source authenticity, factual correctness, entailment, analytical capability, or investment performance. The dashboard keeps these measurements separate from task outcomes and agent-profile counts.

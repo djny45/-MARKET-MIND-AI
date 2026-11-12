@@ -23,6 +23,21 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(out["performance"]["node_count"], 3)
         self.assertEqual(out["execution_layers"], [["feed"], ["rsi", "macd"]])
 
+    def test_indicator_period_must_be_a_positive_integer(self):
+        for period in (0, -1, 2.5, True, "5"):
+            with self.subTest(period=period):
+                nodes = [
+                    {"id": "feed", "type": "market_input", "data": {"values": [10, 11, 12, 13, 14]}},
+                    {"id": "sma", "type": "sma", "data": {"period": period}},
+                ]
+                result = execute_workflow(
+                    nodes, [{"source": "feed", "target": "sma"}], {}
+                )
+                tasks = {task["node_id"]: task for task in result["tasks"]}
+                self.assertEqual(result["status"], "completed_with_errors")
+                self.assertEqual(tasks["sma"]["status"], "failed")
+                self.assertEqual(tasks["sma"]["error"], "period must be a positive integer")
+
     def test_parallel_independent_nodes_preserve_results(self):
         nodes = [
             {"id": "feed", "type": "market_input", "data": {"values": [10, 11, 12, 13, 14, 15]}},
@@ -157,6 +172,78 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(out["status"], "completed")
         self.assertEqual(out["aggregation"]["completed_count"], 2)
         self.assertEqual(out["results"]["feed"], {"values": [1, 2, 3]})
+
+    def test_resume_rejects_inconsistent_checkpoint_state(self):
+        nodes = [{"id": "feed", "type": "market_input", "data": {"values": [1, 2, 3]}}]
+        invalid_checkpoints = (
+            [],
+            {"completed_node_ids": ["missing"], "results": {}, "tasks": {}},
+            {"completed_node_ids": ["feed"], "results": {}, "tasks": {}},
+            {"completed_node_ids": ["feed"], "results": {"feed": {"values": [1, 2, 3]}}, "tasks": {}},
+            {"completed_node_ids": ["feed", "feed"], "results": {}, "tasks": {}},
+            {"completed_node_ids": [], "results": {"unknown": {}}, "tasks": {}},
+        )
+        for checkpoint in invalid_checkpoints:
+            with self.subTest(checkpoint=checkpoint):
+                with self.assertRaises(ValueError):
+                    execute_workflow(nodes, [], {}, initial_checkpoint=checkpoint)
+
+    def test_resume_rejects_result_that_violates_node_output_contract(self):
+        nodes = [{"id": "feed", "type": "market_input", "data": {"values": [1, 2, 3]}}]
+        checkpoint = {
+            "completed_node_ids": ["feed"],
+            "results": {"feed": {"values": ["not-numeric"]}},
+            "tasks": {"feed": {
+                "node_id": "feed", "node_type": "market_input", "status": "completed",
+            }},
+        }
+        with self.assertRaisesRegex(ValueError, "violates its worker contract"):
+            execute_workflow(nodes, [], {}, initial_checkpoint=checkpoint)
+
+    def test_resume_migrates_legacy_contract_after_current_validation(self):
+        nodes = [{"id": "feed", "type": "market_input", "data": {"values": [1, 2, 3]}}]
+        checkpoint = {
+            "completed_node_ids": ["feed"],
+            "results": {"feed": {"values": [1, 2, 3]}},
+            "tasks": {"feed": {
+                "node_id": "feed", "node_type": "market_input",
+                "status": "completed", "contract_version": "1.0.0",
+            }},
+        }
+        out = execute_workflow(nodes, [], {}, initial_checkpoint=checkpoint)
+        self.assertEqual(out["tasks"][0]["contract_version"], "1.1.0")
+        self.assertEqual(out["tasks"][0]["worker_contract"]["contract_version"], "1.1.0")
+
+    def test_resume_rejects_checkpoint_contract_version_mismatch(self):
+        nodes = [{"id": "feed", "type": "market_input", "data": {"values": [1, 2, 3]}}]
+        checkpoint = {
+            "completed_node_ids": ["feed"],
+            "results": {"feed": {"values": [1, 2, 3]}},
+            "tasks": {"feed": {
+                "node_id": "feed", "node_type": "market_input",
+                "status": "completed", "contract_version": "0.9.0",
+            }},
+        }
+        with self.assertRaisesRegex(ValueError, "contract version"):
+            execute_workflow(nodes, [], {}, initial_checkpoint=checkpoint)
+
+    def test_new_task_records_include_contract_version(self):
+        snapshots = []
+        nodes = [{"id": "feed", "type": "market_input", "data": {"values": [1, 2, 3]}}]
+        execute_workflow(nodes, [], {}, checkpoint_callback=snapshots.append)
+        self.assertEqual(snapshots[0]["tasks"]["feed"]["contract_version"], "1.1.0")
+
+    def test_resume_rejects_checkpoint_task_type_mismatch(self):
+        nodes = [{"id": "feed", "type": "market_input", "data": {"values": [1, 2, 3]}}]
+        checkpoint = {
+            "completed_node_ids": ["feed"],
+            "results": {"feed": {"values": [1, 2, 3]}},
+            "tasks": {"feed": {
+                "node_id": "feed", "node_type": "sma", "status": "completed",
+            }},
+        }
+        with self.assertRaisesRegex(ValueError, "matching completed task"):
+            execute_workflow(nodes, [], {}, initial_checkpoint=checkpoint)
 
     def test_workflow_records_validated_optional_input_provenance(self):
         nodes = [{

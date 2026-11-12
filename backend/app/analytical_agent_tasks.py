@@ -14,7 +14,7 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .analytical_agent_runtime import brain_config
+from .analytical_agent_runtime import brain_config, set_agent_scope, reset_agent_scope
 from .intelligence_core import synthesize_research
 from .worker_memory import recall_memory
 from .research_quality_eval import evaluate_research_draft
@@ -313,9 +313,22 @@ def execute_queued_research_task(task_id: str) -> bool:
             return False
         _record_event(db, task_id, row["worker_id"], "task_claimed",
                       from_status="queued", to_status="running", occurred_at=now)
-        task_input = json.loads(row["input_json"])
         agent_id = row["worker_id"]
+        brain_context_sha256 = row["brain_context_sha256"]
+    scope_token = None
     try:
+        # Parse persisted input only after entering the guarded execution path.
+        # Corrupt rows must be finalized as failed instead of being stranded in
+        # running before the lifecycle handler can catch the decoding error.
+        task_input = json.loads(row["input_json"])
+        if (not isinstance(task_input, dict)
+                or not isinstance(task_input.get("brief"), str)
+                or not task_input["brief"].strip()
+                or len(task_input["brief"]) > 4000):
+            raise ValueError("Persisted research task input is malformed")
+        # Scope setup is part of execution: if it fails, the claimed task must
+        # still be finalized as failed rather than stranded in the running state.
+        scope_token = set_agent_scope(agent_id, task_id)
         # Build context inside the guarded execution block. A memory/configuration
         # failure must transition the claimed task to failed, not strand it as running.
         brain = brain_config(agent_id)
@@ -361,7 +374,7 @@ def execute_queued_research_task(task_id: str) -> bool:
             _persist_quality_evaluation(task_id, agent_id, evaluation)
             if evaluation.get("status") != "invalid_input":
                 learning_candidate = _persist_research_learning_candidate(task_id, agent_id, evaluation)
-        result = {"agent_id": agent_id, "brain_context_sha256": row["brain_context_sha256"],
+        result = {"agent_id": agent_id, "brain_context_sha256": brain_context_sha256,
                   "research_learning_candidate": learning_candidate,
                   "brief": task_input["brief"], "input_data_received": task_input["data"] is not None,
                   "shared_core_result": synthesis,
@@ -374,6 +387,19 @@ def execute_queued_research_task(task_id: str) -> bool:
         failure = classify_research_task_failure(exc)
         result = {"error": "Research task failed safely.", **failure}
         status = "failed"
+    finally:
+        if scope_token is not None:
+            try:
+                reset_agent_scope(scope_token)
+            except Exception as exc:
+                # Context cleanup failure must not prevent durable task
+                # finalization. Downgrade an otherwise successful result.
+                if status == "completed":
+                    status = "failed"
+                    result = {
+                        "error": "Research task failed safely.",
+                        **classify_research_task_failure(exc),
+                    }
     updated = datetime.now(timezone.utc).isoformat()
     with _connect() as db:
         # Fence completion by the exact claim token. If stale recovery requeued
@@ -579,11 +605,23 @@ def get_research_task(task_id: str) -> dict | None:
         row = db.execute("SELECT * FROM analytical_agent_tasks WHERE task_id=?", (task_id,)).fetchone()
     if row is None:
         return None
+    try:
+        task_input = json.loads(row["input_json"])
+        if not isinstance(task_input, dict):
+            raise ValueError("Stored task input is not an object")
+    except (TypeError, ValueError, json.JSONDecodeError):
+        task_input = {"status": "invalid_persisted_json"}
+    try:
+        task_result = json.loads(row["result_json"])
+        if not isinstance(task_result, dict):
+            raise ValueError("Stored task result is not an object")
+    except (TypeError, ValueError, json.JSONDecodeError):
+        task_result = {"status": "invalid_persisted_json"}
     return {
         "task_id": row["task_id"], "agent_id": row["worker_id"], "worker_id": row["worker_id"],
         "task_type": row["task_type"], "status": row["status"],
         "execution_attempts": row["execution_attempts"],
-        "input": json.loads(row["input_json"]), "result": json.loads(row["result_json"]),
+        "input": task_input, "result": task_result,
         "brain_context_sha256": row["brain_context_sha256"],
         "created_at": row["created_at"], "updated_at": row["updated_at"],
     }

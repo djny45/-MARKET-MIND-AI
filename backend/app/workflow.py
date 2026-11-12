@@ -8,7 +8,7 @@ import math
 from . import indicators
 from .worker_runtime import assign_worker
 from .worker_contracts import (
-    get_worker_contract, validate_worker_input, validate_worker_output,
+    get_worker_contract, is_contract_version_compatible, validate_worker_input, validate_worker_output,
     validate_evidence_provenance,
 )
 
@@ -77,10 +77,60 @@ def execute_workflow(
     if visited != len(nodes):
         raise ValueError("Workflow contains a cycle.")
 
-    checkpoint = initial_checkpoint or {}
-    completed_before = set(checkpoint.get("completed_node_ids", []))
-    results = dict(checkpoint.get("results", {}))
-    task_records = dict(checkpoint.get("tasks", {}))
+    checkpoint = initial_checkpoint if initial_checkpoint is not None else {}
+    if not isinstance(checkpoint, dict):
+        raise ValueError("initial_checkpoint must be an object")
+    completed_ids = checkpoint.get("completed_node_ids", [])
+    checkpoint_results = checkpoint.get("results", {})
+    checkpoint_tasks = checkpoint.get("tasks", {})
+    if (not isinstance(completed_ids, list)
+            or any(not isinstance(item, str) for item in completed_ids)
+            or len(set(completed_ids)) != len(completed_ids)):
+        raise ValueError("checkpoint completed_node_ids must be a unique list of node IDs")
+    if not isinstance(checkpoint_results, dict) or not isinstance(checkpoint_tasks, dict):
+        raise ValueError("checkpoint results and tasks must be objects")
+    completed_before = set(completed_ids)
+    if not completed_before.issubset(by_id):
+        raise ValueError("checkpoint contains unknown completed node IDs")
+    if not set(checkpoint_results).issubset(by_id) or not set(checkpoint_tasks).issubset(by_id):
+        raise ValueError("checkpoint contains unknown result or task node IDs")
+    for completed_id in completed_before:
+        task = checkpoint_tasks.get(completed_id)
+        expected_type = by_id[completed_id].get("type")
+        if (completed_id not in checkpoint_results or not isinstance(task, dict)
+                or task.get("status") != "completed"
+                or task.get("node_id", completed_id) != completed_id
+                or task.get("node_type") != expected_type):
+            raise ValueError("checkpoint completed nodes require a matching completed task and result")
+        if expected_type not in NODE_TYPES:
+            raise ValueError(f"Unsupported node type in checkpoint: {expected_type}")
+        # New checkpoints carry an explicit contract version. Older schema-v1
+        # snapshots without this field remain readable only after the current
+        # output validator accepts their saved result.
+        saved_contract_version = task.get("contract_version")
+        if saved_contract_version is None and isinstance(task.get("worker_contract"), dict):
+            saved_contract_version = task["worker_contract"].get("contract_version")
+        current_contract_version = get_worker_contract(expected_type)["contract_version"]
+        if (saved_contract_version is not None
+                and not is_contract_version_compatible(saved_contract_version)):
+            raise ValueError(
+                f"checkpoint contract version for node {completed_id} is unsupported"
+            )
+        try:
+            validate_worker_output(expected_type, checkpoint_results[completed_id])
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"checkpoint result for node {completed_id} violates its worker contract: {exc}"
+            ) from exc
+        # Explicitly migrate compatible legacy task metadata only after the
+        # saved result has passed the current output validator.
+        if saved_contract_version != current_contract_version:
+            task["contract_version"] = current_contract_version
+            task["worker_contract"] = get_worker_contract(expected_type)
+    if set(checkpoint_results) != completed_before:
+        raise ValueError("checkpoint results must match completed_node_ids")
+    results = dict(checkpoint_results)
+    task_records = dict(checkpoint_tasks)
     node_timings = {
         key: item.get("duration_ns", 0)
         for key, item in task_records.items()
@@ -113,6 +163,7 @@ def execute_workflow(
                 "intelligence_core": worker_assignment["intelligence_core"],
                 "execution_mode": worker_assignment["execution_mode"],
                 "worker_contract": get_worker_contract(kind),
+                "contract_version": get_worker_contract(kind)["contract_version"],
                 "evidence_status": "not_supplied",
                 "dependency_ids": dependencies,
                 "layer": layer_index,
@@ -268,7 +319,9 @@ def _run_node(kind, payload, params):
         }}
     if kind in ("sma", "ema", "rsi", "macd", "bollinger"):
         values = _numbers(payload)
-        period = max(1, int(params.get("period", 14)))
+        period = params.get("period", 14)
+        if isinstance(period, bool) or not isinstance(period, int) or period < 1:
+            raise ValueError("period must be a positive integer")
         if kind == "sma":
             return {"series": indicators.sma(values, period), "period": period}
         if kind == "ema":

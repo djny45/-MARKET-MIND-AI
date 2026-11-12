@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
+import { motion } from 'motion/react'
 import { ReactFlow, Background, Controls, MiniMap, Handle, Position, type Node, type Edge } from '@xyflow/react'
 import { Network, BrainCircuit } from 'lucide-react'
+import GlobalResearchGlobe from './GlobalResearchGlobe'
 
 type AgentProfile = {
   id?: string
@@ -13,7 +15,13 @@ type AgentProfile = {
 }
 
 type AgentNodeData = { label: string; department: string; specialty: string; status: string; core?: boolean; agentId?: string }
-type ActivitySnapshot = { task_count: number; status_counts: Record<string, number>; latest_by_agent: Record<string, { status: string; task_id: string; updated_at: string }>; note?: string }
+type ActivityEvent = { event_id: number; task_id: string; worker_id: string; event_type: string; from_status: string | null; to_status: string | null; occurred_at: string; detail: Record<string, unknown> }
+type ActivitySnapshot = { task_count: number; status_counts: Record<string, number>; latest_by_agent: Record<string, { status: string; task_id: string; updated_at: string }>; recent_audit_events?: ActivityEvent[]; audit_event_count?: number; note?: string }
+type AgentPerformance = { task_count: number; agents: Record<string, { task_count: number; queued: number; running: number; completed: number; failed: number; finished_count: number; completion_rate: number | null; failure_rate: number | null; execution_attempts_total: number; average_execution_attempts_per_task: number }>; performance_boundary: string }
+type ResearchQuality = { evaluations_examined: number; invalid_or_unusable_evaluation_count: number; agents: Record<string, { evaluation_count: number; claim_reference_coverage_mean: number | null; claim_reference_coverage_count: number; known_source_reference_coverage_mean: number | null; known_source_reference_coverage_count: number }>; metric_definition: string; quality_boundary: string }
+type AgentRecommendation = { agent_id: string; priority: 'review' | 'observe'; reason_code: string; evidence: Record<string, number>; suggested_action: string }
+type RecommendationSnapshot = { recommendation_count: number; recommendations: AgentRecommendation[]; decision_mode: string; minimum_evidence: { finished_tasks: number; quality_evaluations: number }; limitations: string[]; source: string }
+
 
 function AgentNode({ data }: { data: AgentNodeData }) {
   return <div className={data.core ? 'agent-network-node core' : 'agent-network-node'}>
@@ -33,8 +41,78 @@ export default function AgentNetwork({ agents }: { agents: AgentProfile[] }) {
   const [selectedAgent, setSelectedAgent] = useState<AgentNodeData | null>(null)
   const [activity, setActivity] = useState<ActivitySnapshot | null>(null)
   const [activityError, setActivityError] = useState('')
-  useEffect(() => { let alive = true; const load = async () => { try { const response = await fetch((import.meta.env.VITE_API_URL || 'http://localhost:8000') + '/api/agent-network/activity?limit=500'); if (!response.ok) throw new Error('Activity endpoint unavailable'); const snapshot = await response.json(); if (alive) { setActivity(snapshot); setActivityError('') } } catch { if (alive) setActivityError('API activity unavailable — showing registered profiles only') } }; load(); const timer = window.setInterval(load, 20000); return () => { alive = false; window.clearInterval(timer) } }, [])
+  const [performance, setPerformance] = useState<AgentPerformance | null>(null)
+  const [researchQuality, setResearchQuality] = useState<ResearchQuality | null>(null)
+  const [recommendations, setRecommendations] = useState<RecommendationSnapshot | null>(null)
+  useEffect(() => {
+    let alive = true
+    const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+    const loadActivity = async () => {
+      try {
+        const response = await fetch(apiBase + '/api/agent-network/activity?limit=500')
+        if (!response.ok) throw new Error('Activity endpoint unavailable')
+        const snapshot = await response.json()
+        if (alive) { setActivity(snapshot); setActivityError('') }
+      } catch {
+        if (alive) setActivityError('API activity unavailable — showing registered profiles only')
+      }
+    }
+    const loadPerformance = async () => {
+      try {
+        const response = await fetch(apiBase + '/api/agent-network/performance?limit=550')
+        if (!response.ok) throw new Error('Performance endpoint unavailable')
+        const snapshot = await response.json()
+        if (alive) setPerformance(snapshot)
+      } catch {
+        if (alive) setPerformance(null)
+      }
+    }
+    const loadResearchQuality = async () => {
+      try {
+        const response = await fetch(apiBase + '/api/agent-network/research-quality?limit=550')
+        if (!response.ok) throw new Error('Research quality endpoint unavailable')
+        const snapshot = await response.json()
+        if (alive) setResearchQuality(snapshot)
+      } catch {
+        if (alive) setResearchQuality(null)
+      }
+    }
+    const loadRecommendations = async () => {
+      try {
+        const response = await fetch(apiBase + '/api/agent-network/recommendations?limit=550')
+        if (!response.ok) throw new Error('Recommendations endpoint unavailable')
+        const snapshot = await response.json()
+        if (alive) setRecommendations(snapshot)
+      } catch {
+        if (alive) setRecommendations(null)
+      }
+    }
+    const load = () => { void loadActivity(); void loadPerformance(); void loadResearchQuality(); void loadRecommendations() }
+    load()
+    const timer = window.setInterval(load, 20000)
+    return () => { alive = false; window.clearInterval(timer) }
+  }, [])
+  const qualitySummary = useMemo(() => {
+    const items = Object.values(researchQuality?.agents || {})
+    const claimCount = items.reduce((sum, item) => sum + item.claim_reference_coverage_count, 0)
+    const sourceCount = items.reduce((sum, item) => sum + item.known_source_reference_coverage_count, 0)
+    const claimWeighted = items.reduce((sum, item) => sum + (item.claim_reference_coverage_mean || 0) * item.claim_reference_coverage_count, 0)
+    const sourceWeighted = items.reduce((sum, item) => sum + (item.known_source_reference_coverage_mean || 0) * item.known_source_reference_coverage_count, 0)
+    return {
+      claimCoverage: claimCount ? claimWeighted / claimCount : null,
+      sourceCoverage: sourceCount ? sourceWeighted / sourceCount : null,
+    }
+  }, [researchQuality])
+  const qualityDiagnostics = useMemo(() => Object.entries(researchQuality?.agents || {})
+    .map(([agentId, metrics]) => {
+      const profile = agents.find(item => String(item.id) === agentId)
+      return { agentId, name: profile?.name || agentId, department: profile?.department || 'General Research', ...metrics }
+    })
+    .sort((left, right) => right.evaluation_count - left.evaluation_count || left.agentId.localeCompare(right.agentId))
+    .slice(0, 8), [agents, researchQuality])
   const departments = useMemo(() => ['ALL DEPARTMENTS', ...Array.from(new Set(agents.map(a => a.department || 'General Research'))).sort()], [agents])
+  const [eventFilter, setEventFilter] = useState('ALL EVENTS')
+  const recentEvents = useMemo(() => (activity?.recent_audit_events || []).filter(event => eventFilter === 'ALL EVENTS' || (eventFilter === 'STATUS CHANGES' ? Boolean(event.from_status && event.to_status) : event.event_type.toUpperCase().includes(eventFilter))).slice(-12).reverse(), [activity, eventFilter])
   const filteredProfiles = useMemo(() => agents.slice(0, 550).filter(profile => {
     const haystack = [profile.id, profile.name, profile.department, profile.specialty, profile.kind].join(' ').toLowerCase()
     return haystack.includes(query.toLowerCase()) && (departmentFilter === 'ALL DEPARTMENTS' || (profile.department || 'General Research') === departmentFilter)
@@ -96,14 +174,53 @@ export default function AgentNetwork({ agents }: { agents: AgentProfile[] }) {
     return { nodes, edges }
   }, [filteredProfiles, activity])
 
-  return <section className="agent-network-view">
+  return <motion.section className="agent-network-view" initial={{ opacity: 0, scale: 0.995 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.45, ease: "easeOut" }}>
     <div className="agent-network-heading">
       <div><span className="eyebrow">MARKET-MIND-AI / AGENT TOPOLOGY</span><h1><Network size={21}/> 550+ Analytical Agent Network</h1><p>Node-based visual map inspired by the reference image. Each card represents a registered specialist profile; the graph is a topology visualization, not proof that every agent is currently running.</p></div>
       <div className="agent-network-stats"><b>{agents.length || 550}</b><span>REGISTERED PROFILES</span><b>{edges.length.toLocaleString()}</b><span>VISUAL CONNECTIONS</span>{activity && <><b>{activity.status_counts.running || 0}</b><span>RUNNING TASKS</span><b>{activity.status_counts.queued || 0}</b><span>QUEUED TASKS</span></>}</div>
     </div>
     {activityError && <div className="agent-network-activity-note">{activityError}</div>}
     {activity && <div className="agent-network-activity-note">TASK ACTIVITY · {activity.task_count} persisted tasks · refreshes every 20 seconds · {activity.note}</div>}
-    <div className="agent-network-legend"><span><i className="core-dot"/> Shared intelligence core</span><span><i className="dept-dot"/> Department links</span><span><i className="agent-dot"/> Agent profile → core</span><span><BrainCircuit size={13}/> Shared model architecture · no paper trading</span></div>
+    <GlobalResearchGlobe profileCount={agents.length || 550} activityCount={activity?.task_count || 0} />
+    <div className="agent-network-legend"><span><i className="core-dot"/> Shared intelligence core</span><span><i className="dept-dot"/> Department links</span><span><i className="agent-dot"/> Agent profile → core</span><span><BrainCircuit size={13}/> Shared model architecture · research-only operation</span></div>
+    {performance && <section className="agent-network-performance" aria-label="Persisted agent task performance">
+      <div className="agent-network-performance-head"><div><span className="eyebrow">OPERATIONS / PERSISTED SQLITE</span><h2>Research task performance</h2><p>{performance.task_count} recorded tasks · descriptive operational metrics</p></div><span>NOT AN INTELLIGENCE SCORE</span></div>
+      <div className="agent-network-performance-grid"><article><strong>{performance.task_count}</strong><small>TOTAL TASKS</small></article><article><strong>{Object.values(performance.agents).reduce((sum,item)=>sum+item.completed,0)}</strong><small>COMPLETED</small></article><article><strong>{Object.values(performance.agents).reduce((sum,item)=>sum+item.failed,0)}</strong><small>FAILED</small></article><article><strong>{Object.values(performance.agents).reduce((sum,item)=>sum+item.execution_attempts_total,0)}</strong><small>EXECUTION ATTEMPTS</small></article></div>
+      <p className="agent-network-performance-note">{performance.performance_boundary}</p>
+    </section>}
+    {researchQuality && <section className="agent-network-quality" aria-label="Persisted research traceability coverage">
+      <div className="agent-network-quality-head"><div><span className="eyebrow">EVIDENCE / PERSISTED EVALUATIONS</span><h2>Research traceability coverage</h2><p>{researchQuality.evaluations_examined} evaluations examined · {Object.keys(researchQuality.agents).length} specialist profiles</p></div><span>STRUCTURAL COVERAGE ONLY</span></div>
+      <div className="agent-network-quality-grid"><article><strong>{qualitySummary.claimCoverage === null ? '—' : (qualitySummary.claimCoverage * 100).toFixed(1) + '%'}</strong><small>CLAIM REFERENCE COVERAGE</small></article><article><strong>{qualitySummary.sourceCoverage === null ? '—' : (qualitySummary.sourceCoverage * 100).toFixed(1) + '%'}</strong><small>KNOWN-SOURCE REFERENCE COVERAGE</small></article><article><strong>{researchQuality.evaluations_examined}</strong><small>EVALUATIONS EXAMINED</small></article><article><strong>{researchQuality.invalid_or_unusable_evaluation_count}</strong><small>UNUSABLE EVALUATIONS</small></article></div>
+      <div className="agent-network-quality-table-wrap">
+        <h3>Specialist evidence diagnostics <small>ordered by evaluation sample count · not a quality ranking</small></h3>
+        {qualityDiagnostics.length ? <table className="agent-network-quality-table">
+          <thead><tr><th>PROFILE</th><th>EVALUATIONS</th><th>CLAIM REFS</th><th>KNOWN-SOURCE REFS</th></tr></thead>
+          <tbody>{qualityDiagnostics.map(item=><tr key={item.agentId}>
+            <td><strong>{item.name}</strong><small>{item.department} · {item.agentId}</small></td>
+            <td>{item.evaluation_count}</td>
+            <td>{item.claim_reference_coverage_mean === null ? '—' : (item.claim_reference_coverage_mean * 100).toFixed(1) + '%'}<small>n={item.claim_reference_coverage_count}</small></td>
+            <td>{item.known_source_reference_coverage_mean === null ? '—' : (item.known_source_reference_coverage_mean * 100).toFixed(1) + '%'}<small>n={item.known_source_reference_coverage_count}</small></td>
+          </tr>)}</tbody>
+        </table> : <p className="agent-network-quality-note">No usable per-profile traceability evaluations are recorded yet.</p>}
+      </div>
+      <p className="agent-network-quality-note">{researchQuality.quality_boundary}</p>
+    </section>}
+    {recommendations && <section className="agent-network-recommendations" aria-label="Advisory workflow recommendations">
+      <div className="agent-network-recommendations-head"><div><span className="eyebrow">SUPERVISOR / EVIDENCE-THRESHOLDED</span><h2>Workflow review suggestions</h2><p>{recommendations.recommendation_count} suggestions · advisory only · no automatic reassignment</p></div><span>HUMAN REVIEW REQUIRED</span></div>
+      {recommendations.recommendations.length ? <ul className="agent-network-recommendations-list">{recommendations.recommendations.map((item,index)=><li key={item.agent_id + ':' + item.reason_code + ':' + index}>
+        <div><strong>{item.agent_id}</strong><span>{item.reason_code.replace(/_/g,' ')}</span></div>
+        <p>{item.suggested_action}</p>
+        <small>{Object.entries(item.evidence).map(([key,value])=>key.replace(/_/g,' ') + ': ' + (typeof value === 'number' && value <= 1 ? (value*100).toFixed(1)+'%' : value)).join(' · ')}</small>
+        <em>{item.priority.toUpperCase()}</em>
+      </li>)}</ul> : <p className="agent-network-recommendations-empty">No suggestions meet the minimum evidence thresholds. This is not a rating of agent intelligence.</p>}
+      <p className="agent-network-recommendations-note">{recommendations.limitations.join(' ')}</p>
+    </section>}
+    {activity && <section className="agent-network-timeline" aria-label="Persisted agent task timeline">
+      <div className="agent-network-timeline-head"><div><span className="eyebrow">AUDIT TRAIL / SQLITE</span><h2>Recent task events</h2><p>{activity.audit_event_count || 0} recorded events · newest first · bounded history</p></div>
+        <label>EVENT FILTER<select value={eventFilter} onChange={e=>setEventFilter(e.target.value)}><option>ALL EVENTS</option><option>STATUS CHANGES</option><option>QUEUED</option><option>COMPLETED</option><option>FAILED</option></select></label>
+      </div>
+      {recentEvents.length ? <ol className="agent-network-timeline-list">{recentEvents.map(event=><li key={event.event_id}><span className="agent-timeline-marker"/><div><strong>{event.event_type.replace(/_/g," ").toUpperCase()}</strong><span>{event.worker_id} · {event.task_id}</span><small>{event.from_status && event.to_status ? event.from_status + " → " + event.to_status : event.to_status || "Recorded event"}</small></div><time dateTime={event.occurred_at}>{new Date(event.occurred_at).toLocaleString()}</time></li>)}</ol> : <p className="agent-network-timeline-empty">No persisted events match this filter.</p>}
+    </section>}
     <div className="agent-network-filterbar">
       <label className="agent-network-search"><Network size={14}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search agent name, specialty, department…" aria-label="Search agent network"/></label>
       <select value={departmentFilter} onChange={e=>setDepartmentFilter(e.target.value)} aria-label="Filter by department">{departments.map(department=><option key={department}>{department}</option>)}</select>
@@ -111,13 +228,13 @@ export default function AgentNetwork({ agents }: { agents: AgentProfile[] }) {
       <button type="button" onClick={()=>{setQuery("");setDepartmentFilter("ALL DEPARTMENTS");setSelectedAgent(null)}}>RESET FILTERS</button>
     </div>
     <div className="agent-network-canvas">
-      <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} onNodeClick={(_, node)=>setSelectedAgent(node.data as AgentNodeData)} fitView fitViewOptions={{ padding: 0.12, minZoom: 0.04, maxZoom: 1.1 }} minZoom={0.025} maxZoom={2} defaultEdgeOptions={{ animated: false }} nodesDraggable={false}>
+      <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} nodesFocusable edgesFocusable onSelectionChange={({ nodes: selectedNodes })=>setSelectedAgent(selectedNodes[0] ? selectedNodes[0].data as AgentNodeData : null)} fitView fitViewOptions={{ padding: 0.12, minZoom: 0.04, maxZoom: 1.1 }} minZoom={0.025} maxZoom={2} defaultEdgeOptions={{ animated: false }} nodesDraggable={false}>
         <Background color="#262b32" gap={22} size={1}/>
         <MiniMap nodeColor={n => n.id === 'intelligence-core' ? '#d4a34c' : '#607c98'} maskColor="rgba(5,8,12,.76)"/>
         <Controls/>
       </ReactFlow>
     </div>
-    {selectedAgent && <div className="agent-network-inspector"><div><b>{selectedAgent.label}</b><small>{selectedAgent.core ? "Central intelligence core" : selectedAgent.department}</small></div><span>{selectedAgent.specialty}</span><span className="agent-inspector-status">{selectedAgent.status}</span><button type="button" onClick={()=>setSelectedAgent(null)}>CLOSE</button></div>}
+    {selectedAgent && <motion.div className="agent-network-inspector" initial={{ opacity: 0, y: 10, scale: 0.99 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.22, ease: "easeOut" }}><div><b>{selectedAgent.label}</b><small>{selectedAgent.core ? "Central intelligence core" : selectedAgent.department}</small></div><span>{selectedAgent.specialty}</span><span className="agent-inspector-status">{selectedAgent.status}</span>{selectedAgent.agentId && (() => { const latest = activity?.latest_by_agent?.[selectedAgent.agentId]; return <div className="agent-inspector-activity"><small>RECENT TASK ACTIVITY</small>{latest ? <><span>{latest.status.toUpperCase()} · {latest.task_id}</span><time dateTime={latest.updated_at}>{new Date(latest.updated_at).toLocaleString()}</time></> : <span>No persisted task activity for this profile yet.</span>}</div> })()}<button type="button" onClick={()=>setSelectedAgent(null)}>CLOSE</button></motion.div>}
     <div className="agent-network-foot"><span>Registered profiles · department-level connectivity · shared core</span><span>Research-only architecture · no broker / order execution</span></div>
-  </section>
+  </motion.section>
 }

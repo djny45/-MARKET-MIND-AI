@@ -31,6 +31,74 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertEqual(list_research_tasks("worker_001")["total"], 1)
         self.assertEqual(list_research_tasks("worker_002")["total"], 0)
 
+    def test_execution_binds_agent_scope_during_synthesis_and_clears_it_afterward(self):
+        from app.analytical_agent_runtime import current_agent_scope
+        from app.analytical_agent_tasks import enqueue_research_task, execute_queued_research_task
+
+        queued = enqueue_research_task("worker_005", "Inspect supplied metrics", {"metric": 3})
+        observed = {}
+
+        def inspect_scope(payload):
+            observed.update(current_agent_scope() or {})
+            return {"status": "not_configured", "summary": "No provider configured."}
+
+        with patch("app.analytical_agent_tasks.synthesize_research", side_effect=inspect_scope):
+            self.assertTrue(execute_queued_research_task(queued["task_id"]))
+
+        self.assertEqual(observed["worker_id"], "worker_005")
+        self.assertEqual(observed["task_id"], queued["task_id"])
+        self.assertEqual(observed["memory_namespace"], "workers/worker_005")
+        self.assertIsNone(current_agent_scope())
+        self.assertEqual(get_research_task(queued["task_id"])["status"], "completed")
+
+    def test_agent_scope_initialization_failure_marks_claimed_task_failed(self):
+        from app.analytical_agent_runtime import current_agent_scope
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, execute_queued_research_task, list_task_audit_events,
+        )
+        queued = enqueue_research_task("worker_032", "scope setup failure should not strand task")
+        with patch("app.analytical_agent_tasks.set_agent_scope", side_effect=RuntimeError("scope unavailable")):
+            self.assertTrue(execute_queued_research_task(queued["task_id"]))
+        saved = get_research_task(queued["task_id"])
+        self.assertEqual(saved["status"], "failed")
+        self.assertEqual(saved["result"]["error"], "Research task failed safely.")
+        self.assertIsNone(current_agent_scope())
+        events = list_task_audit_events(queued["task_id"])["events"]
+        self.assertEqual(events[-1]["event_type"], "task_failed")
+        self.assertEqual(events[-1]["to_status"], "failed")
+
+    def test_corrupt_persisted_input_is_finalized_as_failed(self):
+        import sqlite3
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, execute_queued_research_task, list_task_audit_events,
+        )
+        queued = enqueue_research_task("worker_033", "corrupt input must not strand task")
+        with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+            db.execute(
+                "UPDATE analytical_agent_tasks SET input_json=? WHERE task_id=?",
+                ("{invalid-json", queued["task_id"]),
+            )
+        self.assertTrue(execute_queued_research_task(queued["task_id"]))
+        saved = get_research_task(queued["task_id"])
+        self.assertEqual(saved["status"], "failed")
+        self.assertEqual(saved["input"]["status"], "invalid_persisted_json")
+        self.assertEqual(saved["result"]["error"], "Research task failed safely.")
+        events = list_task_audit_events(queued["task_id"])["events"]
+        self.assertEqual(events[-1]["event_type"], "task_failed")
+
+    def test_scope_cleanup_failure_does_not_strand_claimed_task(self):
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, execute_queued_research_task, list_task_audit_events,
+        )
+        queued = enqueue_research_task("worker_034", "scope cleanup failure")
+        with patch("app.analytical_agent_tasks.reset_agent_scope", side_effect=RuntimeError("cleanup failed")):
+            self.assertTrue(execute_queued_research_task(queued["task_id"]))
+        saved = get_research_task(queued["task_id"])
+        self.assertEqual(saved["status"], "failed")
+        self.assertEqual(saved["result"]["error"], "Research task failed safely.")
+        events = list_task_audit_events(queued["task_id"])["events"]
+        self.assertEqual(events[-1]["event_type"], "task_failed")
+
     def test_context_preparation_failure_marks_claimed_task_failed(self):
         from app.analytical_agent_tasks import enqueue_research_task, execute_queued_research_task, list_task_audit_events
         queued = enqueue_research_task("worker_031", "context failure should not strand task")
@@ -286,6 +354,62 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
 
 
 
+    def test_stale_recovery_fences_old_executor_after_new_claim(self):
+        import threading
+        import sqlite3
+        from concurrent.futures import ThreadPoolExecutor
+        from datetime import datetime, timedelta, timezone
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, execute_queued_research_task,
+            recover_interrupted_research_tasks,
+        )
+
+        queued = enqueue_research_task("worker_005", "fence stale executor")
+        first_entered, second_entered = threading.Event(), threading.Event()
+        release_first, release_second = threading.Event(), threading.Event()
+        calls = []
+
+        def controlled_synthesis(payload):
+            attempt = len(calls) + 1
+            calls.append(attempt)
+            gate = release_first if attempt == 1 else release_second
+            entered = first_entered if attempt == 1 else second_entered
+            entered.set()
+            if not gate.wait(timeout=8):
+                raise TimeoutError("test synthesis release timed out")
+            return {"status": "completed", "summary": f"attempt-{attempt}"}
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            with patch("app.analytical_agent_tasks.synthesize_research", side_effect=controlled_synthesis):
+                old_executor = pool.submit(execute_queued_research_task, queued["task_id"])
+                self.assertTrue(first_entered.wait(timeout=5))
+                stale_timestamp = (datetime.now(timezone.utc) - timedelta(seconds=1200)).isoformat()
+                with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+                    db.execute(
+                        "UPDATE analytical_agent_tasks SET updated_at=? WHERE task_id=?",
+                        (stale_timestamp, queued["task_id"]),
+                    )
+                recovery = recover_interrupted_research_tasks(stale_after_seconds=900)
+                self.assertEqual(recovery["requeued_interrupted_count"], 1)
+                new_executor = pool.submit(execute_queued_research_task, queued["task_id"])
+                self.assertTrue(second_entered.wait(timeout=5))
+
+                release_first.set()
+                self.assertFalse(old_executor.result(timeout=5))
+                # The old executor cannot overwrite the newer running claim.
+                interim = get_research_task(queued["task_id"])
+                self.assertEqual(interim["status"], "running")
+                self.assertEqual(interim["execution_attempts"], 2)
+
+                release_second.set()
+                self.assertTrue(new_executor.result(timeout=5))
+
+        saved = get_research_task(queued["task_id"])
+        self.assertEqual(saved["status"], "completed")
+        self.assertEqual(saved["result"]["shared_core_result"]["summary"], "attempt-2")
+        self.assertEqual(saved["execution_attempts"], 2)
+        self.assertEqual(calls, [1, 2])
+
     def test_recovery_requeues_stale_running_tasks_and_preserves_queued(self):
         from app.analytical_agent_tasks import enqueue_research_task, recover_interrupted_research_tasks
         from datetime import datetime, timedelta, timezone
@@ -325,6 +449,42 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         events = list_task_audit_events(queued["task_id"])["events"]
         self.assertEqual(events[-1]["event_type"], "task_failed")
         self.assertEqual(events[-1]["to_status"], "failed")
+
+    def test_concurrent_duplicate_dispatch_executes_only_one_claim(self):
+        import threading
+        from concurrent.futures import ThreadPoolExecutor
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, execute_queued_research_task, list_task_audit_events,
+        )
+        queued = enqueue_research_task("worker_006", "concurrent single claim")
+        entered = threading.Event()
+        release = threading.Event()
+        calls = []
+
+        def blocked_synthesis(payload):
+            calls.append(payload["task"]["brief"])
+            entered.set()
+            if not release.wait(timeout=5):
+                raise TimeoutError("test synthesis release timed out")
+            return {"status": "not_configured", "summary": "Provider disabled in test."}
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            with patch("app.analytical_agent_tasks.synthesize_research", side_effect=blocked_synthesis):
+                first = pool.submit(execute_queued_research_task, queued["task_id"])
+                self.assertTrue(entered.wait(timeout=5), "first dispatcher did not claim task")
+                second = pool.submit(execute_queued_research_task, queued["task_id"])
+                self.assertFalse(second.result(timeout=5))
+                release.set()
+                self.assertTrue(first.result(timeout=5))
+
+        saved = get_research_task(queued["task_id"])
+        self.assertEqual(saved["status"], "completed")
+        self.assertEqual(saved["execution_attempts"], 1)
+        self.assertEqual(calls, ["concurrent single claim"])
+        events = list_task_audit_events(queued["task_id"])["events"]
+        self.assertEqual(
+            [event["event_type"] for event in events].count("task_claimed"), 1
+        )
 
     def test_duplicate_dispatch_only_claims_once(self):
         from app.analytical_agent_tasks import enqueue_research_task, execute_queued_research_task

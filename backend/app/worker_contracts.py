@@ -7,46 +7,52 @@ from copy import deepcopy
 from datetime import datetime
 import math
 
-CONTRACT_VERSION = "1.0.0"
+CONTRACT_VERSION = "1.1.0"
+COMPATIBLE_LEGACY_CONTRACT_VERSIONS = {"1.0.0"}
 
 # Shape names are intentionally small and stable; numerical domain validation
 # remains in workflow._numbers and the indicator implementations.
 _CONTRACTS = {
     "market_input": {
         "input": {"kind": "numeric_series_or_object", "required": False},
-        "output": {"kind": "object", "required_keys": ["values"]},
+        "output": {"kind": "object", "required_keys": ["values"], "fields": {"values": "number_list"}},
         "evidence_requirements": ["input_source", "retrieval_timestamp", "quality_status"],
     },
     "data_quality": {
-        "input": {"kind": "numeric_series_or_object", "required": True},
-        "output": {"kind": "object", "required_keys": ["data", "quality"]},
+        "input": {"kind": "numeric_series_or_object", "required": True, "min_observations": 0},
+        "output": {"kind": "object", "required_keys": ["data", "quality"], "fields": {"data": "object", "quality": "object"}},
         "evidence_requirements": ["input_source", "retrieval_timestamp"],
     },
-    "sma": {"input": {"kind": "numeric_series_or_object", "required": True},
-            "output": {"kind": "object", "required_keys": ["series", "period"]},
+    "sma": {"input": {"kind": "numeric_series_or_object", "required": True, "min_observations": 1},
+            "output": {"kind": "object", "required_keys": ["series", "period"], "fields": {"series": "number_list", "period": "positive_integer"}},
             "evidence_requirements": ["input_source", "retrieval_timestamp", "period"]},
-    "ema": {"input": {"kind": "numeric_series_or_object", "required": True},
-            "output": {"kind": "object", "required_keys": ["series", "period"]},
+    "ema": {"input": {"kind": "numeric_series_or_object", "required": True, "min_observations": 1},
+            "output": {"kind": "object", "required_keys": ["series", "period"], "fields": {"series": "number_list", "period": "positive_integer"}},
             "evidence_requirements": ["input_source", "retrieval_timestamp", "period"]},
-    "rsi": {"input": {"kind": "numeric_series_or_object", "required": True},
-            "output": {"kind": "object", "required_keys": ["series", "period"]},
+    "rsi": {"input": {"kind": "numeric_series_or_object", "required": True, "min_observations": 2},
+            "output": {"kind": "object", "required_keys": ["series", "period"], "fields": {"series": "number_list", "period": "positive_integer"}},
             "evidence_requirements": ["input_source", "retrieval_timestamp", "period"]},
-    "macd": {"input": {"kind": "numeric_series_or_object", "required": True},
-             "output": {"kind": "object", "required_keys": ["macd", "signal", "histogram"]},
+    "macd": {"input": {"kind": "numeric_series_or_object", "required": True, "min_observations": 1},
+             "output": {"kind": "object", "required_keys": ["macd", "signal", "histogram"], "fields": {"macd": "number_list", "signal": "number_list", "histogram": "number_list"}},
              "evidence_requirements": ["input_source", "retrieval_timestamp"]},
-    "bollinger": {"input": {"kind": "numeric_series_or_object", "required": True},
-                  "output": {"kind": "object", "required_keys": ["middle", "upper", "lower"]},
+    "bollinger": {"input": {"kind": "numeric_series_or_object", "required": True, "min_observations": 1},
+                  "output": {"kind": "object", "required_keys": ["middle", "upper", "lower"], "fields": {"middle": "number_list", "upper": "number_list", "lower": "number_list", "period": "positive_integer"}},
                   "evidence_requirements": ["input_source", "retrieval_timestamp", "period"]},
-    "returns": {"input": {"kind": "numeric_series_or_object", "required": True},
-                "output": {"kind": "object", "required_keys": ["series", "summary"]},
+    "returns": {"input": {"kind": "numeric_series_or_object", "required": True, "min_observations": 2},
+                "output": {"kind": "object", "required_keys": ["series", "summary"], "fields": {"series": "number_list", "summary": "object"}},
                 "evidence_requirements": ["input_source", "retrieval_timestamp"]},
-    "volatility": {"input": {"kind": "numeric_series_or_object", "required": True},
-                   "output": {"kind": "number_or_object", "required_keys": []},
+    "volatility": {"input": {"kind": "numeric_series_or_object", "required": True, "min_observations": 3},
+                   "output": {"kind": "number_or_object", "required_keys": ["per_observation", "observations"], "fields": {"per_observation": "number", "observations": "positive_integer", "annualized": "number"}},
                    "evidence_requirements": ["input_source", "retrieval_timestamp"]},
     "research_summary": {"input": {"kind": "numeric_series_or_object", "required": True},
-                         "output": {"kind": "object", "required_keys": ["report"]},
+                         "output": {"kind": "object", "required_keys": ["report"], "fields": {"report": "object"}},
                          "evidence_requirements": ["input_source", "retrieval_timestamp", "quality_status"]},
 }
+
+
+def is_contract_version_compatible(saved_version: str | None) -> bool:
+    """Allow current and explicitly supported legacy contracts for revalidation."""
+    return saved_version == CONTRACT_VERSION or saved_version in COMPATIBLE_LEGACY_CONTRACT_VERSIONS
 
 
 def get_worker_contract(node_type: str) -> dict:
@@ -70,6 +76,9 @@ def validate_worker_input(node_type: str, payload) -> None:
     def validate_series(values) -> None:
         if not isinstance(values, list):
             raise ValueError(f"{node_type} input series must be a list")
+        minimum = contract["input"].get("min_observations", 0)
+        if len(values) < minimum:
+            raise ValueError(f"{node_type} input requires at least {minimum} observations")
         for index, value in enumerate(values):
             if isinstance(value, bool) or not isinstance(value, (int, float)):
                 raise ValueError(
@@ -117,6 +126,10 @@ def validate_worker_output(node_type: str, output) -> None:
     if shape == "number_or_object":
         if isinstance(output, bool) or not isinstance(output, (int, float, dict)):
             raise ValueError(f"{node_type} output contract requires a number or object")
+        if isinstance(output, dict):
+            missing = set(contract["output"]["required_keys"]) - set(output)
+            if missing:
+                raise ValueError(f"{node_type} output is missing contract keys: {', '.join(sorted(missing))}")
     elif not isinstance(output, dict):
         raise ValueError(f"{node_type} output contract requires an object")
     else:
@@ -147,6 +160,65 @@ def validate_worker_output(node_type: str, output) -> None:
 
     validate_finite(output, "value")
 
+    if isinstance(output, dict):
+        for field, field_type in contract["output"].get("fields", {}).items():
+            if field not in output:
+                continue
+            value = output[field]
+            if field_type == "object":
+                if not isinstance(value, dict):
+                    raise ValueError(f"{node_type} output {field} must be an object")
+            elif field_type == "positive_integer":
+                if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+                    raise ValueError(f"{node_type} output {field} must be a positive integer")
+            elif field_type == "number":
+                if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(float(value)):
+                    raise ValueError(f"{node_type} output {field} must be a finite number")
+            elif field_type == "number_list":
+                if not isinstance(value, list):
+                    raise ValueError(f"{node_type} output {field} must be a numeric list")
+                allow_leading_nulls = node_type == "rsi" and field == "series"
+                seen_number = False
+                for index, item in enumerate(value):
+                    if item is None and allow_leading_nulls and not seen_number:
+                        continue
+                    if isinstance(item, bool) or not isinstance(item, (int, float)):
+                        raise ValueError(f"{node_type} output {field}[{index}] must be a number")
+                    try:
+                        finite = math.isfinite(float(item))
+                    except (OverflowError, ValueError):
+                        finite = False
+                    if not finite:
+                        raise ValueError(f"{node_type} output {field}[{index}] must be finite")
+                    seen_number = True
+
+    # Numerical workflow outputs must not smuggle strings, booleans, or nulls
+    # into series fields: the generic finite-value walk intentionally permits
+    # descriptive metadata, so validate analytical fields explicitly here.
+    if isinstance(output, dict):
+        numeric_series_keys = {
+            "values", "series", "macd", "signal", "histogram",
+            "middle", "upper", "lower",
+        }
+        for key in numeric_series_keys.intersection(output):
+            values = output[key]
+            if not isinstance(values, list):
+                raise ValueError(f"{node_type} output {key} must be a numeric list")
+            warmup_nulls_allowed = node_type == "rsi" and key == "series"
+            seen_numeric_value = False
+            for index, value in enumerate(values):
+                if value is None and warmup_nulls_allowed and not seen_numeric_value:
+                    continue
+                if isinstance(value, bool) or not isinstance(value, (int, float)):
+                    raise ValueError(
+                        f"{node_type} output {key}[{index}] must be a number"
+                    )
+                seen_numeric_value = True
+        if "period" in output:
+            period = output["period"]
+            if isinstance(period, bool) or not isinstance(period, int) or period < 1:
+                raise ValueError(f"{node_type} output period must be a positive integer")
+
 
 def validate_evidence_provenance(evidence) -> None:
     """Validate optional source provenance before a workflow handler consumes it.
@@ -163,11 +235,13 @@ def validate_evidence_provenance(evidence) -> None:
             "Evidence provenance is missing required fields: " + ", ".join(missing)
         )
     source = evidence["input_source"]
-    if not isinstance(source, str) or not source.strip():
-        raise ValueError("Evidence provenance input_source must be a non-empty string")
+    if (not isinstance(source, str) or not source.strip() or len(source.strip()) > 200
+            or any(ord(char) < 32 for char in source)):
+        raise ValueError("Evidence provenance input_source must contain 1 to 200 printable characters")
     timestamp = evidence["retrieval_timestamp"]
-    if not isinstance(timestamp, str) or not timestamp.strip():
-        raise ValueError("Evidence provenance retrieval_timestamp must be an ISO-8601 string")
+    if (not isinstance(timestamp, str) or not timestamp.strip() or len(timestamp) > 64
+            or any(ord(char) < 32 for char in timestamp)):
+        raise ValueError("Evidence provenance retrieval_timestamp must be a bounded ISO-8601 string")
     try:
         parsed = datetime.fromisoformat(timestamp.strip().replace("Z", "+00:00"))
     except ValueError as exc:

@@ -21,6 +21,82 @@ class ResearchQualityEvalTests(unittest.TestCase):
         self.assertIn("limitation", metrics["uncertainty_markers"])
         self.assertEqual(result["evaluation_type"], "deterministic_research_traceability_check")
 
+    def test_validates_optional_source_identity_metadata_and_reports_coverage(self):
+        result = evaluate_research_draft(
+            draft="A sourced draft.",
+            claims=[{"text": "Claim", "source_refs": ["src-1"]}],
+            source_registry=[
+                {
+                    "source_id": "src-1",
+                    "title": "Example report",
+                    "publisher": "Research publisher",
+                    "url": "https://example.org/report",
+                    "retrieved_at": "2026-11-12T08:00:00+00:00",
+                    "content_sha256": "a" * 64,
+                },
+                {"source_id": "src-2", "title": "Metadata incomplete"},
+            ],
+        )
+        self.assertEqual(result["metrics"]["sources_with_complete_identity_metadata"], 1)
+        self.assertEqual(result["metrics"]["source_identity_metadata_coverage"], 0.5)
+
+    def test_rejects_malformed_source_identity_metadata(self):
+        invalid_sources = (
+            {"source_id": "src", "url": "javascript:alert(1)"},
+            {"source_id": "src", "url": "https:///missing-host"},
+            {"source_id": "src", "retrieved_at": "2026-11-12T08:00:00"},
+            {"source_id": "src", "content_sha256": "not-a-digest"},
+            {"source_id": "src", "publisher": ""},
+            {"source_id": "src", "title": "x" * 501},
+        )
+        for source in invalid_sources:
+            with self.subTest(source=source):
+                with self.assertRaises(ValueError):
+                    evaluate_research_draft(
+                        draft="Draft.",
+                        claims=[],
+                        source_registry=[source],
+                    )
+
+    def test_empty_source_registry_reports_unavailable_identity_coverage(self):
+        result = evaluate_research_draft(draft="Draft.", claims=[], source_registry=[])
+        self.assertIsNone(result["metrics"]["source_identity_metadata_coverage"])
+
+    def test_reports_excerpts_only_when_they_match_registered_claim_references(self):
+        result = evaluate_research_draft(
+            draft="A draft with supplied excerpts.",
+            claims=[
+                {"text": "Claim A", "source_refs": ["src-1"],
+                 "evidence": [{"source_id": "src-1", "excerpt": "Relevant supplied passage."}]},
+                {"text": "Claim B", "source_refs": ["src-1"],
+                 "evidence": [{"source_id": "unknown", "excerpt": "Unverified passage."}]},
+                {"text": "Claim C", "source_refs": ["src-1"],
+                 "evidence": [{"source_id": "src-2", "excerpt": "Orphaned passage."}]},
+            ],
+            source_registry=[{"source_id": "src-1"}, {"source_id": "src-2"}],
+        )
+        self.assertEqual(result["metrics"]["claims_with_provided_excerpts"], 1)
+        self.assertAlmostEqual(result["metrics"]["claim_excerpt_coverage"], 1 / 3, places=4)
+        self.assertEqual([c["evidence_status"] for c in result["claims"]],
+                         ["provided_excerpt", "unknown_source_ids", "not_in_source_refs"])
+
+    def test_rejects_malformed_claim_evidence(self):
+        invalid_evidence = (
+            "not-a-list",
+            [{"source_id": "", "excerpt": "text"}],
+            [{"source_id": "src", "excerpt": ""}],
+            [{"source_id": "src", "excerpt": "x" * 2001}],
+            [None],
+        )
+        for evidence in invalid_evidence:
+            with self.subTest(evidence=evidence):
+                with self.assertRaises(ValueError):
+                    evaluate_research_draft(
+                        draft="Draft.",
+                        claims=[{"text": "Claim", "source_refs": ["src"], "evidence": evidence}],
+                        source_registry=[{"source_id": "src"}],
+                    )
+
     def test_rejects_missing_or_duplicate_source_ids(self):
         for registry in (
             [{"title": "Missing ID"}],

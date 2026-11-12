@@ -62,6 +62,24 @@ class WorkerContractTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "finite numbers"):
                     validate_worker_output(node_type, output)
 
+    def test_output_contract_rejects_non_numeric_analytical_series(self):
+        invalid_outputs = (
+            ("sma", {"series": [1.0, "bad"], "period": 2}),
+            ("ema", {"series": [1.0, None], "period": 2}),
+            ("macd", {"macd": [1.0], "signal": [True], "histogram": [0.0]}),
+            ("bollinger", {"middle": [1.0], "upper": ["2.0"], "lower": [0.0]}),
+        )
+        for node_type, output in invalid_outputs:
+            with self.subTest(node_type=node_type, output=output):
+                with self.assertRaisesRegex(ValueError, r"must be a number"):
+                    validate_worker_output(node_type, output)
+
+    def test_period_output_must_be_a_positive_integer(self):
+        for period in (0, -1, 2.5, True, "14"):
+            with self.subTest(period=period):
+                with self.assertRaisesRegex(ValueError, "positive integer"):
+                    validate_worker_output("sma", {"series": [1.0], "period": period})
+
     def test_evidence_provenance_requires_source_timestamp_and_quality(self):
         validate_evidence_provenance({
             "input_source": "provider:sample",

@@ -42,6 +42,24 @@ class AuthenticationApiTests(unittest.TestCase):
             with self.subTest(path=path):
                 self.assertEqual(self.client.get(path).status_code, 404)
 
+    def test_cors_headers_are_present_on_auth_denials_and_preflight(self):
+        origin = "http://testserver"
+        denied = self.client.get("/api/watchlist", headers={"Origin": origin})
+        self.assertEqual(denied.status_code, 401)
+        self.assertEqual(denied.headers.get("access-control-allow-origin"), origin)
+        self.assertEqual(denied.headers.get("access-control-allow-credentials"), "true")
+
+        preflight = self.client.options(
+            "/api/watchlist",
+            headers={
+                "Origin": origin,
+                "Access-Control-Request-Method": "POST",
+                "Access-Control-Request-Headers": "content-type,x-csrf-token",
+            },
+        )
+        self.assertEqual(preflight.status_code, 200)
+        self.assertEqual(preflight.headers.get("access-control-allow-origin"), origin)
+
     def test_allowed_origins_reject_non_origin_urls(self):
         invalid_origins = (
             "*",

@@ -173,6 +173,21 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(out["aggregation"]["completed_count"], 2)
         self.assertEqual(out["results"]["feed"], {"values": [1, 2, 3]})
 
+    def test_resume_rejects_inconsistent_checkpoint_state(self):
+        nodes = [{"id": "feed", "type": "market_input", "data": {"values": [1, 2, 3]}}]
+        invalid_checkpoints = (
+            [],
+            {"completed_node_ids": ["missing"], "results": {}, "tasks": {}},
+            {"completed_node_ids": ["feed"], "results": {}, "tasks": {}},
+            {"completed_node_ids": ["feed"], "results": {"feed": {"values": [1, 2, 3]}}, "tasks": {}},
+            {"completed_node_ids": ["feed", "feed"], "results": {}, "tasks": {}},
+            {"completed_node_ids": [], "results": {"unknown": {}}, "tasks": {}},
+        )
+        for checkpoint in invalid_checkpoints:
+            with self.subTest(checkpoint=checkpoint):
+                with self.assertRaises(ValueError):
+                    execute_workflow(nodes, [], {}, initial_checkpoint=checkpoint)
+
     def test_workflow_records_validated_optional_input_provenance(self):
         nodes = [{
             "id": "feed", "type": "market_input",

@@ -79,6 +79,8 @@ class YahooHistoricalApiTests(unittest.TestCase):
         self.assertEqual(body["historical_providers"][0]["name"], "yahoo-finance-chart")
         self.assertEqual(body["historical_providers"][0]["status"], "implemented_not_probed")
         self.assertEqual(body["historical_providers"][0]["data_status"], "historical")
+        self.assertEqual(body["historical_providers"][1]["name"], "stooq-daily-csv")
+        self.assertEqual(body["historical_providers"][1]["endpoint"], "/api/market-data/stooq")
         self.assertEqual(body["available_adapters"][0]["data_status"], "synthetic")
     def test_provider_failure_maps_to_502_without_live_network(self):
         with patch("app.main.YahooFinanceAdapter.get_bars", side_effect=RuntimeError("mock provider failure")):

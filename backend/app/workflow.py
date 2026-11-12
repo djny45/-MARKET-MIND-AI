@@ -77,10 +77,33 @@ def execute_workflow(
     if visited != len(nodes):
         raise ValueError("Workflow contains a cycle.")
 
-    checkpoint = initial_checkpoint or {}
-    completed_before = set(checkpoint.get("completed_node_ids", []))
-    results = dict(checkpoint.get("results", {}))
-    task_records = dict(checkpoint.get("tasks", {}))
+    checkpoint = initial_checkpoint if initial_checkpoint is not None else {}
+    if not isinstance(checkpoint, dict):
+        raise ValueError("initial_checkpoint must be an object")
+    completed_ids = checkpoint.get("completed_node_ids", [])
+    checkpoint_results = checkpoint.get("results", {})
+    checkpoint_tasks = checkpoint.get("tasks", {})
+    if (not isinstance(completed_ids, list)
+            or any(not isinstance(item, str) for item in completed_ids)
+            or len(set(completed_ids)) != len(completed_ids)):
+        raise ValueError("checkpoint completed_node_ids must be a unique list of node IDs")
+    if not isinstance(checkpoint_results, dict) or not isinstance(checkpoint_tasks, dict):
+        raise ValueError("checkpoint results and tasks must be objects")
+    completed_before = set(completed_ids)
+    if not completed_before.issubset(by_id):
+        raise ValueError("checkpoint contains unknown completed node IDs")
+    if not set(checkpoint_results).issubset(by_id) or not set(checkpoint_tasks).issubset(by_id):
+        raise ValueError("checkpoint contains unknown result or task node IDs")
+    for completed_id in completed_before:
+        task = checkpoint_tasks.get(completed_id)
+        if (completed_id not in checkpoint_results or not isinstance(task, dict)
+                or task.get("status") != "completed"
+                or task.get("node_id", completed_id) != completed_id):
+            raise ValueError("checkpoint completed nodes require a matching completed task and result")
+    if set(checkpoint_results) != completed_before:
+        raise ValueError("checkpoint results must match completed_node_ids")
+    results = dict(checkpoint_results)
+    task_records = dict(checkpoint_tasks)
     node_timings = {
         key: item.get("duration_ns", 0)
         for key, item in task_records.items()

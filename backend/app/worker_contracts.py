@@ -235,11 +235,13 @@ def validate_evidence_provenance(evidence) -> None:
             "Evidence provenance is missing required fields: " + ", ".join(missing)
         )
     source = evidence["input_source"]
-    if not isinstance(source, str) or not source.strip():
-        raise ValueError("Evidence provenance input_source must be a non-empty string")
+    if (not isinstance(source, str) or not source.strip() or len(source.strip()) > 200
+            or any(ord(char) < 32 for char in source)):
+        raise ValueError("Evidence provenance input_source must contain 1 to 200 printable characters")
     timestamp = evidence["retrieval_timestamp"]
-    if not isinstance(timestamp, str) or not timestamp.strip():
-        raise ValueError("Evidence provenance retrieval_timestamp must be an ISO-8601 string")
+    if (not isinstance(timestamp, str) or not timestamp.strip() or len(timestamp) > 64
+            or any(ord(char) < 32 for char in timestamp)):
+        raise ValueError("Evidence provenance retrieval_timestamp must be a bounded ISO-8601 string")
     try:
         parsed = datetime.fromisoformat(timestamp.strip().replace("Z", "+00:00"))
     except ValueError as exc:

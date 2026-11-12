@@ -75,6 +75,28 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
                     ("missing-task", "worker_001", "{}", "2026-11-12T00:00:00+00:00"),
                 )
 
+    def test_task_heartbeat_renews_only_the_current_claim(self):
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, _connect, _heartbeat_running_task,
+        )
+        queued = enqueue_research_task("worker_041", "heartbeat fencing")
+        token = "claim-token-current"
+        with _connect() as db:
+            db.execute(
+                "UPDATE analytical_agent_tasks SET status='running',execution_token=? WHERE task_id=?",
+                (token, queued["task_id"]),
+            )
+        self.assertTrue(_heartbeat_running_task(queued["task_id"], token))
+        self.assertFalse(_heartbeat_running_task(queued["task_id"], "stale-token"))
+        with _connect() as db:
+            row = db.execute(
+                "SELECT status,execution_token,updated_at FROM analytical_agent_tasks WHERE task_id=?",
+                (queued["task_id"],),
+            ).fetchone()
+        self.assertEqual(row["status"], "running")
+        self.assertEqual(row["execution_token"], token)
+        self.assertTrue(row["updated_at"])
+
     def test_queue_task_persists_queued_record_and_executes(self):
         from app.analytical_agent_tasks import enqueue_research_task, execute_queued_research_task
         queued = enqueue_research_task("worker_004", "Analyze provided metrics", {"metric": 7})

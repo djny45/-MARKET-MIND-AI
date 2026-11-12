@@ -152,7 +152,7 @@ def validate_worker_output(node_type: str, output) -> None:
     # descriptive metadata, so validate analytical fields explicitly here.
     if isinstance(output, dict):
         numeric_series_keys = {
-            "series", "macd", "signal", "histogram",
+            "values", "series", "macd", "signal", "histogram",
             "middle", "upper", "lower",
         }
         for key in numeric_series_keys.intersection(output):

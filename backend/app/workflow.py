@@ -96,10 +96,20 @@ def execute_workflow(
         raise ValueError("checkpoint contains unknown result or task node IDs")
     for completed_id in completed_before:
         task = checkpoint_tasks.get(completed_id)
+        expected_type = by_id[completed_id].get("type")
         if (completed_id not in checkpoint_results or not isinstance(task, dict)
                 or task.get("status") != "completed"
-                or task.get("node_id", completed_id) != completed_id):
+                or task.get("node_id", completed_id) != completed_id
+                or task.get("node_type") != expected_type):
             raise ValueError("checkpoint completed nodes require a matching completed task and result")
+        if expected_type not in NODE_TYPES:
+            raise ValueError(f"Unsupported node type in checkpoint: {expected_type}")
+        try:
+            validate_worker_output(expected_type, checkpoint_results[completed_id])
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"checkpoint result for node {completed_id} violates its worker contract: {exc}"
+            ) from exc
     if set(checkpoint_results) != completed_before:
         raise ValueError("checkpoint results must match completed_node_ids")
     results = dict(checkpoint_results)

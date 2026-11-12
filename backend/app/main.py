@@ -539,19 +539,26 @@ def readiness():
 
 @app.get("/api/providers/status")
 def provider_status():
- """Describe implemented provider availability without implying live connectivity."""
+ """Report provider capabilities without claiming an untested connection."""
  return {
   "status": "no_live_provider_configured",
   "live_providers": [],
+  "historical_providers": [{
+   "name": YahooFinanceAdapter.name,
+   "status": "implemented_not_probed",
+   "data_status": "historical",
+   "credential_required": False,
+   "purpose": "best-effort historical research; upstream availability and terms may change",
+   "endpoint": "/api/market-data/yahoo",
+  }],
   "available_adapters": [{
    "name": SyntheticFixtureAdapter.name,
    "status": "available",
    "data_status": "synthetic",
    "purpose": "development and integration testing only",
   }],
-  "market_data_note": "No live or delayed market-data provider is currently configured.",
+  "market_data_note": "No live or delayed market-data provider is configured. Historical provider connectivity is checked only when its data endpoint is requested.",
  }
-
 
 @app.get("/api/nodes")
 def nodes():

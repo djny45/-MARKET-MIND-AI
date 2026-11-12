@@ -130,6 +130,36 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertEqual(evaluation["metrics"]["claim_reference_coverage"], 0.5)
         self.assertEqual(evaluation["metrics"]["known_source_reference_coverage"], 0.5)
 
+    def test_replaced_claim_cannot_persist_evaluation_sidecars(self):
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, execute_queued_research_task,
+            get_task_quality_evaluation, _connect,
+        )
+        queued = enqueue_research_task(
+            "worker_042",
+            "fenced evaluation sidecar",
+            {
+                "draft": "A bounded research draft.",
+                "claims": [{"text": "A sourced claim", "source_refs": ["source-1"]}],
+                "source_registry": [{"source_id": "source-1"}],
+            },
+        )
+
+        def replace_claim(_payload):
+            with _connect() as db:
+                db.execute(
+                    "UPDATE analytical_agent_tasks SET execution_token=? WHERE task_id=?",
+                    ("replacement-claim", queued["task_id"]),
+                )
+            return {"status": "completed", "summary": "A bounded research draft."}
+
+        with patch("app.analytical_agent_tasks.synthesize_research", side_effect=replace_claim):
+            self.assertFalse(execute_queued_research_task(queued["task_id"]))
+        saved = get_research_task(queued["task_id"])
+        self.assertEqual(saved["status"], "running")
+        self.assertEqual(saved["result"], {})
+        self.assertIsNone(get_task_quality_evaluation(queued["task_id"]))
+
     def test_task_audit_events_record_queue_claim_and_completion(self):
         from app.analytical_agent_tasks import (
             enqueue_research_task, execute_queued_research_task, list_task_audit_events,

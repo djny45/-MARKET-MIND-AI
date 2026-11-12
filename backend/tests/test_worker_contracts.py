@@ -44,6 +44,37 @@ class WorkerContractTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "must be a list"):
             validate_worker_input("sma", {"values": "1,2,3"})
 
+    def test_specialist_inputs_enforce_minimum_observation_counts(self):
+        validate_worker_input("returns", [10, 11])
+        validate_worker_input("volatility", [10, 11, 12])
+        for node_type, payload in (
+            ("returns", [10]),
+            ("volatility", [10, 11]),
+            ("volatility", {"values": [10]}),
+        ):
+            with self.subTest(node_type=node_type, payload=payload):
+                with self.assertRaisesRegex(ValueError, "at least"):
+                    validate_worker_input(node_type, payload)
+
+    def test_volatility_object_output_requires_typed_statistics(self):
+        validate_worker_output("volatility", {
+            "per_observation": 0.12, "observations": 8, "annualized": 1.9,
+        })
+        for output in (
+            {},
+            {"per_observation": 0.12},
+            {"per_observation": "0.12", "observations": 8},
+            {"per_observation": 0.12, "observations": True},
+        ):
+            with self.subTest(output=output):
+                with self.assertRaises(ValueError):
+                    validate_worker_output("volatility", output)
+
+    def test_rsi_contract_enforces_typed_period_and_series(self):
+        validate_worker_output("rsi", {"series": [None, 45.0], "period": 2})
+        with self.assertRaisesRegex(ValueError, "positive integer"):
+            validate_worker_output("rsi", {"series": [45.0], "period": 0})
+
     def test_output_required_keys_validation(self):
         validate_worker_output("sma", {"series": [1.0], "period": 2})
         with self.assertRaises(ValueError):

@@ -394,6 +394,42 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertEqual(events[-1]["event_type"], "task_failed")
         self.assertEqual(events[-1]["to_status"], "failed")
 
+    def test_concurrent_duplicate_dispatch_executes_only_one_claim(self):
+        import threading
+        from concurrent.futures import ThreadPoolExecutor
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, execute_queued_research_task, list_task_audit_events,
+        )
+        queued = enqueue_research_task("worker_006", "concurrent single claim")
+        entered = threading.Event()
+        release = threading.Event()
+        calls = []
+
+        def blocked_synthesis(payload):
+            calls.append(payload["task"]["brief"])
+            entered.set()
+            if not release.wait(timeout=5):
+                raise TimeoutError("test synthesis release timed out")
+            return {"status": "not_configured", "summary": "Provider disabled in test."}
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            with patch("app.analytical_agent_tasks.synthesize_research", side_effect=blocked_synthesis):
+                first = pool.submit(execute_queued_research_task, queued["task_id"])
+                self.assertTrue(entered.wait(timeout=5), "first dispatcher did not claim task")
+                second = pool.submit(execute_queued_research_task, queued["task_id"])
+                self.assertFalse(second.result(timeout=5))
+                release.set()
+                self.assertTrue(first.result(timeout=5))
+
+        saved = get_research_task(queued["task_id"])
+        self.assertEqual(saved["status"], "completed")
+        self.assertEqual(saved["execution_attempts"], 1)
+        self.assertEqual(calls, ["concurrent single claim"])
+        events = list_task_audit_events(queued["task_id"])["events"]
+        self.assertEqual(
+            [event["event_type"] for event in events].count("task_claimed"), 1
+        )
+
     def test_duplicate_dispatch_only_claims_once(self):
         from app.analytical_agent_tasks import enqueue_research_task, execute_queued_research_task
         queued = enqueue_research_task("worker_006", "single claim")

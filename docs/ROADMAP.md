@@ -76,6 +76,7 @@ Current boundary: worker routing invokes deterministic Python handlers. The 550 
 - [ ] Add security review and dependency/licence inventory.
 - [ ] Complete host-specific backup/restore drills, retention policy, migration rollback, and incident procedures.
   - [x] Add SHA-256 digests for newly persisted workflow checkpoints and block recovery when a stored digest mismatches; same-database digest is corruption detection, not authenticity.
+- [x] Add a regression test proving a stale task executor cannot overwrite a newer claim after recovery requeues and redispatches the task.
 - [ ] Add authentication/authorization and TLS ingress before public deployment.
 
 ## Acceptance criteria

@@ -158,7 +158,8 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         saved = get_research_task(queued["task_id"])
         self.assertEqual(saved["status"], "running")
         self.assertEqual(saved["result"], {})
-        self.assertIsNone(get_task_quality_evaluation(queued["task_id"]))
+        evaluation = get_task_quality_evaluation(queued["task_id"])
+        self.assertEqual(evaluation["status"], "not_evaluated")
 
     def test_task_audit_events_record_queue_claim_and_completion(self):
         from app.analytical_agent_tasks import (

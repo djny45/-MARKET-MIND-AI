@@ -41,6 +41,27 @@ class WorkspaceTests(unittest.TestCase):
   self.assertEqual(loaded["status"],"running")
   self.assertEqual(loaded["checkpoint"]["completed_node_ids"],["a"])
   self.assertEqual(loaded["checkpoint"]["results"]["a"]["values"],[1,2])
+ def test_checkpoint_digest_is_persisted_and_verified(self):
+  request={"nodes":[{"id":"a","type":"market_input"}],"edges":[],"inputs":{"data":[1,2]}}
+  workspace.create_execution("integrity-run",request)
+  snapshot={"completed_node_ids":["a"],"results":{"a":{"values":[1,2]}},"completed_layers":1}
+  workspace.update_execution_checkpoint("integrity-run",snapshot,"running")
+  loaded=workspace.get_execution("integrity-run")
+  self.assertEqual(loaded["checkpoint_integrity"],"verified_sha256")
+  self.assertNotIn("checkpoint_error",loaded)
+
+ def test_tampered_checkpoint_digest_blocks_recovery(self):
+  request={"nodes":[{"id":"a","type":"market_input"}],"edges":[],"inputs":{"data":[1,2]}}
+  workspace.create_execution("tampered-run",request)
+  snapshot={"completed_node_ids":["a"],"results":{"a":{"values":[1,2]}},"completed_layers":1}
+  workspace.update_execution_checkpoint("tampered-run",snapshot,"running")
+  with workspace._connect() as con:
+   con.execute("UPDATE workflow_runs SET checkpoint_json=? WHERE id=?",('{"completed_node_ids":[],"results":{},"tasks":{}}',"tampered-run"))
+  loaded=workspace.get_execution("tampered-run")
+  self.assertEqual(loaded["checkpoint"],{})
+  self.assertEqual(loaded["checkpoint_integrity"],"digest_mismatch")
+  self.assertIn("checkpoint_error",loaded)
+
  def test_malformed_checkpoint_is_reported_without_crashing(self):
   request={"nodes":[{"id":"a","type":"market_input"}],"edges":[],"inputs":{"data":[1]}}
   workspace.create_execution("broken-checkpoint",request)

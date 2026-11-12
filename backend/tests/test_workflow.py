@@ -188,6 +188,30 @@ class WorkflowTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     execute_workflow(nodes, [], {}, initial_checkpoint=checkpoint)
 
+    def test_resume_rejects_result_that_violates_node_output_contract(self):
+        nodes = [{"id": "feed", "type": "market_input", "data": {"values": [1, 2, 3]}}]
+        checkpoint = {
+            "completed_node_ids": ["feed"],
+            "results": {"feed": {"values": ["not-numeric"]}},
+            "tasks": {"feed": {
+                "node_id": "feed", "node_type": "market_input", "status": "completed",
+            }},
+        }
+        with self.assertRaisesRegex(ValueError, "violates its worker contract"):
+            execute_workflow(nodes, [], {}, initial_checkpoint=checkpoint)
+
+    def test_resume_rejects_checkpoint_task_type_mismatch(self):
+        nodes = [{"id": "feed", "type": "market_input", "data": {"values": [1, 2, 3]}}]
+        checkpoint = {
+            "completed_node_ids": ["feed"],
+            "results": {"feed": {"values": [1, 2, 3]}},
+            "tasks": {"feed": {
+                "node_id": "feed", "node_type": "sma", "status": "completed",
+            }},
+        }
+        with self.assertRaisesRegex(ValueError, "matching completed task"):
+            execute_workflow(nodes, [], {}, initial_checkpoint=checkpoint)
+
     def test_workflow_records_validated_optional_input_provenance(self):
         nodes = [{
             "id": "feed", "type": "market_input",

@@ -14,7 +14,7 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .analytical_agent_runtime import brain_config
+from .analytical_agent_runtime import brain_config, set_agent_scope, reset_agent_scope
 from .intelligence_core import synthesize_research
 from .worker_memory import recall_memory
 from .research_quality_eval import evaluate_research_draft
@@ -315,6 +315,7 @@ def execute_queued_research_task(task_id: str) -> bool:
                       from_status="queued", to_status="running", occurred_at=now)
         task_input = json.loads(row["input_json"])
         agent_id = row["worker_id"]
+    scope_token = set_agent_scope(agent_id, task_id)
     try:
         # Build context inside the guarded execution block. A memory/configuration
         # failure must transition the claimed task to failed, not strand it as running.
@@ -374,6 +375,8 @@ def execute_queued_research_task(task_id: str) -> bool:
         failure = classify_research_task_failure(exc)
         result = {"error": "Research task failed safely.", **failure}
         status = "failed"
+    finally:
+        reset_agent_scope(scope_token)
     updated = datetime.now(timezone.utc).isoformat()
     with _connect() as db:
         # Fence completion by the exact claim token. If stale recovery requeued

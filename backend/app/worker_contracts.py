@@ -19,18 +19,18 @@ _CONTRACTS = {
         "evidence_requirements": ["input_source", "retrieval_timestamp", "quality_status"],
     },
     "data_quality": {
-        "input": {"kind": "numeric_series_or_object", "required": True},
+        "input": {"kind": "numeric_series_or_object", "required": True, "min_observations": 0},
         "output": {"kind": "object", "required_keys": ["data", "quality"], "fields": {"data": "object", "quality": "object"}},
         "evidence_requirements": ["input_source", "retrieval_timestamp"],
     },
-    "sma": {"input": {"kind": "numeric_series_or_object", "required": True},
+    "sma": {"input": {"kind": "numeric_series_or_object", "required": True, "min_observations": 1},
             "output": {"kind": "object", "required_keys": ["series", "period"], "fields": {"series": "number_list", "period": "positive_integer"}},
             "evidence_requirements": ["input_source", "retrieval_timestamp", "period"]},
     "ema": {"input": {"kind": "numeric_series_or_object", "required": True},
             "output": {"kind": "object", "required_keys": ["series", "period"], "fields": {"series": "number_list", "period": "positive_integer"}},
             "evidence_requirements": ["input_source", "retrieval_timestamp", "period"]},
     "rsi": {"input": {"kind": "numeric_series_or_object", "required": True},
-            "output": {"kind": "object", "required_keys": ["series", "period"]},
+            "output": {"kind": "object", "required_keys": ["series", "period"], "fields": {"series": "number_list", "period": "positive_integer"}},
             "evidence_requirements": ["input_source", "retrieval_timestamp", "period"]},
     "macd": {"input": {"kind": "numeric_series_or_object", "required": True},
              "output": {"kind": "object", "required_keys": ["macd", "signal", "histogram"], "fields": {"macd": "number_list", "signal": "number_list", "histogram": "number_list"}},
@@ -38,11 +38,11 @@ _CONTRACTS = {
     "bollinger": {"input": {"kind": "numeric_series_or_object", "required": True},
                   "output": {"kind": "object", "required_keys": ["middle", "upper", "lower"], "fields": {"middle": "number_list", "upper": "number_list", "lower": "number_list", "period": "positive_integer"}},
                   "evidence_requirements": ["input_source", "retrieval_timestamp", "period"]},
-    "returns": {"input": {"kind": "numeric_series_or_object", "required": True},
+    "returns": {"input": {"kind": "numeric_series_or_object", "required": True, "min_observations": 2},
                 "output": {"kind": "object", "required_keys": ["series", "summary"], "fields": {"series": "number_list", "summary": "object"}},
                 "evidence_requirements": ["input_source", "retrieval_timestamp"]},
-    "volatility": {"input": {"kind": "numeric_series_or_object", "required": True},
-                   "output": {"kind": "number_or_object", "required_keys": []},
+    "volatility": {"input": {"kind": "numeric_series_or_object", "required": True, "min_observations": 3},
+                   "output": {"kind": "number_or_object", "required_keys": ["per_observation", "observations"], "fields": {"per_observation": "number", "observations": "positive_integer", "annualized": "number"}},
                    "evidence_requirements": ["input_source", "retrieval_timestamp"]},
     "research_summary": {"input": {"kind": "numeric_series_or_object", "required": True},
                          "output": {"kind": "object", "required_keys": ["report"], "fields": {"report": "object"}},
@@ -76,6 +76,9 @@ def validate_worker_input(node_type: str, payload) -> None:
     def validate_series(values) -> None:
         if not isinstance(values, list):
             raise ValueError(f"{node_type} input series must be a list")
+        minimum = contract["input"].get("min_observations", 0)
+        if len(values) < minimum:
+            raise ValueError(f"{node_type} input requires at least {minimum} observations")
         for index, value in enumerate(values):
             if isinstance(value, bool) or not isinstance(value, (int, float)):
                 raise ValueError(
@@ -123,6 +126,10 @@ def validate_worker_output(node_type: str, output) -> None:
     if shape == "number_or_object":
         if isinstance(output, bool) or not isinstance(output, (int, float, dict)):
             raise ValueError(f"{node_type} output contract requires a number or object")
+        if isinstance(output, dict):
+            missing = set(contract["output"]["required_keys"]) - set(output)
+            if missing:
+                raise ValueError(f"{node_type} output is missing contract keys: {', '.join(sorted(missing))}")
     elif not isinstance(output, dict):
         raise ValueError(f"{node_type} output contract requires an object")
     else:
@@ -164,6 +171,9 @@ def validate_worker_output(node_type: str, output) -> None:
             elif field_type == "positive_integer":
                 if isinstance(value, bool) or not isinstance(value, int) or value < 1:
                     raise ValueError(f"{node_type} output {field} must be a positive integer")
+            elif field_type == "number":
+                if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(float(value)):
+                    raise ValueError(f"{node_type} output {field} must be a finite number")
             elif field_type == "number_list":
                 if not isinstance(value, list):
                     raise ValueError(f"{node_type} output {field} must be a numeric list")

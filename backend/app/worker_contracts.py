@@ -147,6 +147,28 @@ def validate_worker_output(node_type: str, output) -> None:
 
     validate_finite(output, "value")
 
+    # Numerical workflow outputs must not smuggle strings, booleans, or nulls
+    # into series fields: the generic finite-value walk intentionally permits
+    # descriptive metadata, so validate analytical fields explicitly here.
+    if isinstance(output, dict):
+        numeric_series_keys = {
+            "series", "macd", "signal", "histogram",
+            "middle", "upper", "lower",
+        }
+        for key in numeric_series_keys.intersection(output):
+            values = output[key]
+            if not isinstance(values, list):
+                raise ValueError(f"{node_type} output {key} must be a numeric list")
+            for index, value in enumerate(values):
+                if isinstance(value, bool) or not isinstance(value, (int, float)):
+                    raise ValueError(
+                        f"{node_type} output {key}[{index}] must be a number"
+                    )
+        if "period" in output:
+            period = output["period"]
+            if isinstance(period, bool) or not isinstance(period, int) or period < 1:
+                raise ValueError(f"{node_type} output period must be a positive integer")
+
 
 def validate_evidence_provenance(evidence) -> None:
     """Validate optional source provenance before a workflow handler consumes it.

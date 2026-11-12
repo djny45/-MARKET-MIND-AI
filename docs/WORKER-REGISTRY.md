@@ -73,3 +73,8 @@ Concurrent duplicate task dispatch is tested with two simultaneous callers while
 ## Typed specialist output fields
 
 Worker output descriptors now declare field-level types in addition to required keys. Supported declarations include finite numeric lists, positive integers, and object fields. RSI series retain the narrow leading warm-up-null exception; nulls after the first numeric observation are rejected. The validator applies the declarations at runtime, so the registry metadata and output checks share one contract definition. The current version remains `1.0.0` because these descriptors formalize the existing accepted shapes; any future breaking shape change must increment the contract version and invalidate incompatible saved checkpoints.
+
+
+## Durable workflow checkpoint integrity
+
+Workflow runs persist the latest completed-layer snapshot in SQLite before the run advances. New checkpoint writes store a SHA-256 digest of the exact serialized checkpoint in a separate database column; reads verify the digest before exposing a snapshot for recovery. A mismatch is reported as a checkpoint integrity error and resume is blocked. Existing rows created before digest support are labelled `legacy_unverified` and remain subject to request-fingerprint, checkpoint-structure, node-type, contract-version, and output-contract validation. The digest detects accidental corruption; because the digest is stored in the same database, it is not an authenticity guarantee or a defense against a malicious database editor. Back up the SQLite database and verify restores before relying on recovery.

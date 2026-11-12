@@ -25,13 +25,27 @@ class WorkflowResumeIntegrityTests(unittest.TestCase):
             "checkpointed_at": "2026-01-01T00:00:00+00:00",
             "completed_node_ids": ["a"],
             "results": {"a": {"values": [1, 2]}},
-            "tasks": {"a": {"status": "completed"}},
+            "tasks": {"a": {"status": "completed", "node_type": "market_input", "contract_version": "1.0.0"}},
         }
         return request, checkpoint
 
     def test_checkpoint_integrity_accepts_matching_completed_task(self):
         request, checkpoint = self._valid_checkpoint()
         _validate_checkpoint_integrity(request, checkpoint, {"a"})
+
+    def test_checkpoint_integrity_rejects_worker_contract_version_mismatch(self):
+        request, checkpoint = self._valid_checkpoint()
+        checkpoint["tasks"]["a"]["contract_version"] = "0.9.0"
+        with self.assertRaises(HTTPException) as error:
+            _validate_checkpoint_integrity(request, checkpoint, {"a"})
+        self.assertEqual(error.exception.status_code, 409)
+
+    def test_checkpoint_integrity_rejects_task_node_type_mismatch(self):
+        request, checkpoint = self._valid_checkpoint()
+        checkpoint["tasks"]["a"]["node_type"] = "sma"
+        with self.assertRaises(HTTPException) as error:
+            _validate_checkpoint_integrity(request, checkpoint, {"a"})
+        self.assertEqual(error.exception.status_code, 409)
 
     def test_checkpoint_integrity_rejects_changed_inputs(self):
         request, checkpoint = self._valid_checkpoint()

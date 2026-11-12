@@ -52,3 +52,7 @@ The worker registry tests cover valid manifests, malformed profiles, invalid and
 Research-task execution binds a task-local agent scope using Python `ContextVar`. The scope carries the registered worker ID, task ID, worker memory namespace, and shared intelligence-core ID. Concurrent asyncio tasks receive independent context values, and nested scopes restore their parent value when closed. The executor resets its scope in a `finally` block on both successful and failed synthesis paths.
 
 This is in-process context isolation, not a distributed context-propagation system. Any future integration that crosses raw thread or process boundaries must explicitly propagate or re-establish the scope. The current implementation does not add NeMo Relay instrumentation or a new inference provider.
+
+## Analytical output contract enforcement
+
+Workflow output validation checks both the declared top-level shape and the value types of analytical fields. Series outputs (including MACD and Bollinger components) must be lists of finite numeric values; period metadata must be a positive integer. Descriptive metadata may remain textual, but it cannot replace a numeric analytical series. This is structural validation only and does not establish that source data is authentic or that a calculation is economically meaningful.

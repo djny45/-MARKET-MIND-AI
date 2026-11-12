@@ -268,7 +268,9 @@ def _run_node(kind, payload, params):
         }}
     if kind in ("sma", "ema", "rsi", "macd", "bollinger"):
         values = _numbers(payload)
-        period = max(1, int(params.get("period", 14)))
+        period = params.get("period", 14)
+        if isinstance(period, bool) or not isinstance(period, int) or period < 1:
+            raise ValueError("period must be a positive integer")
         if kind == "sma":
             return {"series": indicators.sma(values, period), "period": period}
         if kind == "ema":

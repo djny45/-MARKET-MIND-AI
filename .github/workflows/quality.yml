@@ -363,26 +363,59 @@ jobs:
           owner_hash="$(python -c "from app.auth_crypto import hash_password; print(hash_password('e2e-only-test-password-2026'))")"
           echo "MARKET_MIND_OWNER_PASSWORD_HASH=$owner_hash" >> "$GITHUB_ENV"
 
-      - name: Start local API and frontend
+      - name: Start services, run browser tests, and stop services
         run: |
           set -euo pipefail
-          nohup python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 > "$RUNNER_TEMP/browser-e2e-api.log" 2>&1 < /dev/null &
-          for attempt in $(seq 1 40); do
-            if curl --fail --silent http://127.0.0.1:8000/api/ready >/dev/null; then break; fi
-            sleep 1
-          done
-          curl --fail --silent http://127.0.0.1:8000/api/ready >/dev/null
-          cd frontend
-          VITE_API_URL=http://127.0.0.1:8000 nohup npm run dev -- --host 127.0.0.1 > "$RUNNER_TEMP/browser-e2e-frontend.log" 2>&1 < /dev/null &
-          for attempt in $(seq 1 40); do
-            if curl --fail --silent http://127.0.0.1:5173/ >/dev/null; then break; fi
-            sleep 1
-          done
-          curl --fail --silent http://127.0.0.1:5173/ >/dev/null
+          api_log="$RUNNER_TEMP/browser-e2e-api.log"
+          frontend_log="$RUNNER_TEMP/browser-e2e-frontend.log"
 
-      - name: Run real-browser authentication tests
-        working-directory: frontend
-        run: npm run test:e2e
+          nohup python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 > "$api_log" 2>&1 < /dev/null &
+          api_pid=$!
+          nohup bash -c 'cd frontend && VITE_API_URL=http://127.0.0.1:8000 npm run dev -- --host 127.0.0.1' > "$frontend_log" 2>&1 < /dev/null &
+          frontend_pid=$!
+
+          cleanup() {
+            kill "$frontend_pid" "$api_pid" 2>/dev/null || true
+            wait "$frontend_pid" "$api_pid" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+
+          for attempt in $(seq 1 40); do
+            if curl --fail --silent http://127.0.0.1:8000/api/ready >/dev/null; then
+              break
+            fi
+            if ! kill -0 "$api_pid" 2>/dev/null; then
+              echo "API process exited before readiness"
+              cat "$api_log"
+              exit 1
+            fi
+            sleep 1
+          done
+          if ! curl --fail --silent http://127.0.0.1:8000/api/ready >/dev/null; then
+            echo "API did not become ready within 40 seconds"
+            cat "$api_log"
+            exit 1
+          fi
+
+          for attempt in $(seq 1 40); do
+            if curl --fail --silent http://127.0.0.1:5173/ >/dev/null; then
+              break
+            fi
+            if ! kill -0 "$frontend_pid" 2>/dev/null; then
+              echo "Frontend process exited before readiness"
+              cat "$frontend_log"
+              exit 1
+            fi
+            sleep 1
+          done
+          if ! curl --fail --silent http://127.0.0.1:5173/ >/dev/null; then
+            echo "Frontend did not become ready within 40 seconds"
+            cat "$frontend_log"
+            exit 1
+          fi
+
+          cd frontend
+          npm run test:e2e
 
       - name: Upload browser diagnostics on failure
         if: failure()

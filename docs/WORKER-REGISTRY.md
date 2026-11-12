@@ -61,3 +61,5 @@ Workflow output validation checks both the declared top-level shape and the valu
 
 
 Checkpoint validation also verifies each completed task's recorded node type against the current DAG and re-runs that node type's output contract against its saved result before allowing resume. This prevents a structurally valid but malformed result, or a result recorded under the wrong worker type, from bypassing validation when downstream nodes consume it.
+
+Queued agent task lifecycle hardening keeps persisted-input decoding inside the guarded execution block. A malformed stored input is finalized as a failed task rather than remaining in the running state. Task inspection returns a bounded `invalid_persisted_json` marker when stored input or result JSON cannot be decoded, so a corrupt record remains inspectable. Agent-scope cleanup errors are caught during finalization; an otherwise successful task is downgraded to failed rather than being left without a terminal status. These safeguards complement atomic task claiming, execution-token fencing, bounded stale recovery, and audit events.

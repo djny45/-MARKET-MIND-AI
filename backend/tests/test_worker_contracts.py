@@ -163,6 +163,17 @@ class WorkerContractTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     validate_evidence_provenance(evidence)
 
+    def test_evidence_provenance_bounds_source_and_timestamp_fields(self):
+        valid_timestamp = "2026-11-10T12:30:00Z"
+        for evidence in (
+            {"input_source": "x" * 201, "retrieval_timestamp": valid_timestamp, "quality_status": "pass"},
+            {"input_source": "provider", "retrieval_timestamp": " " * 65, "quality_status": "pass"},
+            {"input_source": "provider\\nforged", "retrieval_timestamp": valid_timestamp, "quality_status": "pass"},
+        ):
+            with self.subTest(evidence=evidence):
+                with self.assertRaises(ValueError):
+                    validate_evidence_provenance(evidence)
+
     def test_unknown_node_contract_rejected(self):
         with self.assertRaises(ValueError):
             get_worker_contract("unknown")

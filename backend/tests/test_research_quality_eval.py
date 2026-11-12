@@ -21,6 +21,47 @@ class ResearchQualityEvalTests(unittest.TestCase):
         self.assertIn("limitation", metrics["uncertainty_markers"])
         self.assertEqual(result["evaluation_type"], "deterministic_research_traceability_check")
 
+    def test_validates_optional_source_identity_metadata_and_reports_coverage(self):
+        result = evaluate_research_draft(
+            draft="A sourced draft.",
+            claims=[{"text": "Claim", "source_refs": ["src-1"]}],
+            source_registry=[
+                {
+                    "source_id": "src-1",
+                    "title": "Example report",
+                    "publisher": "Research publisher",
+                    "url": "https://example.org/report",
+                    "retrieved_at": "2026-11-12T08:00:00+00:00",
+                    "content_sha256": "a" * 64,
+                },
+                {"source_id": "src-2", "title": "Metadata incomplete"},
+            ],
+        )
+        self.assertEqual(result["metrics"]["sources_with_complete_identity_metadata"], 1)
+        self.assertEqual(result["metrics"]["source_identity_metadata_coverage"], 0.5)
+
+    def test_rejects_malformed_source_identity_metadata(self):
+        invalid_sources = (
+            {"source_id": "src", "url": "javascript:alert(1)"},
+            {"source_id": "src", "url": "https:///missing-host"},
+            {"source_id": "src", "retrieved_at": "2026-11-12T08:00:00"},
+            {"source_id": "src", "content_sha256": "not-a-digest"},
+            {"source_id": "src", "publisher": ""},
+            {"source_id": "src", "title": "x" * 501},
+        )
+        for source in invalid_sources:
+            with self.subTest(source=source):
+                with self.assertRaises(ValueError):
+                    evaluate_research_draft(
+                        draft="Draft.",
+                        claims=[],
+                        source_registry=[source],
+                    )
+
+    def test_empty_source_registry_reports_unavailable_identity_coverage(self):
+        result = evaluate_research_draft(draft="Draft.", claims=[], source_registry=[])
+        self.assertIsNone(result["metrics"]["source_identity_metadata_coverage"])
+
     def test_rejects_missing_or_duplicate_source_ids(self):
         for registry in (
             [{"title": "Missing ID"}],

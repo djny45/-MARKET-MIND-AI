@@ -41,6 +41,47 @@ class WorkspaceTests(unittest.TestCase):
   self.assertEqual(loaded["status"],"running")
   self.assertEqual(loaded["checkpoint"]["completed_node_ids"],["a"])
   self.assertEqual(loaded["checkpoint"]["results"]["a"]["values"],[1,2])
+ def test_checkpoint_versions_increment_and_reject_stale_writers(self):
+  request={"nodes":[{"id":"a","type":"market_input"}],"edges":[],"inputs":{"data":[1,2]}}
+  created=workspace.create_execution("versioned-run",request)
+  self.assertEqual(created["checkpoint_version"],0)
+  first=workspace.update_execution_checkpoint(
+   "versioned-run",{"completed_node_ids":[],"results":{},"tasks":{}},
+   expected_checkpoint_version=0,
+  )
+  self.assertEqual(first["checkpoint_version"],1)
+  with self.assertRaisesRegex(RuntimeError,"version conflict"):
+   workspace.update_execution_checkpoint(
+    "versioned-run",{"completed_node_ids":["stale"],"results":{},"tasks":{}},
+    expected_checkpoint_version=0,
+   )
+  loaded=workspace.get_execution("versioned-run")
+  self.assertEqual(loaded["checkpoint_version"],1)
+  self.assertEqual(loaded["checkpoint"]["completed_node_ids"],[])
+
+ def test_legacy_execution_schema_migrates_checkpoint_columns(self):
+  import sqlite3
+  request='{"nodes":[],"edges":[],"inputs":{}}'
+  now="2026-11-12T00:00:00+00:00"
+  with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+   db.execute("""CREATE TABLE workflow_runs (
+    id TEXT PRIMARY KEY,parent_run_id TEXT,status TEXT NOT NULL,
+    request_json TEXT NOT NULL,result_json TEXT NOT NULL,
+    created_at TEXT NOT NULL,updated_at TEXT NOT NULL
+   )""")
+   db.execute("INSERT INTO workflow_runs VALUES (?,?,?,?,?,?,?)",
+    ("legacy-run",None,"failed",request,"{}",now,now))
+  loaded=workspace.get_execution("legacy-run")
+  self.assertEqual(loaded["checkpoint"],{})
+  self.assertEqual(loaded["checkpoint_version"],0)
+  self.assertEqual(loaded["checkpoint_integrity"],"legacy_unverified")
+  saved=workspace.update_execution_checkpoint(
+   "legacy-run",{"completed_node_ids":[],"results":{},"tasks":{}},
+   expected_checkpoint_version=0,
+  )
+  self.assertEqual(saved["checkpoint_version"],1)
+  self.assertEqual(workspace.get_execution("legacy-run")["checkpoint_integrity"],"verified_sha256")
+
  def test_checkpoint_digest_is_persisted_and_verified(self):
   request={"nodes":[{"id":"a","type":"market_input"}],"edges":[],"inputs":{"data":[1,2]}}
   workspace.create_execution("integrity-run",request)

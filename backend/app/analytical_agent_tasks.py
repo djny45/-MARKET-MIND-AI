@@ -309,13 +309,24 @@ def classify_research_task_failure(error: Exception) -> dict:
         "automatic_retry": False,
     }
 
+def _heartbeat_running_task(task_id: str, execution_token: str) -> bool:
+    """Renew only the currently owned running claim; stale owners cannot revive it."""
+    now = datetime.now(timezone.utc).isoformat()
+    with _connect() as db:
+        changed = db.execute(
+            "UPDATE analytical_agent_tasks SET updated_at=? "
+            "WHERE task_id=? AND status='running' AND execution_token=?",
+            (now, task_id, execution_token),
+        )
+    return changed.rowcount == 1
+
+
 def execute_queued_research_task(task_id: str) -> bool:
-    """Execute one persisted queued task; safe to call from FastAPI BackgroundTasks."""
+    """Execute one persisted task with claim fencing and a renewable local heartbeat."""
     with _connect() as db:
         row = db.execute("SELECT * FROM analytical_agent_tasks WHERE task_id=?", (task_id,)).fetchone()
         if row is None or row["status"] != "queued":
             return False
-        # Claim atomically so duplicate dispatches cannot execute the same queued row.
         now = datetime.now(timezone.utc).isoformat()
         execution_token = str(uuid.uuid4())
         claimed = db.execute(
@@ -330,10 +341,26 @@ def execute_queued_research_task(task_id: str) -> bool:
                       from_status="queued", to_status="running", occurred_at=now)
         task_input = json.loads(row["input_json"])
         agent_id = row["worker_id"]
+
+    stop_heartbeat = threading.Event()
+
+    def maintain_heartbeat():
+        while not stop_heartbeat.wait(60):
+            try:
+                if not _heartbeat_running_task(task_id, execution_token):
+                    return
+            except (OSError, sqlite3.Error):
+                # A transient store error must not allow this heartbeat to
+                # overwrite a newer claim; the token predicate fences every write.
+                continue
+
+    heartbeat_thread = threading.Thread(
+        target=maintain_heartbeat, name="research-task-heartbeat", daemon=True
+    )
+    heartbeat_thread.start()
     try:
-        # Build context inside the guarded execution block. A memory/configuration
-        # failure must transition the claimed task to failed, not strand it as running.
-        brain = brain_config(agent_id)
+        try:
+            brain = brain_config(agent_id)
             payload = {
                 "agent": {"id": agent_id, "department": brain["department"], "specialty": brain["specialty"]},
                 "agent_context": brain["brain_context"],
@@ -343,7 +370,7 @@ def execute_queued_research_task(task_id: str) -> bool:
                 ),
                 "task": task_input,
                 "constraints": ["Use supplied data only.", "Distinguish facts, assumptions, and unknowns.",
-                               "Do not invent missing market data.", "No trade execution or investment certainty."],
+                                "Do not invent missing market data.", "No trade execution or investment certainty."],
             }
             synthesis = synthesize_research(payload)
             task_data = task_input.get("data")
@@ -361,8 +388,6 @@ def execute_queued_research_task(task_id: str) -> bool:
                         )
                         evaluation_status = "evaluated"
                     except ValueError as exc:
-                        # Optional quality metadata must not turn a successful research
-                        # synthesis into a failed task. Preserve the bounded error detail.
                         evaluation_status = "invalid_evaluation_input"
                         evaluation = {
                             "status": "invalid_input",
@@ -371,39 +396,62 @@ def execute_queued_research_task(task_id: str) -> bool:
                         }
                 else:
                     evaluation_status = "structured_claims_present_but_no_draft"
-            learning_candidate = {"status": "not_created"}
-            if evaluation is not None:
-                _persist_quality_evaluation(task_id, agent_id, evaluation)
-                if evaluation.get("status") != "invalid_input":
-                    learning_candidate = _persist_research_learning_candidate(task_id, agent_id, evaluation)
-            result = {"agent_id": agent_id, "brain_context_sha256": row["brain_context_sha256"],
-                      "research_learning_candidate": learning_candidate,
-                      "brief": task_input["brief"], "input_data_received": task_input["data"] is not None,
-                      "shared_core_result": synthesis,
-                      "research_quality_evaluation": evaluation,
-                      "research_quality_evaluation_status": evaluation_status,
-                      "result_mode": "shared_core_synthesis" if synthesis.get("status") == "completed" else "provider_unavailable_or_not_configured",
-                      "research_boundary": "supplied_data_only_no_live_market_fetch"}
+            result = {
+                "agent_id": agent_id,
+                "brain_context_sha256": row["brain_context_sha256"],
+                "research_learning_candidate": {"status": "not_created"},
+                "brief": task_input["brief"],
+                "input_data_received": task_input["data"] is not None,
+                "shared_core_result": synthesis,
+                "research_quality_evaluation": evaluation,
+                "research_quality_evaluation_status": evaluation_status,
+                "result_mode": "shared_core_synthesis" if synthesis.get("status") == "completed" else "provider_unavailable_or_not_configured",
+                "research_boundary": "supplied_data_only_no_live_market_fetch",
+            }
             status = "completed"
-    except Exception as exc:
-        failure = classify_research_task_failure(exc)
-        result = {"error": "Research task failed safely.", **failure}
-        status = "failed"
+        except Exception as exc:
+            failure = classify_research_task_failure(exc)
+            result = {"error": "Research task failed safely.", **failure}
+            status = "failed"
+    finally:
+        stop_heartbeat.set()
+        heartbeat_thread.join(timeout=2)
+
     updated = datetime.now(timezone.utc).isoformat()
     with _connect() as db:
-        # Fence completion by the exact claim token. If stale recovery requeued
-        # this task and another dispatcher claimed it, the old executor must not
-        # overwrite the newer attempt's result or append a misleading event.
         finalized = db.execute(
             "UPDATE analytical_agent_tasks SET status=?,result_json=?,updated_at=?,"
             "execution_token=NULL WHERE task_id=? AND status='running' AND execution_token=?",
             (status, _json(result), updated, task_id, execution_token),
         )
         if finalized.rowcount != 1:
+            # The claim was recovered or replaced. The stale executor must not
+            # publish evaluations, memory candidates, or completion events.
             return False
         _record_event(db, task_id, agent_id, "task_" + status,
                       from_status="running", to_status=status, occurred_at=updated,
                       detail={"error_type": result.get("error_type")} if status == "failed" else {})
+
+    # Optional evaluation/memory sidecars run only after the exact claim wins
+    # finalization. Their failure cannot turn a completed task into a failed task.
+    evaluation = result.get("research_quality_evaluation")
+    if status == "completed" and isinstance(evaluation, dict):
+        try:
+            _persist_quality_evaluation(task_id, agent_id, evaluation)
+            if evaluation.get("status") != "invalid_input":
+                result["research_learning_candidate"] = _persist_research_learning_candidate(
+                    task_id, agent_id, evaluation
+                )
+            with _connect() as db:
+                db.execute(
+                    "UPDATE analytical_agent_tasks SET result_json=? "
+                    "WHERE task_id=? AND status='completed'",
+                    (_json(result), task_id),
+                )
+        except (OSError, sqlite3.Error, ValueError):
+            # The main task result is durable; optional sidecar state can be
+            # reconstructed or retried by a later explicit maintenance process.
+            pass
     return True
 
 def recover_interrupted_research_tasks(stale_after_seconds: int = 900) -> dict:

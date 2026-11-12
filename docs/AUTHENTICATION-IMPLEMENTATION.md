@@ -6,7 +6,7 @@ The API now defaults to deny access to every `/api/*` route except:
 - `GET /api/ready`
 - `POST /api/auth/login`
 
-Login uses one configured owner password, an HttpOnly opaque session cookie, a separate readable CSRF cookie, server-side SQLite session hashes, idle and absolute expiry, and logout revocation. Mutating API requests require an exact allowed Origin and an `X-CSRF-Token` header matching the CSRF cookie.
+Login uses one configured owner password, an HttpOnly opaque session cookie, a separate readable CSRF cookie, server-side SQLite session hashes, idle and absolute expiry, and logout revocation. Mutating API requests require an exact allowed Origin and an `X-CSRF-Token` header matching the CSRF cookie. The configured `FRONTEND_ORIGINS` values are parsed as exact HTTP(S) origins; wildcards, credentials, paths, query strings, fragments, and malformed ports are rejected. The same validated allowlist is used by credentialed CORS so wildcard reflection cannot expose authenticated read-only responses.
 
 ## Configure the owner password
 

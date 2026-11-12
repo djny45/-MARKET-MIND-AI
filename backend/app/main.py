@@ -2206,11 +2206,16 @@ def _execute_and_persist(request: WorkflowRequest, parent_run_id: str | None = N
    _validate_checkpoint_integrity(request_payload, initial_checkpoint, known_ids)
   run_id = str(uuid.uuid4())
   record = workspace.create_execution(run_id, request_payload, parent_run_id)
+  checkpoint_version = record["checkpoint_version"]
   def persist_checkpoint(snapshot):
+   nonlocal checkpoint_version
    snapshot["request_fingerprint"] = fingerprint
    snapshot["checkpoint_schema_version"] = 1
    snapshot["checkpointed_at"] = datetime.now(timezone.utc).isoformat()
-   workspace.update_execution_checkpoint(run_id, snapshot, "running")
+   saved = workspace.update_execution_checkpoint(
+    run_id, snapshot, "running", expected_checkpoint_version=checkpoint_version,
+   )
+   checkpoint_version = saved["checkpoint_version"]
   result = execute_workflow(
    request.nodes, request.edges, request.inputs,
    request.max_workers, request.max_retries, persist_checkpoint, initial_checkpoint,
@@ -2228,7 +2233,7 @@ def _execute_and_persist(request: WorkflowRequest, parent_run_id: str | None = N
     "completed_layers":len(result["execution_layers"]),
     "request_fingerprint":fingerprint,"checkpoint_schema_version":1,
     "checkpointed_at":datetime.now(timezone.utc).isoformat()},
-   result["status"], result,
+   result["status"], result, expected_checkpoint_version=checkpoint_version,
   )
   result["run_id"] = run_id
   result["run_record"] = record

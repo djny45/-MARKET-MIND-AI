@@ -51,6 +51,22 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertIsNone(current_agent_scope())
         self.assertEqual(get_research_task(queued["task_id"])["status"], "completed")
 
+    def test_agent_scope_initialization_failure_marks_claimed_task_failed(self):
+        from app.analytical_agent_runtime import current_agent_scope
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, execute_queued_research_task, list_task_audit_events,
+        )
+        queued = enqueue_research_task("worker_032", "scope setup failure should not strand task")
+        with patch("app.analytical_agent_tasks.set_agent_scope", side_effect=RuntimeError("scope unavailable")):
+            self.assertTrue(execute_queued_research_task(queued["task_id"]))
+        saved = get_research_task(queued["task_id"])
+        self.assertEqual(saved["status"], "failed")
+        self.assertEqual(saved["result"]["error"], "Research task failed safely.")
+        self.assertIsNone(current_agent_scope())
+        events = list_task_audit_events(queued["task_id"])["events"]
+        self.assertEqual(events[-1]["event_type"], "task_failed")
+        self.assertEqual(events[-1]["to_status"], "failed")
+
     def test_context_preparation_failure_marks_claimed_task_failed(self):
         from app.analytical_agent_tasks import enqueue_research_task, execute_queued_research_task, list_task_audit_events
         queued = enqueue_research_task("worker_031", "context failure should not strand task")

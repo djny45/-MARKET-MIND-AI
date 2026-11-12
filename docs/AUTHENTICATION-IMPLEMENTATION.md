@@ -44,6 +44,6 @@ The login throttle is process-local and intended only for the current single-pro
 
 ## Frontend integration status
 
-The backend rejects unauthenticated workspace API requests by default. The terminal frontend includes an owner sign-in gate, session bootstrap, CSRF header injection for state-changing requests, session-expiry handling, and sign-out. These client-side controls complement the backend middleware; they do not replace server-side authorization. Verify the full frontend build and browser-level login/logout flow in CI before treating the UI integration as validated.
+The backend rejects unauthenticated workspace API requests by default. The terminal frontend includes an owner sign-in gate, session bootstrap, CSRF header injection for state-changing requests, session-expiry handling, and sign-out. A failed logout request now keeps the workspace visible and reports the error instead of silently switching to the signed-out screen; this avoids implying that a server-side session was revoked when it may still be active. These client-side controls complement the backend middleware; they do not replace server-side authorization. Verify the full frontend build and browser-level login/logout flow in CI before treating the UI integration as validated.
 
 This implementation does not add public registration, multi-user accounts, OAuth, or brokerage execution.

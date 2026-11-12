@@ -7,6 +7,9 @@ It is intentionally a transparent checklist-style evaluator.
 from __future__ import annotations
 
 from typing import Any
+from datetime import datetime
+from urllib.parse import urlparse
+import re
 
 MAX_DRAFT_CHARS = 20_000
 MAX_CLAIMS = 200
@@ -73,6 +76,46 @@ def evaluate_research_draft(
             raise ValueError("source_id values must be unique")
         source_ids.add(normalized_source_id)
 
+        # Optional source identity metadata is validated when supplied. The
+        # registry remains backward-compatible with ID-only fixtures, but
+        # incomplete metadata is surfaced rather than silently trusted.
+        title = source.get("title")
+        if title is not None and (
+            not isinstance(title, str) or not title.strip() or len(title) > 500
+        ):
+            raise ValueError("source title must contain 1 to 500 characters")
+        publisher = source.get("publisher")
+        if publisher is not None and (
+            not isinstance(publisher, str) or not publisher.strip() or len(publisher) > 200
+        ):
+            raise ValueError("source publisher must contain 1 to 200 characters")
+        source_url = source.get("url")
+        if source_url is not None:
+            if not isinstance(source_url, str) or len(source_url) > 2048:
+                raise ValueError("source url must be a valid HTTP(S) URL")
+            parsed_url = urlparse(source_url)
+            if parsed_url.scheme not in {"http", "https"} or not parsed_url.netloc:
+                raise ValueError("source url must be a valid HTTP(S) URL")
+        retrieved_at = source.get("retrieved_at")
+        if retrieved_at is not None:
+            if not isinstance(retrieved_at, str):
+                raise ValueError("source retrieved_at must be timezone-aware ISO-8601")
+            try:
+                parsed_timestamp = datetime.fromisoformat(retrieved_at.replace("Z", "+00:00"))
+            except ValueError as exc:
+                raise ValueError("source retrieved_at must be timezone-aware ISO-8601") from exc
+            if parsed_timestamp.tzinfo is None or parsed_timestamp.utcoffset() is None:
+                raise ValueError("source retrieved_at must be timezone-aware ISO-8601")
+        content_hash = source.get("content_sha256")
+        if content_hash is not None and (
+            not isinstance(content_hash, str) or re.fullmatch(r"[0-9a-fA-F]{64}", content_hash) is None
+        ):
+            raise ValueError("source content_sha256 must be a 64-character hexadecimal digest")
+
+    source_metadata_complete = sum(
+        all(source.get(field) for field in ("title", "url", "publisher", "retrieved_at", "content_sha256"))
+        for source in source_registry
+    )
     total = len(claims)
     claims_with_refs = 0
     claims_with_known_refs = 0
@@ -118,6 +161,8 @@ def evaluate_research_draft(
         "known_source_reference_coverage": round(claims_with_known_refs / denominator, 4) if total else None,
         "unknown_source_id_count": len(unknown_refs),
         "source_registry_count": len(source_ids),
+        "sources_with_complete_identity_metadata": source_metadata_complete,
+        "source_identity_metadata_coverage": (round(source_metadata_complete / len(source_ids), 4) if source_ids else None),
         "uncertainty_marker_count": len(matched_uncertainty_markers),
         "uncertainty_markers": matched_uncertainty_markers,
         "uncertainty_marker_coverage": (1.0 if matched_uncertainty_markers else 0.0),

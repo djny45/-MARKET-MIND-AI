@@ -35,6 +35,11 @@ def _connect():
     path.parent.mkdir(parents=True, exist_ok=True)
     db = sqlite3.connect(path, timeout=10)
     db.row_factory = sqlite3.Row
+    # Enforce declared task/evaluation relationships and favor committed data
+    # over throughput for this small, durable local research queue.
+    db.execute("PRAGMA foreign_keys = ON")
+    db.execute("PRAGMA synchronous = FULL")
+    db.execute("PRAGMA busy_timeout = 10000")
     try:
         db.execute("""CREATE TABLE IF NOT EXISTS analytical_agent_tasks (
             task_id TEXT PRIMARY KEY, worker_id TEXT NOT NULL, task_type TEXT NOT NULL,
@@ -43,6 +48,8 @@ def _connect():
             updated_at TEXT NOT NULL
         )""")
         db.execute("CREATE INDEX IF NOT EXISTS idx_agent_tasks_agent_time ON analytical_agent_tasks(worker_id,created_at)")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_agent_tasks_status_updated ON analytical_agent_tasks(status,updated_at)")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_agent_tasks_status_created ON analytical_agent_tasks(status,created_at)")
         # Backward-compatible schema migration for persisted task execution telemetry.
         task_columns = {row["name"] for row in db.execute("PRAGMA table_info(analytical_agent_tasks)")}
         if "execution_attempts" not in task_columns:

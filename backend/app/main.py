@@ -75,7 +75,7 @@ import json
 import os
 import uuid
 from fastapi.responses import Response
-from .auth_api import AuthenticationMiddleware, router as auth_router
+from .auth_api import AuthenticationMiddleware, router as auth_router, _allowed_origins
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -94,11 +94,10 @@ app = FastAPI(
  openapi_url=None,
 )
 # Keep browser origins explicit using a comma-separated allowlist.
-_frontend_origins = [
-    origin.strip().rstrip("/")
-    for origin in os.getenv("FRONTEND_ORIGINS", "http://localhost:5173").split(",")
-    if origin.strip()
-]
+# Use the same strict exact-origin allowlist as the authentication checks.
+# This also prevents credentialed CORS from reflecting a wildcard origin on
+# authenticated read-only API responses.
+_frontend_origins = sorted(_allowed_origins())
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_frontend_origins,

@@ -109,5 +109,38 @@ class MarketDataValidationReportTests(unittest.TestCase):
 
 
 
+    def test_market_data_validation_api_returns_freshness_report(self):
+        from app.main import MarketDataValidationRequest, validate_market_data
+        request = MarketDataValidationRequest(
+            payload={
+                "symbol": "BTCUSD", "interval": "1d", "status": "historical",
+                "source": "provider-x", "retrieved_at": "2020-01-02T00:00:00Z",
+                "bars": [],
+            },
+            max_retrieval_age_seconds=60,
+        )
+        report = validate_market_data(request)
+        self.assertTrue(report["valid"])
+        self.assertEqual(report["retrieval_freshness"], "stale")
+        self.assertEqual(report["freshness_threshold_seconds"], 60)
+
+    def test_market_data_validation_api_rejects_boolean_threshold(self):
+        from pydantic import ValidationError
+        from app.main import MarketDataValidationRequest
+        with self.assertRaises(ValidationError):
+            MarketDataValidationRequest(
+                payload={"symbol": "BTCUSD"},
+                max_retrieval_age_seconds=True,
+            )
+
+    def test_market_data_validation_api_bounds_threshold(self):
+        from pydantic import ValidationError
+        from app.main import MarketDataValidationRequest
+        with self.assertRaises(ValidationError):
+            MarketDataValidationRequest(
+                payload={"symbol": "BTCUSD"},
+                max_retrieval_age_seconds=31536001,
+            )
+
 if __name__ == "__main__":
     unittest.main()

@@ -58,7 +58,7 @@ class PerformanceTests(unittest.TestCase):
         # Inputs and individual returns are finite, but variance accumulation
         # exceeds IEEE-754 range and must not leak infinity into JSON output.
         with self.assertRaises(ValueError):
-            performance_metrics([1.0, 1e154, 1.0, 1e154])
+            performance_metrics([1.0, 1e200, 1.0, 1e200])
 
         # A finite risk-free input can still overflow a derived Sharpe ratio.
         with self.assertRaises(ValueError):

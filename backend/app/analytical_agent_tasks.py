@@ -605,11 +605,23 @@ def get_research_task(task_id: str) -> dict | None:
         row = db.execute("SELECT * FROM analytical_agent_tasks WHERE task_id=?", (task_id,)).fetchone()
     if row is None:
         return None
+    try:
+        task_input = json.loads(row["input_json"])
+        if not isinstance(task_input, dict):
+            raise ValueError("Stored task input is not an object")
+    except (TypeError, ValueError, json.JSONDecodeError):
+        task_input = {"status": "invalid_persisted_json"}
+    try:
+        task_result = json.loads(row["result_json"])
+        if not isinstance(task_result, dict):
+            raise ValueError("Stored task result is not an object")
+    except (TypeError, ValueError, json.JSONDecodeError):
+        task_result = {"status": "invalid_persisted_json"}
     return {
         "task_id": row["task_id"], "agent_id": row["worker_id"], "worker_id": row["worker_id"],
         "task_type": row["task_type"], "status": row["status"],
         "execution_attempts": row["execution_attempts"],
-        "input": json.loads(row["input_json"]), "result": json.loads(row["result_json"]),
+        "input": task_input, "result": task_result,
         "brain_context_sha256": row["brain_context_sha256"],
         "created_at": row["created_at"], "updated_at": row["updated_at"],
     }

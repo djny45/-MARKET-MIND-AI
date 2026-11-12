@@ -61,6 +61,20 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
     def test_unknown_task_returns_none(self):
         self.assertIsNone(get_research_task("not-a-task-id"))
 
+    def test_task_store_enforces_durable_sqlite_pragmas_and_foreign_keys(self):
+        import sqlite3
+        from app.analytical_agent_tasks import _connect
+
+        with _connect() as db:
+            self.assertEqual(db.execute("PRAGMA foreign_keys").fetchone()[0], 1)
+            self.assertEqual(db.execute("PRAGMA synchronous").fetchone()[0], 2)
+            with self.assertRaises(sqlite3.IntegrityError):
+                db.execute(
+                    "INSERT INTO research_quality_evaluations "
+                    "(task_id,worker_id,evaluation_json,created_at) VALUES (?,?,?,?)",
+                    ("missing-task", "worker_001", "{}", "2026-11-12T00:00:00+00:00"),
+                )
+
     def test_queue_task_persists_queued_record_and_executes(self):
         from app.analytical_agent_tasks import enqueue_research_task, execute_queued_research_task
         queued = enqueue_research_task("worker_004", "Analyze provided metrics", {"metric": 7})

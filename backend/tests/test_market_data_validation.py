@@ -64,5 +64,37 @@ class MarketDataValidationReportTests(unittest.TestCase):
         self.assertIsNone(report["timestamp_end"])
 
 
+    def test_retrieval_freshness_uses_explicit_caller_threshold(self):
+        payload = {
+            "symbol": "BTCUSD", "interval": "1d", "status": "historical",
+            "source": "provider-x", "retrieved_at": "2020-01-02T00:00:00Z",
+            "bars": [],
+        }
+        report = validate_market_data_payload(payload, max_retrieval_age_seconds=60)
+        self.assertTrue(report["valid"])
+        self.assertEqual(report["retrieval_freshness"], "stale")
+        self.assertEqual(report["freshness_threshold_seconds"], 60)
+        self.assertTrue(any("caller-supplied age threshold" in item for item in report["warnings"]))
+
+    def test_freshness_is_not_classified_without_explicit_threshold(self):
+        report = validate_market_data_payload({
+            "symbol": "BTCUSD", "interval": "1d", "status": "historical",
+            "source": "provider-x", "retrieved_at": "2020-01-02T00:00:00Z",
+            "bars": [],
+        })
+        self.assertIsNone(report["retrieval_freshness"])
+        self.assertIsNone(report["freshness_threshold_seconds"])
+        self.assertGreater(report["retrieval_age_seconds"], 0)
+
+    def test_rejects_invalid_freshness_threshold(self):
+        for value in (-1, True, float("inf"), "60"):
+            with self.subTest(value=value):
+                with self.assertRaisesRegex(ValueError, "finite non-negative"):
+                    validate_market_data_payload(
+                        {"invalid": "payload"}, max_retrieval_age_seconds=value
+                    )
+
+
+
 if __name__ == "__main__":
     unittest.main()

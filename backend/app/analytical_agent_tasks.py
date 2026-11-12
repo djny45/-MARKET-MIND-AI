@@ -313,10 +313,19 @@ def execute_queued_research_task(task_id: str) -> bool:
             return False
         _record_event(db, task_id, row["worker_id"], "task_claimed",
                       from_status="queued", to_status="running", occurred_at=now)
-        task_input = json.loads(row["input_json"])
         agent_id = row["worker_id"]
+        brain_context_sha256 = row["brain_context_sha256"]
     scope_token = None
     try:
+        # Parse persisted input only after entering the guarded execution path.
+        # Corrupt rows must be finalized as failed instead of being stranded in
+        # running before the lifecycle handler can catch the decoding error.
+        task_input = json.loads(row["input_json"])
+        if (not isinstance(task_input, dict)
+                or not isinstance(task_input.get("brief"), str)
+                or not task_input["brief"].strip()
+                or len(task_input["brief"]) > 4000):
+            raise ValueError("Persisted research task input is malformed")
         # Scope setup is part of execution: if it fails, the claimed task must
         # still be finalized as failed rather than stranded in the running state.
         scope_token = set_agent_scope(agent_id, task_id)
@@ -365,7 +374,7 @@ def execute_queued_research_task(task_id: str) -> bool:
             _persist_quality_evaluation(task_id, agent_id, evaluation)
             if evaluation.get("status") != "invalid_input":
                 learning_candidate = _persist_research_learning_candidate(task_id, agent_id, evaluation)
-        result = {"agent_id": agent_id, "brain_context_sha256": row["brain_context_sha256"],
+        result = {"agent_id": agent_id, "brain_context_sha256": brain_context_sha256,
                   "research_learning_candidate": learning_candidate,
                   "brief": task_input["brief"], "input_data_received": task_input["data"] is not None,
                   "shared_core_result": synthesis,
@@ -380,7 +389,17 @@ def execute_queued_research_task(task_id: str) -> bool:
         status = "failed"
     finally:
         if scope_token is not None:
-            reset_agent_scope(scope_token)
+            try:
+                reset_agent_scope(scope_token)
+            except Exception as exc:
+                # Context cleanup failure must not prevent durable task
+                # finalization. Downgrade an otherwise successful result.
+                if status == "completed":
+                    status = "failed"
+                    result = {
+                        "error": "Research task failed safely.",
+                        **classify_research_task_failure(exc),
+                    }
     updated = datetime.now(timezone.utc).isoformat()
     with _connect() as db:
         # Fence completion by the exact claim token. If stale recovery requeued

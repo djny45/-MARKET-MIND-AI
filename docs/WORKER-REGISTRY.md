@@ -88,3 +88,8 @@ Workflow-run checkpoints now carry a monotonically increasing `checkpoint_versio
 ### Specialist schema validation update
 
 Contract v1.1 now enforces minimum observation counts for return and realized-volatility inputs, validates the RSI series and period fields explicitly, and requires realized-volatility object outputs to include a finite per-observation value and positive observation count (with optional finite annualized value). Scalar volatility outputs remain accepted for compatible implementations. These are structural/domain-shape checks, not a claim that source data is authentic or analytically correct.
+
+
+### Research source identity checks
+
+The deterministic research traceability evaluator now validates optional source identity fields when present: HTTP(S) URL syntax, timezone-aware ISO-8601 retrieval time, bounded title/publisher text, and a 64-character hexadecimal SHA-256 content digest. It reports the share of registered sources carrying all five identity fields. ID-only source fixtures remain accepted for backward compatibility and are counted as incomplete. These checks validate metadata shape only: they do not fetch URLs, authenticate publishers, prove that a document existed at retrieval time, or establish that a source supports a claim.

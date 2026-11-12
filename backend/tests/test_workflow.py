@@ -200,6 +200,20 @@ class WorkflowTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "violates its worker contract"):
             execute_workflow(nodes, [], {}, initial_checkpoint=checkpoint)
 
+    def test_resume_migrates_legacy_contract_after_current_validation(self):
+        nodes = [{"id": "feed", "type": "market_input", "data": {"values": [1, 2, 3]}}]
+        checkpoint = {
+            "completed_node_ids": ["feed"],
+            "results": {"feed": {"values": [1, 2, 3]}},
+            "tasks": {"feed": {
+                "node_id": "feed", "node_type": "market_input",
+                "status": "completed", "contract_version": "1.0.0",
+            }},
+        }
+        out = execute_workflow(nodes, [], {}, initial_checkpoint=checkpoint)
+        self.assertEqual(out["tasks"][0]["contract_version"], "1.1.0")
+        self.assertEqual(out["tasks"][0]["worker_contract"]["contract_version"], "1.1.0")
+
     def test_resume_rejects_checkpoint_contract_version_mismatch(self):
         nodes = [{"id": "feed", "type": "market_input", "data": {"values": [1, 2, 3]}}]
         checkpoint = {

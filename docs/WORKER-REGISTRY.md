@@ -45,3 +45,10 @@ python -m unittest discover -s backend/tests -v
 ```
 
 The worker registry tests cover valid manifests, malformed profiles, invalid and duplicate worker skill references, unavailable skills, malformed catalog entries, duplicate catalog IDs, and explicit non-alignment claims.
+
+
+## Runtime context isolation
+
+Research-task execution binds a task-local agent scope using Python `ContextVar`. The scope carries the registered worker ID, task ID, worker memory namespace, and shared intelligence-core ID. Concurrent asyncio tasks receive independent context values, and nested scopes restore their parent value when closed. The executor resets its scope in a `finally` block on both successful and failed synthesis paths.
+
+This is in-process context isolation, not a distributed context-propagation system. Any future integration that crosses raw thread or process boundaries must explicitly propagate or re-establish the scope. The current implementation does not add NeMo Relay instrumentation or a new inference provider.

@@ -70,3 +70,8 @@ An independent reviewer should verify at minimum:
 ## Review decision
 
 **Private single-host development only. Do not mark authentication as independently security-reviewed and do not enable public deployment until every high finding is closed and the independent reviewer records a signed-off result.** No brokerage credentials, order routing, or trade execution are part of this application.
+
+
+## Browser E2E gate status
+
+A dedicated GitHub Actions job, `Browser authentication E2E`, now starts the API and React frontend on loopback with isolated temporary SQLite files and a CI-only generated owner password, then runs the existing Playwright Chromium suite. The suite covers invalid credentials, session restoration after reload, CSRF rejection, and logout revocation. This job is a real-browser regression gate for the local development configuration. Its result must be checked on the exact PR head; until it passes, browser E2E remains an open gate. It does not replace independent security review or production TLS/proxy validation.

@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 
 from app.auth_crypto import hash_password
 from app.main import app
+from app.auth_api import _allowed_origins
 
 
 class AuthenticationApiTests(unittest.TestCase):
@@ -40,6 +41,32 @@ class AuthenticationApiTests(unittest.TestCase):
         for path in ("/docs", "/redoc", "/openapi.json"):
             with self.subTest(path=path):
                 self.assertEqual(self.client.get(path).status_code, 404)
+
+    def test_allowed_origins_reject_non_origin_urls(self):
+        invalid_origins = (
+            "*",
+            "https://example.com/path",
+            "https://user:password@example.com",
+            "https://example.com?next=/",
+            "https://example.com#fragment",
+            "ftp://example.com",
+            "https://example.com, *",
+        )
+        for configured in invalid_origins:
+            with self.subTest(configured=configured):
+                with patch.dict(os.environ, {"FRONTEND_ORIGINS": configured}):
+                    with self.assertRaises(RuntimeError):
+                        _allowed_origins()
+
+    def test_allowed_origins_normalize_scheme_host_and_default_port(self):
+        with patch.dict(
+            os.environ,
+            {"FRONTEND_ORIGINS": "HTTPS://Example.COM:443/,http://LocalHost:80"},
+        ):
+            self.assertEqual(
+                _allowed_origins(),
+                {"https://example.com", "http://localhost"},
+            )
 
     def test_login_session_csrf_and_logout_lifecycle(self):
         origin = {"Origin": "http://testserver"}

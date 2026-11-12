@@ -31,6 +31,26 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertEqual(list_research_tasks("worker_001")["total"], 1)
         self.assertEqual(list_research_tasks("worker_002")["total"], 0)
 
+    def test_execution_binds_agent_scope_during_synthesis_and_clears_it_afterward(self):
+        from app.analytical_agent_runtime import current_agent_scope
+        from app.analytical_agent_tasks import enqueue_research_task, execute_queued_research_task
+
+        queued = enqueue_research_task("worker_005", "Inspect supplied metrics", {"metric": 3})
+        observed = {}
+
+        def inspect_scope(payload):
+            observed.update(current_agent_scope() or {})
+            return {"status": "not_configured", "summary": "No provider configured."}
+
+        with patch("app.analytical_agent_tasks.synthesize_research", side_effect=inspect_scope):
+            self.assertTrue(execute_queued_research_task(queued["task_id"]))
+
+        self.assertEqual(observed["worker_id"], "worker_005")
+        self.assertEqual(observed["task_id"], queued["task_id"])
+        self.assertEqual(observed["memory_namespace"], "workers/worker_005")
+        self.assertIsNone(current_agent_scope())
+        self.assertEqual(get_research_task(queued["task_id"])["status"], "completed")
+
     def test_context_preparation_failure_marks_claimed_task_failed(self):
         from app.analytical_agent_tasks import enqueue_research_task, execute_queued_research_task, list_task_audit_events
         queued = enqueue_research_task("worker_031", "context failure should not strand task")

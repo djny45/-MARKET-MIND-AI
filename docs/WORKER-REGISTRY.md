@@ -93,3 +93,8 @@ Contract v1.1 now enforces minimum observation counts for return and realized-vo
 ### Research source identity checks
 
 The deterministic research traceability evaluator now validates optional source identity fields when present: HTTP(S) URL syntax, timezone-aware ISO-8601 retrieval time, bounded title/publisher text, and a 64-character hexadecimal SHA-256 content digest. It reports the share of registered sources carrying all five identity fields. ID-only source fixtures remain accepted for backward compatibility and are counted as incomplete. These checks validate metadata shape only: they do not fetch URLs, authenticate publishers, prove that a document existed at retrieval time, or establish that a source supports a claim.
+
+
+### Claim evidence excerpt manifests
+
+Claims may optionally include supplied evidence excerpts, each tied to a source_id and required to match a source reference on that claim. The evaluator reports excerpts only when the excerpt is non-empty, within the size limit, and its source ID exists in the registry and in the claim's source_refs. Unknown or orphaned evidence references are reported separately. This is evidence-presence and reference-integrity checking only: excerpt text is not semantically compared with the claim, and no factual support or entailment is established.

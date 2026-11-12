@@ -98,6 +98,10 @@ app = FastAPI(
 # This also prevents credentialed CORS from reflecting a wildcard origin on
 # authenticated read-only API responses.
 _frontend_origins = sorted(_allowed_origins())
+# Starlette wraps middleware in reverse registration order. Register auth
+# first and CORS second so CORS is outermost and can attach headers to auth
+# denials as well as successful responses and preflight requests.
+app.add_middleware(AuthenticationMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_frontend_origins,
@@ -105,9 +109,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-# Authentication is default-deny for API routes. Only health/readiness and login
-# are public; configure the owner password hash before using the workspace.
-app.add_middleware(AuthenticationMiddleware)
 app.include_router(auth_router)
 app.include_router(agent_council_router)
 

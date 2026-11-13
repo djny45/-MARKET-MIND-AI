@@ -569,7 +569,7 @@ export default function App() {
     <div className="overview-grid">
      <article className="overview-card"><span>DATA COVERAGE</span><strong>{marketOverview?.instrument_interval_count??'—'}</strong><small>Stored symbol and timeframe combinations</small></article>
      <article className="overview-card"><span>WATCHLIST</span><strong>{watchlistItems.length}</strong><small>Saved instrument references</small></article>
-     <article className="overview-card"><span>RESEARCH WORKERS</span><strong>{workers.length||550}</strong><small>Templates, not active autonomous agents</small></article>
+     <article className="overview-card"><span>RESEARCH WORKERS</span><strong>{workers.length}</strong><small>Templates, not active autonomous agents</small></article>
      <article className="overview-card"><span>EXECUTION MODE</span><strong>DISABLED</strong><small>Broker connections and order execution are not configured</small></article>
      <article className="overview-card"><span>STORED OBSERVATIONS</span><strong>{summarizeStoredCoverage(marketOverview?.coverage).observations??'—'}</strong><small>Total locally stored OHLCV rows in this overview</small></article>
      <article className="overview-card"><span>RECORDED SOURCES</span><strong>{summarizeStoredCoverage(marketOverview?.coverage).distinctSources??'—'}</strong><small>Distinct source labels across stored coverage</small></article>

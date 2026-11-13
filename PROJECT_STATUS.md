@@ -1,6 +1,6 @@
 # MARKET-MIND-AI — Release Status
 
-Last reviewed: 2026-11-01
+Last reviewed: 2026-11-13
 
 ## Current verified scope
 
@@ -23,10 +23,10 @@ Implemented areas:
 
 - The configured provider status is `no_live_provider_configured`.
 - The available adapter is a synthetic fixture, explicitly marked synthetic.
-- Health/readiness responses set `paper_trading=false` and `broker_execution=false`.
+- Health/readiness responses report that brokerage execution is disabled.
 - The backend provides no brokerage execution or order routing.
 - `/api/ready` proves local database readiness only; it does not prove market data is available or current.
-- Production deployment is intended to remain private; no authentication or per-user authorization is implemented.
+- Owner authentication, default-deny API session middleware, CSRF/Origin protections, and SQLite-backed sessions are implemented for private single-host use. Public deployment remains blocked pending independent security review and production ingress hardening.
 
 ## Latest CI evidence
 
@@ -53,13 +53,13 @@ Implemented areas:
 
 1. Validate persistence and backup/restore on the intended private Docker host, including a recovery drill.
 2. Add host-level observability, alerting, and representative load tests.
-3. Add authentication/authorization and TLS ingress, followed by independent security review, before any public exposure.
+3. Complete independent security review and production TLS/ingress hardening before any public exposure.
 4. Select and validate a properly licensed market-data provider before presenting non-synthetic data as current.
 5. Record deployment environment, recovery results, and security review before calling the release complete.
 
 ## Scope boundary
 
-This is a historical market-research and data-quality workspace. It does not provide brokerage connectivity, order placement, personalized investment recommendations, or guaranteed live market data. Keep execution disabled.
+This is a historical market-research and data-quality workspace. It does not provide brokerage connectivity, order placement, personalized investment recommendations, or guaranteed live market data. Keep brokerage access and financial transaction features out of scope.
 
 
 ## Four-market architecture update — 2026-11-01

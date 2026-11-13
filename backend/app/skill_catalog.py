@@ -60,7 +60,7 @@ UI_SKILL_DESCRIPTIONS = {
 
 def list_skills():
     """Return only allowlisted research playbooks present in the repository."""
-    trading = [
+    historical_research = [
         {
             "id": slug,
             "description": description,
@@ -150,7 +150,7 @@ def list_skills():
         }
         for slug, description in SOCIAL_RESEARCH_SKILL_DESCRIPTIONS.items()
     ]
-    return trading + engineering + ui_design + market_data + stooq_data + quant_research + qlib_research + social_research + list_pack_skills()
+    return historical_research + engineering + ui_design + market_data + stooq_data + quant_research + qlib_research + social_research + list_pack_skills()
 
 
 def load_skill(slug: str):

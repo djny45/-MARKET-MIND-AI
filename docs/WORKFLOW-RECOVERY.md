@@ -20,8 +20,8 @@ results, task records, and the completed-layer count.
 Checkpoints are layer-granular, not per-instruction snapshots. A process interruption
 inside a layer can cause that layer's unfinished nodes to run again. Checkpoint data
 is local SQLite state and inherits the deployment's backup and disk durability
-properties. This feature is for deterministic research and paper-only workflows;
-it does not enable brokerage connectivity, order routing, or live trading.
+properties. This feature is for deterministic, read-only research workflows; it does not
+provide brokerage connectivity, order routing, or financial transaction features.
 
 ## Recovery observability
 

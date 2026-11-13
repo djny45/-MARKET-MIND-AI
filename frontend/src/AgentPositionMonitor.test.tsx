@@ -16,12 +16,12 @@ describe('AgentPositionMonitor', () => {
     const row = screen.getByText('worker_001').closest('tr')
     expect(row).not.toBeNull()
 
-    fireEvent.click(within(row as HTMLElement).getByRole('button', { name: 'LONG', exact: true }))
+    fireEvent.click(within(row as HTMLElement).getByRole('button', { name: /^LONG$/ }))
     expect(row?.querySelector('.stance-badge')?.textContent).toBe('LONG')
 
     fireEvent.change(instrument, { target: { value: 'ETHUSD' } })
     expect(row?.querySelector('.stance-badge')?.textContent).toBe('— NOT TAGGED')
-    fireEvent.click(within(row as HTMLElement).getByRole('button', { name: 'SHORT', exact: true }))
+    fireEvent.click(within(row as HTMLElement).getByRole('button', { name: /^SHORT$/ }))
     expect(row?.querySelector('.stance-badge')?.textContent).toBe('SHORT')
 
     fireEvent.change(instrument, { target: { value: 'BTCUSD' } })

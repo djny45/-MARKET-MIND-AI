@@ -30,9 +30,9 @@ Implemented areas:
 
 ## Latest CI evidence
 
-- The most recent workflow run on this PR branch is [43342812564](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/43342812564), for head `31a2c930f2dbfe4248731ca1a4c28f234ba14340`. GitHub reports `completed / failure`, but the run exposes zero jobs, so it provides no test output or job-level diagnosis.
+- The most recent workflow run available during this review is [43372572640](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/43372572640), for head `9304392790d8c7f50cacb2fbcc5003fef8416e19`. GitHub reports `completed / failure`, but the run exposes zero jobs, so it provides no test output or job-level diagnosis.
 - Earlier workflow runs [41233993555](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/41233993555), [41234005003](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/41234005003), and [41234313802](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/41234313802) passed selected backend, frontend, dependency-audit, and container checks at their respective historical commits. They do not validate the current PR head.
-- The current PR changes, including the instrument-specific research stance regression test and revised specialist playbooks, remain unverified until GitHub exposes runnable jobs or an equivalent local test/build run is completed.
+- The instrument-specific research stance regression test, revised read-only specialist playbooks, and UI prototype retirement are not yet test-verified. The current GitHub run exposes no job results, and no equivalent local test/build run has been completed.
 - Vercel status checks are not deployment approval. Public deployment remains blocked by the security gates below.
 
 

@@ -1124,6 +1124,33 @@ def run_research_supervisor_cycle(
     heartbeat.start()
     try:
         recovery = recover_interrupted_research_tasks(stale_after_seconds)
+        # Revalidate and renew ownership immediately before dispatch. The
+        # background heartbeat can lose the lease while recovery is running.
+        try:
+            lease_valid = renew_research_supervisor_lease(
+                owner_id, lease["lease_token"], lease_seconds=3600,
+            )
+        except Exception:
+            lease_valid = False
+        if not lease_valid or heartbeat_state["lost"]:
+            heartbeat_state["lost"] = True
+            return {
+                "supervisor": "bounded_research_supervisor_cycle",
+                "status": "lease_lost",
+                "reason": "supervisor_lease_lost_before_dispatch",
+                "recovery": recovery,
+                "dispatch": {"status": "skipped", "reason": "supervisor_lease_lost"},
+                "cycle_mode": "single_process_single_cycle",
+                "lease": {
+                    "acquired": True,
+                    "expires_at": lease["expires_at"],
+                    "heartbeat_renewals": heartbeat_state["renewals"],
+                    "lost": True,
+                },
+                "continuous_daemon": False,
+                "distributed_queue": False,
+                "broker_execution": False,
+            }
         dispatch = dispatch_queued_research_tasks(limit, max_concurrency)
         return {
             "supervisor": "bounded_research_supervisor_cycle",

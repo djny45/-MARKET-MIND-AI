@@ -79,11 +79,9 @@ one-day log returns only; it omits costs, slippage, taxes, portfolio risk, and
 execution. A good historical score is not a guarantee of future performance.
 No brokerage integration, order routing, or financial transaction functionality is included.
 
-## Inception Labs Mercury shared intelligence provider
+## Shared intelligence core (local-first)
 
-The shared intelligence core defaults to **Inception Labs Mercury-3** through the official chat-completions API. Configure `INCEPTION_API_KEY` as a backend-only secret and set `INTELLIGENCE_CORE_ENABLED=true`; see [Mercury provider setup](docs/FREELLMAPI-INTEGRATION.md) and [`backend/.env.example`](backend/.env.example). Never commit provider keys or expose them in frontend code. The provider synthesizes supplied research only; it does not fetch market data or execute trades.
-
-A legacy FreeLLMAPI adapter remains available when explicitly selected.
+Local Ollama is the default provider when synthesis is enabled; the shared intelligence core itself remains **disabled by default**. Set `INTELLIGENCE_CORE_ENABLED=true` and keep `OLLAMA_BASE_URL=http://127.0.0.1:11434` with a locally installed model such as `phi3` to use it without a hosted API key. Mercury is an optional hosted provider and may incur charges; see [optional Mercury provider setup](docs/FREELLMAPI-INTEGRATION.md). A local FreeLLMAPI gateway is also optional and may use provider credentials of its own. Never commit API keys or expose them in frontend code. The core summarizes supplied research only; it does not fetch market data or execute financial transactions.
 
 ## Research draft quality checks
 

@@ -691,5 +691,45 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertTrue(release_research_supervisor_lease("scheduler-renew", lease["lease_token"]))
 
 
+    def test_supervisor_fenced_task_claim_rejects_released_lease(self):
+        from app.analytical_agent_tasks import (
+            acquire_research_supervisor_lease, enqueue_research_task,
+            execute_queued_research_task, get_research_task,
+            release_research_supervisor_lease,
+        )
+
+        queued = enqueue_research_task("worker_043", "must remain queued after lease loss")
+        lease = acquire_research_supervisor_lease("fenced-scheduler", lease_seconds=300)
+        self.assertTrue(lease["acquired"])
+        self.assertTrue(release_research_supervisor_lease("fenced-scheduler", lease["lease_token"]))
+
+        executed = execute_queued_research_task(
+            queued["task_id"], "fenced-scheduler", lease["lease_token"],
+        )
+
+        self.assertFalse(executed)
+        self.assertEqual(get_research_task(queued["task_id"])["status"], "queued")
+
+
+    def test_supervisor_lease_loss_aborts_before_dispatch(self):
+        from app.analytical_agent_tasks import run_research_supervisor_cycle
+
+        recovery_result = {"requeued_interrupted_count": 0}
+        with (
+            patch("app.analytical_agent_tasks.recover_interrupted_research_tasks", return_value=recovery_result),
+            patch("app.analytical_agent_tasks.renew_research_supervisor_lease", return_value=False) as renew,
+            patch("app.analytical_agent_tasks.dispatch_queued_research_tasks") as dispatch,
+        ):
+            result = run_research_supervisor_cycle(limit=5, max_concurrency=1)
+
+        self.assertEqual(result["status"], "lease_lost")
+        self.assertEqual(result["reason"], "supervisor_lease_lost_before_dispatch")
+        self.assertEqual(result["recovery"], recovery_result)
+        self.assertEqual(result["dispatch"]["status"], "skipped")
+        self.assertTrue(result["lease"]["lost"])
+        renew.assert_called_once()
+        dispatch.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()

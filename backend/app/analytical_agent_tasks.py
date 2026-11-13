@@ -321,9 +321,27 @@ def _heartbeat_running_task(task_id: str, execution_token: str) -> bool:
     return changed.rowcount == 1
 
 
-def execute_queued_research_task(task_id: str) -> bool:
-    """Execute one persisted task with claim fencing and a renewable local heartbeat."""
+def execute_queued_research_task(
+    task_id: str,
+    supervisor_owner_id: str | None = None,
+    supervisor_lease_token: str | None = None,
+) -> bool:
+    """Execute one persisted task; supervisor claims are fenced by the active lease."""
+    if (supervisor_owner_id is None) != (supervisor_lease_token is None):
+        raise ValueError("supervisor owner and lease token must be provided together")
     with _connect() as db:
+        if supervisor_owner_id is not None:
+            # Hold the SQLite write reservation across lease validation and
+            # task claim so another supervisor cannot replace the lease
+            # between the ownership check and the queued-to-running update.
+            db.execute("BEGIN IMMEDIATE")
+            now_for_lease = datetime.now(timezone.utc).isoformat()
+            active_lease = db.execute(
+                "SELECT 1 FROM research_supervisor_leases WHERE lease_name='primary' AND owner_id=? AND lease_token=? AND expires_at>?",
+                (supervisor_owner_id, supervisor_lease_token, now_for_lease),
+            ).fetchone()
+            if active_lease is None:
+                return False
         row = db.execute("SELECT * FROM analytical_agent_tasks WHERE task_id=?", (task_id,)).fetchone()
         if row is None or row["status"] != "queued":
             return False
@@ -934,8 +952,15 @@ def agent_supervisor_status() -> dict:
     }
 
 
-def dispatch_queued_research_tasks(limit: int = 50, max_concurrency: int = 4) -> dict:
-    """Dispatch a bounded snapshot of queued tasks concurrently on this process."""
+def dispatch_queued_research_tasks(
+    limit: int = 50,
+    max_concurrency: int = 4,
+    supervisor_owner_id: str | None = None,
+    supervisor_lease_token: str | None = None,
+) -> dict:
+    """Dispatch queued tasks; optional supervisor credentials fence each task claim."""
+    if (supervisor_owner_id is None) != (supervisor_lease_token is None):
+        raise ValueError("supervisor owner and lease token must be provided together")
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
     if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 550:
@@ -966,7 +991,13 @@ def dispatch_queued_research_tasks(limit: int = 50, max_concurrency: int = 4) ->
     dispatch_errors = []
     with ThreadPoolExecutor(max_workers=min(max_concurrency, len(task_ids)),
                             thread_name_prefix="market-mind-supervisor") as pool:
-        futures = {pool.submit(execute_queued_research_task, task_id): task_id for task_id in task_ids}
+        if supervisor_owner_id is None:
+            futures = {pool.submit(execute_queued_research_task, task_id): task_id for task_id in task_ids}
+        else:
+            futures = {
+                pool.submit(execute_queued_research_task, task_id, supervisor_owner_id, supervisor_lease_token): task_id
+                for task_id in task_ids
+            }
         for future in as_completed(futures):
             task_id = futures[future]
             try:
@@ -1124,7 +1155,37 @@ def run_research_supervisor_cycle(
     heartbeat.start()
     try:
         recovery = recover_interrupted_research_tasks(stale_after_seconds)
-        dispatch = dispatch_queued_research_tasks(limit, max_concurrency)
+        # Revalidate and renew ownership immediately before dispatch. The
+        # background heartbeat can lose the lease while recovery is running.
+        try:
+            lease_valid = renew_research_supervisor_lease(
+                owner_id, lease["lease_token"], lease_seconds=3600,
+            )
+        except Exception:
+            lease_valid = False
+        if not lease_valid or heartbeat_state["lost"]:
+            heartbeat_state["lost"] = True
+            return {
+                "supervisor": "bounded_research_supervisor_cycle",
+                "status": "lease_lost",
+                "reason": "supervisor_lease_lost_before_dispatch",
+                "recovery": recovery,
+                "dispatch": {"status": "skipped", "reason": "supervisor_lease_lost"},
+                "cycle_mode": "single_process_single_cycle",
+                "lease": {
+                    "acquired": True,
+                    "expires_at": lease["expires_at"],
+                    "heartbeat_renewals": heartbeat_state["renewals"],
+                    "lost": True,
+                },
+                "continuous_daemon": False,
+                "distributed_queue": False,
+                "broker_execution": False,
+            }
+        dispatch = dispatch_queued_research_tasks(
+            limit, max_concurrency, supervisor_owner_id=owner_id,
+            supervisor_lease_token=lease["lease_token"],
+        )
         return {
             "supervisor": "bounded_research_supervisor_cycle",
             "status": "completed",

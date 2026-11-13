@@ -2,7 +2,7 @@ name: Quality checks (Version 3.4)
 
 on:
   push:
-    branches: [main, 'feat/**', 'feature/**']
+    branches: [main, 'feat/**', 'feature/**', 'fix/**']
   pull_request:
     branches: [main, 'feat/**', 'feature/**']
   workflow_dispatch:

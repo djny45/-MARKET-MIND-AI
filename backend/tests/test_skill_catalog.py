@@ -123,6 +123,16 @@ class SkillCatalogTests(unittest.TestCase):
         self.assertFalse(loaded["broker_execution"])
         self.assertNotIn("### 002.", loaded["content"])
 
+        # Check the beginning, middle, and end of the complete pack so the
+        # loader cannot silently change mode or expose another skill section.
+        for skill_id in ("mm-skill-001", "mm-skill-150", "mm-skill-300"):
+            with self.subTest(skill_id=skill_id):
+                selected = load_skill(skill_id)
+                self.assertEqual(selected["id"], skill_id)
+                self.assertEqual(selected["mode"], "research_evaluation_only")
+                self.assertFalse(selected["broker_execution"])
+                self.assertNotIn("### 002.", selected["content"])
+
     def test_skill_pack_rejects_out_of_range_ids(self):
         for skill_id in ("mm-skill-000", "mm-skill-301", "mm-skill-999", "mm-skill-01"):
             with self.subTest(skill_id=skill_id):

@@ -241,7 +241,7 @@ jobs:
       - name: Verify API and frontend through loopback proxy
         run: |
           set -euo pipefail
-          for attempt in $(seq 1 40); do
+          for _ in $(seq 1 40); do
             if curl --fail --silent http://127.0.0.1:8080/api/ready >/tmp/api-ready.json; then
               break
             fi
@@ -382,7 +382,7 @@ jobs:
           }
           trap cleanup EXIT
 
-          for attempt in $(seq 1 40); do
+          for _ in $(seq 1 40); do
             if curl --fail --silent http://127.0.0.1:8000/api/ready >/dev/null; then
               break
             fi
@@ -399,7 +399,7 @@ jobs:
             exit 1
           fi
 
-          for attempt in $(seq 1 40); do
+          for _ in $(seq 1 40); do
             if curl --fail --silent http://127.0.0.1:5173/ >/dev/null; then
               break
             fi

@@ -14,16 +14,16 @@ QLIB_SKILL_ROOT = REPO_ROOT / ".agents" / "skills" / "qlib-research"
 SOCIAL_RESEARCH_SKILL_ROOT = REPO_ROOT / ".agents" / "skills" / "social-research"
 
 SKILL_DESCRIPTIONS = {
-    "trader-alerts": "Alert interpretation and notification research.",
-    "trader-analyst": "Company and market fundamental research.",
-    "trader-budget": "Research budget and resource planning.",
-    "trader-entry": "Paper-only scenario entry criteria.",
-    "trader-exit": "Paper-only scenario exit criteria.",
-    "trader-news": "News and event context analysis.",
-    "trader-pelosi": "Public-disclosure tracking and source verification.",
-    "trader-risk": "Risk measurement and scenario controls.",
-    "trader-scanner": "Market and instrument screening.",
-    "trader-timemachine": "Historical and time-series research.",
+    "trader-alerts": "Historical data-quality and threshold-observation review.",
+    "trader-analyst": "Source-cited issuer filings and public disclosure analysis.",
+    "trader-budget": "Dataset, storage, and compute resource audit.",
+    "trader-entry": "Retrospective pattern-label review.",
+    "trader-exit": "Completed historical scenario review.",
+    "trader-news": "Source-grounded news synthesis.",
+    "trader-pelosi": "Public disclosure activity review.",
+    "trader-risk": "Research methodology and bias audit.",
+    "trader-scanner": "Historical instrument-universe coverage audit.",
+    "trader-timemachine": "Empirical historical distribution analysis.",
 }
 
 REA_SKILL_DESCRIPTIONS = {
@@ -66,7 +66,7 @@ def list_skills():
             "description": description,
             "path": f".agents/skills/day-trader-skill/{slug}/SKILL.md",
             "available": (SKILL_ROOT / slug / "SKILL.md").is_file(),
-            "mode": "research_and_paper_only",
+            "mode": "historical_research_only",
             "requires_external_tools": False,
         }
         for slug, description in SKILL_DESCRIPTIONS.items()
@@ -160,7 +160,7 @@ def load_skill(slug: str):
     if slug in SKILL_DESCRIPTIONS:
         root = SKILL_ROOT
         description = SKILL_DESCRIPTIONS[slug]
-        mode = "research_and_paper_only"
+        mode = "historical_research_only"
         requires_external_tools = False
     elif slug in REA_SKILL_DESCRIPTIONS:
         root = REA_SKILL_ROOT

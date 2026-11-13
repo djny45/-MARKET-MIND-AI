@@ -241,7 +241,7 @@ jobs:
       - name: Verify API and frontend through loopback proxy
         run: |
           set -euo pipefail
-          for attempt in $(seq 1 40); do
+          for _ in $(seq 1 40); do
             if curl --fail --silent http://127.0.0.1:8080/api/ready >/tmp/api-ready.json; then
               break
             fi
@@ -332,8 +332,6 @@ jobs:
     env:
       PYTHONPATH: backend
       MARKET_MIND_AUTH_REQUIRED: "true"
-      MARKET_MIND_AUTH_DB: ${{ runner.temp }}/auth-e2e.sqlite
-      MARKET_MIND_DB: ${{ runner.temp }}/market-e2e.sqlite
       MARKET_MIND_COOKIE_SECURE: "false"
       FRONTEND_ORIGINS: "http://127.0.0.1:5173"
     steps:
@@ -365,6 +363,9 @@ jobs:
           echo "MARKET_MIND_OWNER_PASSWORD_HASH=$owner_hash" >> "$GITHUB_ENV"
 
       - name: Start services, run browser tests, and stop services
+        env:
+          MARKET_MIND_AUTH_DB: ${{ runner.temp }}/auth-e2e.sqlite
+          MARKET_MIND_DB: ${{ runner.temp }}/market-e2e.sqlite
         run: |
           set -euo pipefail
           api_log="$RUNNER_TEMP/browser-e2e-api.log"
@@ -381,7 +382,7 @@ jobs:
           }
           trap cleanup EXIT
 
-          for attempt in $(seq 1 40); do
+          for _ in $(seq 1 40); do
             if curl --fail --silent http://127.0.0.1:8000/api/ready >/dev/null; then
               break
             fi
@@ -398,7 +399,7 @@ jobs:
             exit 1
           fi
 
-          for attempt in $(seq 1 40); do
+          for _ in $(seq 1 40); do
             if curl --fail --silent http://127.0.0.1:5173/ >/dev/null; then
               break
             fi

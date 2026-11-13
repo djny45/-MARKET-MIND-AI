@@ -331,6 +331,10 @@ def execute_queued_research_task(
         raise ValueError("supervisor owner and lease token must be provided together")
     with _connect() as db:
         if supervisor_owner_id is not None:
+            # Hold the SQLite write reservation across lease validation and
+            # task claim so another supervisor cannot replace the lease
+            # between the ownership check and the queued-to-running update.
+            db.execute("BEGIN IMMEDIATE")
             now_for_lease = datetime.now(timezone.utc).isoformat()
             active_lease = db.execute(
                 "SELECT 1 FROM research_supervisor_leases WHERE lease_name='primary' AND owner_id=? AND lease_token=? AND expires_at>?",

@@ -15,10 +15,10 @@ A visual research environment where specialist analytical workers connect as reu
 ---
 
 ## Deployment policy: Vercel-free
-For a GitHub Pages frontend-only deployment, see [Vercel-free GitHub Pages guide](docs/GITHUB-PAGES-DEPLOYMENT.md). Pages does not host the FastAPI backend or SQLite; the backend must remain separately hosted and secured.
+Public GitHub Pages deployment is not approved. The former guide is retained only to document that restriction: [deployment boundary](docs/GITHUB-PAGES-DEPLOYMENT.md).
 
 
-MARKET-MIND-AI does not require or target Vercel. For a complete frontend + FastAPI stack, use the repository's private Docker deployment guide: [Private Docker deployment](docs/PRODUCTION-DEPLOYMENT.md). The supported baseline is self-hosted Docker Compose (or a manually managed host with equivalent network and security controls). GitHub Pages can serve static frontend assets only; it cannot host the FastAPI service or SQLite database. Keep the API private behind authentication and TLS before enabling remote access. Do not commit secrets or expose the research API publicly.
+MARKET-MIND-AI does not require or target Vercel. The supported baseline is self-hosted Docker Compose for private, single-host use: [Private Docker deployment](docs/PRODUCTION-DEPLOYMENT.md). Public static hosting is not approved. Keep the API and database private; do not commit secrets or expose the research API publicly.
 
 ## Overview
 
@@ -37,7 +37,7 @@ The platform is designed for research across four primary market groups: India, 
 - **Governed improvement:** worker changes are tested, versioned, reviewed, and reversible.
 - **Provider-neutral data layer:** connectors are modular and must respect provider terms, licences, rate limits, and redistribution rules.
 - **Synthetic data is labelled:** the sample endpoint is a deterministic development fixture, never a live or historical price feed.
-- **Research only:** no paper trading, brokerage credentials, order routing, or automated execution.
+- **Research only:** descriptive historical analytics and evidence workflows; no brokerage credentials, transaction simulation, order routing, or automated financial execution.
 
 ## Historical data and forecasting research (educational)
 
@@ -77,7 +77,7 @@ Check data licensing and availability. Results can vary by symbol, period,
 adjustments, and provider corrections. The experiment models one symbol and
 one-day log returns only; it omits costs, slippage, taxes, portfolio risk, and
 execution. A good historical score is not a guarantee of future performance.
-No real-money trading, order routing, or brokerage integration is included.
+No brokerage integration, order routing, or financial transaction functionality is included.
 
 ## Inception Labs Mercury shared intelligence provider
 
@@ -172,7 +172,7 @@ Specialist modules exchange deterministic records; per-agent brain-context and l
 
 ## Shared agent skill playbooks
 
-Ten upstream day-trader skill definitions are vendored under [`.agents/skills/day-trader-skill/`](.agents/skills/day-trader-skill/README.md). The 550+ AI analytical worker profiles carry department-based `skill_refs` so the orchestration layer can select relevant research guidance without injecting every playbook into every task. These are intended to be 550+ specialist **AI analytical agents** coordinated by one shared central intelligence core—not merely generic worker slots. Each agent has a distinct role, brain/context hash, scoped memory namespace, and task interface. Important current implementation boundary: the registry still stores agent profiles and the runtime exposes bounded task execution; it does **not** yet mean 550 independently running, continuously autonomous agent loops or 550 separate foundation models. Supported workflow node types now route through a validated specialist registry to existing deterministic Python handlers. LLM inference is disabled by default; optional local Ollama synthesis is restricted to summarizing supplied research and never changes deterministic calculations. Autonomous learning and brokerage execution remain disabled. Worker memory is an append-only evidence-note store; it does not train models, treat stored text as instructions, or independently verify claims. Skill references do not execute scripts or grant permissions. The broker/order-execution skill is excluded; the application remains research-only with no brokerage routing.
+Ten read-only historical research skill definitions are maintained under [`.agents/skills/day-trader-skill/`](.agents/skills/day-trader-skill/README.md). The 550+ AI analytical worker profiles carry department-based `skill_refs` so the orchestration layer can select relevant research guidance without injecting every playbook into every task. These are intended to be 550+ specialist **AI analytical agents** coordinated by one shared central intelligence core—not merely generic worker slots. Each agent has a distinct role, brain/context hash, scoped memory namespace, and task interface. Important current implementation boundary: the registry still stores agent profiles and the runtime exposes bounded task execution; it does **not** yet mean 550 independently running, continuously autonomous agent loops or 550 separate foundation models. Supported workflow node types now route through a validated specialist registry to existing deterministic Python handlers. LLM inference is disabled by default; optional local Ollama synthesis is restricted to summarizing supplied research and never changes deterministic calculations. Autonomous learning and brokerage execution remain disabled. Worker memory is an append-only evidence-note store; it does not train models, treat stored text as instructions, or independently verify claims. Skill references do not execute scripts or grant permissions. The broker/order-execution skill is excluded; the application remains research-only with no brokerage routing.
 
 ## Visual workflow model
 
@@ -457,7 +457,7 @@ Generated improvement proposals can now be reviewed through append-only records:
 - `GET /api/analytical-agents/{worker_id}/tasks?limit=20` — lists that worker's task history.
 - `GET /api/analytical-agent-tasks/{task_id}` — retrieves the stored input, status, result, and brain-context digest.
 
-Tasks are isolated by worker ID and retain the worker context hash. The first implementation is **bounded and synchronous**: it does not yet provide cloud workspaces, background scheduling, or 550 always-on autonomous processes. If the shared Ollama core is not configured, the result explicitly reports that synthesis is unavailable rather than fabricating analysis. Tasks use supplied data only; live market retrieval, broker execution, and paper trading are excluded.
+Tasks are isolated by worker ID and retain the worker context hash. The first implementation is **bounded and synchronous**: it does not yet provide cloud workspaces, background scheduling, or 550 always-on autonomous processes. If the shared Ollama core is not configured, the result explicitly reports that synthesis is unavailable rather than fabricating analysis. Tasks use supplied data only; live market retrieval, brokerage access, and financial transaction workflows are out of scope.
 
 
 ## Human-reviewed staging experiment records

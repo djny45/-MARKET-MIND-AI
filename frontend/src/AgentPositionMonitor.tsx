@@ -33,7 +33,7 @@ export default function AgentPositionMonitor({ agents }: Props) {
     return text.includes(query.toLowerCase()) &&
       (department === 'ALL DEPARTMENTS' || (agent.department || 'General Research') === department) &&
       (biasFilter === 'ALL BIASES' || bias === biasFilter)
-  }), [agents, query, department, biasFilter, biasByAgent])
+  }), [agents, query, department, biasFilter, biasByAgent, symbol])
 
   const counts = useMemo(() => {
     const result: Record<Bias, number> = { LONG: 0, SHORT: 0, NEUTRAL: 0, UNASSIGNED: 0 }

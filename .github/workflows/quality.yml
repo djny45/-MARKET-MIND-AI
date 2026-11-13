@@ -14,7 +14,8 @@ permissions:
 
 concurrency:
   group: quality-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Preserve queued CI runs so overlapping pushes/PR updates cannot cancel validation before jobs start.
+  cancel-in-progress: false
 
 jobs:
   backend:

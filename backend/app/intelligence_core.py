@@ -1,6 +1,6 @@
 """Single shared intelligence-core provider boundary.
 
-The core can use Inception Labs Mercury or a loopback FreeLLMAPI OpenAI-compatible gateway.
+Local Ollama is the default provider; optional hosted Mercury and loopback FreeLLMAPI providers are also supported.
 It only summarizes already-computed research artifacts; it does not fetch market
 data, calculate indicators, learn autonomously, or execute trades.
 """

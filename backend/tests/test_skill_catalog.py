@@ -131,7 +131,9 @@ class SkillCatalogTests(unittest.TestCase):
                 self.assertEqual(selected["id"], skill_id)
                 self.assertEqual(selected["mode"], "research_evaluation_only")
                 self.assertFalse(selected["broker_execution"])
-                self.assertNotIn("### 002.", selected["content"])
+                headings = [line for line in selected["content"].splitlines() if line.startswith("### ")]
+                self.assertEqual(len(headings), 1)
+                self.assertTrue(headings[0].startswith(f"### {int(skill_id[-3:]):03d}."))
 
     def test_skill_pack_rejects_out_of_range_ids(self):
         for skill_id in ("mm-skill-000", "mm-skill-301", "mm-skill-999", "mm-skill-01"):

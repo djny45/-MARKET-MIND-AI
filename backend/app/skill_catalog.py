@@ -223,7 +223,7 @@ QLIB_RESEARCH_PROTOCOL = {
         "Use chronological train/validation/test splits; fit preprocessing on training data only.",
         "Check look-ahead leakage, publication delays, rolling-window overlap, and survivorship bias.",
         "Compare a simple baseline with the candidate; report sample counts, coverage, uncertainty, and time-window stability.",
-        "Document retrospective transaction-cost and slippage assumptions; do not present simulation as live performance.",
+        "Document any retrospective cost assumptions; never present historical estimates as current market outcomes.",
         "Record inputs, configuration, dataset identifiers, code revision, metrics, warnings, and random seeds.",
         "Require tests, independent review, and rollback planning before adopting changes.",
     ],

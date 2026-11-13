@@ -4,7 +4,7 @@ Last reviewed: 2026-11-13
 
 ## Current verified scope
 
-The default branch contains a research-oriented FastAPI backend and a React/Vite frontend.
+This branch contains a research-oriented FastAPI backend and a React/Vite frontend.
 
 Implemented areas:
 - Instrument reference search and local watchlist
@@ -30,10 +30,11 @@ Implemented areas:
 
 ## Latest CI evidence
 
-- Workflow run [41233993555](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/41233993555) passed backend, frontend, dependency-audit, and production container build/start smoke checks after switching to unprivileged Nginx.
-- Workflow run [41234005003](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/41234005003) passed all four jobs, including the production proxy/API smoke test and backup/restore round-trip.
-- Workflow run [41234313802](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/41234313802) passed all four jobs after adding explicit assertions for loopback-only web binding, unpublished API port, dropped capabilities, `no-new-privileges`, non-root Nginx, and browser security headers.
-- These CI checks validate the stack in GitHub Actions. They do not replace a host-specific deployment, restore drill, penetration test, or external security review.
+- The most recent workflow run on this PR branch is [43342812564](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/43342812564), for head `31a2c930f2dbfe4248731ca1a4c28f234ba14340`. GitHub reports `completed / failure`, but the run exposes zero jobs, so it provides no test output or job-level diagnosis.
+- Earlier workflow runs [41233993555](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/41233993555), [41234005003](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/41234005003), and [41234313802](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/41234313802) passed selected backend, frontend, dependency-audit, and container checks at their respective historical commits. They do not validate the current PR head.
+- The current PR changes, including the instrument-specific research stance regression test and revised specialist playbooks, remain unverified until GitHub exposes runnable jobs or an equivalent local test/build run is completed.
+- Vercel status checks are not deployment approval. Public deployment remains blocked by the security gates below.
+
 
 ## Remaining release work
 
@@ -44,9 +45,9 @@ Implemented areas:
 | Research analytics and evidence export | Implemented | Re-run regression tests and inspect exported bundles |
 | Frontend integration | Implemented in source | Maintain clean production-build verification |
 | Live/delayed data provider | Not configured | Validate permissions, licensing, symbol mapping, freshness, and rate limits before enabling a provider |
-| Private container packaging | CI build/start, proxy/API smoke, container isolation, and backup/restore integration passed | Verify persistence and recovery on the target Docker host |
+| Private container packaging | Earlier CI build/start and isolation checks passed at older commits; current PR head unverified | Re-run current CI, then verify persistence and recovery on the target Docker host |
 | Backup and restore | Implemented and CI round-trip verified | Perform a host-specific restore drill and document retention/off-host storage |
-| Public deployment security | Blocked | Add authentication/authorization, TLS ingress, request limits, and independent security review before public exposure |
+| Public deployment security | Blocked | Complete independent security review, production TLS/reverse-proxy hardening, shared request limits, and operational controls before public exposure |
 | Operations | Partially implemented | Add observability, alerting, load tests, migration rollback, and incident procedures |
 
 ## Recommended completion sequence

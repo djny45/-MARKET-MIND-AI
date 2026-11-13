@@ -677,6 +677,20 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
             release_research_supervisor_lease("external-scheduler", lease["lease_token"])
 
 
+    def test_supervisor_lease_renewal_requires_current_owner_and_token(self):
+        from app.analytical_agent_tasks import (
+            acquire_research_supervisor_lease, renew_research_supervisor_lease,
+            release_research_supervisor_lease,
+        )
+
+        lease = acquire_research_supervisor_lease("scheduler-renew", lease_seconds=300)
+        self.assertTrue(lease["acquired"])
+        self.assertFalse(renew_research_supervisor_lease("other-owner", lease["lease_token"]))
+        self.assertFalse(renew_research_supervisor_lease("scheduler-renew", "wrong-token"))
+        self.assertTrue(renew_research_supervisor_lease("scheduler-renew", lease["lease_token"]))
+        self.assertTrue(release_research_supervisor_lease("scheduler-renew", lease["lease_token"]))
+
+
     def test_supervisor_lease_loss_aborts_before_dispatch(self):
         from app.analytical_agent_tasks import run_research_supervisor_cycle
 

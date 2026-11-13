@@ -10,7 +10,7 @@ class SkillCatalogTests(unittest.TestCase):
         self.assertEqual(len(skills), 320)
         self.assertNotIn("trader-broker", by_id)
         self.assertTrue(all(
-            skill["mode"] == "research_and_paper_only"
+            skill["mode"] == "historical_research_only"
             for skill in skills if skill["id"].startswith("trader-")
         ))
         self.assertTrue(all(
@@ -18,6 +18,13 @@ class SkillCatalogTests(unittest.TestCase):
             for skill in skills if skill["id"].startswith("rea-") or skill["id"] == "reverse-engineer-anything"
         ))
         self.assertTrue(all(skill["available"] for skill in skills))
+        for slug in ("trader-alerts", "trader-analyst", "trader-budget", "trader-entry", "trader-exit", "trader-news", "trader-pelosi", "trader-risk", "trader-scanner", "trader-timemachine"):
+            with self.subTest(slug=slug):
+                loaded = load_skill(slug)
+                self.assertEqual(loaded["mode"], "historical_research_only")
+                self.assertFalse(loaded["broker_execution"])
+                self.assertNotIn("trader-broker", loaded["content"])
+                self.assertNotIn("place_stock_order", loaded["content"])
         self.assertEqual(by_id["stageshow"]["mode"], "ui_design_only")
         self.assertTrue(by_id["stageshow"]["requires_external_tools"])
         self.assertEqual(by_id["market-data-yahoo"]["mode"], "market_data_research_only")

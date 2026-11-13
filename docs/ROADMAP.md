@@ -45,7 +45,7 @@ This roadmap is a plan, not a claim that features already exist. Mark an item co
 - [x] Add versioned v1.0.0 contract definitions and runtime shape validation for supported workflow node types; detailed domain schemas and mandatory provenance enforcement remain pending.\n  - [x] Validate optional supplied source provenance (non-empty source, timezone-aware ISO-8601 retrieval timestamp, and quality status); provider-wide mandatory provenance remains pending.
   - [x] Propagate validated provenance metadata into findings and report coverage metrics (coverage, unprovenanced nodes, declared source counts, and quality-status counts); these metadata checks do not prove source authenticity or claim entailment.
 - [ ] Build central research orchestrator with model-backed inference and evidence-grounded synthesis.
-- [x] Add optional single-core local Ollama provider boundary (loopback-only, disabled by default, bounded input, timeout/failure fallback and status API); evidence-citation prompts, human approval and model-backed integration tests remain pending.
+- [x] Add a single shared intelligence-core provider boundary for Mercury, loopback FreeLLMAPI, and loopback Ollama (disabled by default, bounded input, timeout/failure fallback and status API); provider selection does not create separate models or enable autonomous execution. Evidence-citation prompts, human approval and model-backed integration tests remain pending.
 - [x] Implement initial deterministic shared-core orchestration API with worker result aggregation, contract references, registry integrity gate and descriptive report; model-backed inference and source-provenance attachment remain pending.
 - [x] Add initial shared-core worker registry and deterministic routing.
 - [ ] Add worker registry versioning and broader evaluation.
@@ -72,7 +72,7 @@ Current boundary: worker routing invokes deterministic Python handlers. The 550 
 - [ ] Add observability, performance profiling, and load tests.
 - [ ] Add security review and dependency/licence inventory.
 - [ ] Complete host-specific backup/restore drills, retention policy, migration rollback, and incident procedures.
-- [ ] Add authentication/authorization and TLS ingress before public deployment.
+- [x] Add single-owner authentication, default-deny API session middleware, CSRF/Origin protections, and SQLite-backed sessions for private single-host use.\n- [ ] Complete independent security review, production TLS/reverse-proxy hardening, and operational controls before any public deployment.
 
 ## Acceptance criteria
 

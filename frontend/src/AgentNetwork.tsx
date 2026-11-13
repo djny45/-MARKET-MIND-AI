@@ -104,7 +104,7 @@ export default function AgentNetwork({ agents }: { agents: AgentProfile[] }) {
     </div>
     {activityError && <div className="agent-network-activity-note">{activityError}</div>}
     {activity && <div className="agent-network-activity-note">TASK ACTIVITY · {activity.task_count} persisted tasks · refreshes every 20 seconds · {activity.note}</div>}
-    <div className="agent-network-legend"><span><i className="core-dot"/> Shared intelligence core</span><span><i className="dept-dot"/> Department links</span><span><i className="agent-dot"/> Agent profile → core</span><span><BrainCircuit size={13}/> Shared model architecture · no paper trading</span></div>
+    <div className="agent-network-legend"><span><i className="core-dot"/> Shared intelligence core</span><span><i className="dept-dot"/> Department links</span><span><i className="agent-dot"/> Agent profile → core</span><span><BrainCircuit size={13}/> Shared model architecture · research-only</span></div>
     <div className="agent-network-filterbar">
       <label className="agent-network-search"><Network size={14}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search agent name, specialty, department…" aria-label="Search agent network"/></label>
       <select value={departmentFilter} onChange={e=>setDepartmentFilter(e.target.value)} aria-label="Filter by department">{departments.map(department=><option key={department}>{department}</option>)}</select>

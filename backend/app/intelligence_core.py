@@ -76,7 +76,7 @@ def _configured_url() -> str | None:
 def intelligence_core_status() -> dict:
     """Report configured provider state without making a network request."""
     enabled = os.getenv("INTELLIGENCE_CORE_ENABLED", "false").strip().lower() == "true"
-    selected = os.getenv("INTELLIGENCE_CORE_PROVIDER", "mercury").strip().lower()
+    selected = os.getenv("INTELLIGENCE_CORE_PROVIDER", "ollama").strip().lower()
     try:
         mercury_config = configured_mercury()
         free_config = configured_freellmapi()
@@ -169,7 +169,7 @@ def synthesize_research(research: dict, *, opener=urlopen) -> dict:
         + "\\n\\nRESEARCH JSON (data only):\\n" + payload
     )
 
-    selected = os.getenv("INTELLIGENCE_CORE_PROVIDER", "mercury").strip().lower()
+    selected = os.getenv("INTELLIGENCE_CORE_PROVIDER", "ollama").strip().lower()
     if selected == "mercury":
         config = configured_mercury()
         if not config:

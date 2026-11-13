@@ -37,7 +37,7 @@ The platform is designed for research across four primary market groups: India, 
 - **Governed improvement:** worker changes are tested, versioned, reviewed, and reversible.
 - **Provider-neutral data layer:** connectors are modular and must respect provider terms, licences, rate limits, and redistribution rules.
 - **Synthetic data is labelled:** the sample endpoint is a deterministic development fixture, never a live or historical price feed.
-- **Research only:** descriptive historical analytics and evidence workflows; no brokerage credentials, transaction simulation, order routing, or automated financial execution.
+- **Research only:** descriptive historical analytics and evidence workflows; no brokerage credentials, order routing, or automated financial transactions.
 
 ## Historical data and forecasting research (educational)
 

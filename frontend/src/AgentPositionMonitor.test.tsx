@@ -25,9 +25,9 @@ describe('AgentPositionMonitor', () => {
     expect(row?.querySelector('.stance-badge')?.textContent).toBe('SHORT')
 
     fireEvent.change(instrument, { target: { value: 'BTCUSD' } })
-    expect(within(row as HTMLElement).getByText('LONG')).toBeTruthy()
+    expect(row?.querySelector('.stance-badge')?.textContent).toBe('LONG')
 
     fireEvent.change(instrument, { target: { value: 'ETHUSD' } })
-    expect(within(row as HTMLElement).getByText('SHORT')).toBeTruthy()
+    expect(row?.querySelector('.stance-badge')?.textContent).toBe('SHORT')
   })
 })

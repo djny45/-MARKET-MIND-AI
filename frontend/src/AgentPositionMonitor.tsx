@@ -14,6 +14,7 @@ type Props = { agents: AgentProfile[] }
 
 const biasOptions: Bias[] = ['LONG', 'SHORT', 'NEUTRAL', 'UNASSIGNED']
 const normalizeId = (agent: AgentProfile, index: number) => String(agent.id || `agent-${index + 1}`)
+const stanceKey = (instrument: string, agentId: string) => `${instrument}:${agentId}`
 
 export default function AgentPositionMonitor({ agents }: Props) {
   const [symbol, setSymbol] = useState('BTCUSD')
@@ -28,7 +29,7 @@ export default function AgentPositionMonitor({ agents }: Props) {
   const filtered = useMemo(() => agents.slice(0, 550).filter((agent, index) => {
     const id = normalizeId(agent, index)
     const text = [id, agent.name, agent.department, agent.specialty, agent.kind].join(' ').toLowerCase()
-    const bias = biasByAgent[id] || 'UNASSIGNED'
+    const bias = biasByAgent[stanceKey(symbol, id)] || 'UNASSIGNED'
     return text.includes(query.toLowerCase()) &&
       (department === 'ALL DEPARTMENTS' || (agent.department || 'General Research') === department) &&
       (biasFilter === 'ALL BIASES' || bias === biasFilter)
@@ -36,19 +37,19 @@ export default function AgentPositionMonitor({ agents }: Props) {
 
   const counts = useMemo(() => {
     const result: Record<Bias, number> = { LONG: 0, SHORT: 0, NEUTRAL: 0, UNASSIGNED: 0 }
-    agents.slice(0, 550).forEach((agent, index) => { result[biasByAgent[normalizeId(agent, index)] || 'UNASSIGNED']++ })
+    agents.slice(0, 550).forEach((agent, index) => { result[biasByAgent[stanceKey(symbol, normalizeId(agent, index))] || 'UNASSIGNED']++ })
     return result
-  }, [agents, biasByAgent])
+  }, [agents, biasByAgent, symbol])
 
   const selected = agents.find((agent, index) => normalizeId(agent, index) === selectedId)
-  const setBias = (id: string, bias: Bias) => setBiasByAgent(current => ({ ...current, [id]: bias }))
+  const setBias = (id: string, bias: Bias) => setBiasByAgent(current => ({ ...current, [stanceKey(symbol, id)]: bias }))
   const reset = () => { setBiasByAgent({}); setBiasFilter('ALL BIASES'); setQuery(''); setDepartment('ALL DEPARTMENTS'); setSelectedId('') }
   const assignAll = (bias: Bias) => {
     setBiasByAgent(current => {
       const next = { ...current }
       filtered.forEach(agent => {
         const index = agents.indexOf(agent)
-        next[normalizeId(agent, index)] = bias
+        next[stanceKey(symbol, normalizeId(agent, index))] = bias
       })
       return next
     })
@@ -84,7 +85,7 @@ export default function AgentPositionMonitor({ agents }: Props) {
         <tbody>{filtered.slice(0, visibleCount).map((agent) => {
           const index = agents.indexOf(agent)
           const id = normalizeId(agent, index)
-          const bias = biasByAgent[id] || 'UNASSIGNED'
+          const bias = biasByAgent[stanceKey(symbol, id)] || 'UNASSIGNED'
           return <tr key={id} className={selectedId===id?'active':''} onClick={()=>setSelectedId(id)}>
             <td><b>{agent.name || id}</b><small>{id}</small></td>
             <td><span>{agent.department || 'General Research'}</span><small>{agent.specialty || agent.kind || 'Specialist profile'}</small></td>
@@ -98,8 +99,8 @@ export default function AgentPositionMonitor({ agents }: Props) {
       {filtered.length>visibleCount&&<button className="agent-position-load" onClick={()=>setVisibleCount(n=>Math.min(n+50,550))}>LOAD NEXT 50 PROFILES · {Math.min(filtered.length-visibleCount,50)} MORE</button>}
     </div>
 
-    {selected&&<aside className="agent-position-inspector"><div><span className="eyebrow">SELECTED AGENT</span><h2>{selected.name || selectedId}</h2><small>{selectedId} · {selected.department || 'General Research'}</small></div><div><b>{selected.specialty || selected.kind || 'Specialist profile'}</b><small>Profile status: {selected.status || 'REGISTERED'}</small></div><label>Research stance for {symbol}<select value={biasByAgent[selectedId]||'UNASSIGNED'} onChange={e=>setBias(selectedId,e.target.value as Bias)}>{biasOptions.map(b=><option key={b}>{b}</option>)}</select></label><button onClick={()=>setSelectedId('')}>CLOSE</button></aside>}
+    {selected&&<aside className="agent-position-inspector"><div><span className="eyebrow">SELECTED AGENT</span><h2>{selected.name || selectedId}</h2><small>{selectedId} · {selected.department || 'General Research'}</small></div><div><b>{selected.specialty || selected.kind || 'Specialist profile'}</b><small>Profile status: {selected.status || 'REGISTERED'}</small></div><label>Research stance for {symbol}<select value={biasByAgent[stanceKey(symbol, selectedId)]||'UNASSIGNED'} onChange={e=>setBias(selectedId,e.target.value as Bias)}>{biasOptions.map(b=><option key={b}>{b}</option>)}</select></label><button onClick={()=>setSelectedId('')}>CLOSE</button></aside>}
 
-    <footer className="agent-position-foot"><span>Profiles shown: {Math.min(agents.length,550)} · manual session tags: {Object.values(biasByAgent).filter(v=>v!=='UNASSIGNED').length}</span><span>Research-only · no portfolio exposure or execution</span></footer>
+    <footer className="agent-position-foot"><span>Profiles shown: {Math.min(agents.length,550)} · manual session tags: {Object.entries(biasByAgent).filter(([key,v])=>key.startsWith(`${symbol}:`)&&v!=='UNASSIGNED').length}</span><span>Research-only · no portfolio exposure or execution</span></footer>
   </section>
 }

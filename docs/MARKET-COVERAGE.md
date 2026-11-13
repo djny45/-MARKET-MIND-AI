@@ -52,3 +52,49 @@ The product organizes coverage into four top-level groups while retaining asset 
 The API uses `market_group` for these domains and retains `market` for asset class. Example: `GET /api/instruments?market_group=india&market=equities`.
 
 The current directory is a curated reference catalogue, not an exchange-supplied security master. It contains no live quotes and does not prove data availability. See [FOUR-MARKET-PLATFORM.md](FOUR-MARKET-PLATFORM.md) for canonical identity, event schemas and provider readiness.
+
+## Stored-return heatmap
+
+The private workspace exposes `GET /api/market-data/heatmap?interval=1d&limit=100`. It calculates a descriptive percentage change from the latest two distinct timestamps already stored for each symbol in the selected interval. If multiple sources have observations at one timestamp, the calculation selects the observation with the latest retrieval timestamp for that timestamp. Symbols with fewer than two distinct timestamps are returned with `status=insufficient_history` and no percentage change.
+
+The result is limited to the locally stored symbol set and is ordered by absolute calculated change. It is not a live quote, a complete market-universe heatmap, a ranking of all exchange-listed instruments, or a trading signal. Source and data-status labels remain attached to each cell. The API's normal workspace authentication and CSRF/Origin controls apply.
+
+## Stored heatmap query index
+
+SQLite creates the additive `idx_market_bars_interval_timestamp` index on
+`(interval, timestamp)` alongside the symbol-scoped lookup index. It supports
+the heatmap's interval filter without changing stored rows or the schema
+version. The index is created with `IF NOT EXISTS`, so existing databases
+receive it automatically when the application opens the database. Its benefit
+depends on data distribution and SQLite's query planner; confirm with
+`EXPLAIN QUERY PLAN` and representative production-sized data before claiming
+a measured speedup.
+
+## Timestamp normalization
+
+Stored OHLCV timestamps and retrieval timestamps are serialized in UTC before upsert. Because these values use one canonical UTC ISO-8601 representation, bar reads and heatmap ranking use exact timestamp text ordering/grouping rather than SQLite's lower-precision `julianday()` conversion; this preserves microsecond distinctions. Equivalent values such as `2026-01-01T05:30:00+05:30` and `2026-01-01T00:00:00+00:00` cannot create duplicate observations for new writes. This does not certify provider clock accuracy or repair arbitrary malformed legacy records.
+
+Heatmap calculations also guard against floating-point overflow. If finite stored prices produce a non-finite percentage change (for example, an extreme ratio outside representable precision), the affected cell is returned with `status=numeric_overflow` and `change_pct=null`; the aggregate `numeric_overflow_count` reports these cells. Such a cell is not silently ranked as a valid return.
+
+## Implemented historical research adapters
+
+| Adapter | API route | Supported interval | Credential | Status semantics |
+|---|---|---|---|---|
+| Yahoo Finance chart | `GET /api/market-data/yahoo` | `15m`, `1h`, `4h`, `1d` | No key configured by this adapter | Historical, best-effort; 4h bars are resampled from complete contiguous hourly groups |
+| Stooq daily CSV | `GET /api/market-data/stooq` | `1d` only | Optional `STOOQ_API_KEY` environment variable | Historical, best-effort; daily CSV only |
+
+`GET /api/providers/status` lists these as `implemented_not_probed`. This is an implementation inventory, not a successful connectivity check. A provider is contacted only when its corresponding historical-data route is requested.
+
+Both routes validate request parameters, normalize OHLCV data, persist source and retrieval provenance, and label the response `historical_research_ingestion` with `execution=disabled`. Provider outages are returned as gateway errors; they must not be silently replaced with synthetic or differently sourced observations.
+
+Yahoo Finance's chart endpoint is unofficial and provider-controlled. Stooq access, API-key requirements, coverage, quotas and licensing can change. Verify current provider terms and redistribution rights before relying on either source or republishing its data. Neither adapter supplies a consolidated live feed or execution-grade prices.
+
+Example local requests:
+
+```bash
+curl 'http://127.0.0.1:8000/api/providers/status'
+curl 'http://127.0.0.1:8000/api/market-data/yahoo?symbol=AAPL&interval=1d&limit=100'
+curl 'http://127.0.0.1:8000/api/market-data/stooq?symbol=AAPL.US&interval=1d&limit=100'
+```
+
+Set `STOOQ_API_KEY` only in the local runtime environment if the provider account requires it. Never put it in source control, browser configuration, URLs shared in logs, or research records. Provider API access does not grant brokerage permissions and does not enable order placement.

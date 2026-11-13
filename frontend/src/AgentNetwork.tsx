@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ReactFlow, Background, Controls, MiniMap, Handle, Position, type Node, type Edge } from '@xyflow/react'
 import { Network, BrainCircuit } from 'lucide-react'
+import { API_BASE, apiFetch } from './api'
 
 type AgentProfile = {
   id?: string
@@ -33,7 +34,7 @@ export default function AgentNetwork({ agents }: { agents: AgentProfile[] }) {
   const [selectedAgent, setSelectedAgent] = useState<AgentNodeData | null>(null)
   const [activity, setActivity] = useState<ActivitySnapshot | null>(null)
   const [activityError, setActivityError] = useState('')
-  useEffect(() => { let alive = true; const load = async () => { try { const response = await fetch((import.meta.env.VITE_API_URL || 'http://localhost:8000') + '/api/agent-network/activity?limit=500'); if (!response.ok) throw new Error('Activity endpoint unavailable'); const snapshot = await response.json(); if (alive) { setActivity(snapshot); setActivityError('') } } catch { if (alive) setActivityError('API activity unavailable — showing registered profiles only') } }; load(); const timer = window.setInterval(load, 20000); return () => { alive = false; window.clearInterval(timer) } }, [])
+  useEffect(() => { let alive = true; const load = async () => { try { const response = await apiFetch(API_BASE + '/api/agent-network/activity?limit=500'); if (!response.ok) throw new Error('Activity endpoint unavailable'); const snapshot = await response.json(); if (alive) { setActivity(snapshot); setActivityError('') } } catch { if (alive) setActivityError('API activity unavailable — showing registered profiles only') } }; load(); const timer = window.setInterval(load, 20000); return () => { alive = false; window.clearInterval(timer) } }, [])
   const departments = useMemo(() => ['ALL DEPARTMENTS', ...Array.from(new Set(agents.map(a => a.department || 'General Research'))).sort()], [agents])
   const filteredProfiles = useMemo(() => agents.slice(0, 550).filter(profile => {
     const haystack = [profile.id, profile.name, profile.department, profile.specialty, profile.kind].join(' ').toLowerCase()
@@ -103,7 +104,7 @@ export default function AgentNetwork({ agents }: { agents: AgentProfile[] }) {
     </div>
     {activityError && <div className="agent-network-activity-note">{activityError}</div>}
     {activity && <div className="agent-network-activity-note">TASK ACTIVITY · {activity.task_count} persisted tasks · refreshes every 20 seconds · {activity.note}</div>}
-    <div className="agent-network-legend"><span><i className="core-dot"/> Shared intelligence core</span><span><i className="dept-dot"/> Department links</span><span><i className="agent-dot"/> Agent profile → core</span><span><BrainCircuit size={13}/> Shared model architecture · no paper trading</span></div>
+    <div className="agent-network-legend"><span><i className="core-dot"/> Shared intelligence core</span><span><i className="dept-dot"/> Department links</span><span><i className="agent-dot"/> Agent profile → core</span><span><BrainCircuit size={13}/> Shared model architecture · research-only</span></div>
     <div className="agent-network-filterbar">
       <label className="agent-network-search"><Network size={14}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search agent name, specialty, department…" aria-label="Search agent network"/></label>
       <select value={departmentFilter} onChange={e=>setDepartmentFilter(e.target.value)} aria-label="Filter by department">{departments.map(department=><option key={department}>{department}</option>)}</select>

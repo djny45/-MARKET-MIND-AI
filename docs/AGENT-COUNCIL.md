@@ -35,7 +35,7 @@ Pass the returned council object as `council_result`. The review computes exact 
 - The council is limited to eight members per request.
 - The shared inference provider may be disabled or unavailable; in that case, member analysis is not produced.
 - Cross-agent semantic synthesis, robust evidence adjudication, and disagreement scoring are not implemented yet.
-- Research only: no paper trading, brokerage credentials, order routing, or automated execution.
+- Research only: no brokerage credentials, order routing, or automated financial transactions.
 
 
 ## Registry-wide batch research

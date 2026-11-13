@@ -14,16 +14,16 @@ QLIB_SKILL_ROOT = REPO_ROOT / ".agents" / "skills" / "qlib-research"
 SOCIAL_RESEARCH_SKILL_ROOT = REPO_ROOT / ".agents" / "skills" / "social-research"
 
 SKILL_DESCRIPTIONS = {
-    "trader-alerts": "Alert interpretation and notification research.",
-    "trader-analyst": "Company and market fundamental research.",
-    "trader-budget": "Research budget and resource planning.",
-    "trader-entry": "Paper-only scenario entry criteria.",
-    "trader-exit": "Paper-only scenario exit criteria.",
-    "trader-news": "News and event context analysis.",
-    "trader-pelosi": "Public-disclosure tracking and source verification.",
-    "trader-risk": "Risk measurement and scenario controls.",
-    "trader-scanner": "Market and instrument screening.",
-    "trader-timemachine": "Historical and time-series research.",
+    "trader-alerts": "Historical data-quality and threshold-observation review.",
+    "trader-analyst": "Source-cited issuer filings and public disclosure analysis.",
+    "trader-budget": "Dataset, storage, and compute resource audit.",
+    "trader-entry": "Retrospective pattern-label review.",
+    "trader-exit": "Completed historical scenario review.",
+    "trader-news": "Source-grounded news synthesis.",
+    "trader-pelosi": "Public disclosure activity review.",
+    "trader-risk": "Research methodology and bias audit.",
+    "trader-scanner": "Historical instrument-universe coverage audit.",
+    "trader-timemachine": "Empirical historical distribution analysis.",
 }
 
 REA_SKILL_DESCRIPTIONS = {
@@ -60,13 +60,13 @@ UI_SKILL_DESCRIPTIONS = {
 
 def list_skills():
     """Return only allowlisted research playbooks present in the repository."""
-    trading = [
+    historical_research = [
         {
             "id": slug,
             "description": description,
             "path": f".agents/skills/day-trader-skill/{slug}/SKILL.md",
             "available": (SKILL_ROOT / slug / "SKILL.md").is_file(),
-            "mode": "research_and_paper_only",
+            "mode": "historical_research_only",
             "requires_external_tools": False,
         }
         for slug, description in SKILL_DESCRIPTIONS.items()
@@ -150,7 +150,7 @@ def list_skills():
         }
         for slug, description in SOCIAL_RESEARCH_SKILL_DESCRIPTIONS.items()
     ]
-    return trading + engineering + ui_design + market_data + stooq_data + quant_research + qlib_research + social_research + list_pack_skills()
+    return historical_research + engineering + ui_design + market_data + stooq_data + quant_research + qlib_research + social_research + list_pack_skills()
 
 
 def load_skill(slug: str):
@@ -160,7 +160,7 @@ def load_skill(slug: str):
     if slug in SKILL_DESCRIPTIONS:
         root = SKILL_ROOT
         description = SKILL_DESCRIPTIONS[slug]
-        mode = "research_and_paper_only"
+        mode = "historical_research_only"
         requires_external_tools = False
     elif slug in REA_SKILL_DESCRIPTIONS:
         root = REA_SKILL_ROOT
@@ -223,7 +223,7 @@ QLIB_RESEARCH_PROTOCOL = {
         "Use chronological train/validation/test splits; fit preprocessing on training data only.",
         "Check look-ahead leakage, publication delays, rolling-window overlap, and survivorship bias.",
         "Compare a simple baseline with the candidate; report sample counts, coverage, uncertainty, and time-window stability.",
-        "Document retrospective transaction-cost and slippage assumptions; do not present simulation as live performance.",
+        "Document any retrospective cost assumptions; never present historical estimates as current market outcomes.",
         "Record inputs, configuration, dataset identifiers, code revision, metrics, warnings, and random seeds.",
         "Require tests, independent review, and rollback planning before adopting changes.",
     ],

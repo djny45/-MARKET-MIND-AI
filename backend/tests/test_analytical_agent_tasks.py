@@ -61,6 +61,42 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
     def test_unknown_task_returns_none(self):
         self.assertIsNone(get_research_task("not-a-task-id"))
 
+    def test_task_store_enforces_durable_sqlite_pragmas_and_foreign_keys(self):
+        import sqlite3
+        from app.analytical_agent_tasks import _connect
+
+        with _connect() as db:
+            self.assertEqual(db.execute("PRAGMA foreign_keys").fetchone()[0], 1)
+            self.assertEqual(db.execute("PRAGMA synchronous").fetchone()[0], 2)
+            with self.assertRaises(sqlite3.IntegrityError):
+                db.execute(
+                    "INSERT INTO research_quality_evaluations "
+                    "(task_id,worker_id,evaluation_json,created_at) VALUES (?,?,?,?)",
+                    ("missing-task", "worker_001", "{}", "2026-11-12T00:00:00+00:00"),
+                )
+
+    def test_task_heartbeat_renews_only_the_current_claim(self):
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, _connect, _heartbeat_running_task,
+        )
+        queued = enqueue_research_task("worker_041", "heartbeat fencing")
+        token = "claim-token-current"
+        with _connect() as db:
+            db.execute(
+                "UPDATE analytical_agent_tasks SET status='running',execution_token=? WHERE task_id=?",
+                (token, queued["task_id"]),
+            )
+        self.assertTrue(_heartbeat_running_task(queued["task_id"], token))
+        self.assertFalse(_heartbeat_running_task(queued["task_id"], "stale-token"))
+        with _connect() as db:
+            row = db.execute(
+                "SELECT status,execution_token,updated_at FROM analytical_agent_tasks WHERE task_id=?",
+                (queued["task_id"],),
+            ).fetchone()
+        self.assertEqual(row["status"], "running")
+        self.assertEqual(row["execution_token"], token)
+        self.assertTrue(row["updated_at"])
+
     def test_queue_task_persists_queued_record_and_executes(self):
         from app.analytical_agent_tasks import enqueue_research_task, execute_queued_research_task
         queued = enqueue_research_task("worker_004", "Analyze provided metrics", {"metric": 7})
@@ -93,6 +129,37 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertEqual(evaluation["evaluation_type"], "deterministic_research_traceability_check")
         self.assertEqual(evaluation["metrics"]["claim_reference_coverage"], 0.5)
         self.assertEqual(evaluation["metrics"]["known_source_reference_coverage"], 0.5)
+
+    def test_replaced_claim_cannot_persist_evaluation_sidecars(self):
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, execute_queued_research_task,
+            get_task_quality_evaluation, _connect,
+        )
+        queued = enqueue_research_task(
+            "worker_042",
+            "fenced evaluation sidecar",
+            {
+                "draft": "A bounded research draft.",
+                "claims": [{"text": "A sourced claim", "source_refs": ["source-1"]}],
+                "source_registry": [{"source_id": "source-1"}],
+            },
+        )
+
+        def replace_claim(_payload):
+            with _connect() as db:
+                db.execute(
+                    "UPDATE analytical_agent_tasks SET execution_token=? WHERE task_id=?",
+                    ("replacement-claim", queued["task_id"]),
+                )
+            return {"status": "completed", "summary": "A bounded research draft."}
+
+        with patch("app.analytical_agent_tasks.synthesize_research", side_effect=replace_claim):
+            self.assertFalse(execute_queued_research_task(queued["task_id"]))
+        saved = get_research_task(queued["task_id"])
+        self.assertEqual(saved["status"], "running")
+        self.assertEqual(saved["result"], {})
+        evaluation = get_task_quality_evaluation(queued["task_id"])
+        self.assertEqual(evaluation["status"], "not_evaluated")
 
     def test_task_audit_events_record_queue_claim_and_completion(self):
         from app.analytical_agent_tasks import (
@@ -454,8 +521,6 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             retry_failed_research_task(" ")
 
-if __name__ == "__main__":
-    unittest.main()
 
 
 
@@ -532,3 +597,99 @@ if __name__ == "__main__":
         self.assertEqual(result["status"], "failed")
         self.assertEqual(result["error_type"], "RuntimeError")
         self.assertNotIn("secret database detail", str(result))
+
+    def test_supervisor_cycle_recovers_and_dispatches_queued_tasks(self):
+        from datetime import datetime, timedelta, timezone
+        import sqlite3
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, get_research_task, list_task_audit_events,
+            run_research_supervisor_cycle,
+        )
+
+        interrupted = enqueue_research_task("worker_041", "recover interrupted task")
+        queued = enqueue_research_task("worker_042", "dispatch queued task")
+        stale_time = (datetime.now(timezone.utc) - timedelta(minutes=5)).isoformat()
+        with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+            db.execute(
+                "UPDATE analytical_agent_tasks SET status='running', updated_at=? WHERE task_id=?",
+                (stale_time, interrupted["task_id"]),
+            )
+
+        result = run_research_supervisor_cycle(
+            limit=10, max_concurrency=2, stale_after_seconds=60,
+        )
+
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual(result["recovery"]["requeued_interrupted_count"], 1)
+        self.assertEqual(result["dispatch"]["dispatched"], 2)
+        self.assertEqual(get_research_task(interrupted["task_id"])["status"], "completed")
+        self.assertEqual(get_research_task(queued["task_id"])["status"], "completed")
+        event_types = [
+            event["event_type"]
+            for event in list_task_audit_events(interrupted["task_id"])["events"]
+        ]
+        self.assertIn("task_requeued", event_types)
+        self.assertIn("task_claimed", event_types)
+        self.assertIn("task_completed", event_types)
+        self.assertFalse(result["continuous_daemon"])
+        self.assertFalse(result["distributed_queue"])
+        self.assertFalse(result["broker_execution"])
+
+    def test_supervisor_cycle_reports_idle_without_queued_tasks(self):
+        from app.analytical_agent_tasks import run_research_supervisor_cycle
+
+        result = run_research_supervisor_cycle(limit=5, max_concurrency=1)
+        self.assertEqual(result["dispatch"]["status"], "idle")
+        self.assertEqual(result["dispatch"]["dispatched"], 0)
+        self.assertEqual(result["recovery"]["requeued_interrupted_count"], 0)
+
+
+    def test_supervisor_lease_serializes_cycles_and_requires_matching_token(self):
+        from app.analytical_agent_tasks import (
+            acquire_research_supervisor_lease, release_research_supervisor_lease,
+        )
+
+        first = acquire_research_supervisor_lease("scheduler-a", lease_seconds=300)
+        self.assertTrue(first["acquired"])
+        blocked = acquire_research_supervisor_lease("scheduler-b", lease_seconds=300)
+        self.assertFalse(blocked["acquired"])
+        self.assertEqual(blocked["reason"], "lease_already_held")
+        self.assertEqual(blocked["owner_id"], "scheduler-a")
+        self.assertFalse(release_research_supervisor_lease("scheduler-b", first["lease_token"]))
+        self.assertTrue(release_research_supervisor_lease("scheduler-a", first["lease_token"]))
+        second = acquire_research_supervisor_lease("scheduler-b", lease_seconds=300)
+        self.assertTrue(second["acquired"])
+        self.assertTrue(release_research_supervisor_lease("scheduler-b", second["lease_token"]))
+
+    def test_supervisor_cycle_skips_when_another_owner_holds_lease(self):
+        from app.analytical_agent_tasks import (
+            acquire_research_supervisor_lease, release_research_supervisor_lease,
+            run_research_supervisor_cycle,
+        )
+
+        lease = acquire_research_supervisor_lease("external-scheduler", lease_seconds=300)
+        try:
+            result = run_research_supervisor_cycle(limit=5, max_concurrency=1)
+            self.assertEqual(result["status"], "skipped")
+            self.assertEqual(result["lease_owner"], "external-scheduler")
+            self.assertEqual(result["reason"], "another_supervisor_cycle_holds_the_lease")
+        finally:
+            release_research_supervisor_lease("external-scheduler", lease["lease_token"])
+
+
+    def test_supervisor_lease_renewal_requires_current_owner_and_token(self):
+        from app.analytical_agent_tasks import (
+            acquire_research_supervisor_lease, renew_research_supervisor_lease,
+            release_research_supervisor_lease,
+        )
+
+        lease = acquire_research_supervisor_lease("scheduler-renew", lease_seconds=300)
+        self.assertTrue(lease["acquired"])
+        self.assertFalse(renew_research_supervisor_lease("other-owner", lease["lease_token"]))
+        self.assertFalse(renew_research_supervisor_lease("scheduler-renew", "wrong-token"))
+        self.assertTrue(renew_research_supervisor_lease("scheduler-renew", lease["lease_token"]))
+        self.assertTrue(release_research_supervisor_lease("scheduler-renew", lease["lease_token"]))
+
+
+if __name__ == "__main__":
+    unittest.main()

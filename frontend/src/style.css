@@ -334,3 +334,31 @@
 .learning-agent b{font-size:12px}.learning-agent strong{font-size:14px;color:#eab34c}.learning-agent small{font-size:10px;color:#8d95a0}
 .learning-note{display:block;margin-top:8px}
 @media(max-width:1000px){.learning-stats{grid-template-columns:repeat(2,minmax(120px,1fr))}.learning-columns{grid-template-columns:1fr}.learning-heading{flex-direction:column}}
+
+.auth-shell{min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(ellipse at 50% 25%,#1b1a15 0,#090b0e 55%);color:#edf0f4;font-family:Inter,system-ui,sans-serif}
+.auth-card{width:min(100%,420px);box-sizing:border-box;padding:34px;background:#101317;border:1px solid #343a43;border-radius:14px;box-shadow:0 24px 80px #0008}
+.auth-mark{display:grid;place-items:center;width:42px;height:42px;border:1px solid #b98736;border-radius:10px;color:#f1b84d;font-weight:800;letter-spacing:-.08em}
+.auth-eyebrow{margin:22px 0 8px;color:#d6a448;font-size:10px;font-weight:700;letter-spacing:.16em}
+.auth-card h1{margin:0;font-size:25px;letter-spacing:-.04em}
+.auth-muted{color:#9ba3ae;font-size:13px;line-height:1.6}
+.auth-form{display:flex;flex-direction:column;gap:10px;margin-top:24px}
+.auth-form label{color:#c6cbd2;font-size:12px}
+.auth-form input{box-sizing:border-box;width:100%;padding:12px;background:#080a0d;border:1px solid #3b424c;border-radius:7px;color:#f2f4f7;font:inherit}
+.auth-form input:focus{outline:1px solid #d8a64a;border-color:#d8a64a}
+.auth-form button{margin-top:8px;padding:12px;background:#d9a344;border:0;border-radius:7px;color:#15120c;font-weight:800;cursor:pointer}
+.auth-form button:disabled{opacity:.55;cursor:not-allowed}
+.auth-error{margin:0;color:#ff9b91;font-size:12px}
+.auth-help{margin-top:22px;color:#7f8995;font-size:11px;line-height:1.7}
+.auth-help code{color:#e5bd75}
+
+.auth-session-control{position:fixed;z-index:10000;top:10px;right:14px}
+.auth-session-control button{padding:7px 11px;background:#11161c;border:1px solid #555f6b;border-radius:6px;color:#dce2e9;font-size:11px;cursor:pointer}
+.auth-session-control button:hover{border-color:#d8a64a;color:#f2c36c}
+
+
+
+.stored-heatmap-panel{margin:0 0 18px}.heatmap-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:8px;padding:12px}.heatmap-cell{min-width:0;display:flex;flex-direction:column;gap:7px;padding:12px;border:1px solid #303943;border-radius:5px;background:#141a20}.heatmap-cell b{font:10px 'DM Mono';color:#dfe4e9}.heatmap-cell strong{font:600 17px 'DM Mono'}.heatmap-cell small,.heatmap-note{font:9px 'DM Mono';color:#7f8994}.heat-positive{color:#75c69b}.heat-negative{color:#d98585}.heat-neutral{color:#aab3bd}.heatmap-note{display:block;padding:0 12px 12px;line-height:1.6}
+
+
+.side-shortcut-hint{padding:9px 13px;border-bottom:1px solid #252f39;color:#74818d;font:8px 'DM Mono',monospace;letter-spacing:.35px;line-height:1.5}
+.side-tabs button:focus-visible{outline:2px solid #d6a448;outline-offset:-2px}

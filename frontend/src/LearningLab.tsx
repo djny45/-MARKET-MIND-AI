@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { BrainCircuit, RefreshCw, Send, ShieldCheck } from 'lucide-react'
+import { apiFetch } from './api'
 
 type LearningAgent = {
   worker_id: string
@@ -26,7 +27,7 @@ export default function LearningLab({ api, agents }: Props) {
   const load = async () => {
     setLoading(true); setError('')
     try {
-      const response = await fetch(api + '/api/analytical-agents/learning-overview')
+      const response = await apiFetch(api + '/api/analytical-agents/learning-overview')
       const data = await response.json()
       if (!response.ok) throw new Error(data.detail || 'Learning overview unavailable')
       setOverview(data)
@@ -41,7 +42,7 @@ export default function LearningLab({ api, agents }: Props) {
   const submitFeedback = async () => {
     setFeedbackBusy(true); setMessage('')
     try {
-      const response = await fetch(api + '/api/analytical-agents/' + encodeURIComponent(agentId) + '/learning-feedback', {
+      const response = await apiFetch(api + '/api/analytical-agents/' + encodeURIComponent(agentId) + '/learning-feedback', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ summary, outcome, metrics: {} })
       })

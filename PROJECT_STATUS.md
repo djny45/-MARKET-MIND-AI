@@ -1,10 +1,10 @@
 # MARKET-MIND-AI — Release Status
 
-Last reviewed: 2026-11-01
+Last reviewed: 2026-11-13
 
 ## Current verified scope
 
-The default branch contains a research-oriented FastAPI backend and a React/Vite frontend.
+This branch contains a research-oriented FastAPI backend and a React/Vite frontend.
 
 Implemented areas:
 - Instrument reference search and local watchlist
@@ -23,17 +23,18 @@ Implemented areas:
 
 - The configured provider status is `no_live_provider_configured`.
 - The available adapter is a synthetic fixture, explicitly marked synthetic.
-- Health/readiness responses set `paper_trading=false` and `broker_execution=false`.
+- Health/readiness responses report that brokerage execution is disabled.
 - The backend provides no brokerage execution or order routing.
 - `/api/ready` proves local database readiness only; it does not prove market data is available or current.
-- Production deployment is intended to remain private; no authentication or per-user authorization is implemented.
+- Owner authentication, default-deny API session middleware, CSRF/Origin protections, and SQLite-backed sessions are implemented for private single-host use. Public deployment remains blocked pending independent security review and production ingress hardening.
 
 ## Latest CI evidence
 
-- Workflow run [41233993555](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/41233993555) passed backend, frontend, dependency-audit, and production container build/start smoke checks after switching to unprivileged Nginx.
-- Workflow run [41234005003](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/41234005003) passed all four jobs, including the production proxy/API smoke test and backup/restore round-trip.
-- Workflow run [41234313802](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/41234313802) passed all four jobs after adding explicit assertions for loopback-only web binding, unpublished API port, dropped capabilities, `no-new-privileges`, non-root Nginx, and browser security headers.
-- These CI checks validate the stack in GitHub Actions. They do not replace a host-specific deployment, restore drill, penetration test, or external security review.
+- The most recent workflow run available during this review is [43373119462](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/43373119462), for head `72ea9092e77b580122b22ab9c5c05a3ce9f93076`. GitHub reports `completed / failure`, but the run exposes zero jobs, so it provides no test output or job-level diagnosis.
+- Earlier workflow runs [41233993555](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/41233993555), [41234005003](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/41234005003), and [41234313802](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/41234313802) passed selected backend, frontend, dependency-audit, and container checks at their respective historical commits. They do not validate the current PR head.
+- The instrument-specific research stance regression test, revised read-only specialist playbooks, UI prototype retirement, and local-Ollama provider-default change are not yet test-verified. The current GitHub run exposes no job results, and no equivalent local test/build run has been completed.
+- Vercel status checks are not deployment approval. Public deployment remains blocked by the security gates below.
+
 
 ## Remaining release work
 
@@ -44,22 +45,22 @@ Implemented areas:
 | Research analytics and evidence export | Implemented | Re-run regression tests and inspect exported bundles |
 | Frontend integration | Implemented in source | Maintain clean production-build verification |
 | Live/delayed data provider | Not configured | Validate permissions, licensing, symbol mapping, freshness, and rate limits before enabling a provider |
-| Private container packaging | CI build/start, proxy/API smoke, container isolation, and backup/restore integration passed | Verify persistence and recovery on the target Docker host |
+| Private container packaging | Earlier CI build/start and isolation checks passed at older commits; current PR head unverified | Re-run current CI, then verify persistence and recovery on the target Docker host |
 | Backup and restore | Implemented and CI round-trip verified | Perform a host-specific restore drill and document retention/off-host storage |
-| Public deployment security | Blocked | Add authentication/authorization, TLS ingress, request limits, and independent security review before public exposure |
+| Public deployment security | Blocked | Complete independent security review, production TLS/reverse-proxy hardening, shared request limits, and operational controls before public exposure |
 | Operations | Partially implemented | Add observability, alerting, load tests, migration rollback, and incident procedures |
 
 ## Recommended completion sequence
 
 1. Validate persistence and backup/restore on the intended private Docker host, including a recovery drill.
 2. Add host-level observability, alerting, and representative load tests.
-3. Add authentication/authorization and TLS ingress, followed by independent security review, before any public exposure.
+3. Complete independent security review and production TLS/ingress hardening before any public exposure.
 4. Select and validate a properly licensed market-data provider before presenting non-synthetic data as current.
 5. Record deployment environment, recovery results, and security review before calling the release complete.
 
 ## Scope boundary
 
-This is a historical market-research and data-quality workspace. It does not provide brokerage connectivity, order placement, personalized investment recommendations, or guaranteed live market data. Keep execution disabled.
+This is a historical market-research and data-quality workspace. It does not provide brokerage connectivity, order placement, personalized investment recommendations, or guaranteed live market data. Keep brokerage access and financial transaction features out of scope.
 
 
 ## Four-market architecture update — 2026-11-01

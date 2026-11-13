@@ -15,6 +15,8 @@ This document describes the implemented task lifecycle and its current execution
 ## State and safety properties
 
 - A task is claimed with a conditional `queued` → `running` update, preventing duplicate dispatch from claiming the same queued task.
+- Active execution renews its `updated_at` heartbeat every 60 seconds using the exact execution token. Recovery only requeues stale timestamps; a replaced claim cannot be renewed or finalized by the old executor.
+- Evaluation and learning-memory sidecars are published only after the task's exact claim successfully finalizes. A stale executor cannot publish sidecars after its claim is replaced; optional sidecar storage errors do not invalidate the completed task.
 - Cancellation uses a conditional `queued` → `cancelled` update, so it cannot cancel a task after it has been claimed.
 - Task transitions are recorded in SQLite audit events.
 - Task input is bounded and JSON-validated before persistence.

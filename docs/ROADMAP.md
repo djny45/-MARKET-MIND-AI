@@ -16,11 +16,13 @@ This roadmap is a plan, not a claim that features already exist. Mark an item co
 - [x] Add API health, readiness, and provider-status endpoints.
 
 ## Phase 2 — Terminal user experience
-- [ ] Build multi-panel workspace shell.
+- [x] Build multi-panel workspace shell with sidebar navigation, workflow canvas, and dedicated overview/research panels.
 - [x] Add local persistent instrument watchlist with search-to-save, list, research handoff, and removal (single-user; authentication remains required before public deployment).
 - [x] Add stored-data research modes for single and multi-timeframe comparison.
-- [ ] Add market overview, heatmaps, and screeners.
-- [ ] Add saved layouts and keyboard navigation.
+- [x] Add stored-data market overview with coverage, source labels, observation counts, and system-readiness summaries.
+- [x] Add a stored-return heatmap using the latest two distinct local observations per symbol/timeframe, with source/status labels and insufficient-history handling; it is not live or a complete-universe heatmap.
+- [ ] Add screeners.
+- [x] Add saved layouts and keyboard navigation (server-persisted workflow graphs plus Alt+number tab shortcuts and Alt+Arrow tab cycling; editable fields are excluded).
 
 ## Phase 3 — Research and analytics
 - [x] Implement tested indicator library and initial technical dictionary.
@@ -43,7 +45,7 @@ This roadmap is a plan, not a claim that features already exist. Mark an item co
 - [x] Add versioned v1.0.0 contract definitions and runtime shape validation for supported workflow node types; detailed domain schemas and mandatory provenance enforcement remain pending.\n  - [x] Validate optional supplied source provenance (non-empty source, timezone-aware ISO-8601 retrieval timestamp, and quality status); provider-wide mandatory provenance remains pending.
   - [x] Propagate validated provenance metadata into findings and report coverage metrics (coverage, unprovenanced nodes, declared source counts, and quality-status counts); these metadata checks do not prove source authenticity or claim entailment.
 - [ ] Build central research orchestrator with model-backed inference and evidence-grounded synthesis.
-- [x] Add optional single-core local Ollama provider boundary (loopback-only, disabled by default, bounded input, timeout/failure fallback and status API); evidence-citation prompts, human approval and model-backed integration tests remain pending.
+- [x] Add a single shared intelligence-core provider boundary for Mercury, loopback FreeLLMAPI, and loopback Ollama (disabled by default, bounded input, timeout/failure fallback and status API); provider selection does not create separate models or enable autonomous execution. Evidence-citation prompts, human approval and model-backed integration tests remain pending.
 - [x] Implement initial deterministic shared-core orchestration API with worker result aggregation, contract references, registry integrity gate and descriptive report; model-backed inference and source-provenance attachment remain pending.
 - [x] Add initial shared-core worker registry and deterministic routing.
 - [ ] Add worker registry versioning and broader evaluation.
@@ -52,6 +54,7 @@ This roadmap is a plan, not a claim that features already exist. Mark an item co
 - [x] Add prototype evidence-aware review gate; source IDs must match a supplied registry. Reviewer authentication and persistent audit remain pending.
 - [x] Add conservative evidence traceability audit: unknown reference reporting, URL/declared-group source grouping, and explicitly keyed stance-disagreement candidates with human-review status. This is heuristic metadata analysis, not source authenticity, entailment, or truth verification.
 - [ ] Implement actual agent task execution with shared-core inference, isolated per-agent context, source retrieval and task lifecycle persistence.
+- [x] Add a bounded one-shot recovery-and-dispatch supervisor API with a singleton SQLite lease; external scheduling, distributed workers, and cloud workspaces remain unimplemented.
 - [ ] Implement autonomous research scheduling and cloud workspaces (not implemented).
 - [ ] Implement evaluated learning loop with benchmark datasets, quality metrics, regression gates, and reviewed promotion.
 - [ ] Build visual node-based research workflows.
@@ -69,7 +72,7 @@ Current boundary: worker routing invokes deterministic Python handlers. The 550 
 - [ ] Add observability, performance profiling, and load tests.
 - [ ] Add security review and dependency/licence inventory.
 - [ ] Complete host-specific backup/restore drills, retention policy, migration rollback, and incident procedures.
-- [ ] Add authentication/authorization and TLS ingress before public deployment.
+- [x] Add single-owner authentication, default-deny API session middleware, CSRF/Origin protections, and SQLite-backed sessions for private single-host use.\n- [ ] Complete independent security review, production TLS/reverse-proxy hardening, and operational controls before any public deployment.
 
 ## Acceptance criteria
 

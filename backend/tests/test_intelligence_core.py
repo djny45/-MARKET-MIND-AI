@@ -20,6 +20,19 @@ class SharedIntelligenceCoreTests(unittest.TestCase):
         self.assertEqual(result["status"], "not_configured")
         self.assertIsNone(result["summary"])
 
+
+    def test_local_ollama_is_the_default_provider_when_enabled(self):
+        env = {
+            "INTELLIGENCE_CORE_ENABLED": "true",
+            "OLLAMA_BASE_URL": "http://127.0.0.1:11434",
+            "OLLAMA_MODEL": "phi3",
+        }
+        with patch.dict(os.environ, env, clear=True):
+            status = intelligence_core_status()
+        self.assertTrue(status["enabled"])
+        self.assertEqual(status["provider"], "ollama_local")
+        self.assertEqual(status["model"], "phi3")
+
     def test_rejects_non_loopback_ollama_host(self):
         env = {"OLLAMA_BASE_URL": "http://example.com:11434",
                "INTELLIGENCE_CORE_ENABLED": "true",

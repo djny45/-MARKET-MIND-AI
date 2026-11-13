@@ -4,7 +4,7 @@ on:
   push:
     branches: [main, 'feat/**', 'feature/**']
   pull_request:
-    branches: [main]
+    branches: [main, 'feat/**', 'feature/**']
   workflow_dispatch:
   schedule:
     - cron: '17 6 * * 1'
@@ -14,7 +14,8 @@ permissions:
 
 concurrency:
   group: quality-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Preserve queued CI runs so overlapping pushes/PR updates cannot cancel validation before jobs start.
+  cancel-in-progress: false
 
 jobs:
   backend:
@@ -25,10 +26,12 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
           python-version: '3.12'
           cache: 'pip'
@@ -45,6 +48,7 @@ jobs:
       - name: Run backend unit tests (require at least one test)
         env:
           PYTHONPATH: backend
+          MARKET_MIND_AUTH_REQUIRED: "false"
         run: |
           python - <<'PY'
           import unittest
@@ -63,6 +67,7 @@ jobs:
       - name: API runtime smoke test
         env:
           PYTHONPATH: backend
+          MARKET_MIND_AUTH_REQUIRED: "false"
           MARKET_MIND_DB: ${{ runner.temp }}/smoke.sqlite
         run: |
           set -euo pipefail
@@ -175,7 +180,7 @@ jobs:
 
       - name: Upload backend diagnostics
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: backend-diagnostics
           path: |
@@ -191,17 +196,20 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Set up Node
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: '22'
 
-      - name: Install and build frontend
+      - name: Install, test and build frontend
         working-directory: frontend
         run: |
           npm install
+          npm test
           npm run build
 
       - name: Capture frontend failure diagnostics
@@ -213,7 +221,7 @@ jobs:
 
       - name: Upload frontend diagnostics
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: frontend-diagnostics
           path: |
@@ -226,7 +234,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Validate Compose configuration
         run: docker compose config --quiet
@@ -237,7 +247,7 @@ jobs:
       - name: Verify API and frontend through loopback proxy
         run: |
           set -euo pipefail
-          for attempt in $(seq 1 40); do
+          for _ in $(seq 1 40); do
             if curl --fail --silent http://127.0.0.1:8080/api/ready >/tmp/api-ready.json; then
               break
             fi
@@ -278,10 +288,12 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
           python-version: '3.12'
 
@@ -294,7 +306,7 @@ jobs:
         run: pip-audit -r backend/requirements.txt --progress-spinner off
 
       - name: Set up Node
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: '22'
 
@@ -313,10 +325,118 @@ jobs:
 
       - name: Upload dependency audit diagnostics
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: dependency-audit-diagnostics
           path: |
             backend-pip-audit.json
             frontend/frontend-npm-audit.json
+          if-no-files-found: warn
+
+  browser-e2e:
+    name: Browser authentication E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      PYTHONPATH: backend
+      MARKET_MIND_AUTH_REQUIRED: "true"
+      MARKET_MIND_COOKIE_SECURE: "false"
+      FRONTEND_ORIGINS: "http://127.0.0.1:5173"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        with:
+          python-version: '3.12'
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '22'
+
+      - name: Install application and browser dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r backend/requirements.txt
+          cd frontend
+          npm install
+          npx playwright install --with-deps chromium
+
+      - name: Create ephemeral CI-only owner password hash
+        env:
+          PYTHONPATH: backend
+        run: |
+          owner_hash="$(python -c "from app.auth_crypto import hash_password; print(hash_password('e2e-only-test-password-2026'))")"
+          echo "MARKET_MIND_OWNER_PASSWORD_HASH=$owner_hash" >> "$GITHUB_ENV"
+
+      - name: Start services, run browser tests, and stop services
+        env:
+          MARKET_MIND_AUTH_DB: ${{ runner.temp }}/auth-e2e.sqlite
+          MARKET_MIND_DB: ${{ runner.temp }}/market-e2e.sqlite
+        run: |
+          set -euo pipefail
+          api_log="$RUNNER_TEMP/browser-e2e-api.log"
+          frontend_log="$RUNNER_TEMP/browser-e2e-frontend.log"
+
+          nohup python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 > "$api_log" 2>&1 < /dev/null &
+          api_pid=$!
+          nohup bash -c 'cd frontend && VITE_API_URL=http://127.0.0.1:8000 npm run dev -- --host 127.0.0.1' > "$frontend_log" 2>&1 < /dev/null &
+          frontend_pid=$!
+
+          cleanup() {
+            kill "$frontend_pid" "$api_pid" 2>/dev/null || true
+            wait "$frontend_pid" "$api_pid" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+
+          for _ in $(seq 1 40); do
+            if curl --fail --silent http://127.0.0.1:8000/api/ready >/dev/null; then
+              break
+            fi
+            if ! kill -0 "$api_pid" 2>/dev/null; then
+              echo "API process exited before readiness"
+              cat "$api_log"
+              exit 1
+            fi
+            sleep 1
+          done
+          if ! curl --fail --silent http://127.0.0.1:8000/api/ready >/dev/null; then
+            echo "API did not become ready within 40 seconds"
+            cat "$api_log"
+            exit 1
+          fi
+
+          for _ in $(seq 1 40); do
+            if curl --fail --silent http://127.0.0.1:5173/ >/dev/null; then
+              break
+            fi
+            if ! kill -0 "$frontend_pid" 2>/dev/null; then
+              echo "Frontend process exited before readiness"
+              cat "$frontend_log"
+              exit 1
+            fi
+            sleep 1
+          done
+          if ! curl --fail --silent http://127.0.0.1:5173/ >/dev/null; then
+            echo "Frontend did not become ready within 40 seconds"
+            cat "$frontend_log"
+            exit 1
+          fi
+
+          cd frontend
+          npm run test:e2e
+
+      - name: Upload browser diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: browser-auth-e2e-diagnostics
+          path: |
+            ${{ runner.temp }}/browser-e2e-api.log
+            ${{ runner.temp }}/browser-e2e-frontend.log
+            frontend/test-results/
+            frontend/playwright-report/
           if-no-files-found: warn

@@ -65,5 +65,5 @@ can disagree, are sensitive to data quality and bar construction, and do not
 establish intent, future price direction, or a reliable outcome. Crypto venue
 volume may be fragmented or incomparable across exchanges. Use provenance and
 historical validation when comparing sources. This module is for educational
-and historical research only; paper/live trading and broker execution are not
-implemented by this feature.
+and historical research only; live market monitoring, brokerage access, and
+financial transaction workflows are outside this feature's scope.

@@ -1,8 +1,8 @@
 import unittest
 from unittest.mock import patch
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
-from app.market_data import DataStatus
+from app.market_data import DataStatus, OHLCVBar
 from app.yahoo_finance_adapter import YahooFinanceAdapter
 
 
@@ -51,6 +51,28 @@ class YahooFinanceAdapterTests(unittest.IsolatedAsyncioTestCase):
             batch = await adapter.get_bars("AAPL", "1d", 100)
         self.assertEqual(len(batch.bars), 2)
         self.assertEqual([bar.close for bar in batch.bars], [102.0, 103.0])
+
+    def test_four_hour_resampling_aggregates_complete_groups_and_drops_gaps(self):
+        base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        offsets = [0, 1, 2, 3, 6, 7, 8, 9, 10]
+        bars = [
+            OHLCVBar(
+                timestamp=base + timedelta(hours=offset),
+                open=100 + offset, high=105 + offset, low=95 + offset,
+                close=102 + offset, volume=10 + offset,
+            )
+            for offset in offsets
+        ]
+        result = YahooFinanceAdapter._aggregate_four_hour_bars(bars)
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[0].timestamp, bars[0].timestamp)
+        self.assertEqual(result[0].open, bars[0].open)
+        self.assertEqual(result[0].close, bars[3].close)
+        self.assertEqual(result[0].high, max(bar.high for bar in bars[:4]))
+        self.assertEqual(result[0].low, min(bar.low for bar in bars[:4]))
+        self.assertEqual(result[0].volume, sum(bar.volume for bar in bars[:4]))
+        self.assertEqual(result[1].timestamp, bars[4].timestamp)
+        self.assertEqual(result[1].close, bars[7].close)
 
     async def test_rejects_invalid_symbol_interval_and_limit(self):
         adapter = YahooFinanceAdapter()

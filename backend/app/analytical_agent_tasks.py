@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
+import threading
 import uuid
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -34,6 +35,11 @@ def _connect():
     path.parent.mkdir(parents=True, exist_ok=True)
     db = sqlite3.connect(path, timeout=10)
     db.row_factory = sqlite3.Row
+    # Enforce declared task/evaluation relationships and favor committed data
+    # over throughput for this small, durable local research queue.
+    db.execute("PRAGMA foreign_keys = ON")
+    db.execute("PRAGMA synchronous = FULL")
+    db.execute("PRAGMA busy_timeout = 10000")
     try:
         db.execute("""CREATE TABLE IF NOT EXISTS analytical_agent_tasks (
             task_id TEXT PRIMARY KEY, worker_id TEXT NOT NULL, task_type TEXT NOT NULL,
@@ -42,6 +48,8 @@ def _connect():
             updated_at TEXT NOT NULL
         )""")
         db.execute("CREATE INDEX IF NOT EXISTS idx_agent_tasks_agent_time ON analytical_agent_tasks(worker_id,created_at)")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_agent_tasks_status_updated ON analytical_agent_tasks(status,updated_at)")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_agent_tasks_status_created ON analytical_agent_tasks(status,created_at)")
         # Backward-compatible schema migration for persisted task execution telemetry.
         task_columns = {row["name"] for row in db.execute("PRAGMA table_info(analytical_agent_tasks)")}
         if "execution_attempts" not in task_columns:
@@ -69,6 +77,13 @@ def _connect():
             FOREIGN KEY(task_id) REFERENCES analytical_agent_tasks(task_id)
         )""")
         db.execute("CREATE INDEX IF NOT EXISTS idx_quality_eval_worker_time ON research_quality_evaluations(worker_id,created_at)")
+        db.execute("""CREATE TABLE IF NOT EXISTS research_supervisor_leases (
+            lease_name TEXT PRIMARY KEY,
+            owner_id TEXT NOT NULL,
+            lease_token TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )""")
         yield db
         db.commit()
     except Exception:
@@ -294,13 +309,24 @@ def classify_research_task_failure(error: Exception) -> dict:
         "automatic_retry": False,
     }
 
+def _heartbeat_running_task(task_id: str, execution_token: str) -> bool:
+    """Renew only the currently owned running claim; stale owners cannot revive it."""
+    now = datetime.now(timezone.utc).isoformat()
+    with _connect() as db:
+        changed = db.execute(
+            "UPDATE analytical_agent_tasks SET updated_at=? "
+            "WHERE task_id=? AND status='running' AND execution_token=?",
+            (now, task_id, execution_token),
+        )
+    return changed.rowcount == 1
+
+
 def execute_queued_research_task(task_id: str) -> bool:
-    """Execute one persisted queued task; safe to call from FastAPI BackgroundTasks."""
+    """Execute one persisted task with claim fencing and a renewable local heartbeat."""
     with _connect() as db:
         row = db.execute("SELECT * FROM analytical_agent_tasks WHERE task_id=?", (task_id,)).fetchone()
         if row is None or row["status"] != "queued":
             return False
-        # Claim atomically so duplicate dispatches cannot execute the same queued row.
         now = datetime.now(timezone.utc).isoformat()
         execution_token = str(uuid.uuid4())
         claimed = db.execute(
@@ -315,80 +341,117 @@ def execute_queued_research_task(task_id: str) -> bool:
                       from_status="queued", to_status="running", occurred_at=now)
         task_input = json.loads(row["input_json"])
         agent_id = row["worker_id"]
+
+    stop_heartbeat = threading.Event()
+
+    def maintain_heartbeat():
+        while not stop_heartbeat.wait(60):
+            try:
+                if not _heartbeat_running_task(task_id, execution_token):
+                    return
+            except (OSError, sqlite3.Error):
+                # A transient store error must not allow this heartbeat to
+                # overwrite a newer claim; the token predicate fences every write.
+                continue
+
+    heartbeat_thread = threading.Thread(
+        target=maintain_heartbeat, name="research-task-heartbeat", daemon=True
+    )
+    heartbeat_thread.start()
     try:
-        # Build context inside the guarded execution block. A memory/configuration
-        # failure must transition the claimed task to failed, not strand it as running.
-        brain = brain_config(agent_id)
-        payload = {
-            "agent": {"id": agent_id, "department": brain["department"], "specialty": brain["specialty"]},
-            "agent_context": brain["brain_context"],
-            "retrieved_memory": recall_memory(
-                agent_id, task_input["brief"] + " " + json.dumps(task_input.get("data"), ensure_ascii=False)[:6000],
-                limit=5,
-            ),
-            "task": task_input,
-            "constraints": ["Use supplied data only.", "Distinguish facts, assumptions, and unknowns.",
-                           "Do not invent missing market data.", "No trade execution or investment certainty."],
-        }
-        synthesis = synthesize_research(payload)
-        task_data = task_input.get("data")
-        evaluation = None
-        evaluation_status = "not_requested_or_missing_structured_claims"
-        if isinstance(task_data, dict) and isinstance(task_data.get("claims"), list) and isinstance(task_data.get("source_registry"), list):
-            candidate_draft = synthesis.get("summary") if synthesis.get("status") == "completed" else task_data.get("draft")
-            if isinstance(candidate_draft, str) and candidate_draft.strip():
-                try:
-                    evaluation = evaluate_research_draft(
-                        draft=candidate_draft,
-                        claims=task_data["claims"],
-                        source_registry=task_data["source_registry"],
-                        baseline=task_data.get("baseline"),
-                    )
-                    evaluation_status = "evaluated"
-                except ValueError as exc:
-                    # Optional quality metadata must not turn a successful research
-                    # synthesis into a failed task. Preserve the bounded error detail.
-                    evaluation_status = "invalid_evaluation_input"
-                    evaluation = {
-                        "status": "invalid_input",
-                        "error": str(exc)[:500],
-                        "evaluation_type": "deterministic_research_traceability_check",
-                    }
-            else:
-                evaluation_status = "structured_claims_present_but_no_draft"
-        learning_candidate = {"status": "not_created"}
-        if evaluation is not None:
-            _persist_quality_evaluation(task_id, agent_id, evaluation)
-            if evaluation.get("status") != "invalid_input":
-                learning_candidate = _persist_research_learning_candidate(task_id, agent_id, evaluation)
-        result = {"agent_id": agent_id, "brain_context_sha256": row["brain_context_sha256"],
-                  "research_learning_candidate": learning_candidate,
-                  "brief": task_input["brief"], "input_data_received": task_input["data"] is not None,
-                  "shared_core_result": synthesis,
-                  "research_quality_evaluation": evaluation,
-                  "research_quality_evaluation_status": evaluation_status,
-                  "result_mode": "shared_core_synthesis" if synthesis.get("status") == "completed" else "provider_unavailable_or_not_configured",
-                  "research_boundary": "supplied_data_only_no_live_market_fetch"}
-        status = "completed"
-    except Exception as exc:
-        failure = classify_research_task_failure(exc)
-        result = {"error": "Research task failed safely.", **failure}
-        status = "failed"
+        try:
+            brain = brain_config(agent_id)
+            payload = {
+                "agent": {"id": agent_id, "department": brain["department"], "specialty": brain["specialty"]},
+                "agent_context": brain["brain_context"],
+                "retrieved_memory": recall_memory(
+                    agent_id, task_input["brief"] + " " + json.dumps(task_input.get("data"), ensure_ascii=False)[:6000],
+                    limit=5,
+                ),
+                "task": task_input,
+                "constraints": ["Use supplied data only.", "Distinguish facts, assumptions, and unknowns.",
+                                "Do not invent missing market data.", "No trade execution or investment certainty."],
+            }
+            synthesis = synthesize_research(payload)
+            task_data = task_input.get("data")
+            evaluation = None
+            evaluation_status = "not_requested_or_missing_structured_claims"
+            if isinstance(task_data, dict) and isinstance(task_data.get("claims"), list) and isinstance(task_data.get("source_registry"), list):
+                candidate_draft = synthesis.get("summary") if synthesis.get("status") == "completed" else task_data.get("draft")
+                if isinstance(candidate_draft, str) and candidate_draft.strip():
+                    try:
+                        evaluation = evaluate_research_draft(
+                            draft=candidate_draft,
+                            claims=task_data["claims"],
+                            source_registry=task_data["source_registry"],
+                            baseline=task_data.get("baseline"),
+                        )
+                        evaluation_status = "evaluated"
+                    except ValueError as exc:
+                        evaluation_status = "invalid_evaluation_input"
+                        evaluation = {
+                            "status": "invalid_input",
+                            "error": str(exc)[:500],
+                            "evaluation_type": "deterministic_research_traceability_check",
+                        }
+                else:
+                    evaluation_status = "structured_claims_present_but_no_draft"
+            result = {
+                "agent_id": agent_id,
+                "brain_context_sha256": row["brain_context_sha256"],
+                "research_learning_candidate": {"status": "not_created"},
+                "brief": task_input["brief"],
+                "input_data_received": task_input["data"] is not None,
+                "shared_core_result": synthesis,
+                "research_quality_evaluation": evaluation,
+                "research_quality_evaluation_status": evaluation_status,
+                "result_mode": "shared_core_synthesis" if synthesis.get("status") == "completed" else "provider_unavailable_or_not_configured",
+                "research_boundary": "supplied_data_only_no_live_market_fetch",
+            }
+            status = "completed"
+        except Exception as exc:
+            failure = classify_research_task_failure(exc)
+            result = {"error": "Research task failed safely.", **failure}
+            status = "failed"
+    finally:
+        stop_heartbeat.set()
+        heartbeat_thread.join(timeout=2)
+
     updated = datetime.now(timezone.utc).isoformat()
     with _connect() as db:
-        # Fence completion by the exact claim token. If stale recovery requeued
-        # this task and another dispatcher claimed it, the old executor must not
-        # overwrite the newer attempt's result or append a misleading event.
         finalized = db.execute(
             "UPDATE analytical_agent_tasks SET status=?,result_json=?,updated_at=?,"
             "execution_token=NULL WHERE task_id=? AND status='running' AND execution_token=?",
             (status, _json(result), updated, task_id, execution_token),
         )
         if finalized.rowcount != 1:
+            # The claim was recovered or replaced. The stale executor must not
+            # publish evaluations, memory candidates, or completion events.
             return False
         _record_event(db, task_id, agent_id, "task_" + status,
                       from_status="running", to_status=status, occurred_at=updated,
                       detail={"error_type": result.get("error_type")} if status == "failed" else {})
+
+    # Optional evaluation/memory sidecars run only after the exact claim wins
+    # finalization. Their failure cannot turn a completed task into a failed task.
+    evaluation = result.get("research_quality_evaluation")
+    if status == "completed" and isinstance(evaluation, dict):
+        try:
+            _persist_quality_evaluation(task_id, agent_id, evaluation)
+            if evaluation.get("status") != "invalid_input":
+                result["research_learning_candidate"] = _persist_research_learning_candidate(
+                    task_id, agent_id, evaluation
+                )
+            with _connect() as db:
+                db.execute(
+                    "UPDATE analytical_agent_tasks SET result_json=? "
+                    "WHERE task_id=? AND status='completed'",
+                    (_json(result), task_id),
+                )
+        except (OSError, sqlite3.Error, ValueError):
+            # The main task result is durable; optional sidecar state can be
+            # reconstructed or retried by a later explicit maintenance process.
+            pass
     return True
 
 def recover_interrupted_research_tasks(stale_after_seconds: int = 900) -> dict:
@@ -936,3 +999,150 @@ def dispatch_queued_research_tasks(limit: int = 50, max_concurrency: int = 4) ->
         "dispatch_mode": "bounded_process_local_queue_snapshot",
         "note": "Tasks are persisted in SQLite; dispatch is explicit and process-local, not a continuously running distributed supervisor.",
     }
+
+def acquire_research_supervisor_lease(
+    owner_id: str, lease_seconds: int = 3600,
+) -> dict:
+    """Acquire the singleton SQLite supervisor lease or report its current owner."""
+    if not isinstance(owner_id, str) or not owner_id.strip() or len(owner_id) > 120:
+        raise ValueError("owner_id must be a non-empty string of at most 120 characters")
+    if isinstance(lease_seconds, bool) or not isinstance(lease_seconds, int) or not 60 <= lease_seconds <= 86400:
+        raise ValueError("lease_seconds must be between 60 and 86400")
+    now_dt = datetime.now(timezone.utc)
+    now = now_dt.isoformat()
+    expires = datetime.fromtimestamp(now_dt.timestamp() + lease_seconds, timezone.utc).isoformat()
+    token = str(uuid.uuid4())
+    with _connect() as db:
+        db.execute("BEGIN IMMEDIATE")
+        current = db.execute(
+            "SELECT owner_id,lease_token,expires_at FROM research_supervisor_leases WHERE lease_name='primary'"
+        ).fetchone()
+        if current is not None and current["expires_at"] > now:
+            return {
+                "acquired": False,
+                "reason": "lease_already_held",
+                "owner_id": current["owner_id"],
+                "expires_at": current["expires_at"],
+            }
+        db.execute(
+            """INSERT INTO research_supervisor_leases
+               (lease_name,owner_id,lease_token,expires_at,updated_at)
+               VALUES ('primary',?,?,?,?)
+               ON CONFLICT(lease_name) DO UPDATE SET
+                 owner_id=excluded.owner_id,lease_token=excluded.lease_token,
+                 expires_at=excluded.expires_at,updated_at=excluded.updated_at""",
+            (owner_id.strip(), token, expires, now),
+        )
+    return {
+        "acquired": True, "owner_id": owner_id.strip(),
+        "lease_token": token, "expires_at": expires,
+    }
+
+
+def renew_research_supervisor_lease(
+    owner_id: str, lease_token: str, lease_seconds: int = 3600,
+) -> bool:
+    """Extend an active lease only for its exact owner/token generation."""
+    if not isinstance(owner_id, str) or not owner_id.strip():
+        raise ValueError("owner_id must be a non-empty string")
+    if not isinstance(lease_token, str) or not lease_token.strip():
+        raise ValueError("lease_token must be a non-empty string")
+    if isinstance(lease_seconds, bool) or not isinstance(lease_seconds, int) or not 60 <= lease_seconds <= 86400:
+        raise ValueError("lease_seconds must be between 60 and 86400")
+    now_dt = datetime.now(timezone.utc)
+    now = now_dt.isoformat()
+    expires = datetime.fromtimestamp(now_dt.timestamp() + lease_seconds, timezone.utc).isoformat()
+    with _connect() as db:
+        changed = db.execute(
+            "UPDATE research_supervisor_leases SET expires_at=?,updated_at=? "
+            "WHERE lease_name='primary' AND owner_id=? AND lease_token=? AND expires_at>?",
+            (expires, now, owner_id.strip(), lease_token, now),
+        )
+        return changed.rowcount == 1
+
+
+def release_research_supervisor_lease(owner_id: str, lease_token: str) -> bool:
+    """Release only the exact lease generation acquired by this supervisor."""
+    if not isinstance(owner_id, str) or not owner_id.strip():
+        raise ValueError("owner_id must be a non-empty string")
+    if not isinstance(lease_token, str) or not lease_token.strip():
+        raise ValueError("lease_token must be a non-empty string")
+    with _connect() as db:
+        db.execute("BEGIN IMMEDIATE")
+        result = db.execute(
+            "DELETE FROM research_supervisor_leases "
+            "WHERE lease_name='primary' AND owner_id=? AND lease_token=?",
+            (owner_id.strip(), lease_token),
+        )
+        return result.rowcount == 1
+
+
+def run_research_supervisor_cycle(
+    limit: int = 50,
+    max_concurrency: int = 4,
+    stale_after_seconds: int = 900,
+) -> dict:
+    """Run one bounded recovery-and-dispatch cycle on the current process.
+
+    This is suitable for an operator-triggered call or an external scheduler.
+    It is deliberately not a daemon, distributed queue, or always-on agent
+    service. Recovery and dispatch remain separately observable operations.
+    """
+    owner_id = "cycle-" + str(uuid.uuid4())
+    lease = acquire_research_supervisor_lease(owner_id, lease_seconds=3600)
+    if not lease["acquired"]:
+        return {
+            "supervisor": "bounded_research_supervisor_cycle",
+            "status": "skipped",
+            "reason": "another_supervisor_cycle_holds_the_lease",
+            "lease_owner": lease["owner_id"],
+            "lease_expires_at": lease["expires_at"],
+            "cycle_mode": "single_process_single_cycle",
+            "broker_execution": False,
+        }
+    heartbeat_stop = threading.Event()
+    heartbeat_state = {"renewals": 0, "lost": False}
+
+    def keep_lease_alive():
+        while not heartbeat_stop.wait(120):
+            try:
+                renewed = renew_research_supervisor_lease(
+                    owner_id, lease["lease_token"], lease_seconds=3600,
+                )
+            except Exception:
+                renewed = False
+            if not renewed:
+                heartbeat_state["lost"] = True
+                return
+            heartbeat_state["renewals"] += 1
+
+    heartbeat = threading.Thread(
+        target=keep_lease_alive,
+        name="market-mind-supervisor-lease",
+        daemon=True,
+    )
+    heartbeat.start()
+    try:
+        recovery = recover_interrupted_research_tasks(stale_after_seconds)
+        dispatch = dispatch_queued_research_tasks(limit, max_concurrency)
+        return {
+            "supervisor": "bounded_research_supervisor_cycle",
+            "status": "completed",
+            "recovery": recovery,
+            "dispatch": dispatch,
+            "cycle_mode": "single_process_single_cycle",
+            "lease": {
+                "acquired": True,
+                "expires_at": lease["expires_at"],
+                "heartbeat_renewals": heartbeat_state["renewals"],
+                "lost": heartbeat_state["lost"],
+            },
+            "continuous_daemon": False,
+            "distributed_queue": False,
+            "broker_execution": False,
+        }
+    finally:
+        heartbeat_stop.set()
+        heartbeat.join(timeout=5)
+        release_research_supervisor_lease(owner_id, lease["lease_token"])
+

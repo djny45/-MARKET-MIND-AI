@@ -1,30 +1,22 @@
-# Day-trader skill definitions
+# Historical market-research skill definitions
 
-Upstream source: https://github.com/Jakeschincariol/day-trader-skill
+The ten role files in this directory are read-only research playbooks adapted for MARKET-MIND-AI. They are not trading instructions, execution tools, or permissions.
 
-The upstream `SKILL.md` playbooks are vendored here for MARKET-MIND-AI agents. This import contains skill instruction files only; it does not include upstream Python implementations, test fixtures, or Claude plugin metadata. Do not assume referenced scripts are installed.
+## Available research roles
 
-## Available playbooks
+- `trader-alerts/` — historical data-quality and threshold-observation review
+- `trader-analyst/` — issuer filings and public disclosure analysis
+- `trader-budget/` — dataset, storage, and compute resource audit
+- `trader-entry/` — retrospective pattern-label review
+- `trader-exit/` — completed historical scenario review
+- `trader-news/` — source-grounded news synthesis
+- `trader-pelosi/` — public disclosure activity review
+- `trader-risk/` — research methodology and bias audit
+- `trader-scanner/` — historical instrument-universe coverage audit
+- `trader-timemachine/` — empirical historical distribution analysis
 
-- `trader-alerts/` — price and session alerts
-- `trader-analyst/` — SEC filings and earnings analysis
-- `trader-budget/` — position/risk-budget methodology (paper research only)
-- `trader-entry/` — historical entry-pattern analysis (research only)
-- `trader-exit/` — historical exit-rule analysis (research only)
-- `trader-news/` — news and catalyst research
-- `trader-pelosi/` — public congressional disclosure research
-- `trader-risk/` — risk-rule validation (paper research only)
-- `trader-scanner/` — market scan and chart-pattern screening
-- `trader-timemachine/` — historical replay and Monte Carlo simulation
+## Runtime boundaries
 
-## Agent loading
+These documents do not install scripts, connectors, market feeds, or external services. They do not authorize live monitoring, personalized financial recommendations, brokerage access, order placement, portfolio actions, or financial transactions. Agent profiles share one intelligence core; the presence of a skill reference does not create an independent model or grant a capability.
 
-Root `AGENTS.md` requires each agent to load only the playbook relevant to its task. Do not inject all skill documents into every agent prompt. Use outputs as research evidence, not trading recommendations. All results must disclose source timestamps, missing data, and whether values are simulated or observed.
-
-## Exclusions
-
-The upstream `trader-broker` order-execution skill is not copied or enabled. Entry/exit execution playbooks are not active. MARKET-MIND-AI remains a research and paper-simulation system; no brokerage order routing is permitted.
-
-## License
-
-See `LICENSE` for the upstream MIT license and copyright notice.
+Use only user-supplied or otherwise authorized data. Record provenance, timestamps, missingness, and limitations. Treat historical results as descriptive evidence, not predictions.

@@ -1,11 +1,17 @@
 """SQLite storage for normalized market bars with provenance metadata."""
 import os
 import sqlite3
+from math import isfinite
 from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
 
 from .market_data import MarketDataBatch
+
+
+def _utc_isoformat(value: datetime) -> str:
+    """Serialize an aware timestamp in one canonical UTC representation."""
+    return value.astimezone(timezone.utc).isoformat()
 
 
 def _database_path() -> Path:
@@ -72,6 +78,10 @@ def _connect():
         "CREATE INDEX IF NOT EXISTS idx_market_bars_lookup "
         "ON market_bars(symbol, interval, timestamp)"
     )
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_market_bars_interval_timestamp "
+        "ON market_bars(interval, timestamp)"
+    )
     return connection
 
 
@@ -80,9 +90,9 @@ def store_batch(batch: MarketDataBatch) -> dict:
     ordered_bars = sorted(batch.bars, key=lambda bar: bar.timestamp)
     rows = [
         (
-            batch.symbol.upper(), batch.interval, bar.timestamp.isoformat(),
+            batch.symbol.upper(), batch.interval, _utc_isoformat(bar.timestamp),
             bar.open, bar.high, bar.low, bar.close, bar.volume,
-            batch.status.value, batch.source, batch.retrieved_at.isoformat(),
+            batch.status.value, batch.source, _utc_isoformat(batch.retrieved_at),
         )
         for bar in batch.bars
     ]
@@ -105,9 +115,9 @@ def store_batch(batch: MarketDataBatch) -> dict:
         """, (
             "market_data_batch_stored", batch.symbol.upper(), batch.interval,
             batch.source, batch.status.value, len(rows),
-            ordered_bars[0].timestamp.isoformat() if ordered_bars else None,
-            ordered_bars[-1].timestamp.isoformat() if ordered_bars else None,
-            batch.retrieved_at.isoformat(),
+            _utc_isoformat(ordered_bars[0].timestamp) if ordered_bars else None,
+            _utc_isoformat(ordered_bars[-1].timestamp) if ordered_bars else None,
+            _utc_isoformat(batch.retrieved_at),
         ))
     return {
         "stored": len(rows),
@@ -115,8 +125,8 @@ def store_batch(batch: MarketDataBatch) -> dict:
         "interval": batch.interval,
         "source": batch.source,
         "status": batch.status.value,
-        "first_timestamp": ordered_bars[0].timestamp.isoformat() if ordered_bars else None,
-        "last_timestamp": ordered_bars[-1].timestamp.isoformat() if ordered_bars else None,
+        "first_timestamp": _utc_isoformat(ordered_bars[0].timestamp) if ordered_bars else None,
+        "last_timestamp": _utc_isoformat(ordered_bars[-1].timestamp) if ordered_bars else None,
         "ordering": "chronological",
         "duplicate_timestamps": 0,
         "data_note": "Batch timestamps are unique and stored chronologically; source and retrieval metadata are retained.",
@@ -137,7 +147,7 @@ def get_bars(symbol: str, interval: str, limit: int = 500) -> dict:
     sources = sorted({item["source"] for item in observations})
     statuses = sorted({item["status"] for item in observations})
     retrieved_values = [item["retrieved_at"] for item in observations if item.get("retrieved_at")]
-    unique_timestamps = {item["timestamp"] for item in observations}
+    unique_timestamps = {datetime.fromisoformat(item["timestamp"]).astimezone(timezone.utc) for item in observations}
     return {
         "symbol": symbol.strip().upper(),
         "interval": interval,
@@ -242,6 +252,112 @@ def get_data_lineage(symbol: str, interval: str, limit: int = 5000) -> dict:
         "data_note": "Lineage is derived from stored observation metadata; it does not authenticate providers or establish freshness.",
     }
 
+
+def get_stored_return_heatmap(interval: str = "1d", limit: int = 100) -> dict:
+    """Build a descriptive return heatmap from the latest two stored timestamps per symbol.
+
+    Multiple source observations at one timestamp are deduplicated by latest retrieval
+    time so a symbol is not counted twice. This is a stored-data snapshot, not a live
+    market ranking or a complete instrument universe.
+    """
+    safe_limit = max(1, min(int(limit), 200))
+    with _connect() as connection:
+        rows = connection.execute("""
+            WITH source_ranked AS (
+                SELECT symbol, interval, timestamp, close, status, source, retrieved_at,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY symbol, interval, timestamp
+                           ORDER BY retrieved_at DESC, source ASC
+                       ) AS source_rank
+                FROM market_bars
+                WHERE interval = ?
+            ),
+            timestamp_ranked AS (
+                SELECT symbol, interval, timestamp, close, status, source, retrieved_at,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY symbol, interval
+                           ORDER BY timestamp DESC
+                       ) AS timestamp_rank
+                FROM source_ranked
+                WHERE source_rank = 1
+            )
+            SELECT symbol, timestamp, close, status, source, retrieved_at, timestamp_rank
+            FROM timestamp_ranked
+            WHERE timestamp_rank <= 2
+            ORDER BY symbol, timestamp_rank
+        """, (interval,)).fetchall()
+
+    grouped = {}
+    for row in rows:
+        grouped.setdefault(row["symbol"], {})[row["timestamp_rank"]] = dict(row)
+
+    cells = []
+    insufficient_history_count = 0
+    numeric_overflow_count = 0
+    for symbol, observations in grouped.items():
+        latest = observations.get(1)
+        previous = observations.get(2)
+        if not latest or not previous or previous["close"] == 0:
+            insufficient_history_count += 1
+            cells.append({
+                "symbol": symbol,
+                "interval": interval,
+                "status": "insufficient_history",
+                "change_pct": None,
+                "latest_timestamp": latest["timestamp"] if latest else None,
+                "previous_timestamp": None,
+                "sources": [latest["source"]] if latest else [],
+                "data_statuses": [latest["status"]] if latest else [],
+            })
+            continue
+        change_pct = ((latest["close"] - previous["close"]) / previous["close"]) * 100
+        if not isfinite(change_pct):
+            numeric_overflow_count += 1
+            cells.append({
+                "symbol": symbol,
+                "interval": interval,
+                "status": "numeric_overflow",
+                "change_pct": None,
+                "latest_timestamp": latest["timestamp"],
+                "previous_timestamp": previous["timestamp"],
+                "sources": sorted({latest["source"], previous["source"]}),
+                "data_statuses": sorted({latest["status"], previous["status"]}),
+            })
+            continue
+        cells.append({
+            "symbol": symbol,
+            "interval": interval,
+            "status": "calculated",
+            "change_pct": round(change_pct, 8),
+            "latest_timestamp": latest["timestamp"],
+            "previous_timestamp": previous["timestamp"],
+            "sources": sorted({latest["source"], previous["source"]}),
+            "data_statuses": sorted({latest["status"], previous["status"]}),
+        })
+
+    cells.sort(
+        key=lambda item: (
+            item["change_pct"] is None,
+            -abs(item["change_pct"]) if item["change_pct"] is not None else 0,
+            item["symbol"],
+        )
+    )
+    visible = cells[:safe_limit]
+    return {
+        "status": "stored_return_heatmap",
+        "interval": interval,
+        "instrument_count": len(visible),
+        "available_instrument_count": len(cells),
+        "insufficient_history_count": insufficient_history_count,
+        "numeric_overflow_count": numeric_overflow_count,
+        "cells": visible,
+        "limit": safe_limit,
+        "data_note": (
+            "Returns are calculated from the latest two distinct timestamps stored per symbol. "
+            "Duplicate source observations at a timestamp are reduced to the most recently retrieved "
+            "record. This is not live data, a complete market universe, or a trading signal."
+        ),
+    }
 
 def get_market_overview(limit: int = 200) -> dict:
     """Summarize local stored-data coverage; this is not a live market overview."""

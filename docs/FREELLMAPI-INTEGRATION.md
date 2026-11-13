@@ -1,8 +1,8 @@
-# Inception Labs Mercury integration
+# Optional hosted Inception Labs Mercury provider
 
-MARKET-MIND-AI uses **Inception Labs Mercury-3** as the default shared intelligence provider. It calls the official OpenAI-compatible chat-completions endpoint directly; no Ollama server or local gateway is required.
+Local Ollama is the default shared intelligence provider when synthesis is enabled. Mercury is an optional hosted provider and may incur API charges. This page documents the optional Mercury configuration; no hosted provider is required for local-only use.
 
-## 1. Configure the backend
+## Configure the optional hosted provider
 
 Set these environment variables for the backend process:
 
@@ -23,7 +23,7 @@ It uses the Bearer API key in the backend request header and sends the prompt in
 
 Restart the backend after setting the variables. The status endpoint reports configuration only; it does not validate the API key, provider quota, or network access.
 
-## 2. Request and response behavior
+## Request and response behavior
 
 - `GET /api/intelligence-core` reports configured provider state without contacting Mercury.
 - `POST /api/intelligence-core/synthesize` submits bounded caller-supplied research JSON for synthesis.
@@ -31,10 +31,10 @@ Restart the backend after setting the variables. The status endpoint reports con
 - Provider errors return a safe failure status; the deterministic report remains authoritative.
 - API keys are not returned in status or synthesis results.
 
-## 3. Existing alternate provider
+## Other optional providers
 
-The legacy `freellmapi` provider remains available for users who explicitly configure a local FreeLLMAPI gateway using `INTELLIGENCE_CORE_PROVIDER=freellmapi`. Its loopback-only restrictions and environment variables remain documented in the adapter and prior project history. Mercury is the default and does not require that gateway.
+A local FreeLLMAPI gateway remains available when explicitly selected with `INTELLIGENCE_CORE_PROVIDER=freellmapi`. Provider credentials and costs depend on the gateway's own configuration. Local Ollama remains the no-hosted-key default.
 
 ## Scope
 
-The Mercury integration is a bounded language-model synthesis layer over **supplied research artifacts**. It does not fetch market data, calculate indicators, train model weights, autonomously apply agent proposals, or execute trades. Provider output is not independently verified; treat it as an analysis draft and verify claims against source evidence.
+This optional Mercury integration is a bounded language-model synthesis layer over **supplied research artifacts**. It does not fetch market data, calculate indicators, train model weights, autonomously apply agent proposals, or execute trades. Provider output is not independently verified; treat it as an analysis draft and verify claims against source evidence.

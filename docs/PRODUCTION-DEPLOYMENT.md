@@ -1,11 +1,30 @@
 # Private Docker deployment (Vercel-free)
 
-This deployment packages the React/Vite frontend as static files served by Nginx and keeps FastAPI on the internal Compose network. It is intended for **local/private use only**; the application does not currently provide user authentication or per-user authorization.
+This deployment packages the React/Vite frontend as static files served by Nginx and keeps FastAPI on the internal Compose network. It is intended for **local/private use only**. The API has single-owner cookie authentication, but the current deployment is not approved for public hosting.
 
 ## Prerequisites
 
 - Docker Engine with the Compose plugin.
 - A host with enough disk space for images and the SQLite data volume.
+
+## Configure owner authentication
+
+Generate an scrypt password hash interactively:
+
+```bash
+cd backend
+python create_owner_hash.py
+```
+
+Set the printed hash in the environment used to start Compose. Return to the repository root first:
+
+```bash
+cd ..
+export MARKET_MIND_OWNER_PASSWORD_HASH='<printed-scrypt-hash>'
+docker compose up --build -d
+```
+
+Do not commit the hash or place the plaintext password in a Compose file, frontend variable, shell script, or source control. Use a deployment secret manager for persistent configuration.
 
 ## Build and start
 
@@ -16,7 +35,7 @@ docker compose up --build -d
 docker compose ps
 ```
 
-Open http://127.0.0.1:8080. The frontend proxies `/api/` requests to the internal API service. The API has no host-published port. Compose waits for the API readiness health check before starting the frontend.
+Open http://127.0.0.1:8080 and sign in with the owner password. The frontend proxies `/api/` requests to the internal API service. The API has no host-published port. Compose waits for the API readiness health check before starting the frontend.
 
 Stop the stack:
 
@@ -28,11 +47,13 @@ The named `market_mind_data` volume persists SQLite data when containers are rec
 
 ## Security boundary
 
-The frontend listener is bound to loopback (127.0.0.1), not all network interfaces. Compose drops Linux capabilities and enables `no-new-privileges`. This is deliberate: the current workspace API has no user authentication or per-user authorization. Do not publish it directly to the public internet or expose it on a shared network.
+The frontend listener is bound to loopback (127.0.0.1), not all network interfaces. Compose drops Linux capabilities and enables `no-new-privileges`. The API defaults to deny access to workspace routes until a valid owner session is present. Session cookies are HttpOnly; state-changing requests require the CSRF token and an exact allowed Origin.
 
-For remote access, use a separately maintained TLS reverse proxy and authentication layer in front of the loopback service. Restrict administrative access, apply request limits, and review proxy configuration before enabling access. The app remains a single-user research workspace.
+The default Compose cookie setting `MARKET_MIND_COOKIE_SECURE=false` is only for this loopback-only HTTP development setup. For an HTTPS deployment, set `MARKET_MIND_COOKIE_SECURE=true`, configure `FRONTEND_ORIGINS` to the exact HTTPS origin, and terminate TLS at a reviewed reverse proxy. Never publish the backend port directly or expose the current HTTP-only Compose setup to a public network.
 
-No provider credentials are required. The built-in market-data adapter is synthetic-only; this deployment does not create live market connectivity. Brokerage execution, order routing, and paper trading remain disabled.
+The login throttle is process-local and intended only for the current single-process private deployment. Replace it with a shared persistent limiter before scaling to multiple API workers. Complete independent security review and browser-level end-to-end testing before any public deployment.
+
+No provider credentials are required. The built-in market-data adapter is synthetic-only; this deployment does not create live market connectivity. The workspace is for descriptive research and data-quality inspection; brokerage execution and order routing are not implemented.
 
 ## Routine operations
 
@@ -83,4 +104,4 @@ Replace the example timestamp with the actual backup filename. Test restores aga
 
 ## Release gates
 
-This packaging is not a public production release. Before any public deployment, implement and independently review authentication/authorization, TLS and ingress controls, migration/rollback procedures, observability, and a licensed market-data provider integration. Verify provider entitlements, symbol mapping, rate limits, timestamps, and stale-data handling before enabling any real feed. Automate backup retention and conduct a host-specific recovery drill.
+This packaging is not a public production release. Before any public deployment, complete an independent security review, browser-level end-to-end testing, shared rate limiting for multi-worker hosting, TLS and ingress review, migration/rollback procedures, observability, backup retention and a host-specific recovery drill. Review provider entitlements, symbol mapping, rate limits, timestamps and stale-data handling before integrating any real data feed.

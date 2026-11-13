@@ -1,46 +1,25 @@
-# Vercel-free frontend deployment with GitHub Pages
+# Public GitHub Pages deployment — not approved
 
-This workflow publishes the **static React/Vite frontend** using GitHub Actions and GitHub Pages. It does not host FastAPI, SQLite, or any background worker.
+> **Do not use this workflow to publish MARKET-MIND-AI as a public application.** The project is currently scoped to a private, single-host deployment. A static public frontend would expose the interface and API configuration to anyone who can access the Pages site; it is not a substitute for a reviewed production architecture.
 
-## One-time GitHub setup
+## Current security boundary
 
-1. Open the repository's **Settings → Pages**.
-2. Set the Pages build/deployment source to **GitHub Actions**.
-3. Confirm the repository permits GitHub Actions deployments.
+The current branch implements single-owner authentication, default-deny API session middleware, CSRF/Origin protections, and SQLite-backed sessions for the private deployment. This is a meaningful improvement over the earlier unauthenticated API, but it is **not** a production security approval.
 
-## Prepare the backend before deployment
+The following work remains necessary before any public deployment is considered:
 
-The frontend calls the API URL baked into the Vite build. Before deploying, provide an HTTPS backend URL that is secured for browser access.
+- Independent security review and penetration testing.
+- A reviewed TLS ingress and reverse-proxy configuration, including trusted-proxy boundaries.
+- Production-grade rate limiting and operational monitoring.
+- Host-specific backup/restore drills, retention, incident response, and migration rollback procedures.
+- A documented authorization model if the application ever supports multiple users.
 
-**Security gate:** the current FastAPI application does not implement user authentication or per-user authorization. Do not expose it to the public internet or connect a public Pages site to an openly accessible instance. Add authentication, authorization, TLS ingress, request limits, and a security review first. Configure the backend's `FRONTEND_ORIGINS` allowlist to include the exact Pages origin; do not use wildcard CORS.
+## Supported deployment
 
-The workflow input is a URL, not a secret. Never place API keys, passwords, or tokens in that field or in frontend environment variables—anything embedded in a static frontend is public.
+Use the private Docker deployment described in [PRODUCTION-DEPLOYMENT.md](PRODUCTION-DEPLOYMENT.md). Keep the frontend bound to loopback and the backend/database private to the Compose network. Do not expose the service to the public internet or a shared LAN.
 
-## Deploy
+## Historical note
 
-1. Open **Actions → Deploy frontend to GitHub Pages (Vercel-free)**.
-2. Select **Run workflow**.
-3. Enter the secured backend's HTTPS base URL, for example `https://api.example.com` (replace with your real URL).
-4. Run the workflow and wait for the build and Pages deployment jobs to finish.
-5. Open the published Pages URL shown in the deployment job.
+This file previously described a GitHub Pages workflow and incorrectly stated that the API had no authentication. That description is obsolete. Any existing Pages workflow is not evidence of an approved deployment, a successful security review, or permission to expose the application publicly.
 
-The workflow uses the repository name as Vite's Pages base path. Local Vite development and self-hosted root deployments keep the default `/` base path.
-
-## Local development
-
-From the repository root:
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-For local development, the frontend defaults to `http://localhost:8000`. Configure the backend's `FRONTEND_ORIGINS` to include `http://localhost:5173`.
-
-## Scope
-
-- GitHub Pages hosts static frontend files only.
-- FastAPI, SQLite, backups, and worker processes must run on a separate host.
-- This is a deployment path—not evidence of a successful live deployment or a backend security audit.
-- Market data remains subject to the app's existing research-only/synthetic-data limits; no broker execution is enabled.
+The product remains a research terminal: market data and analysis are read-only, and brokerage execution/order routing are out of scope.

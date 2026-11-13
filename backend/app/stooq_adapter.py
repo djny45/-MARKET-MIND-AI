@@ -75,7 +75,7 @@ class StooqAdapter:
         except urllib.error.HTTPError as exc:
             raise RuntimeError(f"Stooq returned HTTP {exc.code}") from exc
         except (urllib.error.URLError, TimeoutError) as exc:
-            raise RuntimeError(f"Stooq request failed: {exc}") from exc
+            raise RuntimeError(f"Stooq request failed ({type(exc).__name__}); verify network access and provider availability") from exc
         try:
             return raw.decode("utf-8-sig")
         except UnicodeDecodeError as exc:

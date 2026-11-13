@@ -8,8 +8,11 @@ import PriceChart from './PriceChart'
 import AgentNetwork from './AgentNetwork'
 import AgentPositionMonitor from './AgentPositionMonitor'
 import LearningLab from './LearningLab'
+import { API_BASE, apiFetch } from './api'
+import { summarizeStoredCoverage } from './overviewMetrics'
+import { resolveWorkspaceTabShortcut, WORKSPACE_TABS, type WorkspaceTab } from './workspaceNavigation'
 
-const API = (import.meta.env.VITE_API_URL ?? 'http://localhost:8000').replace(/\/$/, '')
+const API = API_BASE
 type NodeData = { label: string; subtitle?: string; category?: string; period?: number; values?: number[]; result?: unknown }
 const initialNodes: Node<NodeData>[] = [
  {id:'feed',type:'market',position:{x:40,y:210},data:{label:'Market Data Feed',subtitle:'Input · OHLC / close series',category:'data'}},
@@ -115,6 +118,9 @@ export default function App() {
  const [marketOverview,setMarketOverview] = useState<any>(null)
  const [overviewBusy,setOverviewBusy] = useState(false)
  const [overviewError,setOverviewError] = useState('')
+ const [storedHeatmap,setStoredHeatmap] = useState<any>(null)
+ const [heatmapBusy,setHeatmapBusy] = useState(false)
+ const [heatmapError,setHeatmapError] = useState('')
  const [newsItems,setNewsItems] = useState<any[]>([])
  const [newsBusy,setNewsBusy] = useState(false)
  const [newsError,setNewsError] = useState('')
@@ -129,7 +135,32 @@ export default function App() {
  const [sampleBusy,setSampleBusy] = useState(false)
  const [dataLabel,setDataLabel] = useState('MANUAL DEMO INPUT')
  const chartValues = useMemo(()=>values.split(',').map(v=>Number(v.trim())).filter(Number.isFinite),[values])
- useEffect(()=>{fetch(API+'/api/health').then(r=>r.json()).then(()=>setApiState('CONNECTED')).catch(()=>setApiState('OFFLINE'));fetch(API+'/api/workers?limit=550').then(r=>r.json()).then(d=>setWorkers(d.workers||[])).catch(()=>{});fetch(API+'/api/skills').then(r=>r.json()).then(d=>setSkills((d.skills||[]).filter((s:any)=>s.available))).catch(()=>{});refreshWorkspaces();refreshWatchlist();refreshExecutionRuns();loadMarketOverview()},[])
+ useEffect(()=>{
+  const handleWorkspaceShortcut = (event: KeyboardEvent) => {
+   const target = event.target as HTMLElement | null
+   const action = resolveWorkspaceTabShortcut(event.key,event.altKey,target?{tagName:target.tagName,isContentEditable:target.isContentEditable}:null)
+   if(!action)return
+   event.preventDefault()
+   if(action==='NEXT'||action==='PREVIOUS'){
+    setActiveTab(current=>{
+     const index=WORKSPACE_TABS.indexOf(current as WorkspaceTab)
+     const offset=action==='NEXT'?1:-1
+     return WORKSPACE_TABS[(index+offset+WORKSPACE_TABS.length)%WORKSPACE_TABS.length]
+    })
+    return
+   }
+   setActiveTab(action)
+   if(action==='RUNS')refreshExecutionRuns()
+  }
+  window.addEventListener('keydown',handleWorkspaceShortcut)
+  return ()=>window.removeEventListener('keydown',handleWorkspaceShortcut)
+ },[])
+ useEffect(()=>{
+  apiFetch(API+'/api/health').then(r=>r.json()).then(()=>setApiState('CONNECTED')).catch(()=>setApiState('OFFLINE'))
+  apiFetch(API+'/api/workers?limit=550').then(r=>r.json()).then(d=>setWorkers(d.workers||[])).catch(()=>{})
+  apiFetch(API+'/api/skills').then(r=>r.json()).then(d=>setSkills((d.skills||[]).filter((s:any)=>s.available))).catch(()=>{})
+  refreshWorkspaces();refreshWatchlist();refreshExecutionRuns();loadMarketOverview();loadStoredHeatmap()
+ },[])
 
  const runOfflineBenchmark = async()=>{
   setBenchmarkBusy(true);setBenchmarkError('');setBenchmarkReport(null);
@@ -144,7 +175,7 @@ export default function App() {
    }
    const threshold=Number(benchmarkThreshold)
    if(!Number.isFinite(threshold)||threshold<0||threshold>1)throw new Error('Regression threshold must be between 0 and 1')
-   const r=await fetch(API+'/api/research/benchmark',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({baseline,regression_threshold:threshold,cases:[
+   const r=await apiFetch(API+'/api/research/benchmark',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({baseline,regression_threshold:threshold,cases:[
     {case_id:'fixture-valid-reference',draft:'Synthetic fixture; factual meaning is not validated.',claims:[{text:'Synthetic claim A',source_refs:['fixture-source-a']}],source_registry:[{source_id:'fixture-source-a'}]},
     {case_id:'fixture-unknown-reference',draft:'Synthetic fixture with an unknown source reference.',claims:[{text:'Synthetic claim B',source_refs:['unknown-fixture-source']}],source_registry:[{source_id:'fixture-source-a'}]}
    ]})});
@@ -152,25 +183,26 @@ export default function App() {
   }catch(e){setBenchmarkError(e instanceof Error?e.message:'Offline benchmark failed')}
   finally{setBenchmarkBusy(false)}
  }
- const refreshWorkspaces = async()=>{try{const r=await fetch(API+'/api/workspaces');const d=await r.json();setSavedWorkflows(d.workflows||[])}catch{setSavedWorkflows([])}}
- const refreshExecutionRuns = async()=>{setRunsBusy(true);setRunsError('');try{const r=await fetch(API+'/api/workflows/runs?limit=50');const d=await r.json();if(!r.ok)throw new Error(d.detail||'Execution history unavailable');setExecutionRuns(d.runs||[])}catch(e){setRunsError(e instanceof Error?e.message:'Execution history unavailable')}finally{setRunsBusy(false)}}
- const inspectExecutionRun = async(id:string)=>{try{const r=await fetch(API+'/api/workflows/runs/'+encodeURIComponent(id));const d=await r.json();if(!r.ok)throw new Error(d.detail||'Could not load run');setSelectedRun(d);setResult({...d.result,run_id:d.id,run_record:{id:d.id,status:d.status,parent_run_id:d.parent_run_id}})}catch(e){setRunsError(e instanceof Error?e.message:'Could not load run')}}
- const replayExecutionRun = async(id:string)=>{setReplayBusy(true);setRunsError('');try{const r=await fetch(API+'/api/workflows/runs/'+encodeURIComponent(id)+'/resume',{method:'POST'});const d=await r.json();if(!r.ok)throw new Error(d.detail||'Replay failed');setResult(d);setSelectedRun({...d,id:d.run_id,status:d.status||'completed',created_at:new Date().toISOString()});await refreshExecutionRuns()}catch(e){setRunsError(e instanceof Error?e.message:'Replay failed')}finally{setReplayBusy(false)}}
- const loadMarketOverview = async()=>{setOverviewBusy(true);setOverviewError('');try{const r=await fetch(API+'/api/market-data/overview?limit=200');const d=await r.json();if(!r.ok)throw new Error(d.detail||'Stored-data overview unavailable');setMarketOverview(d)}catch(e){setMarketOverview(null);setOverviewError(e instanceof Error?e.message:'Overview unavailable')}finally{setOverviewBusy(false)}}
- const refreshWatchlist = async()=>{try{const r=await fetch(API+'/api/watchlist');const d=await r.json();if(!r.ok)throw new Error('Watchlist unavailable');setWatchlistItems(d.symbols||[])}catch{setWatchlistItems([])}}
- const addToWatchlist = async(symbol:string)=>{setWatchlistBusy(true);setWatchlistMessage('');try{const r=await fetch(API+'/api/watchlist',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({symbol})});const d=await r.json();if(!r.ok)throw new Error(d.detail||'Could not save symbol');await refreshWatchlist();setWatchlistMessage(d.already_present?symbol+' ALREADY SAVED':symbol+' ADDED')}catch(e){setWatchlistMessage(e instanceof Error?e.message:'Watchlist update failed')}finally{setWatchlistBusy(false)}}
- const removeFromWatchlist = async(symbol:string)=>{setWatchlistBusy(true);setWatchlistMessage('');try{const r=await fetch(API+'/api/watchlist/'+encodeURIComponent(symbol),{method:'DELETE'});const d=await r.json();if(!r.ok)throw new Error(d.detail||'Could not remove symbol');await refreshWatchlist();setWatchlistMessage(symbol+' REMOVED')}catch(e){setWatchlistMessage(e instanceof Error?e.message:'Watchlist update failed')}finally{setWatchlistBusy(false)}}
- const saveWorkspace = async()=>{setWorkspaceBusy(true);try{const r=await fetch(API+'/api/workspaces',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:workspaceTitle,description:'Saved visual research graph',nodes,edges})});const d=await r.json();if(!r.ok)throw new Error(d.detail||'Save failed');await refreshWorkspaces();setResult({status:'saved',workspace:d})}catch(e){setResult({status:'error',message:e instanceof Error?e.message:'Save failed'})}finally{setWorkspaceBusy(false)}}
- const loadWorkspace = async(id:string)=>{if(!id)return;try{const r=await fetch(API+'/api/workspaces/'+id);const d=await r.json();if(!r.ok)throw new Error(d.detail||'Load failed');setNodes(d.nodes||[]);setEdges(d.edges||[]);setWorkspaceTitle(d.title||'Loaded workspace');setResult({status:'loaded',title:d.title})}catch(e){setResult({status:'error',message:e instanceof Error?e.message:'Load failed'})}}
- const loadSyntheticSample = async()=>{setSampleBusy(true);try{const r=await fetch(API+'/api/market-data/sample?symbol=BTCUSD&interval=1d&limit=5');const d=await r.json();if(!r.ok)throw new Error(d.detail||'Sample data unavailable');setValues(d.bars.map((b:any)=>String(b.close)).join(','));setDataLabel('SYNTHETIC FIXTURE · NOT MARKET PRICES');setResult({status:'sample_loaded',symbol:d.symbol,interval:d.interval,source:d.source,data_status:d.status,retrieved_at:d.retrieved_at,warnings:d.warnings})}catch(e){setResult({status:'error',message:e instanceof Error?e.message:'Sample data unavailable'})}finally{setSampleBusy(false)}}
- const findInstruments = async()=>{try{const q=encodeURIComponent(instrumentQuery);const r=await fetch(API+'/api/instrument-master?q='+q+'&limit=100');const d=await r.json();if(!r.ok)throw new Error(d.detail||'Instrument search unavailable');setInstrumentResults(d.instruments||[])}catch{setInstrumentResults([])}}
- const loadNews = async()=>{setNewsBusy(true);setNewsError('');try{const r=await fetch(API+'/api/news');const d=await r.json();setNewsItems((d.items||[]).filter((x:any)=>x.title));const errs=(d.items||[]).filter((x:any)=>x.error);if(errs.length)setNewsError(errs.map((x:any)=>x.source+': '+x.error).join(' · '))}catch(e){setNewsError(e instanceof Error?e.message:'News feed unavailable')}finally{setNewsBusy(false)}}
+ const refreshWorkspaces = async()=>{try{const r=await apiFetch(API+'/api/workspaces');const d=await r.json();setSavedWorkflows(d.workflows||[])}catch{setSavedWorkflows([])}}
+ const refreshExecutionRuns = async()=>{setRunsBusy(true);setRunsError('');try{const r=await apiFetch(API+'/api/workflows/runs?limit=50');const d=await r.json();if(!r.ok)throw new Error(d.detail||'Execution history unavailable');setExecutionRuns(d.runs||[])}catch(e){setRunsError(e instanceof Error?e.message:'Execution history unavailable')}finally{setRunsBusy(false)}}
+ const inspectExecutionRun = async(id:string)=>{try{const r=await apiFetch(API+'/api/workflows/runs/'+encodeURIComponent(id));const d=await r.json();if(!r.ok)throw new Error(d.detail||'Could not load run');setSelectedRun(d);setResult({...d.result,run_id:d.id,run_record:{id:d.id,status:d.status,parent_run_id:d.parent_run_id}})}catch(e){setRunsError(e instanceof Error?e.message:'Could not load run')}}
+ const replayExecutionRun = async(id:string)=>{setReplayBusy(true);setRunsError('');try{const r=await apiFetch(API+'/api/workflows/runs/'+encodeURIComponent(id)+'/resume',{method:'POST'});const d=await r.json();if(!r.ok)throw new Error(d.detail||'Replay failed');setResult(d);setSelectedRun({...d,id:d.run_id,status:d.status||'completed',created_at:new Date().toISOString()});await refreshExecutionRuns()}catch(e){setRunsError(e instanceof Error?e.message:'Replay failed')}finally{setReplayBusy(false)}}
+ const loadMarketOverview = async()=>{setOverviewBusy(true);setOverviewError('');try{const r=await apiFetch(API+'/api/market-data/overview?limit=200');const d=await r.json();if(!r.ok)throw new Error(d.detail||'Stored-data overview unavailable');setMarketOverview(d)}catch(e){setMarketOverview(null);setOverviewError(e instanceof Error?e.message:'Overview unavailable')}finally{setOverviewBusy(false)}}
+ const loadStoredHeatmap = async(interval='1d')=>{setHeatmapBusy(true);setHeatmapError('');try{const r=await apiFetch(API+'/api/market-data/heatmap?interval='+encodeURIComponent(interval)+'&limit=100');const d=await r.json();if(!r.ok)throw new Error(d.detail||'Stored return heatmap unavailable');setStoredHeatmap(d)}catch(e){setStoredHeatmap(null);setHeatmapError(e instanceof Error?e.message:'Heatmap unavailable')}finally{setHeatmapBusy(false)}}
+ const refreshWatchlist = async()=>{try{const r=await apiFetch(API+'/api/watchlist');const d=await r.json();if(!r.ok)throw new Error('Watchlist unavailable');setWatchlistItems(d.symbols||[])}catch{setWatchlistItems([])}}
+ const addToWatchlist = async(symbol:string)=>{setWatchlistBusy(true);setWatchlistMessage('');try{const r=await apiFetch(API+'/api/watchlist',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({symbol})});const d=await r.json();if(!r.ok)throw new Error(d.detail||'Could not save symbol');await refreshWatchlist();setWatchlistMessage(d.already_present?symbol+' ALREADY SAVED':symbol+' ADDED')}catch(e){setWatchlistMessage(e instanceof Error?e.message:'Watchlist update failed')}finally{setWatchlistBusy(false)}}
+ const removeFromWatchlist = async(symbol:string)=>{setWatchlistBusy(true);setWatchlistMessage('');try{const r=await apiFetch(API+'/api/watchlist/'+encodeURIComponent(symbol),{method:'DELETE'});const d=await r.json();if(!r.ok)throw new Error(d.detail||'Could not remove symbol');await refreshWatchlist();setWatchlistMessage(symbol+' REMOVED')}catch(e){setWatchlistMessage(e instanceof Error?e.message:'Watchlist update failed')}finally{setWatchlistBusy(false)}}
+ const saveWorkspace = async()=>{setWorkspaceBusy(true);try{const r=await apiFetch(API+'/api/workspaces',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:workspaceTitle,description:'Saved visual research graph',nodes,edges})});const d=await r.json();if(!r.ok)throw new Error(d.detail||'Save failed');await refreshWorkspaces();setResult({status:'saved',workspace:d})}catch(e){setResult({status:'error',message:e instanceof Error?e.message:'Save failed'})}finally{setWorkspaceBusy(false)}}
+ const loadWorkspace = async(id:string)=>{if(!id)return;try{const r=await apiFetch(API+'/api/workspaces/'+id);const d=await r.json();if(!r.ok)throw new Error(d.detail||'Load failed');setNodes(d.nodes||[]);setEdges(d.edges||[]);setWorkspaceTitle(d.title||'Loaded workspace');setResult({status:'loaded',title:d.title})}catch(e){setResult({status:'error',message:e instanceof Error?e.message:'Load failed'})}}
+ const loadSyntheticSample = async()=>{setSampleBusy(true);try{const r=await apiFetch(API+'/api/market-data/sample?symbol=BTCUSD&interval=1d&limit=5');const d=await r.json();if(!r.ok)throw new Error(d.detail||'Sample data unavailable');setValues(d.bars.map((b:any)=>String(b.close)).join(','));setDataLabel('SYNTHETIC FIXTURE · NOT MARKET PRICES');setResult({status:'sample_loaded',symbol:d.symbol,interval:d.interval,source:d.source,data_status:d.status,retrieved_at:d.retrieved_at,warnings:d.warnings})}catch(e){setResult({status:'error',message:e instanceof Error?e.message:'Sample data unavailable'})}finally{setSampleBusy(false)}}
+ const findInstruments = async()=>{try{const q=encodeURIComponent(instrumentQuery);const r=await apiFetch(API+'/api/instrument-master?q='+q+'&limit=100');const d=await r.json();if(!r.ok)throw new Error(d.detail||'Instrument search unavailable');setInstrumentResults(d.instruments||[])}catch{setInstrumentResults([])}}
+ const loadNews = async()=>{setNewsBusy(true);setNewsError('');try{const r=await apiFetch(API+'/api/news');const d=await r.json();setNewsItems((d.items||[]).filter((x:any)=>x.title));const errs=(d.items||[]).filter((x:any)=>x.error);if(errs.length)setNewsError(errs.map((x:any)=>x.source+': '+x.error).join(' · '))}catch(e){setNewsError(e instanceof Error?e.message:'News feed unavailable')}finally{setNewsBusy(false)}}
  const loadVolumeIndicators = async()=> {
   if(researchBars.length<2){setVolumeError('At least two stored OHLCV bars are required. Load historical data first.');return}
   setVolumeBusy(true);setVolumeError('')
   try {
    const body={high:researchBars.map((bar:any)=>Number(bar.high)),low:researchBars.map((bar:any)=>Number(bar.low)),close:researchBars.map((bar:any)=>Number(bar.close)),volume:researchBars.map((bar:any)=>Number(bar.volume)),period:20}
-   const response=await fetch(API+'/api/indicators/volume',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+   const response=await apiFetch(API+'/api/indicators/volume',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
    const data=await response.json()
    if(!response.ok)throw new Error(data.detail||'Volume indicator calculation failed')
    setVolumeReport(data)
@@ -188,7 +220,7 @@ export default function App() {
     volume:researchBars.map((bar:any)=>Number(bar.volume)),
     bins:48,value_area_pct:70
    }
-   const response=await fetch(API+'/api/indicators/liquidity-profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+   const response=await apiFetch(API+'/api/indicators/liquidity-profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
    const data=await response.json()
    if(!response.ok)throw new Error(data.detail||'Liquidity profile calculation failed')
    setLiquidityProfile(data)
@@ -199,7 +231,7 @@ export default function App() {
   setQualityBusy(true);setQualityError('')
   try {
    const params=new URLSearchParams({symbol:researchSymbol.trim(),interval,limit:'500'})
-   const response=await fetch(API+'/api/research/data-quality?'+params.toString())
+   const response=await apiFetch(API+'/api/research/data-quality?'+params.toString())
    const body=await response.json()
    if(!response.ok)throw new Error(body.detail||'Data-quality report unavailable')
    setQualityReport(body)
@@ -211,8 +243,8 @@ export default function App() {
   try {
    const params=new URLSearchParams({symbol:researchSymbol.trim(),interval,limit:'5000'})
    const [lineageResponse,auditResponse]=await Promise.all([
-    fetch(API+'/api/market-data/lineage?'+params.toString()),
-    fetch(API+'/api/audit/events?'+new URLSearchParams({symbol:researchSymbol.trim(),interval,limit:'20'}).toString())
+    apiFetch(API+'/api/market-data/lineage?'+params.toString()),
+    apiFetch(API+'/api/audit/events?'+new URLSearchParams({symbol:researchSymbol.trim(),interval,limit:'20'}).toString())
    ])
    const [lineage,audit]=await Promise.all([lineageResponse.json(),auditResponse.json()])
    if(!lineageResponse.ok)throw new Error(lineage.detail||'Lineage unavailable')
@@ -225,7 +257,7 @@ export default function App() {
   setSourceComparisonBusy(true);setSourceComparisonError('')
   try {
    const params=new URLSearchParams({symbol:researchSymbol.trim(),interval,limit:'500'})
-   const response=await fetch(API+'/api/research/source-comparison?'+params.toString())
+   const response=await apiFetch(API+'/api/research/source-comparison?'+params.toString())
    const body=await response.json()
    if(!response.ok)throw new Error(body.detail||'Source comparison unavailable')
    setSourceComparison(body)
@@ -240,7 +272,7 @@ export default function App() {
     if(file.size>10_000_000)throw new Error(file.name+' exceeds the 10 MB limit')
     return JSON.parse(await file.text())
    }))
-   const response=await fetch(API+'/api/research/compare-exports',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({before,after})})
+   const response=await apiFetch(API+'/api/research/compare-exports',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({before,after})})
    const body=await response.json()
    if(!response.ok)throw new Error(body.detail||'Export comparison failed')
    setExportDiff(body)
@@ -260,14 +292,14 @@ export default function App() {
  const importHistoricalCSV = async()=> {
   setCsvBusy(true);setCsvMessage('')
   try {
-   const response=await fetch(API+'/api/market-data/import-csv',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({csv_text:csvText,symbol:researchSymbol,interval:researchInterval,source:csvSource})})
+   const response=await apiFetch(API+'/api/market-data/import-csv',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({csv_text:csvText,symbol:researchSymbol,interval:researchInterval,source:csvSource})})
    const body=await response.json()
    if(!response.ok)throw new Error(body.detail||'CSV import failed')
    setCsvMessage('IMPORTED '+body.stored+' BARS · '+body.symbol+' · '+body.interval+' · '+body.source)
-   const historyResponse=await fetch(API+'/api/market-data/history?'+new URLSearchParams({symbol:researchSymbol.trim(),interval:researchInterval,limit:'500'}).toString())
+   const historyResponse=await apiFetch(API+'/api/market-data/history?'+new URLSearchParams({symbol:researchSymbol.trim(),interval:researchInterval,limit:'500'}).toString())
    const historyBody=await historyResponse.json()
    if(historyResponse.ok){setVolumeReport(null);setVolumeError('');setLiquidityProfile(null);setLiquidityError('');setResearchBars(historyBody.bars||[]);setHistoryMeta({source:historyBody.source,status:historyBody.status,retrieved_at:historyBody.retrieved_at,source_count:historyBody.source_count,timestamp_count:historyBody.timestamp_count,duplicate_timestamp_observations:historyBody.duplicate_timestamp_observations,first_timestamp:historyBody.first_timestamp,last_timestamp:historyBody.last_timestamp,sources:historyBody.sources})}
-   const timelineResponse=await fetch(API+'/api/research/timeline?'+new URLSearchParams({symbol:researchSymbol.trim(),interval:researchInterval,limit:'200'}).toString())
+   const timelineResponse=await apiFetch(API+'/api/research/timeline?'+new URLSearchParams({symbol:researchSymbol.trim(),interval:researchInterval,limit:'200'}).toString())
    const timelineBody=await timelineResponse.json()
    if(timelineResponse.ok){setResearchTimeline(timelineBody.events||[]);setTimelineError('')}else{setTimelineError(timelineBody.detail||'Timeline refresh unavailable')}
    await loadHistoricalQuality(researchInterval)
@@ -279,19 +311,19 @@ export default function App() {
   setResearchBusy(true);setResearchError('');setResearchReport(null)
   try {
    const params = new URLSearchParams({symbol:researchSymbol.trim(),intervals:researchIntervals,limit:'500',compare_symbols:researchCompare,breadth_symbols:researchCompare})
-   const response = await fetch(API+'/api/research/deep?'+params.toString())
+   const response = await apiFetch(API+'/api/research/deep?'+params.toString())
    const body = await response.json()
    if(!response.ok)throw new Error(body.detail||'Deep research unavailable')
    setResearchReport(body)
    const chosen=researchIntervals.split(',').map(x=>x.trim()).includes(researchInterval)?researchInterval:researchIntervals.split(',')[0].trim()
    setResearchInterval(chosen);setSelectedCluster(null)
    await loadHistoricalQuality(chosen)
-   const historyResponse=await fetch(API+'/api/market-data/history?'+new URLSearchParams({symbol:researchSymbol.trim(),interval:chosen,limit:'500'}).toString())
+   const historyResponse=await apiFetch(API+'/api/market-data/history?'+new URLSearchParams({symbol:researchSymbol.trim(),interval:chosen,limit:'500'}).toString())
    const historyBody=await historyResponse.json()
    if(historyResponse.ok){setVolumeReport(null);setVolumeError('');setResearchBars(historyBody.bars||[]);setHistoryMeta({source:historyBody.source,status:historyBody.status,retrieved_at:historyBody.retrieved_at,source_count:historyBody.source_count,timestamp_count:historyBody.timestamp_count,duplicate_timestamp_observations:historyBody.duplicate_timestamp_observations,first_timestamp:historyBody.first_timestamp,last_timestamp:historyBody.last_timestamp,sources:historyBody.sources})}
    else {setResearchBars([]);setHistoryMeta(null)}
    setTimelineBusy(true);setTimelineError('')
-   const timelineResponse=await fetch(API+'/api/research/timeline?'+new URLSearchParams({symbol:researchSymbol.trim(),interval:chosen,limit:'200'}).toString())
+   const timelineResponse=await apiFetch(API+'/api/research/timeline?'+new URLSearchParams({symbol:researchSymbol.trim(),interval:chosen,limit:'200'}).toString())
    const timelineBody=await timelineResponse.json()
    if(timelineResponse.ok)setResearchTimeline(timelineBody.events||[])
    else {setResearchTimeline([]);setTimelineError(timelineBody.detail||'Timeline unavailable')}
@@ -310,7 +342,7 @@ export default function App() {
   const parsed = values.split(',').map(v=>Number(v.trim())).filter(Number.isFinite)
   const mapped = nodes.map(n=>({...n,type: n.id==='feed'?'market_input':n.id==='quality'?'data_quality':n.id==='trend'?'sma':n.id==='vol'?'volatility':n.id==='report'?'research_summary':(n.data as any).nodeType || ((n.data as NodeData).category==='technical'?'sma':(n.data as NodeData).category==='quant'?'volatility':'research_summary'),data:{period:(n.data as NodeData).period||20}}))
   try {
-   const response=await fetch(API+'/api/workflows/execute',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nodes:mapped,edges:edges.map(e=>({source:e.source,target:e.target})),inputs:{data:parsed},skill_ids:Array.from(new Set([...selectedSkillIds,...nodes.flatMap(n=>(n.data as any).skillRefs||[])]))})})
+   const response=await apiFetch(API+'/api/workflows/execute',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nodes:mapped,edges:edges.map(e=>({source:e.source,target:e.target})),inputs:{data:parsed},skill_ids:Array.from(new Set([...selectedSkillIds,...nodes.flatMap(n=>(n.data as any).skillRefs||[])]))})})
    const body=await response.json();if(!response.ok)throw new Error(body.detail||'Execution failed')
    setResult(body)
   } catch(e){setResult({status:'error',message:e instanceof Error?e.message:'API unavailable'})}
@@ -320,11 +352,11 @@ export default function App() {
  return <div className="app-shell">
   <header className="topbar"><div className="brand"><div className="brand-mark"><Activity size={19}/></div><div><b>MARKET<span>-MIND</span>-AI</b><small>GLOBAL INTELLIGENCE TERMINAL</small></div></div><div className="top-center"><span className="live-dot"/><span>RESEARCH NETWORK</span><i/> <span>550 WORKER PROFILES</span><i/><span>NO EXECUTION LAYER</span></div><div className="top-right"><span className={apiState==='CONNECTED'?'status-ok':'status-off'}>{apiState}</span><a className="soft-btn" href="/market-terminal.html" target="_blank" rel="noreferrer">CLASSIC TERMINAL</a><button className="icon-btn"><CircleHelp size={17}/></button></div></header>
   <div className="toolbar"><div className="crumb"><Workflow size={16}/> WORKSPACE <ChevronRight size={14}/> <b>GLOBAL RESEARCH GRAPH</b></div><div className="toolbar-actions"><div className="instrument-search"><input aria-label="Search instruments" placeholder="Find symbol or company…" value={instrumentQuery} onChange={e=>setInstrumentQuery(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')findInstruments()}}/><button className="soft-btn" onClick={findInstruments}><Search size={13}/> FIND</button>{instrumentResults.length>0&&<div className="instrument-results">{instrumentResults.map((item:any)=><div key={item.symbol}><b>{item.symbol}</b><span>{item.name}</span><small>{item.market} · {item.venue} · {item.currency}</small><button className="soft-btn" onClick={()=>addToWatchlist(item.symbol)} disabled={watchlistBusy}>ADD TO WATCHLIST</button></div>)}</div>}</div><input className="workspace-title" aria-label="Workspace name" value={workspaceTitle} onChange={e=>setWorkspaceTitle(e.target.value)} /><button className="soft-btn" onClick={saveWorkspace} disabled={workspaceBusy}>{workspaceBusy?'SAVING…':'SAVE GRAPH'}</button><select className="workspace-select" aria-label="Load saved workspace" defaultValue="" onChange={e=>loadWorkspace(e.target.value)}><option value="">LOAD WORKSPACE</option>{savedWorkflows.map(w=><option key={w.id} value={w.id}>{w.title}</option>)}</select><button className="soft-btn"><SlidersHorizontal size={14}/> Configure</button><button className="run-btn" onClick={run} disabled={busy}><Play size={14} fill="currentColor"/>{busy?'RUNNING…':'RUN WORKFLOW'}</button></div></div>
-  <main className="layout"><aside className="sidebar"><div className="side-tabs"><button className={activeTab==='OVERVIEW'?'active':''} onClick={()=>setActiveTab('OVERVIEW')}><Activity size={15}/> OVERVIEW</button><button className={activeTab==='WORKFLOW'?'active':''} onClick={()=>setActiveTab('WORKFLOW')}><Boxes size={15}/> WORKFLOW</button><button className={activeTab==='AGENT_NETWORK'?'active':''} onClick={()=>setActiveTab('AGENT_NETWORK')}><Cable size={15}/> AGENT NETWORK</button><button className={activeTab==='AGENT_POSITIONS'?'active':''} onClick={()=>setActiveTab('AGENT_POSITIONS')}><Activity size={15}/> AGENT POSITIONS</button><button className={activeTab==='LEARNING'?'active':''} onClick={()=>setActiveTab('LEARNING')}><BrainCircuit size={15}/> LEARNING LAB</button><button className={activeTab==='WORKERS'?'active':''} onClick={()=>setActiveTab('WORKERS')}><BrainCircuit size={15}/> AGENT DIRECTORY</button><button className={activeTab==='RUNS'?'active':''} onClick={()=>{setActiveTab('RUNS');refreshExecutionRuns()}}><History size={15}/> RUNS</button><button className={activeTab==='NEWS'?'active':''} onClick={()=>setActiveTab('NEWS')}><Newspaper size={15}/> NEWS</button><button className={activeTab==='RESEARCH'?'active':''} onClick={()=>setActiveTab('RESEARCH')}><Activity size={15}/> RESEARCH</button><button className={activeTab==='VALIDATION'?'active':''} onClick={()=>setActiveTab('VALIDATION')}><ShieldCheck size={15}/> DATA VALIDATION</button><button className={activeTab==='WATCHLIST'?'active':''} onClick={()=>setActiveTab('WATCHLIST')}><Star size={15}/> WATCHLIST</button></div>
+  <main className="layout"><aside className="sidebar"><div className="side-tabs"><button className={activeTab==='OVERVIEW'?'active':''} onClick={()=>setActiveTab('OVERVIEW')}><Activity size={15}/> OVERVIEW</button><button className={activeTab==='WORKFLOW'?'active':''} onClick={()=>setActiveTab('WORKFLOW')}><Boxes size={15}/> WORKFLOW</button><button className={activeTab==='AGENT_NETWORK'?'active':''} onClick={()=>setActiveTab('AGENT_NETWORK')}><Cable size={15}/> AGENT NETWORK</button><button className={activeTab==='AGENT_POSITIONS'?'active':''} onClick={()=>setActiveTab('AGENT_POSITIONS')}><Activity size={15}/> AGENT POSITIONS</button><button className={activeTab==='LEARNING'?'active':''} onClick={()=>setActiveTab('LEARNING')}><BrainCircuit size={15}/> LEARNING LAB</button><button className={activeTab==='WORKERS'?'active':''} onClick={()=>setActiveTab('WORKERS')}><BrainCircuit size={15}/> AGENT DIRECTORY</button><button className={activeTab==='RUNS'?'active':''} onClick={()=>{setActiveTab('RUNS');refreshExecutionRuns()}}><History size={15}/> RUNS</button><button className={activeTab==='NEWS'?'active':''} onClick={()=>setActiveTab('NEWS')}><Newspaper size={15}/> NEWS</button><button className={activeTab==='RESEARCH'?'active':''} onClick={()=>setActiveTab('RESEARCH')}><Activity size={15}/> RESEARCH</button><button className={activeTab==='VALIDATION'?'active':''} onClick={()=>setActiveTab('VALIDATION')}><ShieldCheck size={15}/> DATA VALIDATION</button><button className={activeTab==='WATCHLIST'?'active':''} onClick={()=>setActiveTab('WATCHLIST')}><Star size={15}/> WATCHLIST</button></div><div className="side-shortcut-hint">KEYBOARD · ALT+1–9 TO JUMP · ALT+↑/↓ TO CYCLE</div>
    {activeTab==='WATCHLIST'&&<div className="research-sidebar"><div className="side-label">SAVED INSTRUMENTS <span>{watchlistItems.length}</span></div><button className="soft-btn research-run" onClick={refreshWatchlist} disabled={watchlistBusy}>REFRESH WATCHLIST</button><div className="side-label">LOCAL DATA COVERAGE <span>STORED ONLY</span></div><button className="soft-btn research-run" onClick={loadMarketOverview} disabled={overviewBusy}>{overviewBusy?'LOADING COVERAGE…':'LOAD MARKET DATA OVERVIEW'}</button>{overviewError&&<small className="news-error">{overviewError}</small>}{marketOverview&&<div className="research-results"><b>{marketOverview.instrument_interval_count} SYMBOL / TIMEFRAME SETS</b>{marketOverview.coverage.map((item:any)=><div className="aligned-row" key={item.symbol+'-'+item.interval}><b>{item.symbol}</b><span>{item.interval}</span><span>{item.observation_count} observations</span><small>{item.sources.join(', ')} · {item.statuses.join(', ')} · last {item.last_timestamp||'—'}</small></div>)}<small>{marketOverview.data_note}</small></div>}{watchlistMessage&&<small className="research-note">{watchlistMessage}</small>}{watchlistItems.map(item=><div className="aligned-row" key={item.symbol}><b>{item.symbol}</b><small>Added {item.added_at}</small><button className="soft-btn" onClick={()=>{setResearchSymbol(item.symbol);setActiveTab('RESEARCH')}}>RESEARCH</button><button className="soft-btn" onClick={()=>removeFromWatchlist(item.symbol)} disabled={watchlistBusy}>REMOVE</button></div>)}{watchlistItems.length===0&&<small className="research-note">No saved instruments yet. Search an instrument in the header and choose ADD TO WATCHLIST.</small>}</div>}
    {activeTab==='WORKFLOW'&&<><div className="side-label">NODE LIBRARY <span>10</span></div>{palette.map(([id,label,cat])=><button className="palette-item" key={id} onClick={()=>addNode(id,label,cat)}><span className={`palette-icon ${cat}`}>{cat==='data'?<Database size={15}/>:cat==='intelligence'?<BrainCircuit size={15}/>:<GitBranch size={15}/>}</span><span><b>{label}</b><small>{cat.toUpperCase()}</small></span><span className="plus">+</span></button>)}</>}
    {activeTab==='RUNS'&&<div className="run-history-panel"><div className="side-label">EXECUTION HISTORY <span>{executionRuns.length} RUNS</span></div><button className="soft-btn research-run" onClick={refreshExecutionRuns} disabled={runsBusy}>{runsBusy?'REFRESHING…':'REFRESH HISTORY'}</button>{runsError&&<small className="news-error">{runsError}</small>}{executionRuns.length===0&&!runsBusy&&<small className="research-note">No saved workflow runs yet. Execute a research workflow to create its first record.</small>}{executionRuns.map(item=><div className={selectedRun?.id===item.id?'run-history-item selected':'run-history-item'} key={item.id}><button className="run-history-open" onClick={()=>inspectExecutionRun(item.id)}><b>{item.status.replaceAll('_',' ').toUpperCase()}</b><small>{item.id}</small><small>{item.created_at}</small>{item.parent_run_id&&<small>Replay of {item.parent_run_id}</small>}</button><button className="soft-btn" onClick={()=>replayExecutionRun(item.id)} disabled={replayBusy}>{replayBusy?'RESUMING…':'RESUME CHECKPOINT'}</button></div>)}{selectedRun&&<div className="run-history-detail"><b>SELECTED RUN</b><small>{selectedRun.id}</small><small>{selectedRun.status} · {selectedRun.created_at}</small><small>{selectedRun.result?.aggregation?.completed_count||selectedRun.aggregation?.completed_count||0} completed · {selectedRun.result?.aggregation?.failed_count||selectedRun.aggregation?.failed_count||0} failed · {selectedRun.result?.aggregation?.skipped_count||selectedRun.aggregation?.skipped_count||0} skipped</small>{selectedRun.recovery&&<><small>RECOVERY · {selectedRun.recovery.restored_task_count} tasks restored · {selectedRun.recovery.checkpoint_completed_layers} layers saved</small><small>CHECKPOINT AGE · {selectedRun.recovery.checkpoint_age_seconds===null?'unavailable':selectedRun.recovery.checkpoint_age_seconds.toFixed(3)+' seconds'}</small></>}<button className="soft-btn" onClick={()=>setSelectedRun(null)}>CLOSE DETAILS</button></div>}</div>}
-   {activeTab==='WORKERS'&&<><div className="searchbox"><Search size={14}/><input placeholder="Search 550 worker profiles…" value={search} onChange={e=>setSearch(e.target.value)}/></div><div className="skill-picker"><div className="side-label">RESEARCH PLAYBOOKS <span>{selectedSkillIds.length} SELECTED</span></div><small className="skill-note">Choose guidance to load into the next workflow run. Research and paper-only context.</small>{skills.map((skill:any)=><label className="skill-option" key={skill.id}><input type="checkbox" checked={selectedSkillIds.includes(skill.id)} onChange={e=>setSelectedSkillIds(current=>e.target.checked?[...current,skill.id]:current.filter(id=>id!==skill.id))}/><span><b>{skill.id.replace('trader-','').replaceAll('-',' ')}</b><small>{skill.description}</small></span></label>)}</div><div className="worker-list">{filteredWorkers.map(w=><button className="worker-item" key={w.id} onClick={()=>addNode(w.specialty,w.name,'worker',w.skill_refs||[])}><span className="worker-avatar"><BrainCircuit size={13}/></span><span><b>{w.name}</b><small>{w.department.replaceAll('_',' ')} · {(w.skill_refs||[]).join(', ')||'general research'}</small></span><span className="plus">+</span></button>)}</div></>}
+   {activeTab==='WORKERS'&&<><div className="searchbox"><Search size={14}/><input placeholder="Search 550 worker profiles…" value={search} onChange={e=>setSearch(e.target.value)}/></div><div className="skill-picker"><div className="side-label">RESEARCH PLAYBOOKS <span>{selectedSkillIds.length} SELECTED</span></div><small className="skill-note">Choose historical research guidance to load into the next workflow run.</small>{skills.map((skill:any)=><label className="skill-option" key={skill.id}><input type="checkbox" checked={selectedSkillIds.includes(skill.id)} onChange={e=>setSelectedSkillIds(current=>e.target.checked?[...current,skill.id]:current.filter(id=>id!==skill.id))}/><span><b>{skill.id.replace('trader-','').replaceAll('-',' ')}</b><small>{skill.description}</small></span></label>)}</div><div className="worker-list">{filteredWorkers.map(w=><button className="worker-item" key={w.id} onClick={()=>addNode(w.specialty,w.name,'worker',w.skill_refs||[])}><span className="worker-avatar"><BrainCircuit size={13}/></span><span><b>{w.name}</b><small>{w.department.replaceAll('_',' ')} · {(w.skill_refs||[]).join(', ')||'general research'}</small></span><span className="plus">+</span></button>)}</div></>}
    {activeTab==='NEWS'&&<div className="news-panel"><button className="run-btn news-refresh" onClick={loadNews} disabled={newsBusy}><Newspaper size={13}/>{newsBusy?'FETCHING…':'FETCH OFFICIAL NEWS'}</button>{newsError&&<p className="news-error">{newsError}</p>}{newsItems.map((item:any)=><a className="news-item" key={item.id} href={item.url} target="_blank" rel="noreferrer"><b>{item.title}</b><small>{item.source} · {item.published_at||'Date unavailable'}</small></a>)}</div>}
    {activeTab==='RESEARCH'&&<div className="research-sidebar">
     <div className="side-label">HISTORICAL CSV IMPORT <span>LOCAL DATA</span></div>
@@ -484,7 +516,7 @@ export default function App() {
        <small>Exact timestamp matches only; no interpolation or forward-filling. These are historical calculations, not signals.</small>
       </div>}
       <div className="research-cluster-tools">
-       <label>CHART TIMEFRAME</label><select value={researchInterval} onChange={async e=>{const interval=e.target.value;setResearchInterval(interval);setSelectedCluster(null);setVolumeReport(null);setVolumeError('');await loadHistoricalQuality(interval);try{const r=await fetch(API+'/api/market-data/history?'+new URLSearchParams({symbol:researchSymbol.trim(),interval,limit:'500'}).toString());const d=await r.json();setVolumeReport(null);setVolumeError('');setResearchBars(r.ok?(d.bars||[]):[]);setHistoryMeta(r.ok?{source:d.source,status:d.status,retrieved_at:d.retrieved_at}:null)}catch{setResearchBars([]);setHistoryMeta(null)}}}>{researchIntervals.split(',').map(x=>x.trim()).filter(Boolean).map(x=><option key={x} value={x}>{x}</option>)}</select>
+       <label>CHART TIMEFRAME</label><select value={researchInterval} onChange={async e=>{const interval=e.target.value;setResearchInterval(interval);setSelectedCluster(null);setVolumeReport(null);setVolumeError('');await loadHistoricalQuality(interval);try{const r=await apiFetch(API+'/api/market-data/history?'+new URLSearchParams({symbol:researchSymbol.trim(),interval,limit:'500'}).toString());const d=await r.json();setVolumeReport(null);setVolumeError('');setResearchBars(r.ok?(d.bars||[]):[]);setHistoryMeta(r.ok?{source:d.source,status:d.status,retrieved_at:d.retrieved_at}:null)}catch{setResearchBars([]);setHistoryMeta(null)}}}>{researchIntervals.split(',').map(x=>x.trim()).filter(Boolean).map(x=><option key={x} value={x}>{x}</option>)}</select>
        <small>{researchBars.length} stored observations · {historyMeta?.source||'source unavailable'} · {historyMeta?.status||'status unavailable'}</small>
        {historyMeta&&<small>Sources {historyMeta.source_count??'—'} · distinct timestamps {historyMeta.timestamp_count??'—'} · overlapping observations {historyMeta.duplicate_timestamp_observations??'—'}</small>}
        {historyMeta&&<small>Range {historyMeta.first_timestamp||'—'} → {historyMeta.last_timestamp||'—'} · retrieved {historyMeta.retrieved_at||'—'}</small>}
@@ -525,7 +557,7 @@ export default function App() {
     <div className="overview-panel validation-panel">
       <label>PAYLOAD JSON</label>
       <textarea className="validation-input" value={validationPayload} onChange={e=>setValidationPayload(e.target.value)} spellCheck={false}/>
-      <div className="validation-actions"><button className="run-btn" disabled={validationBusy} onClick={async()=>{setValidationBusy(true);setValidationError('');setValidationReport(null);try{const payload=JSON.parse(validationPayload);const response=await fetch(API+'/api/market-data/validate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({payload})});const data=await response.json();if(!response.ok)throw new Error(data.detail||'Validation request failed');setValidationReport(data)}catch(e){setValidationError(e instanceof Error?e.message:'Validation failed')}finally{setValidationBusy(false)}}}>{validationBusy?'VALIDATING…':'VALIDATE PAYLOAD'}</button><button className="soft-btn" onClick={()=>{setValidationPayload(JSON.stringify({symbol:'BTCUSD',interval:'1d',status:'historical',source:'manual-review',retrieved_at:new Date().toISOString(),bars:[{timestamp:new Date(Date.now()-86400000).toISOString(),open:100,high:105,low:98,close:102,volume:1200}]},null,2));setValidationReport(null);setValidationError('')}}>LOAD SAMPLE</button></div>
+      <div className="validation-actions"><button className="run-btn" disabled={validationBusy} onClick={async()=>{setValidationBusy(true);setValidationError('');setValidationReport(null);try{const payload=JSON.parse(validationPayload);const response=await apiFetch(API+'/api/market-data/validate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({payload})});const data=await response.json();if(!response.ok)throw new Error(data.detail||'Validation request failed');setValidationReport(data)}catch(e){setValidationError(e instanceof Error?e.message:'Validation failed')}finally{setValidationBusy(false)}}}>{validationBusy?'VALIDATING…':'VALIDATE PAYLOAD'}</button><button className="soft-btn" onClick={()=>{setValidationPayload(JSON.stringify({symbol:'BTCUSD',interval:'1d',status:'historical',source:'manual-review',retrieved_at:new Date().toISOString(),bars:[{timestamp:new Date(Date.now()-86400000).toISOString(),open:100,high:105,low:98,close:102,volume:1200}]},null,2));setValidationReport(null);setValidationError('')}}>LOAD SAMPLE</button></div>
       {validationError&&<p className="news-error">{validationError}</p>}
       {validationReport&&<div className="research-results"><div className="overview-status"><span className={validationReport.valid?'status-ok':'status-off'}>{validationReport.result?.toUpperCase()}</span><span>{validationReport.error_count} ERRORS</span><span>{validationReport.bar_count??'—'} BARS</span></div>{Array.isArray(validationReport.errors)&&validationReport.errors.length>0&&<div className="validation-details"><strong>ERROR DETAILS</strong><ul>{validationReport.errors.map((item:any,index:number)=><li key={index}><code>{Array.isArray(item.location)?item.location.join(' → '):item.location||'payload'}</code>: {item.message||item.type||'Invalid value'}</li>)}</ul></div>}{Array.isArray(validationReport.warnings)&&validationReport.warnings.length>0&&<div className="validation-details"><strong>WARNINGS</strong><ul>{validationReport.warnings.map((item:any,index:number)=><li key={index}>{typeof item==='string'?item:item.message||JSON.stringify(item)}</li>)}</ul></div>}<details><summary>RAW VALIDATION REPORT</summary><pre>{JSON.stringify(validationReport,null,2)}</pre></details></div>}
       <small>Structural validation only. It does not verify source authenticity, licensing, freshness or market-session completeness.</small>
@@ -537,11 +569,16 @@ export default function App() {
     <div className="overview-grid">
      <article className="overview-card"><span>DATA COVERAGE</span><strong>{marketOverview?.instrument_interval_count??'—'}</strong><small>Stored symbol and timeframe combinations</small></article>
      <article className="overview-card"><span>WATCHLIST</span><strong>{watchlistItems.length}</strong><small>Saved instrument references</small></article>
-     <article className="overview-card"><span>RESEARCH WORKERS</span><strong>{workers.length||550}</strong><small>Templates, not active autonomous agents</small></article>
+     <article className="overview-card"><span>RESEARCH WORKERS</span><strong>{workers.length}</strong><small>Templates, not active autonomous agents</small></article>
      <article className="overview-card"><span>EXECUTION MODE</span><strong>DISABLED</strong><small>Broker connections and order execution are not configured</small></article>
-     <article className="overview-card"><span>STORED OBSERVATIONS</span><strong>{marketOverview?.coverage?.reduce((sum:number,item:any)=>sum+(item.observation_count||0),0)??'—'}</strong><small>Total locally stored OHLCV rows in this overview</small></article>
-     <article className="overview-card"><span>RECORDED SOURCES</span><strong>{marketOverview?.coverage?new Set(marketOverview.coverage.flatMap((item:any)=>item.sources||[])).size:'—'}</strong><small>Distinct source labels across stored coverage</small></article>
+     <article className="overview-card"><span>STORED OBSERVATIONS</span><strong>{summarizeStoredCoverage(marketOverview?.coverage).observations??'—'}</strong><small>Total locally stored OHLCV rows in this overview</small></article>
+     <article className="overview-card"><span>RECORDED SOURCES</span><strong>{summarizeStoredCoverage(marketOverview?.coverage).distinctSources??'—'}</strong><small>Distinct source labels across stored coverage</small></article>
     </div>
+    <section className="overview-panel stored-heatmap-panel"><div className="overview-panel-head"><div><b>STORED RETURN HEATMAP</b><small>Latest two distinct stored observations · 1D interval</small></div><button className="soft-btn" onClick={()=>loadStoredHeatmap('1d')} disabled={heatmapBusy}>{heatmapBusy?'CALCULATING…':'REFRESH HEATMAP'}</button></div>
+     {heatmapError&&<p className="news-error">{heatmapError}</p>}
+     {storedHeatmap?.cells?.length? <div className="heatmap-grid">{storedHeatmap.cells.map((cell:any)=><div className="heatmap-cell" key={cell.symbol}><b>{cell.symbol}</b><strong className={cell.change_pct===null?'heat-neutral':cell.change_pct>0?'heat-positive':cell.change_pct<0?'heat-negative':'heat-neutral'}>{cell.change_pct===null?'N/A':(cell.change_pct>0?'+':'')+cell.change_pct.toFixed(2)+'%'}</strong><small>{cell.status==='calculated'?cell.data_statuses?.join(', ')||'stored':'Need 2 timestamps'}</small></div>)}</div>:<div className="overview-empty">{heatmapBusy?'Calculating from locally stored history…':'No stored observations are available for this interval yet.'}</div>}
+     <small className="heatmap-note">{storedHeatmap?.data_note||'This panel uses locally stored data only. It is not a live quote, complete market universe or trading signal.'}</small>
+    </section>
     <div className="overview-columns">
      <section className="overview-panel"><div className="overview-panel-head"><div><b>STORED MARKET DATA</b><small>Local historical observations only</small></div><button className="soft-btn" onClick={()=>setActiveTab('WATCHLIST')}>OPEN WATCHLIST</button></div>
       {marketOverview?.coverage?.length?marketOverview.coverage.map((item:any)=><div className="coverage-row" key={item.symbol+'-'+item.interval}><div><b>{item.symbol}</b><small>{item.interval} · {item.sources?.join(', ')||'source unavailable'}</small></div><span>{item.observation_count} bars</span><small>{item.statuses?.join(', ')||'status unavailable'} · latest {item.last_timestamp||'—'}</small><button className="soft-btn" onClick={()=>{setResearchSymbol(item.symbol);setResearchInterval(item.interval);setActiveTab('RESEARCH')}}>ANALYZE</button></div>):<div className="overview-empty">No stored market history found. Import a historical OHLCV CSV in Research to populate this workspace. Synthetic fixtures are clearly labelled and are not market prices.</div>}

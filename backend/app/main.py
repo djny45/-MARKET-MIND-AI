@@ -16,7 +16,7 @@ from .worker_registry import evaluate_registry, registry_manifest
 from .analytical_agent_runtime import runtime_manifest, brain_config, validate_learning_feedback, validate_update_proposal
 from .learning_engine import learning_overview, agent_learning_summary, run_feedback_improvement_cycle, build_feedback_staging_plan
 from .specialist_router import route_research_brief
-from .analytical_agent_tasks import retry_failed_research_task, cancel_queued_research_task, submit_research_task, get_research_task, list_research_tasks, enqueue_research_task, execute_queued_research_task, recover_interrupted_research_tasks, list_recent_task_activity, agent_supervisor_status, dispatch_queued_research_tasks, list_task_audit_events, get_task_quality_evaluation
+from .analytical_agent_tasks import retry_failed_research_task, cancel_queued_research_task, submit_research_task, get_research_task, list_research_tasks, enqueue_research_task, execute_queued_research_task, recover_interrupted_research_tasks, list_recent_task_activity, agent_supervisor_status, dispatch_queued_research_tasks, run_research_supervisor_cycle, list_task_audit_events, get_task_quality_evaluation
 from .research_orchestrator import orchestrate_research
 from .intelligence_core import intelligence_core_status, synthesize_research, IntelligenceCoreError
 from .synthesis_review import build_synthesis_review, build_synthesis_review_packet, validate_claim_review_checklist
@@ -48,6 +48,7 @@ from .performance import performance_metrics
 from . import workspace
 from .market_data import SyntheticFixtureAdapter, MarketDataBatch
 from .yahoo_finance_adapter import YahooFinanceAdapter
+from .stooq_adapter import StooqAdapter
 from .market_data_validation import validate_market_data_payload
 from . import market_store
 from .market_events import store_market_events, query_market_events
@@ -75,6 +76,7 @@ import json
 import os
 import uuid
 from fastapi.responses import Response
+from .auth_api import AuthenticationMiddleware, router as auth_router, _allowed_origins
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -88,13 +90,19 @@ app = FastAPI(
  version="0.2.0",
  description="Multi-market, evidence-first research pipeline. No brokerage execution.",
  lifespan=lifespan,
+ docs_url=None,
+ redoc_url=None,
+ openapi_url=None,
 )
 # Keep browser origins explicit using a comma-separated allowlist.
-_frontend_origins = [
-    origin.strip().rstrip("/")
-    for origin in os.getenv("FRONTEND_ORIGINS", "http://localhost:5173").split(",")
-    if origin.strip()
-]
+# Use the same strict exact-origin allowlist as the authentication checks.
+# This also prevents credentialed CORS from reflecting a wildcard origin on
+# authenticated read-only API responses.
+_frontend_origins = sorted(_allowed_origins())
+# Starlette wraps middleware in reverse registration order. Register auth
+# first and CORS second so CORS is outermost and can attach headers to auth
+# denials as well as successful responses and preflight requests.
+app.add_middleware(AuthenticationMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_frontend_origins,
@@ -102,6 +110,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(auth_router)
 app.include_router(agent_council_router)
 
 
@@ -188,6 +197,12 @@ class SynthesisReviewRequest(BaseModel):
 class AgentSupervisorDispatchRequest(BaseModel):
  limit: int = Field(default=50, ge=1, le=550)
  max_concurrency: int = Field(default=4, ge=1, le=16)
+
+
+class AgentSupervisorRunRequest(BaseModel):
+ limit: int = Field(default=50, ge=1, le=550)
+ max_concurrency: int = Field(default=4, ge=1, le=16)
+ stale_after_seconds: int = Field(default=900, ge=60, le=86400)
 
 
 class AgentResearchTaskRequest(BaseModel):
@@ -483,6 +498,16 @@ def market_data_overview(limit: int = 200):
  return market_store.get_market_overview(limit)
 
 
+@app.get("/api/market-data/heatmap")
+def market_data_heatmap(interval: str = "1d", limit: int = 100):
+ """Calculate descriptive returns from the latest stored observations."""
+ if interval not in SUPPORTED_INTERVALS:
+  raise HTTPException(status_code=400, detail="interval must be one of 15m,1h,4h,1d")
+ if limit < 1 or limit > 200:
+  raise HTTPException(status_code=400, detail="limit must be between 1 and 200")
+ return market_store.get_stored_return_heatmap(interval, limit)
+
+
 @app.get("/api/market-data/lineage")
 def market_data_lineage(symbol: str, interval: str = "1h", limit: int = 5000):
  """Summarize stored observations by source and status."""
@@ -515,19 +540,33 @@ def readiness():
 
 @app.get("/api/providers/status")
 def provider_status():
- """Describe implemented provider availability without implying live connectivity."""
+ """Report provider capabilities without claiming an untested connection."""
  return {
   "status": "no_live_provider_configured",
   "live_providers": [],
+  "historical_providers": [{
+   "name": YahooFinanceAdapter.name,
+   "status": "implemented_not_probed",
+   "data_status": "historical",
+   "credential_required": False,
+   "purpose": "best-effort historical research; upstream availability and terms may change",
+   "endpoint": "/api/market-data/yahoo",
+  }, {
+   "name": StooqAdapter.name,
+   "status": "implemented_not_probed",
+   "data_status": "historical",
+   "credential_required": False,
+   "purpose": "best-effort daily historical research; check provider terms before storage or redistribution",
+   "endpoint": "/api/market-data/stooq",
+  }],
   "available_adapters": [{
    "name": SyntheticFixtureAdapter.name,
    "status": "available",
    "data_status": "synthetic",
    "purpose": "development and integration testing only",
   }],
-  "market_data_note": "No live or delayed market-data provider is currently configured.",
+  "market_data_note": "No live or delayed market-data provider is configured. Historical provider connectivity is checked only when its data endpoint is requested.",
  }
-
 
 @app.get("/api/nodes")
 def nodes():
@@ -1118,6 +1157,19 @@ def analytical_agent_supervisor_dispatch(request: AgentSupervisorDispatchRequest
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+@app.post("/api/analytical-agent-supervisor/run")
+def analytical_agent_supervisor_run(request: AgentSupervisorRunRequest):
+ """Run one bounded recovery-and-dispatch cycle; no persistent daemon is started."""
+ try:
+  return run_research_supervisor_cycle(
+   limit=request.limit,
+   max_concurrency=request.max_concurrency,
+   stale_after_seconds=request.stale_after_seconds,
+  )
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @app.post("/api/analytical-agent-tasks/recover")
 def analytical_agent_recover_tasks():
  """Requeue tasks interrupted while running; does not dispatch them."""
@@ -1703,6 +1755,38 @@ async def fetch_yahoo_historical_data(
  }
 
 
+
+@app.get("/api/market-data/stooq")
+async def fetch_stooq_historical_data(
+ symbol: str,
+ interval: str = "1d",
+ limit: int = 100,
+):
+ """Fetch best-effort Stooq daily history for research and persist provenance."""
+ if not symbol.strip() or len(symbol.strip()) > 32:
+  raise HTTPException(status_code=400, detail="symbol must contain 1 to 32 characters")
+ if interval != "1d":
+  raise HTTPException(status_code=400, detail="Stooq supports daily interval 1d only")
+ if limit < 1 or limit > 5000:
+  raise HTTPException(status_code=400, detail="limit must be between 1 and 5000")
+ try:
+  batch = await StooqAdapter().get_bars(symbol, interval, limit)
+  storage = market_store.store_batch(batch)
+ except (ValueError, RuntimeError) as exc:
+  raise HTTPException(status_code=502, detail=f"Historical provider unavailable or returned invalid data: {exc}") from exc
+ return {
+  "mode": "historical_research_ingestion",
+  "symbol": batch.symbol, "interval": batch.interval,
+  "source": batch.source, "status": batch.status.value,
+  "retrieved_at": batch.retrieved_at.isoformat(),
+  "observation_count": len(batch.bars),
+  "storage": storage,
+  "bars": [bar.model_dump(mode="json") for bar in batch.bars],
+  "execution": "disabled",
+  "warnings": batch.warnings + [
+   "Historical data only; no live trading, order routing, or buy/sell recommendation.",
+  ],
+ }
 @app.post("/api/research/autonomous-stored")
 async def autonomous_research_stored(
  symbol: str,

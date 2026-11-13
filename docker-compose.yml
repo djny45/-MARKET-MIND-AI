@@ -4,7 +4,11 @@ services:
       context: ./backend
     environment:
       MARKET_MIND_DB: /data/market_mind.db
-      FRONTEND_ORIGINS: http://localhost:8080
+      MARKET_MIND_AUTH_DB: /data/auth_sessions.sqlite3
+      MARKET_MIND_AUTH_REQUIRED: "true"
+      MARKET_MIND_OWNER_PASSWORD_HASH: ${MARKET_MIND_OWNER_PASSWORD_HASH:-}
+      MARKET_MIND_COOKIE_SECURE: "false"
+      FRONTEND_ORIGINS: ${FRONTEND_ORIGINS:-http://localhost:8080,http://127.0.0.1:8080}
     volumes:
       - market_mind_data:/data
     expose:

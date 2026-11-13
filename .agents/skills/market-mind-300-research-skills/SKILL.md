@@ -15,7 +15,7 @@
 5. Distinguish historical, delayed, synthetic, and live data; synthetic fixtures must never be represented as market evidence.
 6. Return structured findings, uncertainty, limitations, and reproducibility metadata.
 7. Escalate unsupported claims, missing sources, conflicts, and suspicious data for human review.
-8. Research-only boundary: no live trading, paper-trading execution, brokerage credentials, order routing, or trade recommendations.
+8. Research-only boundary: no live trading, brokerage credentials, order routing, or trade recommendations.
 9. Skill references are advisory metadata. Runtime permissions are governed separately by the application.
 10. Version and evaluate changes before adoption; keep rollback capability.
 

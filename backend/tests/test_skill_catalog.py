@@ -10,7 +10,7 @@ class SkillCatalogTests(unittest.TestCase):
         self.assertEqual(len(skills), 320)
         self.assertNotIn("trader-broker", by_id)
         self.assertTrue(all(
-            skill["mode"] == "research_and_paper_only"
+            skill["mode"] == "historical_research_only"
             for skill in skills if skill["id"].startswith("trader-")
         ))
         self.assertTrue(all(
@@ -18,6 +18,13 @@ class SkillCatalogTests(unittest.TestCase):
             for skill in skills if skill["id"].startswith("rea-") or skill["id"] == "reverse-engineer-anything"
         ))
         self.assertTrue(all(skill["available"] for skill in skills))
+        for slug in ("trader-alerts", "trader-analyst", "trader-budget", "trader-entry", "trader-exit", "trader-news", "trader-pelosi", "trader-risk", "trader-scanner", "trader-timemachine"):
+            with self.subTest(slug=slug):
+                loaded = load_skill(slug)
+                self.assertEqual(loaded["mode"], "historical_research_only")
+                self.assertFalse(loaded["broker_execution"])
+                self.assertNotIn("trader-broker", loaded["content"])
+                self.assertNotIn("place_stock_order", loaded["content"])
         self.assertEqual(by_id["stageshow"]["mode"], "ui_design_only")
         self.assertTrue(by_id["stageshow"]["requires_external_tools"])
         self.assertEqual(by_id["market-data-yahoo"]["mode"], "market_data_research_only")
@@ -115,6 +122,18 @@ class SkillCatalogTests(unittest.TestCase):
         self.assertEqual(loaded["mode"], "research_evaluation_only")
         self.assertFalse(loaded["broker_execution"])
         self.assertNotIn("### 002.", loaded["content"])
+
+        # Check the beginning, middle, and end of the complete pack so the
+        # loader cannot silently change mode or expose another skill section.
+        for skill_id in ("mm-skill-001", "mm-skill-150", "mm-skill-300"):
+            with self.subTest(skill_id=skill_id):
+                selected = load_skill(skill_id)
+                self.assertEqual(selected["id"], skill_id)
+                self.assertEqual(selected["mode"], "research_evaluation_only")
+                self.assertFalse(selected["broker_execution"])
+                headings = [line for line in selected["content"].splitlines() if line.startswith("### ")]
+                self.assertEqual(len(headings), 1)
+                self.assertTrue(headings[0].startswith(f"### {int(skill_id[-3:]):03d}."))
 
     def test_skill_pack_rejects_out_of_range_ids(self):
         for skill_id in ("mm-skill-000", "mm-skill-301", "mm-skill-999", "mm-skill-01"):

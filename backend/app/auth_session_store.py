@@ -143,7 +143,7 @@ def get_session(
         raise ValueError("now must be a non-negative integer")
     idle_ttl = _positive_int(idle_ttl_seconds, "idle_ttl_seconds")
 
-    with _connect(database_path) as connection:
+    with _session_connection(database_path) as connection:
         connection.execute("BEGIN IMMEDIATE")
         row = connection.execute(
             """
@@ -197,7 +197,7 @@ def revoke_session(
     _validate_digest(session_token_hash, "session_token_hash")
     if isinstance(now, bool) or not isinstance(now, int) or now < 0:
         raise ValueError("now must be a non-negative integer")
-    with _connect(database_path) as connection:
+    with _session_connection(database_path) as connection:
         cursor = connection.execute(
             """
             UPDATE auth_sessions SET revoked_at = ?
@@ -212,7 +212,7 @@ def purge_expired_sessions(database_path: str | Path, *, now: int) -> int:
     """Delete revoked and expired session rows; return the number removed."""
     if isinstance(now, bool) or not isinstance(now, int) or now < 0:
         raise ValueError("now must be a non-negative integer")
-    with _connect(database_path) as connection:
+    with _session_connection(database_path) as connection:
         cursor = connection.execute(
             """
             DELETE FROM auth_sessions

@@ -1,6 +1,5 @@
 import unittest
 from unittest.mock import patch
-from fastapi import BackgroundTasks
 
 from app.main import SpecialistResearchQueueRequest, route_and_queue_research
 
@@ -12,7 +11,6 @@ class SpecialistQueueApiTests(unittest.TestCase):
             data={"returns": [0.01, -0.02, 0.005]},
             max_specialists=3,
         )
-        background_tasks = BackgroundTasks()
 
         def fake_enqueue(worker_id, brief, data):
             return {
@@ -23,12 +21,12 @@ class SpecialistQueueApiTests(unittest.TestCase):
             }
 
         with patch("app.main.enqueue_research_task", side_effect=fake_enqueue):
-            result = route_and_queue_research(request, background_tasks)
+            result = route_and_queue_research(request)
 
         selected = result["routing"]["candidates"]
         self.assertEqual(result["queued_count"], len(selected))
         self.assertEqual(len(result["tasks"]), len(selected))
-        self.assertEqual(len(background_tasks.tasks), len(selected))
+        self.assertEqual(result["execution_mode"], "persistent_sqlite_supervisor_queue")
         self.assertEqual(
             [task["routing_score"] for task in result["tasks"]],
             [candidate["routing_score"] for candidate in selected],
@@ -37,19 +35,16 @@ class SpecialistQueueApiTests(unittest.TestCase):
             [task["task_id"] for task in result["tasks"]],
             ["task-" + candidate["worker_id"] for candidate in selected],
         )
-        self.assertTrue(all(task.kwargs == {} for task in background_tasks.tasks))
 
     def test_route_queue_empty_match_returns_no_fake_tasks(self):
         request = SpecialistResearchQueueRequest(
             brief="Please discuss gardening and houseplants only",
             max_specialists=3,
         )
-        background_tasks = BackgroundTasks()
         with patch("app.main.enqueue_research_task") as enqueue:
-            result = route_and_queue_research(request, background_tasks)
+            result = route_and_queue_research(request)
         self.assertEqual(result["queued_count"], 0)
         self.assertEqual(result["tasks"], [])
-        self.assertEqual(background_tasks.tasks, [])
         enqueue.assert_not_called()
 
 

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import Any, Literal
@@ -16,7 +16,7 @@ from .worker_registry import evaluate_registry, registry_manifest
 from .analytical_agent_runtime import runtime_manifest, brain_config, validate_learning_feedback, validate_update_proposal
 from .learning_engine import learning_overview, agent_learning_summary, run_feedback_improvement_cycle, build_feedback_staging_plan
 from .specialist_router import route_research_brief
-from .analytical_agent_tasks import retry_failed_research_task, cancel_queued_research_task, submit_research_task, get_research_task, list_research_tasks, enqueue_research_task, execute_queued_research_task, recover_interrupted_research_tasks, list_recent_task_activity, agent_supervisor_status, dispatch_queued_research_tasks, list_task_audit_events, get_task_quality_evaluation
+from .analytical_agent_tasks import retry_failed_research_task, cancel_queued_research_task, submit_research_task, get_research_task, list_research_tasks, enqueue_research_task, recover_interrupted_research_tasks, list_recent_task_activity, agent_supervisor_status, dispatch_queued_research_tasks, list_task_audit_events, get_task_quality_evaluation
 from .research_orchestrator import orchestrate_research
 from .intelligence_core import intelligence_core_status, synthesize_research, IntelligenceCoreError
 from .synthesis_review import build_synthesis_review, build_synthesis_review_packet, validate_claim_review_checklist
@@ -556,26 +556,26 @@ def research_specialist_routing(request: AgentResearchTaskRequest):
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 @app.post("/api/research/route-and-queue", status_code=202)
-def route_and_queue_research(request: SpecialistResearchQueueRequest, background_tasks: BackgroundTasks):
- """Route a brief to matched specialists, persist one task per selected profile, and schedule process-local execution."""
+def route_and_queue_research(request: SpecialistResearchQueueRequest):
+ """Route a brief to specialists and persist tasks for the shared SQLite supervisor."""
  try:
   routing = route_research_brief(request.brief, request.data, limit=request.max_specialists)
   queued_tasks = []
   for candidate in routing["candidates"]:
    worker_id = candidate["worker_id"]
    queued = enqueue_research_task(worker_id, request.brief, request.data)
-   background_tasks.add_task(execute_queued_research_task, queued["task_id"])
    queued_tasks.append({**queued, "department": candidate["department"], "specialty": candidate["specialty"],
                         "routing_score": candidate["routing_score"]})
   return {
    "routing": routing,
    "queued_count": len(queued_tasks),
    "tasks": queued_tasks,
-   "execution_mode": "process_local_background_tasks",
+   "execution_mode": "persistent_sqlite_supervisor_queue",
    "limitations": [
     "Routing is deterministic keyword matching, not semantic reasoning.",
     "Each task uses the same configured intelligence provider; worker profiles supply role context, not separate models.",
-    "Background execution is local to this API process and is not a durable distributed queue.",
+    "A separate supervisor process polls the shared SQLite task store; the API does not execute queued work in-process.",
+    "SQLite provides durable local queue storage and atomic claims, but this is not a distributed broker or multi-host queue.",
     "No market data is fetched; the brief and supplied data are the only research inputs.",
    ],
   }
@@ -1073,13 +1073,12 @@ def analytical_agent_submit_task(worker_id: str, request: AgentResearchTaskReque
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 @app.post("/api/analytical-agents/{worker_id}/tasks/queue", status_code=202)
-def analytical_agent_queue_task(worker_id: str, request: AgentResearchTaskRequest, background_tasks: BackgroundTasks):
- """Queue a persisted research task for background execution."""
+def analytical_agent_queue_task(worker_id: str, request: AgentResearchTaskRequest):
+ """Persist a research task for the dedicated SQLite polling supervisor."""
  try:
   queued = enqueue_research_task(worker_id, request.brief, request.data)
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
- background_tasks.add_task(execute_queued_research_task, queued["task_id"])
  return queued
 
 @app.get("/api/analytical-agents/{worker_id}/tasks")

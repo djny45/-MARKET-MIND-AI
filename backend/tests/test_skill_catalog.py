@@ -7,7 +7,7 @@ class SkillCatalogTests(unittest.TestCase):
     def test_catalog_contains_only_allowlisted_research_skills(self):
         skills = list_skills()
         by_id = {skill["id"]: skill for skill in skills}
-        self.assertEqual(len(skills), 320)
+        self.assertEqual(len(skills), 321)
         self.assertNotIn("trader-broker", by_id)
         self.assertTrue(all(
             skill["mode"] == "research_and_paper_only"
@@ -25,6 +25,20 @@ class SkillCatalogTests(unittest.TestCase):
         self.assertEqual(by_id["market-data-stooq"]["mode"], "market_data_research_only")
         self.assertTrue(by_id["market-data-stooq"]["requires_external_tools"])
 
+
+
+    def test_n8n_workflow_skill_is_allowlisted_and_loadable(self):
+        skills = {skill["id"]: skill for skill in list_skills()}
+        skill = skills["n8n-workflow-check"]
+        self.assertTrue(skill["available"])
+        self.assertEqual(skill["mode"], "workflow_review_only")
+        self.assertTrue(skill["requires_external_tools"])
+        self.assertFalse(skill["workflow_activation"])
+        loaded = load_skill("n8n-workflow-check")
+        self.assertIn("active: false", loaded["content"])
+        self.assertIn("check_workflow.py", loaded["content"])
+        self.assertEqual(loaded["mode"], "workflow_review_only")
+        self.assertFalse(loaded["broker_execution"])
 
     def test_social_research_skill_is_allowlisted_and_loadable(self):
         skills = {skill["id"]: skill for skill in list_skills()}

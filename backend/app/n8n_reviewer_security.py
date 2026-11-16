@@ -178,6 +178,20 @@ def import_approved_workflow(draft_id: str, requested_by: str, *, client: httpx.
         if isinstance(remote_detail, dict) and isinstance(remote_detail.get("data"), dict):
             remote_detail = remote_detail["data"]
         active = remote_detail.get("active") if isinstance(remote_detail, dict) else None
+        if active is True:
+            # Safety-only correction: never activate or publish; deactivate only if the remote API reports active.
+            deactivate_response = transport.post(api_base + "/workflows/" + quote(remote_id, safe="") + "/deactivate", headers=headers)
+            if deactivate_response.status_code not in {200, 204}:
+                active = None
+            else:
+                detail_response = transport.get(api_base + "/workflows/" + quote(remote_id, safe=""), headers=headers)
+                if detail_response.status_code == 200:
+                    remote_detail = detail_response.json()
+                    if isinstance(remote_detail, dict) and isinstance(remote_detail.get("data"), dict):
+                        remote_detail = remote_detail["data"]
+                    active = remote_detail.get("active") if isinstance(remote_detail, dict) else None
+                else:
+                    active = None
         if active is not False:
             with _connect() as db:
                 db.execute("UPDATE n8n_workflow_imports SET status=?,remote_workflow_id=?,remote_workflow_name=?,active_state_verified=0,error_code=?,updated_at=? WHERE import_id=?",

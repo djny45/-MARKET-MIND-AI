@@ -1,4 +1,5 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
+from fastapi.security import HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import Any, Literal
@@ -1425,7 +1426,7 @@ def create_n8n_workflow_draft(request: N8NWorkflowDraftRequest):
 
 
 @app.get("/api/n8n/workflows/drafts")
-def list_n8n_workflow_drafts(status: str | None = None, limit: int = 50, credentials=__import__("fastapi").Depends(REVIEWER_BEARER)):
+def list_n8n_workflow_drafts(status: str | None = None, limit: int = 50, credentials: HTTPAuthorizationCredentials | None = Depends(REVIEWER_BEARER)):
  principal = authenticate_reviewer(credentials)
  require_role(principal, "reviewer")
  try:

@@ -59,6 +59,23 @@ class N8NImportTests(unittest.TestCase):
                 draft=submit_agent_workflow_draft("agent","Pending",workflow)
                 with self.assertRaises(HTTPException) as err: import_approved_workflow(draft["draft_id"],"importer")
                 self.assertEqual(err.exception.status_code,409)
+    def test_unexpected_active_remote_workflow_is_deactivated_and_verified(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            db=os.path.join(tmp,"active.sqlite"); draft_id=self._approved_draft(db)
+            calls=[]
+            def handler(request):
+                calls.append((request.method,request.url.path))
+                if request.method=="POST" and request.url.path.endswith("/workflows"): return httpx.Response(201,json={"id":"remote-44","name":"Manual import test"})
+                if request.method=="GET": return httpx.Response(200,json={"id":"remote-44","name":"Manual import test","active":True if len(calls)<4 else False})
+                if request.method=="POST" and request.url.path.endswith("/deactivate"): return httpx.Response(204)
+                return httpx.Response(404)
+            client=httpx.Client(transport=httpx.MockTransport(handler))
+            with patch.dict(os.environ,{"MARKET_MIND_DB":db,"N8N_BASE_URL":"https://n8n.example.test","N8N_API_KEY":"secret"}):
+                result=import_approved_workflow(draft_id,"importer-a",client=client)
+                self.assertEqual(result["status"],"imported_inactive")
+                self.assertIn(("POST","/api/v1/workflows/remote-44/deactivate"),calls)
+                self.assertFalse(any(path.endswith("/activate") or "/executions" in path for _,path in calls))
+            client.close()
     def test_missing_remote_active_false_is_not_reported_as_safe(self):
         with tempfile.TemporaryDirectory() as tmp:
             db=os.path.join(tmp,"n8n.sqlite"); draft_id=self._approved_draft(db)

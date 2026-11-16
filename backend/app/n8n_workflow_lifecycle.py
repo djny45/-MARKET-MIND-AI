@@ -144,7 +144,7 @@ def list_agent_workflow_drafts(status: str | None = None, limit: int = 50) -> li
     return [dict(row) for row in rows]
 
 
-def record_agent_workflow_review(draft_id: str, reviewer: str, decision: str, review_note: str = "") -> dict | None:
+def record_agent_workflow_review(draft_id: str, reviewer: str, decision: str, review_note: str = "", *, reviewer_identity_verified: bool = False) -> dict | None:
     """Record one immutable human-review decision; never trigger workflow activation."""
     if not isinstance(reviewer, str) or not reviewer.strip() or len(reviewer.strip()) > 120:
         raise ValueError("reviewer must contain 1 to 120 characters.")
@@ -169,7 +169,7 @@ def record_agent_workflow_review(draft_id: str, reviewer: str, decision: str, re
                (review_id,draft_id,reviewer_label,reviewer_identity_verified,
                 decision,review_note,workflow_sha256,created_at)
                VALUES (?,?,?,?,?,?,?,?)""",
-            (review_id, draft_id, reviewer.strip(), 0, decision, review_note.strip(),
+            (review_id, draft_id, reviewer.strip(), int(bool(reviewer_identity_verified)), decision, review_note.strip(),
              row["workflow_sha256"], now),
         )
         db.execute(
@@ -180,7 +180,7 @@ def record_agent_workflow_review(draft_id: str, reviewer: str, decision: str, re
     return {
         "review_id": review_id, "draft_id": draft_id,
         "status": "approved" if decision == "approve" else "rejected",
-        "reviewer": reviewer.strip(), "reviewer_identity_verified": False,
+        "reviewer": reviewer.strip(), "reviewer_identity_verified": bool(reviewer_identity_verified),
         "decision": decision, "review_note": review_note.strip(),
         "workflow_sha256": row["workflow_sha256"], "reviewed_at": now,
         "workflow_activation": False, "workflow_execution": False,

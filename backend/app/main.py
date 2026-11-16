@@ -158,7 +158,6 @@ class N8NWorkflowGenerateRequest(BaseModel):
 
 
 class N8NWorkflowReviewRequest(BaseModel):
- reviewer: str = Field(min_length=1, max_length=120)
  decision: Literal["approve", "reject"]
  review_note: str = Field(default="", max_length=2000)
 
@@ -1451,7 +1450,7 @@ def review_n8n_workflow_draft(draft_id: str, request: N8NWorkflowReviewRequest, 
  require_role(principal, "reviewer")
  try:
   result = record_agent_workflow_review(
-   draft_id, principal.reviewer_id, request.decision, request.review_note,
+   draft_id, principal.reviewer_id, request.decision, request.review_note, reviewer_identity_verified=True,
   )
  except ValueError as exc:
   raise HTTPException(status_code=409, detail=str(exc)) from exc

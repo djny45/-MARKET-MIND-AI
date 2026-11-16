@@ -44,7 +44,7 @@ class N8NWorkflowAuthoringLifecycleTests(unittest.TestCase):
 
             decision = review_n8n_workflow_draft(
                 created["draft_id"],
-                N8NWorkflowReviewRequest(reviewer="operator-reviewer", decision="approve", review_note="Reviewed node scope and connections."),
+                N8NWorkflowReviewRequest(decision="approve", review_note="Reviewed node scope and connections."),
             )
             self.assertEqual(decision["status"], "approved")
             self.assertFalse(decision["reviewer_identity_verified"])

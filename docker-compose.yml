@@ -5,6 +5,9 @@ services:
     environment:
       MARKET_MIND_DB: /data/market_mind.db
       FRONTEND_ORIGINS: http://localhost:8080
+      N8N_REVIEWER_TOKENS_JSON: ${N8N_REVIEWER_TOKENS_JSON:-}
+      N8N_BASE_URL: ${N8N_BASE_URL:-}
+      N8N_API_KEY: ${N8N_API_KEY:-}
     volumes:
       - market_mind_data:/data
     expose:

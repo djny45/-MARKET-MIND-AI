@@ -68,6 +68,11 @@ def _connect() -> sqlite3.Connection:
     path.parent.mkdir(parents=True, exist_ok=True)
     db = sqlite3.connect(path, timeout=10)
     db.row_factory = sqlite3.Row
+    db.execute("""CREATE TABLE IF NOT EXISTS n8n_workflow_drafts (
+        draft_id TEXT PRIMARY KEY, agent_id TEXT NOT NULL, title TEXT NOT NULL,
+        workflow_json TEXT NOT NULL, workflow_sha256 TEXT NOT NULL, validation_json TEXT NOT NULL,
+        status TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+    )""")
     db.execute("""CREATE TABLE IF NOT EXISTS n8n_workflow_imports (
         import_id TEXT PRIMARY KEY, draft_id TEXT NOT NULL UNIQUE,
         requested_by TEXT NOT NULL, status TEXT NOT NULL,
@@ -123,11 +128,14 @@ def import_approved_workflow(draft_id: str, requested_by: str, *, client: httpx.
     # Revalidate immediately before the external side effect and strip metadata not accepted by the public API.
     from .n8n_workflow_validation import validate_n8n_workflow
     validation = validate_n8n_workflow(workflow)
-    if not validation.get("structurally_valid") or workflow.get("active") is not False:
+    allowed_node_types = {"n8n-nodes-base.manualTrigger", "n8n-nodes-base.set"}
+    nodes = workflow.get("nodes", [])
+    unsupported = [node.get("type") for node in nodes if isinstance(node, dict) and node.get("type") not in allowed_node_types]
+    if not validation.get("structurally_valid") or workflow.get("active") is not False or unsupported:
         with _connect() as db:
             db.execute("UPDATE n8n_workflow_imports SET status=?,error_code=?,updated_at=? WHERE import_id=?",
                        ("rejected_before_import","local_validation_failed",_now(),import_id))
-        raise HTTPException(status_code=409, detail="Approved workflow no longer passes inactive-export validation.")
+        raise HTTPException(status_code=409, detail="Approved workflow no longer passes the restricted inactive-export validation.")
     payload = {
         "name": workflow.get("name") or draft["title"],
         "nodes": workflow.get("nodes", []),

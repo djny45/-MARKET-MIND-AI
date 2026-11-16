@@ -13,7 +13,7 @@ _SECRET_KEYS = {
     "apikey", "api_key", "authorization",
 }
 _CREDENTIAL_PATTERN = re.compile(
-    r"-----BEGIN [A-Z ]*PRIVATE KEY-----|\\b(?:sk-(?:proj-)?|gh[pousr]_)[A-Za-z0-9_-]{20,}"
+    r"-----BEGIN [A-Z ]*PRIVATE KEY-----|\b(?:sk-(?:proj-)?|gh[pousr]_)[A-Za-z0-9_-]{20,}"
 )
 
 

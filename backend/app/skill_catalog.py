@@ -12,6 +12,7 @@ STOOQ_SKILL_ROOT = REPO_ROOT / ".agents" / "skills" / "market-data-stooq"
 QUANT_RESEARCH_SKILL_ROOT = REPO_ROOT / ".agents" / "skills" / "quant-research-evaluation"
 QLIB_SKILL_ROOT = REPO_ROOT / ".agents" / "skills" / "qlib-research"
 SOCIAL_RESEARCH_SKILL_ROOT = REPO_ROOT / ".agents" / "skills" / "social-research"
+N8N_SKILL_ROOT = REPO_ROOT / ".agents" / "skills" / "n8n-workflow-check"
 
 SKILL_DESCRIPTIONS = {
     "trader-alerts": "Alert interpretation and notification research.",
@@ -51,6 +52,10 @@ QUANT_RESEARCH_SKILL_DESCRIPTIONS = {
 
 QLIB_SKILL_DESCRIPTIONS = {
     "qlib-research": "Qlib-inspired experiment design, chronological evaluation, and reproducible quantitative research; no copied Qlib implementation code.",
+}
+
+N8N_SKILL_DESCRIPTIONS = {
+    "n8n-workflow-check": "Create, inspect and structurally validate n8n workflow exports; runtime execution requires a separate disposable n8n instance.",
 }
 
 UI_SKILL_DESCRIPTIONS = {
@@ -139,6 +144,18 @@ def list_skills():
         }
         for slug, description in QLIB_SKILL_DESCRIPTIONS.items()
     ]
+    n8n_automation = [
+        {
+            "id": slug,
+            "description": description,
+            "path": ".agents/skills/n8n-workflow-check/SKILL.md",
+            "available": (N8N_SKILL_ROOT / "SKILL.md").is_file(),
+            "mode": "workflow_review_only",
+            "requires_external_tools": True,
+            "workflow_activation": False,
+        }
+        for slug, description in N8N_SKILL_DESCRIPTIONS.items()
+    ]
     social_research = [
         {
             "id": slug,
@@ -150,7 +167,7 @@ def list_skills():
         }
         for slug, description in SOCIAL_RESEARCH_SKILL_DESCRIPTIONS.items()
     ]
-    return trading + engineering + ui_design + market_data + stooq_data + quant_research + qlib_research + social_research + list_pack_skills()
+    return trading + engineering + ui_design + market_data + stooq_data + quant_research + qlib_research + social_research + n8n_automation + list_pack_skills()
 
 
 def load_skill(slug: str):
@@ -166,6 +183,11 @@ def load_skill(slug: str):
         root = REA_SKILL_ROOT
         description = REA_SKILL_DESCRIPTIONS[slug]
         mode = "engineering_research"
+        requires_external_tools = True
+    elif slug in N8N_SKILL_DESCRIPTIONS:
+        root = N8N_SKILL_ROOT
+        description = N8N_SKILL_DESCRIPTIONS[slug]
+        mode = "workflow_review_only"
         requires_external_tools = True
     elif slug in UI_SKILL_DESCRIPTIONS:
         root = STAGESHOW_SKILL_ROOT
@@ -200,7 +222,7 @@ def load_skill(slug: str):
     else:
         raise KeyError(slug)
 
-    path = root / "SKILL.md" if slug in UI_SKILL_DESCRIPTIONS or slug in MARKET_DATA_SKILL_DESCRIPTIONS or slug in STOOQ_SKILL_DESCRIPTIONS or slug in QUANT_RESEARCH_SKILL_DESCRIPTIONS or slug in SOCIAL_RESEARCH_SKILL_DESCRIPTIONS or slug in QLIB_SKILL_DESCRIPTIONS else root / slug / "SKILL.md"
+    path = root / "SKILL.md" if slug in N8N_SKILL_DESCRIPTIONS or slug in UI_SKILL_DESCRIPTIONS or slug in MARKET_DATA_SKILL_DESCRIPTIONS or slug in STOOQ_SKILL_DESCRIPTIONS or slug in QUANT_RESEARCH_SKILL_DESCRIPTIONS or slug in SOCIAL_RESEARCH_SKILL_DESCRIPTIONS or slug in QLIB_SKILL_DESCRIPTIONS else root / slug / "SKILL.md"
     if not path.is_file():
         raise FileNotFoundError(slug)
     return {

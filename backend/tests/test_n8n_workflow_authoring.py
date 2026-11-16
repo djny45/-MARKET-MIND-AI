@@ -25,13 +25,12 @@ class WorkflowGenerationTests(unittest.TestCase):
     def test_invalid_model_output_is_not_queued(self):
         with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ,{"MARKET_MIND_DB":os.path.join(tmp,"db.sqlite")}):
             result=generate_n8n_workflow("agent","Research intake","Create a manual research intake workflow.",synthesize=lambda _:{"status":"completed","summary":"not json"})
-            self.assertEqual(result["status"],"validation_rejected")
-            self.assertFalse(result["validation"]["structurally_valid"])
-    def test_model_active_flag_is_forced_off(self):
+            self.assertEqual(result["status"],"generation_invalid_output")
+    def test_active_model_output_is_rejected(self):
         response={"status":"completed","summary":json.dumps(export(active=True))}
         with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ,{"MARKET_MIND_DB":os.path.join(tmp,"db.sqlite")}):
             result=generate_n8n_workflow("agent","Research intake","Create a manual research intake workflow.",synthesize=lambda _:response)
-            self.assertEqual(result["status"],"queued_for_review")
-            self.assertFalse(result["workflow_activation"])
+            self.assertEqual(result["status"],"validation_rejected")
+            self.assertFalse(result["validation"]["structurally_valid"])
 
 if __name__=="__main__": unittest.main()

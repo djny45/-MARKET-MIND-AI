@@ -11,6 +11,7 @@ from .n8n_workflow_lifecycle import submit_agent_workflow_draft
 from .n8n_workflow_validation import validate_n8n_workflow
 
 MAX_BRIEF_CHARS = 4000
+ALLOWED_NODE_TYPES = {"n8n-nodes-base.manualTrigger", "n8n-nodes-base.set"}
 
 def _parse_workflow_json(raw: str) -> dict[str, Any]:
     if not isinstance(raw, str) or not raw.strip():
@@ -51,9 +52,17 @@ def generate_n8n_workflow(agent_id: str, title: str, brief: str, *, synthesize: 
             "reason":response.get("reason","Shared intelligence core did not complete generation."),
             "provider_status":status,"human_review_required":True,"workflow_activation":False,
             "workflow_execution":False,"broker_execution":False}
-    workflow = _parse_workflow_json(response.get("summary"))
-    workflow["active"] = False
+    try:
+        workflow = _parse_workflow_json(response.get("summary"))
+    except ValueError as exc:
+        return {"status":"generation_invalid_output","reason":str(exc),"human_review_required":True,
+                "workflow_activation":False,"workflow_execution":False,"broker_execution":False}
     validation = validate_n8n_workflow(workflow)
+    if isinstance(workflow.get("nodes"), list):
+        for node in workflow["nodes"]:
+            if isinstance(node, dict) and node.get("type") not in ALLOWED_NODE_TYPES:
+                validation["errors"].append("Generated node type is outside the restricted authoring allowlist.")
+        validation["structurally_valid"] = not validation["errors"]
     if not validation["structurally_valid"]:
         return {"status":"validation_rejected","validation":validation,"human_review_required":True,
             "workflow_activation":False,"workflow_execution":False,"broker_execution":False}

@@ -24,7 +24,7 @@ class AgentSupervisorRouteTests(unittest.TestCase):
 
         result = analytical_agent_supervisor_status()
         self.assertEqual(result["registered_agent_count"], 550)
-        self.assertFalse(result["continuous_daemon"])
+        self.assertEqual(result["continuous_daemon"], "separate_supervisor_process_required")
         self.assertFalse(result["distributed_queue"])
 
     def test_dispatch_route_rejects_out_of_range_limits(self):

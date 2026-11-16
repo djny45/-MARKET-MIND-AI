@@ -586,7 +586,7 @@ class AgentSupervisorPollingContractTests(unittest.TestCase):
             ],
         ) as dispatch:
             result = run_supervisor(
-                threading.Event(), poll_interval_seconds=0, batch_size=12,
+                threading.Event(), poll_interval_seconds=0.001, batch_size=12,
                 max_concurrency=3, max_cycles=2,
             )
 
@@ -621,7 +621,7 @@ class AgentSupervisorPollingContractTests(unittest.TestCase):
             side_effect=[RuntimeError("private detail"), {"selected": 1, "dispatched": 1}],
         ):
             result = run_supervisor(
-                threading.Event(), poll_interval_seconds=0, max_cycles=2,
+                threading.Event(), poll_interval_seconds=0.001, max_cycles=2,
             )
 
         self.assertEqual(result["cycles"], 2)

@@ -1,0 +1,30 @@
+name: n8n skill checks
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".agents/skills/n8n-workflow-check/**"
+      - ".github/workflows/n8n-skill-check.yml"
+  pull_request:
+    paths:
+      - ".agents/skills/n8n-workflow-check/**"
+      - ".github/workflows/n8n-skill-check.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  n8n-workflow-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run skill regression tests
+        run: python -m unittest discover -s .agents/skills/n8n-workflow-check/tests -v
+      - name: Check bundled fixture
+        run: |
+          python .agents/skills/n8n-workflow-check/scripts/check_workflow.py .agents/skills/n8n-workflow-check/assets/validated-events.json

@@ -126,7 +126,7 @@ def _json(value):
         raise ValueError("Task data must be finite JSON-compatible values.") from exc
 
 def enqueue_research_task(agent_id: str, brief: str, data: dict | list | None = None) -> dict:
-    """Persist a queued task; the process-local background runner will pick it up."""
+    """Persist a queued task for the dedicated SQLite polling supervisor."""
     brain = brain_config(agent_id)
     if not isinstance(brief, str) or not brief.strip() or len(brief) > 4000:
         raise ValueError("brief must be a non-empty string of at most 4000 characters")
@@ -146,7 +146,7 @@ def enqueue_research_task(agent_id: str, brief: str, data: dict | list | None = 
         _record_event(db, task_id, agent_id, "task_queued", to_status="queued", occurred_at=now)
     return {"task_id": task_id, "agent_id": agent_id, "worker_id": agent_id, "status": "queued",
             "created_at": now, "updated_at": now, "brain_context_sha256": brain["brain_context_sha256"],
-            "execution_mode": "process_local_background_task"}
+            "execution_mode": "persistent_sqlite_supervisor_queue"}
 
 def cancel_queued_research_task(task_id: str) -> dict | None:
     """Cancel only queued tasks; running and terminal tasks are not interrupted."""
@@ -860,13 +860,14 @@ def agent_supervisor_status() -> dict:
     counts = {state: 0 for state in ("queued", "running", "completed", "failed")}
     counts.update({row["status"]: row["count"] for row in rows})
     return {
-        "supervisor": "manual_dispatch_supervisor",
-        "status": "healthy",
+        "supervisor": "sqlite_polling_supervisor",
+        "status": "configured_external_process",
         "task_count": total,
         "status_counts": counts,
         "registered_agent_count": 550,
-        "dispatch_mode": "explicit_bounded_dispatch",
-        "continuous_daemon": False,
+        "dispatch_mode": "persistent_sqlite_polling",
+        "continuous_daemon": "separate_supervisor_process_required",
+        "supervisor_health": "not_observed_by_api",
         "distributed_queue": False,
     }
 

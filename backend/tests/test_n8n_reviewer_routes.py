@@ -48,6 +48,8 @@ class N8NReviewerRouteSecurityTests(unittest.TestCase):
             {
                 "MARKET_MIND_DB": os.path.join(self.tmp.name, "routes.sqlite"),
                 "N8N_REVIEWER_TOKENS_JSON": json.dumps(BOTH_ROLES),
+                "N8N_BASE_URL": "https://n8n.example.test",
+                "N8N_API_KEY": "test-only-not-a-real-secret",
             },
         )
         self.env.start()

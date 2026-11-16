@@ -1,6 +1,6 @@
 # MARKET-MIND-AI — Release Status
 
-Last reviewed: 2026-11-01
+Last reviewed: 2026-11-16
 
 ## Current verified scope
 
@@ -18,6 +18,7 @@ Implemented areas:
 - SQLite backup utility with integrity verification and SHA-256 digest
 - Safe restore utility that verifies the source and restored database before atomic replacement, and refuses overwrite unless explicitly requested
 - CI round-trip test for backup and restore inside the production API image
+- Research-task concurrency regression coverage proving duplicate dispatch attempts cannot execute the same claimed task twice
 
 ## Verified operating constraints
 
@@ -30,6 +31,8 @@ Implemented areas:
 
 ## Latest CI evidence
 
+- Workflow run [43833086823](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/43833086823) for commit `7f56d372862370cb82c0f7cbbc4412b0ee53fa3e` passed all four jobs: backend compilation/unit tests/API and workflow smoke tests, frontend production build, Docker Compose integration smoke tests, and Python/frontend dependency audits.
+- The backend job explicitly passed the complete discovered backend unit-test suite, including the new concurrent duplicate-dispatch regression test.
 - Workflow run [41233993555](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/41233993555) passed backend, frontend, dependency-audit, and production container build/start smoke checks after switching to unprivileged Nginx.
 - Workflow run [41234005003](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/41234005003) passed all four jobs, including the production proxy/API smoke test and backup/restore round-trip.
 - Workflow run [41234313802](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/41234313802) passed all four jobs after adding explicit assertions for loopback-only web binding, unpublished API port, dropped capabilities, `no-new-privileges`, non-root Nginx, and browser security headers.
@@ -48,14 +51,18 @@ Implemented areas:
 | Backup and restore | Implemented and CI round-trip verified | Perform a host-specific restore drill and document retention/off-host storage |
 | Public deployment security | Blocked | Add authentication/authorization, TLS ingress, request limits, and independent security review before public exposure |
 | Operations | Partially implemented | Add observability, alerting, load tests, migration rollback, and incident procedures |
+| Durable task execution | Partial | Replace process-local background dispatch with a durable queue and prove restart/recovery semantics |
+| Agent intelligence | Partial | Add evidence-grounded retrieval/synthesis, isolated task context, benchmarked quality gates, and reviewed learning promotion |
 
 ## Recommended completion sequence
 
-1. Validate persistence and backup/restore on the intended private Docker host, including a recovery drill.
-2. Add host-level observability, alerting, and representative load tests.
-3. Add authentication/authorization and TLS ingress, followed by independent security review, before any public exposure.
-4. Select and validate a properly licensed market-data provider before presenting non-synthetic data as current.
-5. Record deployment environment, recovery results, and security review before calling the release complete.
+1. Replace process-local task dispatch with durable queueing and validate worker restart/recovery semantics.
+2. Validate persistence and backup/restore on the intended private Docker host, including a recovery drill.
+3. Add host-level observability, alerting, and representative load tests.
+4. Add authentication/authorization and TLS ingress, followed by independent security review, before any public exposure.
+5. Select and validate a properly licensed market-data provider before presenting non-synthetic data as current.
+6. Implement evidence-grounded specialist research and benchmarked, reviewed learning before describing the system as autonomous or self-learning.
+7. Record deployment environment, recovery results, and security review before calling the release complete.
 
 ## Scope boundary
 
@@ -80,4 +87,4 @@ Not implemented by this update:
 
 Verification:
 - The previous quality-check workflow for commit `1b68619b9f87b7afb2a9c563812f0a5884298451` passed all four jobs.
-- New commits in this four-market update require their own CI run before being considered verified.
+- The 2026-11-16 quality-check workflow for commit `7f56d372862370cb82c0f7cbbc4412b0ee53fa3e` passed all four jobs, including the backend suite, frontend build, Compose integration smoke tests, and dependency audits.

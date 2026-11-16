@@ -34,7 +34,7 @@ class AgentSupervisorTests(unittest.TestCase):
         status = agent_supervisor_status()
         self.assertEqual(status["registered_agent_count"], 550)
         self.assertEqual(status["status_counts"]["queued"], 1)
-        self.assertFalse(status["continuous_daemon"])
+        self.assertEqual(status["continuous_daemon"], "separate_supervisor_process_required")
         self.assertFalse(status["distributed_queue"])
 
     def test_dispatch_executes_bounded_queue_snapshot(self):

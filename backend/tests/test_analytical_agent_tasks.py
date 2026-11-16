@@ -568,3 +568,63 @@ if __name__ == "__main__":
         saved = get_research_task(queued["task_id"])
         self.assertEqual(saved["status"], "completed")
         self.assertEqual(saved["execution_attempts"], 1)
+
+
+class AgentSupervisorPollingContractTests(unittest.TestCase):
+    def test_supervisor_recovers_once_then_dispatches_each_poll_cycle(self):
+        import threading
+        from app.agent_supervisor import run_supervisor
+
+        with patch(
+            "app.agent_supervisor.recover_interrupted_research_tasks",
+            return_value={"requeued_interrupted_count": 2},
+        ) as recover, patch(
+            "app.agent_supervisor.dispatch_queued_research_tasks",
+            side_effect=[
+                {"selected": 2, "dispatched": 2, "status": "completed"},
+                {"selected": 0, "dispatched": 0, "status": "idle"},
+            ],
+        ) as dispatch:
+            result = run_supervisor(
+                threading.Event(), poll_interval_seconds=0, batch_size=12,
+                max_concurrency=3, max_cycles=2,
+            )
+
+        recover.assert_called_once_with()
+        self.assertEqual(dispatch.call_count, 2)
+        dispatch.assert_any_call(limit=12, max_concurrency=3)
+        self.assertEqual(result["cycles"], 2)
+        self.assertEqual(result["recovery"]["requeued_interrupted_count"], 2)
+        self.assertEqual(result["dispatch_results"][0]["dispatched"], 2)
+        self.assertEqual(result["dispatch_results"][1]["status"], "idle")
+
+    def test_supervisor_rejects_unsafe_polling_bounds(self):
+        import threading
+        from app.agent_supervisor import run_supervisor
+
+        with self.assertRaises(ValueError):
+            run_supervisor(threading.Event(), poll_interval_seconds=0, max_cycles=1)
+        with self.assertRaises(ValueError):
+            run_supervisor(threading.Event(), batch_size=551, max_cycles=1)
+        with self.assertRaises(ValueError):
+            run_supervisor(threading.Event(), max_concurrency=17, max_cycles=1)
+
+    def test_supervisor_records_dispatch_error_and_continues(self):
+        import threading
+        from app.agent_supervisor import run_supervisor
+
+        with patch(
+            "app.agent_supervisor.recover_interrupted_research_tasks",
+            return_value={"requeued_interrupted_count": 0},
+        ), patch(
+            "app.agent_supervisor.dispatch_queued_research_tasks",
+            side_effect=[RuntimeError("private detail"), {"selected": 1, "dispatched": 1}],
+        ):
+            result = run_supervisor(
+                threading.Event(), poll_interval_seconds=0, max_cycles=2,
+            )
+
+        self.assertEqual(result["cycles"], 2)
+        self.assertEqual(result["dispatch_results"][0]["status"], "error")
+        self.assertEqual(result["dispatch_results"][0]["error_type"], "RuntimeError")
+        self.assertNotIn("private detail", str(result))

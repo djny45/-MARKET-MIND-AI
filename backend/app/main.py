@@ -26,6 +26,7 @@ from .research_citation_audit import audit_claim_citations
 from .research_benchmark import run_offline_research_benchmark
 from .skill_catalog import list_skills, load_skill, build_skill_protocol
 from .n8n_workflow_validation import validate_n8n_workflow
+from .n8n_workflow_lifecycle import submit_agent_workflow_draft, get_agent_workflow_draft, list_agent_workflow_drafts, record_agent_workflow_review
 from .open_source_intake import build_source_candidate
 from .open_source_license_review import build_license_review_checklist
 from .github_research_discovery import discover_github_repositories
@@ -141,6 +142,17 @@ class WorkflowRequest(BaseModel):
 
 class N8NWorkflowValidationRequest(BaseModel):
  workflow: dict[str, Any]
+
+class N8NWorkflowDraftRequest(BaseModel):
+ agent_id: str = Field(min_length=1, max_length=120)
+ title: str = Field(min_length=1, max_length=120)
+ workflow: dict[str, Any]
+
+
+class N8NWorkflowReviewRequest(BaseModel):
+ reviewer: str = Field(min_length=1, max_length=120)
+ decision: Literal["approve", "reject"]
+ review_note: str = Field(default="", max_length=2000)
 
 
 class ResearchOrchestrationRequest(BaseModel):
@@ -1381,6 +1393,44 @@ def skill_detail(skill_id: str):
   raise HTTPException(status_code=404, detail="Research skill not found") from exc
  except FileNotFoundError as exc:
   raise HTTPException(status_code=404, detail="Research skill file is unavailable") from exc
+
+@app.post("/api/n8n/workflows/drafts")
+def create_n8n_workflow_draft(request: N8NWorkflowDraftRequest):
+ """Accept an agent-authored export, validate it, and queue it for human review."""
+ try:
+  return submit_agent_workflow_draft(request.agent_id, request.title, request.workflow)
+ except ValueError as exc:
+  raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.get("/api/n8n/workflows/drafts")
+def list_n8n_workflow_drafts(status: str | None = None, limit: int = 50):
+ try:
+  return {"drafts": list_agent_workflow_drafts(status=status, limit=limit)}
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/n8n/workflows/drafts/{draft_id}")
+def read_n8n_workflow_draft(draft_id: str):
+ result = get_agent_workflow_draft(draft_id)
+ if result is None:
+  raise HTTPException(status_code=404, detail="n8n workflow draft not found")
+ return result
+
+
+@app.post("/api/n8n/workflows/drafts/{draft_id}/review")
+def review_n8n_workflow_draft(draft_id: str, request: N8NWorkflowReviewRequest):
+ try:
+  result = record_agent_workflow_review(
+   draft_id, request.reviewer, request.decision, request.review_note,
+  )
+ except ValueError as exc:
+  raise HTTPException(status_code=409, detail=str(exc)) from exc
+ if result is None:
+  raise HTTPException(status_code=404, detail="n8n workflow draft not found")
+ return result
+
 
 @app.post("/api/n8n/workflows/validate")
 def validate_n8n_workflow_export(request: N8NWorkflowValidationRequest):

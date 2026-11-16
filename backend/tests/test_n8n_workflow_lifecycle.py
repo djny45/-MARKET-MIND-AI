@@ -49,7 +49,7 @@ class N8NWorkflowAuthoringLifecycleTests(unittest.TestCase):
 
             decision = review_n8n_workflow_draft(
                 created["draft_id"],
-                N8NWorkflowReviewRequest(decision="approve", review_note="Reviewed node scope and connections."),
+                N8NWorkflowReviewRequest(decision="approve", review_note="Reviewed node scope and connections."), credentials=AUTH,
             )
             self.assertEqual(decision["status"], "approved")
             self.assertTrue(decision["reviewer_identity_verified"])
@@ -73,7 +73,7 @@ class N8NWorkflowAuthoringLifecycleTests(unittest.TestCase):
                     agent_id="research-agent-01", title="Unsafe active export", workflow=workflow,
                 ))
             self.assertEqual(raised.exception.status_code, 422)
-            self.assertEqual(list_n8n_workflow_drafts(), {"drafts": []})
+            self.assertEqual(list_n8n_workflow_drafts(credentials=AUTH), {"drafts": []})
 
     def test_review_is_single_decision_and_cannot_be_overwritten(self):
         with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {"MARKET_MIND_DB": os.path.join(tmp, "single-review.db"), **AUTH_ENV}):
@@ -81,8 +81,8 @@ class N8NWorkflowAuthoringLifecycleTests(unittest.TestCase):
                 agent_id="research-agent-02", title="Candidate", workflow=authored_export(),
             ))
             review_n8n_workflow_draft(created["draft_id"], N8NWorkflowReviewRequest(
-                reviewer="reviewer", decision="reject", review_note="Missing owner documentation.",
-            ))
+                decision="reject", review_note="Missing owner documentation.",
+            ), credentials=AUTH)
             with self.assertRaises(HTTPException) as raised:
                 review_n8n_workflow_draft(created["draft_id"], N8NWorkflowReviewRequest(decision="approve"), credentials=AUTH)
             self.assertEqual(raised.exception.status_code, 409)

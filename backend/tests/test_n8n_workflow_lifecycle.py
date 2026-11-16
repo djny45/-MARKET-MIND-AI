@@ -40,7 +40,7 @@ class N8NWorkflowAuthoringLifecycleTests(unittest.TestCase):
             self.assertFalse(created["workflow_activation"])
 
             pending = list_n8n_workflow_drafts(status="pending_human_review")
-            self.assertEqual([item["draft_id"] for item in pending], [created["draft_id"]])
+            self.assertEqual([item["draft_id"] for item in pending["drafts"]], [created["draft_id"]])
 
             decision = review_n8n_workflow_draft(
                 created["draft_id"],

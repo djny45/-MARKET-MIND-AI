@@ -8,13 +8,14 @@ operation. Import requests are one-shot to avoid duplicate workflows after timeo
 """
 from __future__ import annotations
 import hmac
+import hashlib
 import json
 import os
 import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, quote
 from typing import Any
 import httpx
 from fastapi import HTTPException
@@ -127,6 +128,12 @@ def import_approved_workflow(draft_id: str, requested_by: str, *, client: httpx.
         expected_hash = draft["workflow_sha256"]
     # Revalidate immediately before the external side effect and strip metadata not accepted by the public API.
     from .n8n_workflow_validation import validate_n8n_workflow
+    canonical = json.dumps(workflow, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False)
+    if not hmac.compare_digest(hashlib.sha256(canonical.encode("utf-8")).hexdigest(), expected_hash):
+        with _connect() as db:
+            db.execute("UPDATE n8n_workflow_imports SET status=?,error_code=?,updated_at=? WHERE import_id=?",
+                       ("rejected_before_import","workflow_fingerprint_mismatch",_now(),import_id))
+        raise HTTPException(status_code=409, detail="Workflow fingerprint changed; import blocked.")
     validation = validate_n8n_workflow(workflow)
     allowed_node_types = {"n8n-nodes-base.manualTrigger", "n8n-nodes-base.set"}
     nodes = workflow.get("nodes", [])
@@ -164,7 +171,7 @@ def import_approved_workflow(draft_id: str, requested_by: str, *, client: httpx.
         if not isinstance(remote_id, (str, int)) or not str(remote_id).strip():
             raise TimeoutError("n8n response did not include a workflow ID; remote create outcome is uncertain.")
         remote_id = str(remote_id)
-        detail_response = transport.get(api_base + "/workflows/" + remote_id, headers=headers)
+        detail_response = transport.get(api_base + "/workflows/" + quote(remote_id, safe=""), headers=headers)
         if detail_response.status_code != 200:
             raise TimeoutError("n8n workflow was created but inactive state could not be verified.")
         remote_detail = detail_response.json()

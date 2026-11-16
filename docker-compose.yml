@@ -21,11 +21,31 @@ services:
     cap_drop:
       - ALL
 
+  agent-supervisor:
+    build:
+      context: ./backend
+    command: ["python", "-m", "app.analytical_agent_tasks"]
+    environment:
+      MARKET_MIND_DB: /data/market_mind.db
+      AGENT_SUPERVISOR_POLL_SECONDS: "2"
+      AGENT_SUPERVISOR_BATCH_SIZE: "50"
+      AGENT_SUPERVISOR_MAX_CONCURRENCY: "4"
+    volumes:
+      - market_mind_data:/data
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
   frontend:
     build:
       context: ./frontend
-      args:
-        VITE_API_URL: ""
+    args:
+      VITE_API_URL: ""
     depends_on:
       backend:
         condition: service_healthy

@@ -559,3 +559,11 @@ The dashboard is a convenience view over existing append-only experiment records
 ### Verify staging audit export integrity
 
 The staging audit JSON export includes a SHA-256 digest over the canonical bundle fields before the `integrity` object is added. To verify it, remove `integrity`, serialize the remaining JSON using UTF-8, sorted keys, and separators `(",", ":")`, then compute SHA-256. This detects accidental modification; it is **not** a digital signature, source authentication, or proof that the data is true. Exporting is read-only and does not train, deploy, fetch live market data, or trade.
+
+## n8n workflow authoring and human review
+
+- `POST /api/n8n/workflows/generate` — asks the configured shared intelligence core to draft an n8n JSON export from `{agent_id, title, brief}`.
+- Generation is disabled when the shared core is not configured. The generator accepts only built-in manual-trigger and Set-node types, requires `active:false`, rejects credentials and malformed connections, and stores valid drafts in the pending human-review queue.
+- `GET /api/n8n/workflows/drafts?status=pending_human_review` — list pending drafts; `GET /api/n8n/workflows/drafts/{draft_id}` — inspect a workflow and its audit record.
+- `POST /api/n8n/workflows/drafts/{draft_id}/review` — record one approve/reject decision. Reviewer labels are self-reported, not authenticated identities.
+- Approval is an audit decision only. The API does not connect to an n8n instance, import, activate, or execute workflows. Broker execution remains disabled.

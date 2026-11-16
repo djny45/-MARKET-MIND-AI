@@ -28,6 +28,7 @@ from .skill_catalog import list_skills, load_skill, build_skill_protocol
 from .n8n_workflow_validation import validate_n8n_workflow
 from .n8n_workflow_lifecycle import submit_agent_workflow_draft, get_agent_workflow_draft, list_agent_workflow_drafts, record_agent_workflow_review
 from .n8n_workflow_authoring import generate_n8n_workflow
+from .n8n_reviewer_security import REVIEWER_BEARER, ReviewerPrincipal, authenticate_reviewer, require_role, import_approved_workflow, get_import_record
 from .open_source_intake import build_source_candidate
 from .open_source_license_review import build_license_review_checklist
 from .github_research_discovery import discover_github_repositories
@@ -1425,7 +1426,9 @@ def create_n8n_workflow_draft(request: N8NWorkflowDraftRequest):
 
 
 @app.get("/api/n8n/workflows/drafts")
-def list_n8n_workflow_drafts(status: str | None = None, limit: int = 50):
+def list_n8n_workflow_drafts(status: str | None = None, limit: int = 50, credentials=__import__("fastapi").Depends(REVIEWER_BEARER)):
+ principal = authenticate_reviewer(credentials)
+ require_role(principal, "reviewer")
  try:
   return {"drafts": list_agent_workflow_drafts(status=status, limit=limit)}
  except ValueError as exc:
@@ -1433,7 +1436,9 @@ def list_n8n_workflow_drafts(status: str | None = None, limit: int = 50):
 
 
 @app.get("/api/n8n/workflows/drafts/{draft_id}")
-def read_n8n_workflow_draft(draft_id: str):
+def read_n8n_workflow_draft(draft_id: str, credentials=__import__("fastapi").Depends(REVIEWER_BEARER)):
+ principal = authenticate_reviewer(credentials)
+ require_role(principal, "reviewer")
  result = get_agent_workflow_draft(draft_id)
  if result is None:
   raise HTTPException(status_code=404, detail="n8n workflow draft not found")
@@ -1441,10 +1446,12 @@ def read_n8n_workflow_draft(draft_id: str):
 
 
 @app.post("/api/n8n/workflows/drafts/{draft_id}/review")
-def review_n8n_workflow_draft(draft_id: str, request: N8NWorkflowReviewRequest):
+def review_n8n_workflow_draft(draft_id: str, request: N8NWorkflowReviewRequest, credentials=__import__("fastapi").Depends(REVIEWER_BEARER)):
+ principal = authenticate_reviewer(credentials)
+ require_role(principal, "reviewer")
  try:
   result = record_agent_workflow_review(
-   draft_id, request.reviewer, request.decision, request.review_note,
+   draft_id, principal.reviewer_id, request.decision, request.review_note,
   )
  except ValueError as exc:
   raise HTTPException(status_code=409, detail=str(exc)) from exc
@@ -1453,6 +1460,21 @@ def review_n8n_workflow_draft(draft_id: str, request: N8NWorkflowReviewRequest):
  return result
 
 
+@app.post("/api/n8n/workflows/drafts/{draft_id}/import")
+def import_n8n_workflow_draft(draft_id: str, credentials=__import__("fastapi").Depends(REVIEWER_BEARER)):
+ """Explicit importer-role action; creates the workflow inactive and never activates or executes it."""
+ principal = authenticate_reviewer(credentials)
+ require_role(principal, "importer")
+ return import_approved_workflow(draft_id, principal.reviewer_id)
+
+@app.get("/api/n8n/workflows/drafts/{draft_id}/import")
+def read_n8n_workflow_import(draft_id: str, credentials=__import__("fastapi").Depends(REVIEWER_BEARER)):
+ principal = authenticate_reviewer(credentials)
+ require_role(principal, "reviewer")
+ result = get_import_record(draft_id)
+ if result is None:
+  raise HTTPException(status_code=404, detail="n8n workflow import record not found")
+ return result
 @app.post("/api/n8n/workflows/validate")
 def validate_n8n_workflow_export(request: N8NWorkflowValidationRequest):
  """Read-only structural validation; never imports, activates, or executes n8n workflows."""

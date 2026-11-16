@@ -567,3 +567,14 @@ The staging audit JSON export includes a SHA-256 digest over the canonical bundl
 - `GET /api/n8n/workflows/drafts?status=pending_human_review` — list pending drafts; `GET /api/n8n/workflows/drafts/{draft_id}` — inspect a workflow and its audit record.
 - `POST /api/n8n/workflows/drafts/{draft_id}/review` — record one approve/reject decision. Reviewer labels are self-reported, not authenticated identities.
 - Approval is an audit decision only. The API does not connect to an n8n instance, import, activate, or execute workflows. Broker execution remains disabled.
+
+## Authenticated n8n review and controlled import
+
+- Configure `N8N_REVIEWER_TOKENS_JSON` as a secret JSON object keyed by reviewer ID. Each entry contains a unique high-entropy `token` (at least 32 characters) and `roles` containing `reviewer`, `importer`, or both. Never commit tokens.
+- Reviewer bearer tokens are required to list/read drafts and record approve/reject decisions. The authenticated reviewer ID is stored in the immutable review record; request bodies cannot spoof it.
+- Configure `N8N_BASE_URL` and `N8N_API_KEY` as server-side secrets. Use an n8n API key with only `workflow:create` and `workflow:read` scopes where supported.
+- `POST /api/n8n/workflows/drafts/{draft_id}/import` requires an importer-role token and is a separate, explicit operation. Only approved drafts can be imported. The service creates a workflow using the n8n public API, then reads it back and requires `active:false` before reporting `imported_inactive`.
+- Each draft has at most one import attempt. A timeout or uncertain remote result is recorded for manual reconciliation; the endpoint will not automatically retry and risk duplicate workflows.
+- No activation, publish, execution, credential creation, or broker endpoint is implemented. n8n API authentication uses the `X-N8N-API-KEY` header.
+
+For local development, keep reviewer tokens and n8n API credentials out of `.env` files committed to Git. Supply them through your deployment secret manager.

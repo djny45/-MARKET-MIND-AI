@@ -936,3 +936,106 @@ def dispatch_queued_research_tasks(limit: int = 50, max_concurrency: int = 4) ->
         "dispatch_mode": "bounded_process_local_queue_snapshot",
         "note": "Tasks are persisted in SQLite; dispatch is explicit and process-local, not a continuously running distributed supervisor.",
     }
+
+
+
+def run_supervisor(
+    stop_event,
+    poll_interval_seconds: float = 2.0,
+    batch_size: int = 50,
+    max_concurrency: int = 4,
+    max_cycles: int | None = None,
+) -> dict:
+    """Continuously dispatch persisted SQLite tasks until the stop event is set.
+
+    Run this in a dedicated process/container sharing MARKET_MIND_DB with the API.
+    SQLite task claims and execution-token fencing provide cross-process safety;
+    this loop supplies polling and restart recovery, not distributed broker semantics.
+    """
+    import math
+
+    if (isinstance(poll_interval_seconds, bool)
+            or not isinstance(poll_interval_seconds, (int, float))
+            or not math.isfinite(poll_interval_seconds)
+            or poll_interval_seconds <= 0):
+        raise ValueError("poll_interval_seconds must be a finite positive number")
+    if isinstance(batch_size, bool) or not isinstance(batch_size, int) or not 1 <= batch_size <= 550:
+        raise ValueError("batch_size must be an integer between 1 and 550")
+    if isinstance(max_concurrency, bool) or not isinstance(max_concurrency, int) or not 1 <= max_concurrency <= 16:
+        raise ValueError("max_concurrency must be an integer between 1 and 16")
+    if max_cycles is not None and (
+        isinstance(max_cycles, bool) or not isinstance(max_cycles, int) or max_cycles < 1
+    ):
+        raise ValueError("max_cycles must be a positive integer or None")
+
+    try:
+        recovery = recover_interrupted_research_tasks()
+    except Exception as exc:
+        return {
+            "status": "recovery_failed",
+            "error_type": type(exc).__name__,
+            "cycles": 0,
+            "dispatch_results": [],
+        }
+
+    dispatch_results = []
+    cycles = 0
+    while not stop_event.is_set() and (max_cycles is None or cycles < max_cycles):
+        try:
+            result = dispatch_queued_research_tasks(
+                limit=batch_size, max_concurrency=max_concurrency
+            )
+            dispatch_results.append(result)
+        except Exception as exc:
+            # Do not terminate the supervisor because one polling cycle failed.
+            dispatch_results.append({
+                "status": "error",
+                "error_type": type(exc).__name__,
+            })
+        cycles += 1
+        if max_cycles is not None and cycles >= max_cycles:
+            break
+        stop_event.wait(float(poll_interval_seconds))
+
+    return {
+        "status": "stopped" if stop_event.is_set() else "cycle_limit_reached",
+        "recovery": recovery,
+        "cycles": cycles,
+        "dispatch_results": dispatch_results,
+        "dispatch_mode": "persistent_sqlite_polling_supervisor",
+        "queue_storage": "shared_sqlite_database",
+    }
+
+
+def _supervisor_main() -> None:
+    """CLI entry point for the dedicated Compose supervisor service."""
+    import argparse
+    import logging
+    import signal
+    import threading
+
+    parser = argparse.ArgumentParser(description="MARKET-MIND persistent research task supervisor")
+    parser.add_argument("--poll-seconds", type=float, default=float(os.getenv("AGENT_SUPERVISOR_POLL_SECONDS", "2")))
+    parser.add_argument("--batch-size", type=int, default=int(os.getenv("AGENT_SUPERVISOR_BATCH_SIZE", "50")))
+    parser.add_argument("--max-concurrency", type=int, default=int(os.getenv("AGENT_SUPERVISOR_MAX_CONCURRENCY", "4")))
+    args = parser.parse_args()
+
+    logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
+    stop_event = threading.Event()
+    signal.signal(signal.SIGTERM, lambda *_: stop_event.set())
+    signal.signal(signal.SIGINT, lambda *_: stop_event.set())
+    logging.info("Starting persistent SQLite research-task supervisor")
+    result = run_supervisor(
+        stop_event,
+        poll_interval_seconds=args.poll_seconds,
+        batch_size=args.batch_size,
+        max_concurrency=args.max_concurrency,
+    )
+    if result.get("status") == "recovery_failed":
+        logging.error("Supervisor startup recovery failed: %s", result.get("error_type"))
+        raise SystemExit(1)
+    logging.info("Supervisor stopped after %s polling cycles", result.get("cycles", 0))
+
+
+if __name__ == "__main__":
+    _supervisor_main()

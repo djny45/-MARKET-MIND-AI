@@ -27,6 +27,7 @@ from .research_benchmark import run_offline_research_benchmark
 from .skill_catalog import list_skills, load_skill, build_skill_protocol
 from .n8n_workflow_validation import validate_n8n_workflow
 from .n8n_workflow_lifecycle import submit_agent_workflow_draft, get_agent_workflow_draft, list_agent_workflow_drafts, record_agent_workflow_review
+from .n8n_workflow_authoring import generate_n8n_workflow
 from .open_source_intake import build_source_candidate
 from .open_source_license_review import build_license_review_checklist
 from .github_research_discovery import discover_github_repositories
@@ -147,6 +148,12 @@ class N8NWorkflowDraftRequest(BaseModel):
  agent_id: str = Field(min_length=1, max_length=120)
  title: str = Field(min_length=1, max_length=120)
  workflow: dict[str, Any]
+
+
+class N8NWorkflowGenerateRequest(BaseModel):
+ agent_id: str = Field(default="shared-workflow-author", min_length=1, max_length=120)
+ title: str = Field(min_length=1, max_length=120)
+ brief: str = Field(min_length=10, max_length=4000)
 
 
 class N8NWorkflowReviewRequest(BaseModel):
@@ -1393,6 +1400,20 @@ def skill_detail(skill_id: str):
   raise HTTPException(status_code=404, detail="Research skill not found") from exc
  except FileNotFoundError as exc:
   raise HTTPException(status_code=404, detail="Research skill file is unavailable") from exc
+
+@app.post("/api/n8n/workflows/generate")
+def generate_n8n_workflow_draft(request: N8NWorkflowGenerateRequest):
+ """Generate an inactive n8n export with the shared AI core and queue human review."""
+ try:
+  result = generate_n8n_workflow(request.agent_id, request.title, request.brief)
+ except ValueError as exc:
+  raise HTTPException(status_code=422, detail=str(exc)) from exc
+ if result.get("status") == "not_configured":
+  raise HTTPException(status_code=503, detail="Shared intelligence core is not configured.")
+ if result.get("status") != "queued_for_review":
+  raise HTTPException(status_code=502, detail=result.get("reason", "Workflow generation failed safely."))
+ return result
+
 
 @app.post("/api/n8n/workflows/drafts")
 def create_n8n_workflow_draft(request: N8NWorkflowDraftRequest):

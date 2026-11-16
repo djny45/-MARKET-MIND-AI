@@ -1,7 +1,12 @@
 import json, os, tempfile, unittest
 from unittest.mock import patch
+from fastapi.security import HTTPAuthorizationCredentials
 from app.n8n_workflow_authoring import generate_n8n_workflow
 from app import main as api
+
+AUTH_TOKEN = "reviewer-token-for-authoring-tests-000000000000000000000000"
+AUTH_ENV = {"N8N_REVIEWER_TOKENS_JSON": json.dumps({"human-reviewer": {"token": AUTH_TOKEN, "roles": ["reviewer"]}})}
+AUTH = HTTPAuthorizationCredentials(scheme="Bearer", credentials=AUTH_TOKEN)
 
 def export(active=False):
     return {"name":"Generated intake","active":active,
@@ -29,16 +34,16 @@ class WorkflowGenerationTests(unittest.TestCase):
             self.assertEqual(result["status"],"generation_invalid_output")
     def test_api_generate_to_validate_and_human_review_integration(self):
         response={"status":"completed","core_id":"shared_central_intelligence","provider":"ollama_local","model":"phi3","summary":json.dumps(export())}
-        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ,{"MARKET_MIND_DB":os.path.join(tmp,"integration.db")}):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ,{"MARKET_MIND_DB":os.path.join(tmp,"integration.db"), **AUTH_ENV}):
             real_generate=generate_n8n_workflow
             with patch.object(api,"generate_n8n_workflow",side_effect=lambda agent,title,brief: real_generate(agent,title,brief,synthesize=lambda _:response)):
                 generated=api.generate_n8n_workflow_draft(api.N8NWorkflowGenerateRequest(agent_id="api-author",title="API intake",brief="Create a manual research intake workflow."))
             self.assertEqual(generated["status"],"queued_for_review")
-            pending=api.list_n8n_workflow_drafts(status="pending_human_review")
+            pending=api.list_n8n_workflow_drafts(status="pending_human_review", credentials=AUTH)
             self.assertEqual(len(pending["drafts"]),1)
-            reviewed=api.review_n8n_workflow_draft(generated["draft_id"],api.N8NWorkflowReviewRequest(reviewer="human-reviewer",decision="approve",review_note="Reviewed generated nodes."))
+            reviewed=api.review_n8n_workflow_draft(generated["draft_id"],api.N8NWorkflowReviewRequest(decision="approve",review_note="Reviewed generated nodes."), credentials=AUTH)
             self.assertEqual(reviewed["status"],"approved")
-            stored=api.read_n8n_workflow_draft(generated["draft_id"])
+            stored=api.read_n8n_workflow_draft(generated["draft_id"], credentials=AUTH)
             self.assertEqual(stored["status"],"approved")
             self.assertEqual(stored["review"]["decision"],"approve")
             self.assertFalse(stored["workflow_execution"])

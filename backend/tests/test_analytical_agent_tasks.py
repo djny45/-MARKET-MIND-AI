@@ -532,3 +532,39 @@ if __name__ == "__main__":
         self.assertEqual(result["status"], "failed")
         self.assertEqual(result["error_type"], "RuntimeError")
         self.assertNotIn("secret database detail", str(result))
+
+
+    def test_concurrent_duplicate_dispatch_claims_and_executes_exactly_once(self):
+        from concurrent.futures import ThreadPoolExecutor
+        from threading import Event
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, execute_queued_research_task,
+        )
+
+        queued = enqueue_research_task("worker_032", "concurrent single-claim regression")
+        synthesis_started = Event()
+        allow_synthesis_to_finish = Event()
+        synthesis_calls = []
+
+        def slow_synthesis(payload):
+            synthesis_calls.append(payload)
+            synthesis_started.set()
+            if not allow_synthesis_to_finish.wait(timeout=5):
+                raise TimeoutError("test did not release the synthesis gate")
+            return {"status": "completed", "summary": "bounded test result"}
+
+        with patch("app.analytical_agent_tasks.synthesize_research", side_effect=slow_synthesis):
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                first = pool.submit(execute_queued_research_task, queued["task_id"])
+                self.assertTrue(synthesis_started.wait(timeout=5))
+                second = pool.submit(execute_queued_research_task, queued["task_id"])
+                second_result = second.result(timeout=5)
+                allow_synthesis_to_finish.set()
+                first_result = first.result(timeout=5)
+
+        self.assertTrue(first_result)
+        self.assertFalse(second_result)
+        self.assertEqual(len(synthesis_calls), 1)
+        saved = get_research_task(queued["task_id"])
+        self.assertEqual(saved["status"], "completed")
+        self.assertEqual(saved["execution_attempts"], 1)

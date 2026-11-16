@@ -25,6 +25,7 @@ from .research_evidence_audit import audit_evidence
 from .research_citation_audit import audit_claim_citations
 from .research_benchmark import run_offline_research_benchmark
 from .skill_catalog import list_skills, load_skill, build_skill_protocol
+from .n8n_workflow_validation import validate_n8n_workflow
 from .open_source_intake import build_source_candidate
 from .open_source_license_review import build_license_review_checklist
 from .github_research_discovery import discover_github_repositories
@@ -137,6 +138,10 @@ class WorkflowRequest(BaseModel):
  max_workers: int = Field(default=1, ge=1, le=16)
  max_retries: int = Field(default=0, ge=0, le=3)
  skill_ids: list[str] = Field(default_factory=list, max_length=10)
+
+class N8NWorkflowValidationRequest(BaseModel):
+ workflow: dict[str, Any]
+
 
 class ResearchOrchestrationRequest(BaseModel):
  nodes: list[dict[str, Any]] = Field(min_length=1, max_length=250)
@@ -1376,6 +1381,18 @@ def skill_detail(skill_id: str):
   raise HTTPException(status_code=404, detail="Research skill not found") from exc
  except FileNotFoundError as exc:
   raise HTTPException(status_code=404, detail="Research skill file is unavailable") from exc
+
+@app.post("/api/n8n/workflows/validate")
+def validate_n8n_workflow_export(request: N8NWorkflowValidationRequest):
+ """Read-only structural validation; never imports, activates, or executes n8n workflows."""
+ result = validate_n8n_workflow(request.workflow)
+ return {
+  **result,
+  "workflow_activation": False,
+  "workflow_execution": False,
+  "broker_execution": False,
+ }
+
 
 @app.post("/api/agents/{worker_id}/landing-page")
 def create_agent_landing_page(worker_id: str, request: AgentLandingPageRequest):

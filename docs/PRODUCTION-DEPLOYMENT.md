@@ -16,7 +16,7 @@ docker compose up --build -d
 docker compose ps
 ```
 
-Open http://127.0.0.1:8080. The frontend proxies `/api/` requests to the internal API service. The API has no host-published port. Compose waits for the API readiness health check before starting the frontend.
+Open http://127.0.0.1:8080. The frontend proxies `/api/` requests to the internal API service. The API has no host-published port. Compose waits for the API readiness health check before starting the frontend. Compose also starts `agent-supervisor`, a separate backend-image process that polls the shared SQLite queue and executes bounded batches.
 
 Stop the stack:
 
@@ -25,6 +25,10 @@ docker compose down
 ```
 
 The named `market_mind_data` volume persists SQLite data when containers are recreated. Do not run `docker compose down -v` unless you intentionally want to delete that volume.
+
+## Persistent research-task supervisor
+
+The `agent-supervisor` service shares the `market_mind_data` volume with the API. Queue submissions are committed to SQLite before returning; the supervisor polls every 2 seconds by default, recovers stale `running` tasks at startup after a 15-minute grace period, and dispatches up to 50 queued tasks per cycle with a maximum concurrency of 4. Tune with `AGENT_SUPERVISOR_POLL_SECONDS`, `AGENT_SUPERVISOR_BATCH_SIZE`, and `AGENT_SUPERVISOR_MAX_CONCURRENCY` in `docker-compose.yml`. The API no longer schedules queued work in its own process. Atomic SQLite claims and execution-token fencing prevent duplicate workers from finalizing the same attempt. This is durable single-host queueing on the shared SQLite volume, not a distributed broker or multi-host queue. The API status endpoint reports that a separate supervisor is required; it does not independently attest to the supervisor container's health. Check `docker compose ps` and `docker compose logs agent-supervisor` for process status.
 
 ## Security boundary
 
@@ -41,7 +45,7 @@ No provider credentials are required. The built-in market-data adapter is synthe
 docker compose ps
 
 # Recent service logs
-docker compose logs --tail=200 backend frontend
+docker compose logs --tail=200 backend agent-supervisor frontend
 
 # Current container resource use
 docker stats --no-stream

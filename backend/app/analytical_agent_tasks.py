@@ -934,8 +934,8 @@ def dispatch_queued_research_tasks(limit: int = 50, max_concurrency: int = 4) ->
         "task_ids": task_ids,
         "dispatch_error_count": len(dispatch_errors),
         "dispatch_errors": dispatch_errors,
-        "dispatch_mode": "bounded_process_local_queue_snapshot",
-        "note": "Tasks are persisted in SQLite; dispatch is explicit and process-local, not a continuously running distributed supervisor.",
+        "dispatch_mode": "bounded_sqlite_queue_snapshot",
+        "note": "Tasks are persisted in the shared SQLite queue; this bounded dispatch runs in the supervisor process. The queue is single-host, not a distributed broker.",
     }
 
 

@@ -573,13 +573,13 @@ if __name__ == "__main__":
 class AgentSupervisorPollingContractTests(unittest.TestCase):
     def test_supervisor_recovers_once_then_dispatches_each_poll_cycle(self):
         import threading
-        from app.agent_supervisor import run_supervisor
+        from app.analytical_agent_tasks import run_supervisor
 
         with patch(
-            "app.agent_supervisor.recover_interrupted_research_tasks",
+            "app.analytical_agent_tasks.recover_interrupted_research_tasks",
             return_value={"requeued_interrupted_count": 2},
         ) as recover, patch(
-            "app.agent_supervisor.dispatch_queued_research_tasks",
+            "app.analytical_agent_tasks.dispatch_queued_research_tasks",
             side_effect=[
                 {"selected": 2, "dispatched": 2, "status": "completed"},
                 {"selected": 0, "dispatched": 0, "status": "idle"},
@@ -600,7 +600,7 @@ class AgentSupervisorPollingContractTests(unittest.TestCase):
 
     def test_supervisor_rejects_unsafe_polling_bounds(self):
         import threading
-        from app.agent_supervisor import run_supervisor
+        from app.analytical_agent_tasks import run_supervisor
 
         with self.assertRaises(ValueError):
             run_supervisor(threading.Event(), poll_interval_seconds=0, max_cycles=1)
@@ -611,13 +611,13 @@ class AgentSupervisorPollingContractTests(unittest.TestCase):
 
     def test_supervisor_records_dispatch_error_and_continues(self):
         import threading
-        from app.agent_supervisor import run_supervisor
+        from app.analytical_agent_tasks import run_supervisor
 
         with patch(
-            "app.agent_supervisor.recover_interrupted_research_tasks",
+            "app.analytical_agent_tasks.recover_interrupted_research_tasks",
             return_value={"requeued_interrupted_count": 0},
         ), patch(
-            "app.agent_supervisor.dispatch_queued_research_tasks",
+            "app.analytical_agent_tasks.dispatch_queued_research_tasks",
             side_effect=[RuntimeError("private detail"), {"selected": 1, "dispatched": 1}],
         ):
             result = run_supervisor(

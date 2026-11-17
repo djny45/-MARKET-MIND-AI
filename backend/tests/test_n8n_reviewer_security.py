@@ -89,4 +89,43 @@ class N8NImportTests(unittest.TestCase):
                 self.assertEqual(get_import_record(draft_id)["status"],"imported_inactive_state_unverified")
             client.close()
 
+
+    def test_concurrent_import_attempts_are_serialized_and_only_one_reaches_n8n(self):
+        import threading
+        from concurrent.futures import ThreadPoolExecutor
+
+        with tempfile.TemporaryDirectory() as tmp:
+            db=os.path.join(tmp,"concurrent.sqlite")
+            draft_id=self._approved_draft(db)
+            post_started=threading.Event()
+            release_post=threading.Event()
+            calls=[]
+            def handler(request):
+                calls.append((request.method,request.url.path))
+                if request.method=="POST":
+                    post_started.set()
+                    if not release_post.wait(timeout=5):
+                        raise TimeoutError("test did not release mocked n8n request")
+                    return httpx.Response(201,json={"id":"remote-concurrent","name":"Manual import test"})
+                return httpx.Response(200,json={"id":"remote-concurrent","name":"Manual import test","active":False})
+
+            client=httpx.Client(transport=httpx.MockTransport(handler))
+            env={"MARKET_MIND_DB":db,"N8N_BASE_URL":"https://n8n.example.test","N8N_API_KEY":"secret-test-key"}
+            try:
+                with patch.dict(os.environ,env):
+                    with ThreadPoolExecutor(max_workers=1) as pool:
+                        first=pool.submit(import_approved_workflow,draft_id,"importer-a",client=client)
+                        self.assertTrue(post_started.wait(timeout=5),"first import never reached n8n")
+                        with self.assertRaises(HTTPException) as err:
+                            import_approved_workflow(draft_id,"importer-b",client=client)
+                        self.assertEqual(err.exception.status_code,409)
+                        release_post.set()
+                        result=first.result(timeout=5)
+                self.assertEqual(result["status"],"imported_inactive")
+                self.assertEqual([method for method,_ in calls],["POST","GET"])
+                self.assertEqual(get_import_record(draft_id)["status"],"imported_inactive")
+            finally:
+                release_post.set()
+                client.close()
+
 if __name__=="__main__": unittest.main()

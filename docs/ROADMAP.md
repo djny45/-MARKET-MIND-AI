@@ -47,7 +47,8 @@ This roadmap is a plan, not a claim that features already exist. Mark an item co
 - [x] Implement initial deterministic shared-core orchestration API with worker result aggregation, contract references, registry integrity gate and descriptive report; model-backed inference and source-provenance attachment remain pending.
 - [x] Add initial shared-core worker registry and deterministic routing.
 - [ ] Add worker registry versioning and broader evaluation.
-- [x] Add registry v1.0.0 manifest, SHA-256 digest and 550-profile/20-department integrity checks; deeper worker behavior evaluations remain pending.
+- [x] Add registry v1.0.0 manifest, SHA-256 digest and 550-profile/20-department integrity checks.
+- [x] Add per-worker lexical skill-alignment screening for triage, with explicit non-semantic limitations; human review and task-level benchmark validation remain pending.
 - [x] Add append-only worker-scoped evidence memory with provenance and quality labels.
 - [x] Add prototype evidence-aware review gate; source IDs must match a supplied registry. Reviewer authentication and persistent audit remain pending.
 - [x] Add conservative evidence traceability audit: unknown reference reporting, URL/declared-group source grouping, and explicitly keyed stance-disagreement candidates with human-review status. This is heuristic metadata analysis, not source authenticity, entailment, or truth verification.

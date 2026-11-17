@@ -27,6 +27,19 @@ class AgentSupervisorRouteTests(unittest.TestCase):
         self.assertEqual(result["continuous_daemon"], "separate_supervisor_process_required")
         self.assertFalse(result["distributed_queue"])
 
+    def test_status_route_exposes_supervisor_heartbeat_health(self):
+        import threading
+        from app.analytical_agent_tasks import run_supervisor
+        from app.main import analytical_agent_supervisor_status
+        run_supervisor(
+            threading.Event(), poll_interval_seconds=0.01,
+            batch_size=1, max_concurrency=1, max_cycles=1,
+        )
+        result = analytical_agent_supervisor_status()
+        self.assertEqual(result["supervisor_health"], "stopped")
+        self.assertEqual(result["supervisor_heartbeat"]["state"], "stopped")
+        self.assertIn("heartbeat_age_seconds", result["supervisor_heartbeat"])
+
     def test_dispatch_route_rejects_out_of_range_limits(self):
         from app.main import AgentSupervisorDispatchRequest
 

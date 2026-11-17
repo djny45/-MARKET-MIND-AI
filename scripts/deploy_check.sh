@@ -79,6 +79,16 @@ if any(bindings.values()):
 PY
 }
 
+agent_supervisor_running() {
+  local container
+  container="$(container_id agent-supervisor)"
+  [[ -n "$container" ]] || return 1
+  [[ "$(docker inspect "$container" --format '{{.State.Running}}')" == "true" ]]
+}
+sqlite_integrity_ok() {
+  docker compose exec -T backend python -c "import sqlite3; c=sqlite3.connect('/data/market_mind.db'); result=c.execute('PRAGMA integrity_check').fetchone()[0]; c.close(); raise SystemExit(0 if result == 'ok' else 1)"
+}
+
 echo "MARKET-MIND-AI deployment verification"
 command -v docker >/dev/null 2>&1 || { echo "FAIL  Docker CLI missing"; exit 2; }
 command -v curl >/dev/null 2>&1 || { echo "FAIL  curl missing"; exit 2; }
@@ -97,6 +107,8 @@ check "Backend readiness endpoint" wait_http "http://127.0.0.1:8080/api/ready" 3
 check "Frontend responds" wait_http "http://127.0.0.1:8080/" 10
 check "Backend has no host-published ports" backend_has_no_published_ports
 check "Frontend binds only to loopback" is_loopback_binding frontend
+check "Agent supervisor process is running" agent_supervisor_running
+check "Persistent SQLite database integrity" sqlite_integrity_ok
 
 if (( WITH_N8N )); then
   check "n8n health endpoint" wait_http "http://127.0.0.1:5678/healthz" 45

@@ -90,6 +90,32 @@ class N8NImportTests(unittest.TestCase):
             client.close()
 
 
+    def test_timeout_records_unknown_outcome_and_blocks_automatic_retry(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            db=os.path.join(tmp,"timeout.sqlite")
+            draft_id=self._approved_draft(db)
+            calls=[]
+            def handler(request):
+                calls.append(request.method)
+                raise httpx.ReadTimeout("simulated response timeout",request=request)
+
+            client=httpx.Client(transport=httpx.MockTransport(handler))
+            env={"MARKET_MIND_DB":db,"N8N_BASE_URL":"https://n8n.example.test","N8N_API_KEY":"secret-test-key"}
+            try:
+                with patch.dict(os.environ,env):
+                    with self.assertRaises(HTTPException) as err:
+                        import_approved_workflow(draft_id,"importer-a",client=client)
+                    self.assertEqual(err.exception.status_code,502)
+                    record=get_import_record(draft_id)
+                    self.assertEqual(record["status"],"outcome_unknown")
+                    self.assertEqual(record["error_code"],"ReadTimeout")
+                    with self.assertRaises(HTTPException) as retry:
+                        import_approved_workflow(draft_id,"importer-a",client=client)
+                    self.assertEqual(retry.exception.status_code,409)
+                self.assertEqual(calls,["POST"])
+            finally:
+                client.close()
+
     def test_concurrent_import_attempts_are_serialized_and_only_one_reaches_n8n(self):
         import threading
         from concurrent.futures import ThreadPoolExecutor

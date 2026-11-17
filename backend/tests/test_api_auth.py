@@ -55,6 +55,41 @@ class ResearchAPIAuthMiddlewareTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(result["status"], 204)
 
+    async def test_duplicate_authorization_headers_are_rejected(self):
+        token = "s" * 48
+        result = await self._call(
+            headers=[
+                (b"authorization", f"Bearer {token}".encode()),
+                (b"authorization", b"Bearer another-token"),
+            ],
+            env={"API_AUTH_REQUIRED": "true", "API_AUTH_TOKEN": token},
+        )
+        self.assertEqual(result["status"], 401)
+
+    async def test_malformed_or_whitespace_padded_bearer_values_are_rejected(self):
+        token = "s" * 48
+        env = {"API_AUTH_REQUIRED": "true", "API_AUTH_TOKEN": token}
+        malformed_values = [
+            b"Basic " + token.encode(),
+            b"Bearer",
+            b"Bearer " + token.encode() + b" trailing",
+            b"Bearer  " + token.encode(),
+        ]
+        for value in malformed_values:
+            with self.subTest(value=value):
+                result = await self._call(
+                    headers=[(b"authorization", value)], env=env
+                )
+                self.assertEqual(result["status"], 401)
+
+    async def test_bearer_scheme_is_case_insensitive(self):
+        token = "s" * 48
+        result = await self._call(
+            headers=[(b"authorization", f"bEaReR {token}".encode())],
+            env={"API_AUTH_REQUIRED": "true", "API_AUTH_TOKEN": token},
+        )
+        self.assertEqual(result["status"], 204)
+
     async def test_health_readiness_and_cors_preflight_are_exempt(self):
         env = {"API_AUTH_REQUIRED": "true", "API_AUTH_TOKEN": "s" * 48}
         health = await self._call(path="/api/health", env=env)

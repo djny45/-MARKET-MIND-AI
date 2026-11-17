@@ -33,16 +33,16 @@ python -m pip install -r backend/requirements.txt
 ```
 
 The checked-in launch configurations are:
-- Claude Code: root `.mcp.json` (also discoverable through Claude Code's project MCP configuration).
-- GitHub Copilot: root `.mcp.json` in the native portable `mcpServers` format. Workspace-root discovery may require the Copilot workspace-root configuration setting; alternatively add the same server entry to the Copilot user configuration.
-- Cursor: `.cursor/mcp.json`.
-- Codex: `.codex/config.toml` (project-scoped settings are loaded only after the repository is trusted).
+- Claude Code: root `.mcp.json`, the project-scoped MCP configuration.
+- GitHub Copilot: root `.mcp.json`, the portable workspace-root format. Copilot's workspace-root configuration can be managed through its MCP Servers customization; the experimental workspace-root setting affects whether the guided Add Server flow offers this location.
+- Cursor: `.cursor/mcp.json`, the documented project-specific configuration location.
+- Codex: `.codex/config.toml`, the project-scoped configuration (Codex loads it only after the repository is trusted).
 
 The root `.mcp.json` intentionally omits `cwd` because Copilot's workspace-root portable configuration does not expose a working-directory field. The server resolves its own backend import path relative to the script, so it can start from the workspace root. Cursor and Codex configurations set the working directory explicitly. These launch the same `backend/app/mcp_server.py` process over stdio.
 
 If your Python executable is named `python3` (or `py` on Windows), change only the `command` value in the client configuration. Install the backend dependencies in the same environment where the harness runs. For remote/SSH/dev-container harnesses, install Python dependencies in that remote environment too. Restart/reload the harness and verify that it discovers the four tools; configuration presence alone does not prove the host can launch the process.
 
-Official setup references: [Claude Code MCP](https://docs.anthropic.com/en/docs/claude-code/mcp), [VS Code/Copilot MCP configuration](https://code.visualstudio.com/docs/agents/reference/mcp-configuration), and [Codex MCP configuration](https://learn.chatgpt.com/docs/extend/mcp?surface=cli).
+Official setup references: [Claude Code MCP](https://docs.anthropic.com/en/docs/claude-code/mcp), [VS Code/Copilot MCP configuration](https://code.visualstudio.com/docs/agents/reference/mcp-configuration), [Cursor MCP configuration](https://cursor.com/docs/mcp), and [Codex project configuration](https://learn.chatgpt.com/docs/config-file/config-basic).
 
 The server is local to the coding host; it is not a remotely hosted MCP endpoint. The tools do not have repository-write, network-fetch, n8n-import, workflow activation/execution, or brokerage capabilities. Tool discovery is not proof that an n8n instance or live market-data provider is configured. Do not add secrets to MCP configuration.
 

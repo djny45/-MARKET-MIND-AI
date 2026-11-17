@@ -48,5 +48,5 @@ except (OSError, ValueError, KeyError, TypeError) as exc:
     errors.append(f"Invalid native MCP client configuration: {type(exc).__name__}")
 
 if errors:
-    raise SystemExit("\\n".join(errors))
+    raise SystemExit("\n".join(errors))
 print(f"Harness adapter check passed: {len(REQUIRED)} files and 3 MCP configs")

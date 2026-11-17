@@ -13,6 +13,7 @@ import math
 import time
 import urllib.error
 import urllib.request
+from urllib.parse import urlsplit
 from collections import Counter
 
 
@@ -75,7 +76,7 @@ def main() -> int:
     error_rate = error_count / args.requests
     p95 = percentile(latencies, 0.95)
     report = {
-        "target_path": urllib.request.urlparse(args.url).path if hasattr(urllib.request, "urlparse") else args.url.split("?", 1)[0],
+        "target_path": urlsplit(args.url).path,
         "requests": args.requests,
         "concurrency": args.concurrency,
         "elapsed_seconds": round(elapsed, 3),

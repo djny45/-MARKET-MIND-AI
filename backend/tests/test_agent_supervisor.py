@@ -86,6 +86,11 @@ class AgentSupervisorTests(unittest.TestCase):
     def test_stale_task_recovers_across_real_process_restart(self):
         # Process one persists a running task and exits, releasing every SQLite
         # connection. Process two simulates supervisor startup recovery.
+        child_env = os.environ.copy()
+        backend_path = str(__import__("pathlib").Path(__file__).resolve().parents[1])
+        child_env["PYTHONPATH"] = os.pathsep.join(
+            item for item in (backend_path, child_env.get("PYTHONPATH", "")) if item
+        )
         create_code = """
 import json, os, sqlite3
 from app.analytical_agent_tasks import enqueue_research_task
@@ -99,7 +104,7 @@ print(json.dumps(task))
 """
         created = subprocess.check_output(
             [sys.executable, "-c", create_code],
-            env=os.environ.copy(),
+            env=child_env,
             text=True,
         )
         task_id = json.loads(created)["task_id"]
@@ -113,7 +118,7 @@ print(json.dumps({"recovery": recovery, "status": task["status"]}))
 """
         recovered = subprocess.check_output(
             [sys.executable, "-c", recover_code, task_id],
-            env=os.environ.copy(),
+            env=child_env,
             text=True,
         )
         result = json.loads(recovered)

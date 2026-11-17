@@ -114,7 +114,7 @@ Implemented on the current default branch:
 
 Verification:
 - Workflow run [44053846569](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/44053846569) passed all five CI jobs, including backend tests, frontend build, dependency audit, Trivy scan, and Docker Compose integration (including n8n health/network and deployment checks).
-- The lexical alignment change was included in run [44081788224](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/44081788224), where the backend job failed at test-module import because of malformed continuation characters in two new test context-manager lines. Those lines were fixed in commit `7d8e1a34583a4dea5ef944c9f5a2eaa278da956c`; a fresh CI run has not yet verified the fix.
+- The lexical alignment change was included in run [44081788224](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/44081788224), where the backend job initially failed at test-module import because of malformed continuation characters. Commit `7d8e1a34583a4dea5ef944c9f5a2eaa278da956c` fixed the test syntax. The follow-up run [44154131706](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/44154131706) passed backend compilation, the full discovered backend unit-test suite and API smoke test; frontend build, Trivy and Docker Compose integration also passed.
 - The API token must be generated and configured on the target host; no user secret has been requested or committed.
 
 Remaining:
@@ -135,3 +135,18 @@ Verification status:
 - The latest workflow run [44081788224](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/44081788224) passed frontend, dependency audit, Docker Compose integration and Trivy; backend failed on the test-file syntax issue described above.
 - Commit `7d8e1a34583a4dea5ef944c9f5a2eaa278da956c` fixes the two malformed test lines. A fresh workflow result is still required before marking the backend suite green.
 - Durable distributed task queue/restart recovery, per-user identity/authorization, task-level specialist benchmarks, host-specific restore and security acceptance remain outstanding.
+- The follow-up run's dependency-audit job still fails on four high-severity frontend dependency findings involving picomatch through Vite's fdir/tinyglobby chain. The current GitHub advisory identifies picomatch versions through 4.0.7 as affected and does not list a patched version. Do not silence the audit or force a potentially breaking downgrade; re-evaluate when an upstream fixed release is available.
+
+
+## CI verification update — 2026-11-18
+
+Workflow run [44154131706](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/44154131706) results:
+- Backend: passed, including compile, unit tests and API runtime smoke test.
+- Frontend: passed production build.
+- Trivy filesystem security scan: passed.
+- Docker Compose integration: passed, including proxy/readiness checks, bounded GET-only load probe, optional n8n startup/health/network checks and portable deployment verification.
+- Dependency audit: backend Python audit passed; frontend npm audit failed on four high-severity findings associated with picomatch via the Vite dependency chain.
+
+Security handling:
+- Advisory GHSA-fc5q-39xc-vjpf (CVE-2026-112366) identifies picomatch through 4.0.7 as affected. At this review, the advisory does not state a patched version. The finding remains visible and the audit gate remains enabled; no vulnerability suppression or unverified override has been added.
+- A clean full CI run is therefore not yet achieved despite the backend and integration checks passing.

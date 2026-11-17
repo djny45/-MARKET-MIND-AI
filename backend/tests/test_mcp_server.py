@@ -1,7 +1,10 @@
 import json
+import sys
 import unittest
+from pathlib import Path
 
-from mcp import Client
+from mcp import Client, StdioServerParameters
+from mcp.client.stdio import stdio_client
 
 from app.mcp_server import mcp
 
@@ -27,6 +30,19 @@ class MarketMindMCPTests(unittest.IsolatedAsyncioTestCase):
             },
         )
         self.assertFalse(any("import" in name or "execute" in name for name in names))
+
+    async def test_stdio_subprocess_discovers_tools_like_a_coding_harness(self):
+        server_script = Path(__file__).resolve().parents[1] / "app" / "mcp_server.py"
+        server = StdioServerParameters(
+            command=sys.executable,
+            args=[str(server_script)],
+        )
+        async with Client(stdio_client(server), raise_exceptions=True) as client:
+            response = await client.list_tools()
+        names = {tool.name for tool in response.tools}
+        self.assertIn("market_mind_capabilities", names)
+        self.assertIn("validate_n8n_workflow_json", names)
+        self.assertEqual(len(names), 4)
 
     async def test_capabilities_declare_research_only_boundaries(self):
         response = await self.client.call_tool("market_mind_capabilities", {})

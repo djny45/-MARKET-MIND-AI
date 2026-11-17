@@ -10,7 +10,9 @@ connect to external services, import/activate/execute workflows, or place orders
 from __future__ import annotations
 
 import json
+import platform
 import sys
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
 
@@ -77,6 +79,37 @@ def market_mind_capabilities() -> dict[str, Any]:
         "workflow_execution": False,
         "workflow_import": False,
         "data_policy": "Use supplied data only; external data requires a separately configured provider.",
+    }
+
+
+@mcp.tool()
+def mcp_server_diagnostics() -> dict[str, Any]:
+    """Return sanitized local startup diagnostics; never disclose environment values or secrets."""
+    try:
+        sdk_version = version("mcp")
+    except PackageNotFoundError:
+        sdk_version = "unavailable"
+    skill_checks = {}
+    for skill_id in ENGINEERING_SKILLS:
+        try:
+            load_skill(skill_id)
+            skill_checks[skill_id] = "available"
+        except (KeyError, FileNotFoundError):
+            skill_checks[skill_id] = "unavailable"
+    return {
+        "server": "market-mind-ai",
+        "server_version": "1.0.0",
+        "transport": "stdio",
+        "python_version": platform.python_version(),
+        "mcp_sdk_version": sdk_version,
+        "skill_catalog": skill_checks,
+        "secret_values_exposed": False,
+        "external_network_access": False,
+        "repository_write_access": False,
+        "workflow_import": False,
+        "workflow_activation": False,
+        "workflow_execution": False,
+        "brokerage_execution": False,
     }
 
 

@@ -297,6 +297,9 @@ jobs:
           print("n8n health and loopback-only port binding verified")
           PY
 
+      - name: Run portable deployment verification script
+        run: bash scripts/deploy_check.sh --with-n8n
+
       - name: Show container diagnostics on failure
         if: failure()
         run: |

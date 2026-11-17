@@ -19,6 +19,7 @@ class MarketMindMCPTests(unittest.IsolatedAsyncioTestCase):
             names,
             {
                 "market_mind_capabilities",
+                "mcp_server_diagnostics",
                 "list_engineering_skills",
                 "read_engineering_skill",
                 "validate_n8n_workflow_json",
@@ -37,7 +38,7 @@ class MarketMindMCPTests(unittest.IsolatedAsyncioTestCase):
         names = {tool.name for tool in response.tools}
         self.assertIn("market_mind_capabilities", names)
         self.assertIn("validate_n8n_workflow_json", names)
-        self.assertEqual(len(names), 4)
+        self.assertEqual(len(names), 5)
 
     async def test_all_four_harness_configs_launch_the_same_stdio_tools(self):
         root = Path(__file__).resolve().parents[2]
@@ -70,6 +71,7 @@ class MarketMindMCPTests(unittest.IsolatedAsyncioTestCase):
                     {tool.name for tool in response.tools},
                     {
                         "market_mind_capabilities",
+                        "mcp_server_diagnostics",
                         "list_engineering_skills",
                         "read_engineering_skill",
                         "validate_n8n_workflow_json",
@@ -86,6 +88,22 @@ class MarketMindMCPTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(data["workflow_activation"])
         self.assertFalse(data["workflow_execution"])
         self.assertFalse(data["workflow_import"])
+
+    async def test_mcp_diagnostics_are_sanitized_and_confirm_safety_boundaries(self):
+        async with Client(mcp, raise_exceptions=True) as client:
+            response = await client.call_tool("mcp_server_diagnostics", {})
+        data = response.structured_content
+        self.assertEqual(data["server"], "market-mind-ai")
+        self.assertEqual(data["transport"], "stdio")
+        self.assertTrue(data["python_version"])
+        self.assertTrue(data["mcp_sdk_version"])
+        self.assertFalse(data["secret_values_exposed"])
+        self.assertFalse(data["external_network_access"])
+        self.assertFalse(data["repository_write_access"])
+        self.assertFalse(data["workflow_import"])
+        self.assertFalse(data["workflow_activation"])
+        self.assertFalse(data["workflow_execution"])
+        self.assertFalse(data["brokerage_execution"])
 
     async def test_engineering_skill_allowlist_and_read(self):
         async with Client(mcp, raise_exceptions=True) as client:

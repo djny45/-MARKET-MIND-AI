@@ -12,6 +12,10 @@ This repository is designed to remain usable from multiple coding-agent harnesse
 - Never put API keys, reviewer tokens, or provider credentials in source files, prompts, frontend variables, workflow exports, or commits. Use local secret management.
 - Do not claim a deployment, live integration, or runtime check succeeded unless the actual target environment was tested.
 
+## MCP tools
+
+The root `.mcp.json` registers the local read-only `market-mind-ai` MCP server. Install `backend/requirements.txt`, restart Claude Code, and verify the four tools are listed. The server provides capability metadata, allowlisted engineering skills, and n8n JSON structural validation only; it does not write files, connect to external services, import/activate/execute workflows, or perform brokerage actions.
+
 ## Skills
 
 Claude Code skills are mirrored under `.claude/skills/`. Use only the skill relevant to the current task. The portable source skill catalog remains under `.agents/skills/`.

@@ -82,6 +82,55 @@ class ResearchOrchestratorTests(unittest.TestCase):
         self.assertTrue(any("neither verifies source authenticity" in item
                             for item in result["report"]["limitations"]))
 
+    def test_orchestration_runs_exact_source_text_citation_audit(self):
+        source_text = "The report states the sample was limited to five records."
+        citation_claims = [{
+            "text": "The sample was limited to five records.",
+            "citations": [{
+                "source_id": "source-1",
+                "excerpt": "sample was limited to five records",
+            }],
+        }]
+        result = orchestrate_research(
+            self.nodes, self.edges, {},
+            citation_claims=citation_claims,
+            source_registry=[{
+                "source_id": "source-1",
+                "title": "Research report",
+                "text": source_text,
+            }],
+        )
+        audit = result["report"]["citation_audit"]
+        self.assertEqual(audit["status"], "passed")
+        self.assertEqual(audit["metrics"]["claim_citation_coverage"], 1.0)
+        self.assertEqual(
+            audit["claims"][0]["citations"][0]["status"],
+            "exact_excerpt_match",
+        )
+
+    def test_orchestration_flags_unverified_citation_excerpt(self):
+        result = orchestrate_research(
+            self.nodes, self.edges, {},
+            citation_claims=[{
+                "text": "Unsupported claim.",
+                "citations": [{
+                    "source_id": "source-1",
+                    "excerpt": "text that is not in source",
+                }],
+            }],
+            source_registry=[{
+                "source_id": "source-1",
+                "text": "Only the original source text is present.",
+            }],
+        )
+        audit = result["report"]["citation_audit"]
+        self.assertEqual(audit["status"], "needs_review")
+        self.assertEqual(
+            audit["claims"][0]["citations"][0]["status"],
+            "excerpt_not_found",
+        )
+        self.assertEqual(audit["metrics"]["claims_without_valid_citations"], 1)
+
     def test_orchestration_without_claims_reports_audit_unavailable_coverage(self):
         result = orchestrate_research(self.nodes, self.edges, {})
         audit = result["report"]["evidence_audit"]

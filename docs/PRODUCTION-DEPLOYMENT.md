@@ -104,6 +104,11 @@ The script checks Compose configuration, API readiness, frontend response, absen
 
 GitHub Actions runs the open-source Trivy filesystem scanner against the repository for high/critical dependency vulnerabilities and exposed secrets. The existing dependency audit remains in place. Review findings before deployment; do not put credentials into the repository or CI output.
 
+## Supervisor heartbeat and health
+The `GET /api/analytical-agent-supervisor/status` response includes a persisted supervisor heartbeat when the dedicated supervisor process has started. It reports the process ID, instance identifier, last heartbeat time and age, polling configuration, and one of these health states: `starting`, `healthy`, `stale`, `failed`, `stopped`, or `not_started`. The stale threshold is the greater of 15 seconds or three poll intervals plus five seconds.
+
+The heartbeat is operational telemetry, not a distributed leader-election or process-liveness guarantee. A stale heartbeat indicates that the API has not observed a recent update; confirm the actual container/process state in the deployment runtime. The task queue remains single-host SQLite.
+
 ## Read-only API load probe
 
 After the stack is healthy, run a bounded GET-only load probe against readiness:

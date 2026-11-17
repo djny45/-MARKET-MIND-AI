@@ -1,4 +1,7 @@
+import json
 import os
+import subprocess
+import sys
 import tempfile
 import unittest
 from concurrent.futures import ThreadPoolExecutor
@@ -79,6 +82,43 @@ class AgentSupervisorTests(unittest.TestCase):
         self.assertEqual(get_research_task(queued["task_id"])["status"], "queued")
         self.assertEqual(result["recovery_mode"], "manual_stale_requeue_no_dispatch")
         self.assertEqual(result["stale_after_seconds"], 900)
+
+    def test_stale_task_recovers_across_real_process_restart(self):
+        # Process one persists a running task and exits, releasing every SQLite
+        # connection. Process two simulates supervisor startup recovery.
+        create_code = """
+import json, os, sqlite3
+from app.analytical_agent_tasks import enqueue_research_task
+task = enqueue_research_task("worker_003", "restart recovery integration")
+with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+    db.execute(
+        "UPDATE analytical_agent_tasks SET status='running', updated_at=? WHERE task_id=?",
+        ("2000-01-01T00:00:00+00:00", task["task_id"]),
+    )
+print(json.dumps(task))
+"""
+        created = subprocess.check_output(
+            [sys.executable, "-c", create_code],
+            env=os.environ.copy(),
+            text=True,
+        )
+        task_id = json.loads(created)["task_id"]
+
+        recover_code = """
+import json, sys
+from app.analytical_agent_tasks import recover_interrupted_research_tasks, get_research_task
+recovery = recover_interrupted_research_tasks(stale_after_seconds=900)
+task = get_research_task(sys.argv[1])
+print(json.dumps({"recovery": recovery, "status": task["status"]}))
+"""
+        recovered = subprocess.check_output(
+            [sys.executable, "-c", recover_code, task_id],
+            env=os.environ.copy(),
+            text=True,
+        )
+        result = json.loads(recovered)
+        self.assertEqual(result["recovery"]["requeued_interrupted_count"], 1)
+        self.assertEqual(result["status"], "queued")
 
     def test_recovery_preserves_recent_running_task(self):
         queued = enqueue_research_task("worker_005", "active task sample")

@@ -27,7 +27,7 @@ Implemented areas:
 - Health/readiness responses set `paper_trading=false` and `broker_execution=false`.
 - The backend provides no brokerage execution or order routing.
 - `/api/ready` proves local database readiness only; it does not prove market data is available or current.
-- Production deployment is intended to remain private; no authentication or per-user authorization is implemented.
+- Production deployment is intended to remain private. Optional shared bearer-token API authentication is implemented; individual identity and per-user role authorization are not implemented.
 
 ## Latest CI evidence
 
@@ -114,11 +114,24 @@ Implemented on the current default branch:
 
 Verification:
 - Workflow run [44053846569](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/44053846569) passed all five CI jobs, including backend tests, frontend build, dependency audit, Trivy scan, and Docker Compose integration (including n8n health/network and deployment checks).
-- The lexical alignment change has been committed with targeted tests; its new CI run is pending. Do not treat it as CI-verified until that run completes.
+- The lexical alignment change was included in run [44081788224](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/44081788224), where the backend job failed at test-module import because of malformed continuation characters in two new test context-manager lines. Those lines were fixed in commit `7d8e1a34583a4dea5ef944c9f5a2eaa278da956c`; a fresh CI run has not yet verified the fix.
 - The API token must be generated and configured on the target host; no user secret has been requested or committed.
 
 Remaining:
 - Individual identity and scoped roles, TLS ingress and independent security review.
 - Human review and task-level benchmark validation of worker/skill suitability.
-- Benchmark regression gates and reviewed learning promotion.
 - Host-specific deployment acceptance, backup restore drill, licensed data provider configuration, and n8n instance acceptance remain external setup/review tasks.
+
+
+## Benchmark and review-gate clarification — 2026-11-18
+
+Implemented in source and covered by focused unit tests:
+- Offline research traceability benchmark with an explicit allowlist of three structural metrics, baseline schema validation, deterministic fixture fingerprinting, per-metric compared/skipped states, and regression/incomplete-comparison summaries. Skipped metrics are not counted as passing.
+- Versioned, content-hashed benchmark records with SQLite persistence and integrity re-verification on retrieval.
+- Reviewed promotion-decision records linked to benchmark evidence. Approval is blocked when a baseline is absent, comparisons are incomplete, regression evidence is inconsistent, or the benchmark record fails integrity checks. Decisions are recorded for audit; they do not modify active configuration or deploy changes.
+- These are structural research-quality controls over caller-supplied fixtures, not factual-accuracy, forecasting, market-performance, or model-learning proof.
+
+Verification status:
+- The latest workflow run [44081788224](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/44081788224) passed frontend, dependency audit, Docker Compose integration and Trivy; backend failed on the test-file syntax issue described above.
+- Commit `7d8e1a34583a4dea5ef944c9f5a2eaa278da956c` fixes the two malformed test lines. A fresh workflow result is still required before marking the backend suite green.
+- Durable distributed task queue/restart recovery, per-user identity/authorization, task-level specialist benchmarks, host-specific restore and security acceptance remain outstanding.

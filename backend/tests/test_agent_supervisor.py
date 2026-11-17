@@ -16,6 +16,7 @@ from app.analytical_agent_tasks import (
     execute_queued_research_task,
     get_research_task,
     recover_interrupted_research_tasks,
+    run_supervisor,
 )
 
 
@@ -39,6 +40,37 @@ class AgentSupervisorTests(unittest.TestCase):
         self.assertEqual(status["status_counts"]["queued"], 1)
         self.assertEqual(status["continuous_daemon"], "separate_supervisor_process_required")
         self.assertFalse(status["distributed_queue"])
+
+    def test_supervisor_heartbeat_reports_running_and_stopped_lifecycle(self):
+        import threading
+        before = agent_supervisor_status()
+        self.assertEqual(before["supervisor_health"], "not_started")
+        result = run_supervisor(
+            threading.Event(), poll_interval_seconds=0.01,
+            batch_size=1, max_concurrency=1, max_cycles=1,
+        )
+        self.assertEqual(result["status"], "cycle_limit_reached")
+        after = agent_supervisor_status()
+        self.assertEqual(after["supervisor_health"], "stopped")
+        self.assertEqual(after["supervisor_heartbeat"]["state"], "stopped")
+        self.assertEqual(after["supervisor_heartbeat"]["batch_size"], 1)
+        self.assertIsNone(after["supervisor_heartbeat"]["last_error_type"])
+
+    def test_supervisor_heartbeat_staleness_is_detected(self):
+        import sqlite3
+        import threading
+        run_supervisor(
+            threading.Event(), poll_interval_seconds=0.01,
+            batch_size=1, max_concurrency=1, max_cycles=1,
+        )
+        with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+            db.execute(
+                "UPDATE analytical_agent_supervisor_heartbeat SET state='running',heartbeat_at=? WHERE singleton_id=1",
+                ("2000-01-01T00:00:00+00:00",),
+            )
+        status = agent_supervisor_status()
+        self.assertEqual(status["supervisor_health"], "stale")
+        self.assertGreater(status["supervisor_heartbeat"]["heartbeat_age_seconds"], 15)
 
     def test_dispatch_executes_bounded_queue_snapshot(self):
         queued = enqueue_research_task("worker_001", "dispatch sample")

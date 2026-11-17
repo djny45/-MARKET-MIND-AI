@@ -121,9 +121,9 @@ class N8NImportTests(unittest.TestCase):
                         self.assertEqual(err.exception.status_code,409)
                         release_post.set()
                         result=first.result(timeout=5)
-                self.assertEqual(result["status"],"imported_inactive")
-                self.assertEqual([method for method,_ in calls],["POST","GET"])
-                self.assertEqual(get_import_record(draft_id)["status"],"imported_inactive")
+                    self.assertEqual(result["status"],"imported_inactive")
+                    self.assertEqual([method for method,_ in calls],["POST","GET"])
+                    self.assertEqual(get_import_record(draft_id)["status"],"imported_inactive")
             finally:
                 release_post.set()
                 client.close()

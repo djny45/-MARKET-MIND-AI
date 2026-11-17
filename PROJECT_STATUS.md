@@ -1,6 +1,6 @@
 # MARKET-MIND-AI — Release Status
 
-Last reviewed: 2026-11-16
+Last reviewed: 2026-11-17
 
 ## Current verified scope
 
@@ -88,3 +88,17 @@ Not implemented by this update:
 Verification:
 - The previous quality-check workflow for commit `1b68619b9f87b7afb2a9c563812f0a5884298451` passed all four jobs.
 - The 2026-11-16 quality-check workflow for commit `7f56d372862370cb82c0f7cbbc4412b0ee53fa3e` passed all four jobs, including the backend suite, frontend build, Compose integration smoke tests, and dependency audits.
+
+## Operations and research-orchestration update — 2026-11-17
+
+Implemented in the current default branch:
+- Integrated exact source-excerpt citation auditing into the central research orchestration report and `POST /api/research/orchestrate`, including optional chunk hash and offset provenance checks. This verifies supplied-text traceability only; it does not prove source authenticity or semantic entailment.
+- Added supervisor heartbeat persistence with process identity, polling configuration, heartbeat age, and explicit `not_started`, `starting`, `healthy`, `stale`, `failed`, and `stopped` health states on `GET /api/analytical-agent-supervisor/status`.
+- Added a bounded GET-only API load probe at `scripts/load_check.py`, reporting throughput, status counts, p50/p95/max latency, and configurable error/latency thresholds. The Compose CI workflow invokes it against the readiness endpoint.
+- Updated the roadmap and deployment guide to describe these capabilities and their operational limits.
+
+Verification:
+- Workflow run [44002649971](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/44002649971) passed all jobs, including the bounded read-only API load probe, before the supervisor heartbeat changes.
+- Workflow run [44028358662](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/44028358662) is the current CI run for supervisor heartbeat changes. Backend, frontend, Trivy, and dependency-audit jobs have passed; Docker Compose integration was still running at the time of this status update.
+- The heartbeat is process telemetry, not distributed leader election or guaranteed process liveness. SQLite remains a single-host queue. No host-specific deployment, real n8n instance, external security review, or provider setup is claimed complete.
+

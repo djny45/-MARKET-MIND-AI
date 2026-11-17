@@ -102,3 +102,23 @@ Verification:
 - Workflow run [44028358662](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/44028358662) is the current CI run for supervisor heartbeat changes. Backend, frontend, Trivy, and dependency-audit jobs have passed; Docker Compose integration was still running at the time of this status update.
 - The heartbeat is process telemetry, not distributed leader election or guaranteed process liveness. SQLite remains a single-host queue. No host-specific deployment, real n8n instance, external security review, or provider setup is claimed complete.
 
+
+
+## Security and worker-registry update — 2026-11-17
+
+Implemented on the current default branch:
+- Added optional deployment-wide API bearer authentication. It remains disabled for local development; when enabled, protected API requests require a high-entropy server-side token and fail closed if it is missing or misconfigured. Minimal health/readiness probes and CORS preflight remain available.
+- Added automated middleware tests for disabled mode, missing server configuration, missing/invalid credentials, valid credentials, health/readiness exemptions, and CORS preflight.
+- Documented the deployment token setup and its boundary: this is a shared API credential, not individual user identity or per-user role-based authorization. n8n reviewer/importer roles remain separate.
+- Added per-worker lexical skill-alignment diagnostics using department/specialty and assigned skill metadata, with matched terms and zero-match worker reporting. This is explicitly a weak triage heuristic, not semantic evaluation or proof of capability.
+
+Verification:
+- Workflow run [44053846569](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/44053846569) passed all five CI jobs, including backend tests, frontend build, dependency audit, Trivy scan, and Docker Compose integration (including n8n health/network and deployment checks).
+- The lexical alignment change has been committed with targeted tests; its new CI run is pending. Do not treat it as CI-verified until that run completes.
+- The API token must be generated and configured on the target host; no user secret has been requested or committed.
+
+Remaining:
+- Individual identity and scoped roles, TLS ingress and independent security review.
+- Human review and task-level benchmark validation of worker/skill suitability.
+- Benchmark regression gates and reviewed learning promotion.
+- Host-specific deployment acceptance, backup restore drill, licensed data provider configuration, and n8n instance acceptance remain external setup/review tasks.

@@ -76,6 +76,34 @@ For remote access, use a separately maintained TLS reverse proxy and authenticat
 
 No provider credentials are required. The built-in market-data adapter is synthetic-only; this deployment does not create live market connectivity. Brokerage execution and order routing remain disabled.
 
+## Host deployment verification
+
+After deploying to a Docker host, run the read-only verification script from the repository root:
+
+```bash
+bash scripts/deploy_check.sh
+```
+
+If the optional n8n profile is enabled, include its health, loopback binding, and backend-to-n8n network checks:
+
+```bash
+bash scripts/deploy_check.sh --with-n8n
+```
+
+To explicitly ask the script to build and start the stack before checking it:
+
+```bash
+bash scripts/deploy_check.sh --start
+# or, including optional n8n
+bash scripts/deploy_check.sh --start --with-n8n
+```
+
+The script checks Compose configuration, API readiness, frontend response, absence of a host-published backend port, and loopback-only frontend/n8n bindings. It prints PASS/FAIL summaries only; it does not dump environment variables or service logs. It does not configure reviewer credentials, prove that an n8n API key is valid, or import a workflow. Keep those as separate controlled acceptance tests. A successful CI run validates the GitHub-hosted runner only; run this script on the actual target host to record host-specific evidence.
+
+## Repository security scanning
+
+GitHub Actions runs the open-source Trivy filesystem scanner against the repository for high/critical dependency vulnerabilities and exposed secrets. The existing dependency audit remains in place. Review findings before deployment; do not put credentials into the repository or CI output.
+
 ## Routine operations
 
 ```bash

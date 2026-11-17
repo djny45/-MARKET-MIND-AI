@@ -143,9 +143,52 @@ class WorkerRegistryTests(unittest.TestCase):
 
     def test_registry_does_not_claim_semantic_skill_alignment(self):
         result = evaluate_registry()
-        self.assertEqual(result["specialty_skill_alignment"]["status"], "not_evaluated")
-        self.assertIn("do not establish semantic alignment",
-                      result["specialty_skill_alignment"]["note"])
+        alignment = result["specialty_skill_alignment"]
+        self.assertEqual(alignment["status"], "lexical_screen_only")
+        self.assertEqual(alignment["worker_count"], EXPECTED_WORKER_COUNT)
+        self.assertIn("does not establish semantic alignment", alignment["note"])
+        self.assertEqual(len(alignment["results"]), EXPECTED_WORKER_COUNT)
+        self.assertTrue(all(0.0 <= item["best_lexical_overlap"] <= 1.0
+                            for item in alignment["results"]))
+
+
+    def test_lexical_alignment_is_transparent_and_never_claims_semantics(self):
+        profile = {
+            "id": "worker_001", "name": "Trend Analyst", "department": "technical_analysis",
+            "specialty": "trend", "kind": "ai_analytical_worker",
+            "model": EXPECTED_CORE, "memory_namespace": "workers/test",
+            "skill_refs": ["trend-skill"], "status": "template",
+        }
+        catalog = [{
+            "id": "trend-skill", "name": "Trend Identification",
+            "description": "Identify trend direction and structure.",
+            "domain": "Technical Analysis", "available": True,
+        }]
+        with patch("app.worker_registry.list_workers", return_value=[profile]), \\
+             patch("app.worker_registry.list_skills", return_value=catalog):
+            result = evaluate_registry()
+        alignment = result["specialty_skill_alignment"]
+        self.assertEqual(alignment["status"], "lexical_screen_only")
+        self.assertEqual(alignment["results"][0]["worker_id"], "worker_001")
+        self.assertGreater(alignment["results"][0]["best_lexical_overlap"], 0)
+        self.assertIn("trend", alignment["results"][0]["skills"][0]["matched_terms"])
+        self.assertIn("does not establish semantic alignment", alignment["note"])
+
+    def test_lexical_alignment_handles_missing_skill_metadata(self):
+        profile = {
+            "id": "worker_001", "name": "Trend Analyst", "department": "technical_analysis",
+            "specialty": "trend", "kind": "ai_analytical_worker",
+            "model": EXPECTED_CORE, "memory_namespace": "workers/test",
+            "skill_refs": ["empty-skill"], "status": "template",
+        }
+        with patch("app.worker_registry.list_workers", return_value=[profile]), \\
+             patch("app.worker_registry.list_skills", return_value=[
+                 {"id": "empty-skill", "available": True}
+             ]):
+            result = evaluate_registry()
+        item = result["specialty_skill_alignment"]["results"][0]
+        self.assertEqual(item["best_lexical_overlap"], 0.0)
+        self.assertEqual(item["matched_skill_count"], 0)
 
     def test_registry_does_not_claim_independent_models_or_broker_execution(self):
         boundary = evaluate_registry()["execution_boundary"]

@@ -30,6 +30,44 @@ The named `market_mind_data` volume persists SQLite data when containers are rec
 
 The `agent-supervisor` service shares the `market_mind_data` volume with the API. Queue submissions are committed to SQLite before returning; the supervisor polls every 2 seconds by default, recovers stale `running` tasks at startup after a 15-minute grace period, and dispatches up to 50 queued tasks per cycle with a maximum concurrency of 4. Tune with `AGENT_SUPERVISOR_POLL_SECONDS`, `AGENT_SUPERVISOR_BATCH_SIZE`, and `AGENT_SUPERVISOR_MAX_CONCURRENCY` in `docker-compose.yml`. The API no longer schedules queued work in its own process. Atomic SQLite claims and execution-token fencing prevent duplicate workers from finalizing the same attempt. This is durable single-host queueing on the shared SQLite volume, not a distributed broker or multi-host queue. The API status endpoint reports that a separate supervisor is required; it does not independently attest to the supervisor container's health. Check `docker compose ps` and `docker compose logs agent-supervisor` for process status.
 
+## Optional n8n workflow review and import service
+
+The Compose file includes an **opt-in** n8n service pinned to n8n 2.47.7. It is not started by the default stack. The editor is published only on host loopback at `http://127.0.0.1:5678`; its SQLite database and encryption key persist in the separate `n8n_data` volume. The HTTP editor is for local development only—do not expose port 5678 to a LAN or the public internet.
+
+Start the normal stack and the optional n8n service:
+
+```bash
+docker compose --profile n8n up --build -d
+docker compose ps
+```
+
+Open `http://127.0.0.1:5678` and complete n8n's owner-account setup. In n8n, create an API key with only the workflow create/read permissions required by the importer. Keep the key private.
+
+To enable the separate Market Mind importer, provide these values through the backend deployment's uncommitted `.env` file or secret manager:
+
+```env
+N8N_BASE_URL=http://n8n:5678
+N8N_API_KEY=replace-with-the-n8n-api-key
+N8N_REVIEWER_TOKENS_JSON={"reviewer-1":{"token":"replace-with-a-long-random-reviewer-token","roles":["reviewer"]},"importer-1":{"token":"replace-with-a-different-long-random-importer-token","roles":["importer"]}}
+```
+
+Use different high-entropy tokens for the reviewer and importer. Never commit these values, place them in frontend variables, or share them in chat. Restart the backend after setting them:
+
+```bash
+docker compose up -d --force-recreate backend
+```
+
+The workflow path is: generate/submit draft → authenticated human review → explicit importer request. The importer revalidates the approved draft and creates it in n8n inactive, then reads it back to verify `active:false`. It never activates or executes a workflow. Only the restricted manual-trigger and Set nodes are accepted. An uncertain create result is recorded and blocks retries; inspect n8n manually before any further action.
+
+Check n8n health and logs:
+
+```bash
+curl --fail http://127.0.0.1:5678/healthz
+docker compose logs --tail=100 n8n backend
+```
+
+Stop the optional service with `docker compose --profile n8n stop n8n`. Its data remains in `n8n_data`; do not use `docker compose down -v` unless you intend to delete all named volumes. This local Compose setup is a development integration, not a hardened public deployment.
+
 ## Security boundary
 
 The frontend listener is bound to loopback (127.0.0.1), not all network interfaces. Compose drops Linux capabilities and enables `no-new-privileges`. This is deliberate: the current workspace API has no user authentication or per-user authorization. Do not publish it directly to the public internet or expose it on a shared network.

@@ -42,6 +42,9 @@ jobs:
       - name: Compile backend app
         run: python -m compileall -q backend/app
 
+      - name: Validate deployment checker shell syntax
+        run: bash -n scripts/deploy_check.sh
+
       - name: Check coding-agent harness adapters
         run: python scripts/check_harness_adapters.py
 
@@ -354,3 +357,21 @@ jobs:
             backend-pip-audit.json
             frontend/frontend-npm-audit.json
           if-no-files-found: warn
+
+  trivy-security:
+    name: Trivy filesystem security scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - name: Scan repository for high and critical vulnerabilities and secrets
+        uses: aquasecurity/trivy-action@0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'

@@ -1,5 +1,6 @@
 import json
 import sys
+import tomllib
 import unittest
 from pathlib import Path
 
@@ -37,6 +38,43 @@ class MarketMindMCPTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("market_mind_capabilities", names)
         self.assertIn("validate_n8n_workflow_json", names)
         self.assertEqual(len(names), 4)
+
+    async def test_all_four_harness_configs_launch_the_same_stdio_tools(self):
+        root = Path(__file__).resolve().parents[2]
+        root_config = json.loads((root / ".mcp.json").read_text(encoding="utf-8"))
+        cursor_config = json.loads((root / ".cursor/mcp.json").read_text(encoding="utf-8"))
+        codex_config = tomllib.loads((root / ".codex/config.toml").read_text(encoding="utf-8"))
+
+        # Claude Code and GitHub Copilot both consume the workspace-root
+        # portable .mcp.json; Cursor and Codex use their native project files.
+        harness_entries = {
+            "claude-code": root_config["mcpServers"]["market-mind-ai"],
+            "github-copilot": root_config["mcpServers"]["market-mind-ai"],
+            "cursor": cursor_config["mcpServers"]["market-mind-ai"],
+            "codex": codex_config["mcp_servers"]["market_mind_ai"],
+        }
+        for harness, entry in harness_entries.items():
+            with self.subTest(harness=harness):
+                command = entry["command"]
+                args = entry["args"]
+                self.assertIn(command, {"python", "python3", "py"})
+                self.assertEqual(args, ["backend/app/mcp_server.py"])
+                server = StdioServerParameters(
+                    command=sys.executable,
+                    args=[str(root / args[0])],
+                    cwd=str(root),
+                )
+                async with Client(stdio_client(server), raise_exceptions=True) as client:
+                    response = await client.list_tools()
+                self.assertEqual(
+                    {tool.name for tool in response.tools},
+                    {
+                        "market_mind_capabilities",
+                        "list_engineering_skills",
+                        "read_engineering_skill",
+                        "validate_n8n_workflow_json",
+                    },
+                )
 
     async def test_capabilities_declare_research_only_boundaries(self):
         async with Client(mcp, raise_exceptions=True) as client:

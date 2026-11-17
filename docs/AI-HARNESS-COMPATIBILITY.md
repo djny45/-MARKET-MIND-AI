@@ -18,6 +18,29 @@ No coding harness is guaranteed to load every instruction or skill format automa
 
 A harness may require a newer version or a setting to load a given instruction file. Confirm the files appear in its project context. Skills are guidance, not installed tools: they do not create MCP servers, credentials, external accounts, or provider access.
 
+## Shared MCP tools
+
+The repository includes a local stdio server using the official open-source MCP Python SDK. Its tools are deliberately read-only:
+
+- `market_mind_capabilities` — describes project capabilities and hard execution boundaries.
+- `list_engineering_skills` and `read_engineering_skill` — expose a fixed engineering/n8n skill allowlist, never arbitrary filesystem paths.
+- `validate_n8n_workflow_json` — validates supplied workflow JSON locally; it does not import or run it.
+
+Install the backend dependencies once:
+
+```bash
+python -m pip install -r backend/requirements.txt
+```
+
+The checked-in launch configurations are:
+- Claude Code and GitHub Copilot workspace: root `.mcp.json`
+- Cursor: `.cursor/mcp.json`
+- Codex: `.codex/config.toml`
+
+These launch the same `backend/app/mcp_server.py` process over stdio. If your Python executable is named `python3` (or `py` on Windows), change only the `command` value in the client configuration. Restart/reload the harness and verify that it discovers the four tools.
+
+The server is local to the coding host; it is not a remotely hosted MCP endpoint. The tools do not have repository-write, network-fetch, n8n-import, workflow activation/execution, or brokerage capabilities. Tool discovery is not proof that an n8n instance or live market-data provider is configured. Do not add secrets to MCP configuration.
+
 ## Run the application independently of the harness
 
 Prerequisites: Docker Engine and Docker Compose plugin. From the repository root:

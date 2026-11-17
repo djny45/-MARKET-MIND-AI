@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 """Check that supported coding-agent instruction adapters stay present."""
+import json
+import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -29,4 +31,22 @@ for relative, markers in REQUIRED.items():
             errors.append(f"{relative}: required marker missing: {marker}")
 if errors:
     raise SystemExit("\n".join(errors))
-print(f"Harness adapter check passed: {len(REQUIRED)} files")
+# Parse the native client configurations and verify they launch the same stdio server.
+try:
+    expected_args = ["backend/app/mcp_server.py"]
+    for relative in (".mcp.json", ".cursor/mcp.json"):
+        config = json.loads((ROOT / relative).read_text(encoding="utf-8"))
+        entry = config["mcpServers"]["market-mind-ai"]
+        if entry.get("command") not in {"python", "python3", "py"} or entry.get("args") != expected_args:
+            errors.append(f"{relative}: unexpected MCP server launch command.")
+
+    codex = tomllib.loads((ROOT / ".codex/config.toml").read_text(encoding="utf-8"))
+    entry = codex["mcp_servers"]["market_mind_ai"]
+    if entry.get("command") not in {"python", "python3", "py"} or entry.get("args") != expected_args:
+        errors.append(".codex/config.toml: unexpected MCP server launch command.")
+except (OSError, ValueError, KeyError, TypeError) as exc:
+    errors.append(f"Invalid native MCP client configuration: {type(exc).__name__}")
+
+if errors:
+    raise SystemExit("\\n".join(errors))
+print(f"Harness adapter check passed: {len(REQUIRED)} files and 3 MCP configs")

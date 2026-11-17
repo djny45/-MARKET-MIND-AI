@@ -59,6 +59,17 @@ def _connect():
             from_status TEXT, to_status TEXT, occurred_at TEXT NOT NULL,
             detail_json TEXT NOT NULL DEFAULT '{}'
         )""")
+        db.execute("""CREATE TABLE IF NOT EXISTS analytical_agent_supervisor_heartbeat (
+            singleton_id INTEGER PRIMARY KEY CHECK(singleton_id = 1),
+            instance_id TEXT NOT NULL,
+            process_id INTEGER NOT NULL,
+            state TEXT NOT NULL,
+            heartbeat_at TEXT NOT NULL,
+            poll_interval_seconds REAL NOT NULL,
+            batch_size INTEGER NOT NULL,
+            max_concurrency INTEGER NOT NULL,
+            last_error_type TEXT
+        )""")
         db.execute("CREATE INDEX IF NOT EXISTS idx_agent_task_events_task_time ON analytical_agent_task_events(task_id,event_id)")
         db.execute("""CREATE TABLE IF NOT EXISTS research_quality_evaluations (
             evaluation_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -850,6 +861,32 @@ def agent_supervisor_recommendations(agent_id: str | None = None, limit: int = 5
     }
 
 
+def _write_supervisor_heartbeat(state: str, poll_interval_seconds: float,
+                                batch_size: int, max_concurrency: int,
+                                last_error_type: str | None = None) -> None:
+    """Persist a privacy-safe heartbeat for the dedicated supervisor process."""
+    now = datetime.now(timezone.utc).isoformat()
+    instance_id = f"pid-{os.getpid()}"
+    with _connect() as db:
+        db.execute(
+            """INSERT INTO analytical_agent_supervisor_heartbeat
+               (singleton_id,instance_id,process_id,state,heartbeat_at,
+                poll_interval_seconds,batch_size,max_concurrency,last_error_type)
+               VALUES (1,?,?,?,?,?,?,?,?)
+               ON CONFLICT(singleton_id) DO UPDATE SET
+                 instance_id=excluded.instance_id,
+                 process_id=excluded.process_id,
+                 state=excluded.state,
+                 heartbeat_at=excluded.heartbeat_at,
+                 poll_interval_seconds=excluded.poll_interval_seconds,
+                 batch_size=excluded.batch_size,
+                 max_concurrency=excluded.max_concurrency,
+                 last_error_type=excluded.last_error_type""",
+            (instance_id, os.getpid(), state, now, float(poll_interval_seconds),
+             batch_size, max_concurrency, last_error_type),
+        )
+
+
 def agent_supervisor_status() -> dict:
     """Return a point-in-time health snapshot of persisted agent task states."""
     with _connect() as db:
@@ -857,17 +894,49 @@ def agent_supervisor_status() -> dict:
             "SELECT status, COUNT(*) AS count FROM analytical_agent_tasks GROUP BY status"
         ).fetchall()
         total = db.execute("SELECT COUNT(*) FROM analytical_agent_tasks").fetchone()[0]
-    counts = {state: 0 for state in ("queued", "running", "completed", "failed")}
+        heartbeat = db.execute(
+            "SELECT * FROM analytical_agent_supervisor_heartbeat WHERE singleton_id=1"
+        ).fetchone()
+    counts = {state: 0 for state in ("queued", "running", "completed", "failed", "cancelled")}
     counts.update({row["status"]: row["count"] for row in rows})
+    health = "not_started"
+    heartbeat_data = None
+    if heartbeat is not None:
+        timestamp = datetime.fromisoformat(heartbeat["heartbeat_at"])
+        age_seconds = max(0.0, (datetime.now(timezone.utc) - timestamp).total_seconds())
+        stale_after = max(15.0, float(heartbeat["poll_interval_seconds"]) * 3.0 + 5.0)
+        if heartbeat["state"] == "failed":
+            health = "failed"
+        elif heartbeat["state"] == "stopped":
+            health = "stopped"
+        elif age_seconds > stale_after:
+            health = "stale"
+        elif heartbeat["state"] in ("starting", "running"):
+            health = "healthy" if heartbeat["state"] == "running" else "starting"
+        else:
+            health = "unknown"
+        heartbeat_data = {
+            "instance_id": heartbeat["instance_id"],
+            "process_id": heartbeat["process_id"],
+            "state": heartbeat["state"],
+            "heartbeat_at": heartbeat["heartbeat_at"],
+            "heartbeat_age_seconds": round(age_seconds, 2),
+            "stale_after_seconds": round(stale_after, 2),
+            "poll_interval_seconds": heartbeat["poll_interval_seconds"],
+            "batch_size": heartbeat["batch_size"],
+            "max_concurrency": heartbeat["max_concurrency"],
+            "last_error_type": heartbeat["last_error_type"],
+        }
     return {
         "supervisor": "sqlite_polling_supervisor",
-        "status": "configured_external_process",
+        "status": "observed" if heartbeat is not None else "not_started",
         "task_count": total,
         "status_counts": counts,
         "registered_agent_count": 550,
         "dispatch_mode": "persistent_sqlite_polling",
         "continuous_daemon": "separate_supervisor_process_required",
-        "supervisor_health": "not_observed_by_api",
+        "supervisor_health": health,
+        "supervisor_heartbeat": heartbeat_data,
         "distributed_queue": False,
     }
 
@@ -969,15 +1038,19 @@ def run_supervisor(
     ):
         raise ValueError("max_cycles must be a positive integer or None")
 
+    _write_supervisor_heartbeat("starting", poll_interval_seconds, batch_size, max_concurrency)
     try:
         recovery = recover_interrupted_research_tasks()
     except Exception as exc:
+        _write_supervisor_heartbeat("failed", poll_interval_seconds, batch_size,
+                                    max_concurrency, type(exc).__name__)
         return {
             "status": "recovery_failed",
             "error_type": type(exc).__name__,
             "cycles": 0,
             "dispatch_results": [],
         }
+    _write_supervisor_heartbeat("running", poll_interval_seconds, batch_size, max_concurrency)
 
     dispatch_results = []
     cycles = 0
@@ -994,10 +1067,14 @@ def run_supervisor(
                 "error_type": type(exc).__name__,
             })
         cycles += 1
+        _write_supervisor_heartbeat("running", poll_interval_seconds, batch_size,
+                                    max_concurrency,
+                                    "DispatchError" if dispatch_results[-1].get("status") == "error" else None)
         if max_cycles is not None and cycles >= max_cycles:
             break
         stop_event.wait(float(poll_interval_seconds))
 
+    _write_supervisor_heartbeat("stopped", poll_interval_seconds, batch_size, max_concurrency)
     return {
         "status": "stopped" if stop_event.is_set() else "cycle_limit_reached",
         "recovery": recovery,

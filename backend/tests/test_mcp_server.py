@@ -10,15 +10,9 @@ from app.mcp_server import mcp
 
 
 class MarketMindMCPTests(unittest.IsolatedAsyncioTestCase):
-    async def asyncSetUp(self):
-        self.context = Client(mcp, raise_exceptions=True)
-        self.client = await self.context.__aenter__()
-
-    async def asyncTearDown(self):
-        await self.context.__aexit__(None, None, None)
-
     async def test_mcp_lists_only_read_only_tools(self):
-        response = await self.client.list_tools()
+        async with Client(mcp, raise_exceptions=True) as client:
+            response = await client.list_tools()
         names = {tool.name for tool in response.tools}
         self.assertEqual(
             names,
@@ -45,7 +39,8 @@ class MarketMindMCPTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(names), 4)
 
     async def test_capabilities_declare_research_only_boundaries(self):
-        response = await self.client.call_tool("market_mind_capabilities", {})
+        async with Client(mcp, raise_exceptions=True) as client:
+            response = await client.call_tool("market_mind_capabilities", {})
         data = response.structured_content
         self.assertEqual(data["name"], "MARKET-MIND-AI")
         self.assertTrue(data["coding_harness_independent"])
@@ -55,24 +50,24 @@ class MarketMindMCPTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(data["workflow_import"])
 
     async def test_engineering_skill_allowlist_and_read(self):
-        listed = await self.client.call_tool("list_engineering_skills", {})
+        async with Client(mcp, raise_exceptions=True) as client:
+            listed = await client.call_tool("list_engineering_skills", {})
+            read = await client.call_tool(
+                "read_engineering_skill",
+                {"skill_id": "rea-tool-design"},
+            )
+            denied = await client.call_tool(
+                "read_engineering_skill",
+                {"skill_id": "../../README.md"},
+            )
         data = listed.structured_content
         self.assertEqual(data["count"], 4)
         self.assertFalse(data["trading_skill_content_exposed"])
 
-        read = await self.client.call_tool(
-            "read_engineering_skill",
-            {"skill_id": "rea-tool-design"},
-        )
         skill = read.structured_content
         self.assertEqual(skill["id"], "rea-tool-design")
         self.assertIn("tool", skill["content"].lower())
         self.assertFalse(skill["side_effects"])
-
-        denied = await self.client.call_tool(
-            "read_engineering_skill",
-            {"skill_id": "../../README.md"},
-        )
         self.assertEqual(denied.structured_content["error"], "skill_not_allowlisted")
 
     async def test_n8n_validator_accepts_structural_fixture_without_runtime_claim(self):
@@ -90,10 +85,11 @@ class MarketMindMCPTests(unittest.IsolatedAsyncioTestCase):
             ],
             "connections": {},
         }
-        response = await self.client.call_tool(
-            "validate_n8n_workflow_json",
-            {"workflow_json": json.dumps(workflow)},
-        )
+        async with Client(mcp, raise_exceptions=True) as client:
+            response = await client.call_tool(
+                "validate_n8n_workflow_json",
+                {"workflow_json": json.dumps(workflow)},
+            )
         result = response.structured_content
         self.assertTrue(result["structurally_valid"])
         self.assertFalse(result["runtime_verified"])
@@ -113,17 +109,17 @@ class MarketMindMCPTests(unittest.IsolatedAsyncioTestCase):
             ],
             "connections": {},
         }
-        response = await self.client.call_tool(
-            "validate_n8n_workflow_json",
-            {"workflow_json": json.dumps(active)},
-        )
+        async with Client(mcp, raise_exceptions=True) as client:
+            response = await client.call_tool(
+                "validate_n8n_workflow_json",
+                {"workflow_json": json.dumps(active)},
+            )
+            invalid = await client.call_tool(
+                "validate_n8n_workflow_json",
+                {"workflow_json": "{not-json"},
+            )
         self.assertFalse(response.structured_content["structurally_valid"])
         self.assertFalse(response.structured_content["runtime_verified"])
-
-        invalid = await self.client.call_tool(
-            "validate_n8n_workflow_json",
-            {"workflow_json": "{not-json"},
-        )
         self.assertFalse(invalid.structured_content["structurally_valid"])
         self.assertIn("not valid JSON", invalid.structured_content["errors"][0])
 

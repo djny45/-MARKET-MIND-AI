@@ -74,7 +74,7 @@ The frontend listener is bound to loopback (127.0.0.1), not all network interfac
 
 For remote access, use a separately maintained TLS reverse proxy and authentication layer in front of the loopback service. Restrict administrative access, apply request limits, and review proxy configuration before enabling access. The app remains a single-user research workspace.
 
-No provider credentials are required. The built-in market-data adapter is synthetic-only; this deployment does not create live market connectivity. Brokerage execution, order routing, and paper trading remain disabled.
+No provider credentials are required. The built-in market-data adapter is synthetic-only; this deployment does not create live market connectivity. Brokerage execution and order routing remain disabled.
 
 ## Routine operations
 

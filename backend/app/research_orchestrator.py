@@ -9,6 +9,7 @@ from .workflow import execute_workflow
 from .worker_registry import evaluate_registry
 from .intelligence_core import synthesize_research
 from .research_evidence_audit import audit_evidence
+from .research_citation_audit import audit_claim_citations
 
 
 def _evidence_coverage(completed):
@@ -42,7 +43,7 @@ def _evidence_coverage(completed):
     }
 
 
-def orchestrate_research(nodes, edges, inputs, max_workers=1, max_retries=0, evidence_claims=None, source_registry=None):
+def orchestrate_research(nodes, edges, inputs, max_workers=1, max_retries=0, evidence_claims=None, source_registry=None, citation_claims=None):
     registry = evaluate_registry()
     if not registry["valid"]:
         raise ValueError("Worker registry integrity check failed.")
@@ -108,8 +109,16 @@ def orchestrate_research(nodes, edges, inputs, max_workers=1, max_retries=0, evi
         source_registry=source_registry or [],
     )
     report["evidence_audit"] = evidence_audit
+    citation_audit = audit_claim_citations(
+        claims=citation_claims or [],
+        source_registry=source_registry or [],
+    )
+    report["citation_audit"] = citation_audit
     report["limitations"].append(
         "Evidence audit and provenance coverage check metadata only; neither verifies source authenticity or claim entailment."
+    )
+    report["limitations"].append(
+        "Citation audit checks supplied source IDs, exact excerpts, and optional chunk hashes/offsets only; it does not establish that a source supports a claim."
     )
     synthesis = synthesize_research(report)
     return {

@@ -37,7 +37,7 @@ The platform is designed for research across four primary market groups: India, 
 - **Governed improvement:** worker changes are tested, versioned, reviewed, and reversible.
 - **Provider-neutral data layer:** connectors are modular and must respect provider terms, licences, rate limits, and redistribution rules.
 - **Synthetic data is labelled:** the sample endpoint is a deterministic development fixture, never a live or historical price feed.
-- **Research only:** no paper trading, brokerage credentials, order routing, or automated execution.
+- **Research only:** no brokerage credentials, order routing, or automated execution.
 
 ## Historical data and forecasting research (educational)
 
@@ -457,7 +457,7 @@ Generated improvement proposals can now be reviewed through append-only records:
 - `GET /api/analytical-agents/{worker_id}/tasks?limit=20` — lists that worker's task history.
 - `GET /api/analytical-agent-tasks/{task_id}` — retrieves the stored input, status, result, and brain-context digest.
 
-Tasks are isolated by worker ID and retain the worker context hash. The first implementation is **bounded and synchronous**: it does not yet provide cloud workspaces, background scheduling, or 550 always-on autonomous processes. If the shared Ollama core is not configured, the result explicitly reports that synthesis is unavailable rather than fabricating analysis. Tasks use supplied data only; live market retrieval, broker execution, and paper trading are excluded.
+Tasks are isolated by worker ID and retain the worker context hash. The first implementation is **bounded and synchronous**: it does not yet provide cloud workspaces, background scheduling, or 550 always-on autonomous processes. If the shared Ollama core is not configured, the result explicitly reports that synthesis is unavailable rather than fabricating analysis. Tasks use supplied data only; live market retrieval and broker execution are excluded.
 
 
 ## Human-reviewed staging experiment records
@@ -566,7 +566,7 @@ The staging audit JSON export includes a SHA-256 digest over the canonical bundl
 - Generation is disabled when the shared core is not configured. The generator accepts only built-in manual-trigger and Set-node types, requires `active:false`, rejects credentials and malformed connections, and stores valid drafts in the pending human-review queue.
 - `GET /api/n8n/workflows/drafts?status=pending_human_review` — list pending drafts; `GET /api/n8n/workflows/drafts/{draft_id}` — inspect a workflow and its audit record.
 - `POST /api/n8n/workflows/drafts/{draft_id}/review` — record one approve/reject decision. Reviewer labels are self-reported, not authenticated identities.
-- Approval is an audit decision only. The API does not connect to an n8n instance, import, activate, or execute workflows. Broker execution remains disabled.
+- The draft-generation, listing, inspection, and approval stages do not contact n8n. The separate authenticated importer can create an approved workflow in a configured n8n instance, then verifies that it remains inactive. No workflow activation, execution, or broker execution is implemented.
 
 ## Authenticated n8n review and controlled import
 

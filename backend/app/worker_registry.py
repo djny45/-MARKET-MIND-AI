@@ -9,6 +9,59 @@ REGISTRY_VERSION = "1.0.0"
 EXPECTED_WORKER_COUNT = 550
 EXPECTED_CORE = "shared_central_intelligence"
 
+_ALIGNMENT_STOPWORDS = {
+    "and", "the", "for", "with", "research", "analysis", "analyst",
+    "market", "data", "skill", "skills", "based", "focused",
+}
+
+
+def _alignment_tokens(*values):
+    import re
+    tokens = set()
+    for value in values:
+        if isinstance(value, str):
+            tokens.update(
+                token for token in re.findall(r"[a-z0-9]+", value.lower())
+                if len(token) > 2 and token not in _ALIGNMENT_STOPWORDS
+            )
+    return tokens
+
+
+def _evaluate_specialty_skill_alignment(profiles, catalog_skills):
+    """Weak lexical screen only; it does not infer semantic task suitability."""
+    skills_by_id = {
+        skill.get("id"): skill for skill in catalog_skills
+        if isinstance(skill, dict) and isinstance(skill.get("id"), str)
+    }
+    evaluated = []
+    for worker in profiles:
+        refs = worker.get("skill_refs", [])
+        refs = refs if isinstance(refs, list) else []
+        target = _alignment_tokens(worker.get("department"), worker.get("specialty"))
+        assigned = [skills_by_id[ref] for ref in refs if ref in skills_by_id]
+        scored = []
+        for skill in assigned:
+            skill_tokens = _alignment_tokens(
+                skill.get("name"), skill.get("description"), skill.get("domain")
+            )
+            overlap = target & skill_tokens
+            score = len(overlap) / len(target) if target else 0.0
+            scored.append({
+                "skill_id": skill.get("id"),
+                "score": round(score, 4),
+                "matched_terms": sorted(overlap),
+            })
+        best = max((item["score"] for item in scored), default=0.0)
+        evaluated.append({
+            "worker_id": worker.get("id"),
+            "assigned_skill_count": len(scored),
+            "best_lexical_overlap": best,
+            "matched_skill_count": sum(item["score"] >= 0.25 for item in scored),
+            "skills": scored,
+        })
+    return evaluated
+
+
 
 def evaluate_registry() -> dict:
     workers = list_workers()
@@ -132,6 +185,7 @@ def evaluate_registry() -> dict:
             "domain_skill_counts": domain_counts,
             "unmapped_pack_skill_ids": unmapped_ids,
         }
+    alignment_results = _evaluate_specialty_skill_alignment(profiles, catalog_skills)
     pack_skill_ids = {
         skill["id"] for skill in catalog_skills
         if isinstance(skill, dict) and isinstance(skill.get("id"), str)
@@ -214,8 +268,22 @@ def evaluate_registry() -> dict:
             "all_assigned_skills_available": not unavailable_assigned_skill_ids,
         },
         "specialty_skill_alignment": {
-            "status": "not_evaluated",
-            "note": "Skill ID validity and file availability do not establish semantic alignment with worker department or specialty.",
+            "status": "lexical_screen_only",
+            "method": "normalized_token_overlap_between_department_specialty_and_assigned_skill_metadata",
+            "worker_count": len(alignment_results),
+            "workers_with_any_lexical_match": sum(
+                item["matched_skill_count"] > 0 for item in alignment_results
+            ),
+            "workers_without_lexical_match": [
+                item["worker_id"] for item in alignment_results
+                if item["matched_skill_count"] == 0
+            ],
+            "average_best_lexical_overlap": round(
+                sum(item["best_lexical_overlap"] for item in alignment_results)
+                / len(alignment_results), 4
+            ) if alignment_results else 0.0,
+            "results": alignment_results,
+            "note": "A weak metadata token-overlap heuristic for triage only. It does not establish semantic alignment, skill quality, competence, or runtime capability; human review and task-level benchmarks are required.",
         },
         "shared_intelligence_core": EXPECTED_CORE,
         "profile_digest_sha256": digest,

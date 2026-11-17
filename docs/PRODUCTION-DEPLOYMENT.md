@@ -104,6 +104,16 @@ The script checks Compose configuration, API readiness, frontend response, absen
 
 GitHub Actions runs the open-source Trivy filesystem scanner against the repository for high/critical dependency vulnerabilities and exposed secrets. The existing dependency audit remains in place. Review findings before deployment; do not put credentials into the repository or CI output.
 
+## Read-only API load probe
+
+After the stack is healthy, run a bounded GET-only load probe against readiness:
+
+```bash
+python scripts/load_check.py --url http://127.0.0.1:8080/api/ready --requests 120 --concurrency 8
+```
+
+The probe reports request throughput, p50/p95/max latency, HTTP status counts, and error rate. It does not log response bodies, headers, environment values, or credentials. Optional `--max-p95-ms` and `--max-error-rate` arguments add explicit acceptance thresholds. Start with modest request counts and concurrency; this is a smoke/load diagnostic, not a capacity certification or a substitute for a representative workload test.
+
 ## Routine operations
 
 ```bash

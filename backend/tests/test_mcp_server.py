@@ -1,0 +1,116 @@
+import json
+import unittest
+
+from mcp import Client
+
+from app.mcp_server import mcp
+
+
+class MarketMindMCPTests(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
+        self.context = Client(mcp, raise_exceptions=True)
+        self.client = await self.context.__aenter__()
+
+    async def asyncTearDown(self):
+        await self.context.__aexit__(None, None, None)
+
+    async def test_mcp_lists_only_read_only_tools(self):
+        response = await self.client.list_tools()
+        names = {tool.name for tool in response.tools}
+        self.assertEqual(
+            names,
+            {
+                "market_mind_capabilities",
+                "list_engineering_skills",
+                "read_engineering_skill",
+                "validate_n8n_workflow_json",
+            },
+        )
+        self.assertFalse(any("import" in name or "execute" in name for name in names))
+
+    async def test_capabilities_declare_research_only_boundaries(self):
+        response = await self.client.call_tool("market_mind_capabilities", {})
+        data = response.structured_content
+        self.assertEqual(data["name"], "MARKET-MIND-AI")
+        self.assertTrue(data["coding_harness_independent"])
+        self.assertFalse(data["brokerage_execution"])
+        self.assertFalse(data["workflow_activation"])
+        self.assertFalse(data["workflow_execution"])
+        self.assertFalse(data["workflow_import"])
+
+    async def test_engineering_skill_allowlist_and_read(self):
+        listed = await self.client.call_tool("list_engineering_skills", {})
+        data = listed.structured_content
+        self.assertEqual(data["count"], 4)
+        self.assertFalse(data["trading_skill_content_exposed"])
+
+        read = await self.client.call_tool(
+            "read_engineering_skill",
+            {"skill_id": "rea-tool-design"},
+        )
+        skill = read.structured_content
+        self.assertEqual(skill["id"], "rea-tool-design")
+        self.assertIn("tool", skill["content"].lower())
+        self.assertFalse(skill["side_effects"])
+
+        denied = await self.client.call_tool(
+            "read_engineering_skill",
+            {"skill_id": "../../README.md"},
+        )
+        self.assertEqual(denied.structured_content["error"], "skill_not_allowlisted")
+
+    async def test_n8n_validator_accepts_structural_fixture_without_runtime_claim(self):
+        workflow = {
+            "name": "MCP validation fixture",
+            "active": False,
+            "nodes": [
+                {
+                    "id": "manual-1",
+                    "name": "Manual Trigger",
+                    "type": "n8n-nodes-base.manualTrigger",
+                    "typeVersion": 1,
+                    "parameters": {},
+                }
+            ],
+            "connections": {},
+        }
+        response = await self.client.call_tool(
+            "validate_n8n_workflow_json",
+            {"workflow_json": json.dumps(workflow)},
+        )
+        result = response.structured_content
+        self.assertTrue(result["structurally_valid"])
+        self.assertFalse(result["runtime_verified"])
+
+    async def test_n8n_validator_rejects_active_or_invalid_json(self):
+        active = {
+            "name": "Active workflow",
+            "active": True,
+            "nodes": [
+                {
+                    "id": "manual-1",
+                    "name": "Manual Trigger",
+                    "type": "n8n-nodes-base.manualTrigger",
+                    "typeVersion": 1,
+                    "parameters": {},
+                }
+            ],
+            "connections": {},
+        }
+        response = await self.client.call_tool(
+            "validate_n8n_workflow_json",
+            {"workflow_json": json.dumps(active)},
+        )
+        self.assertFalse(response.structured_content["structurally_valid"])
+        self.assertFalse(response.structured_content["runtime_verified"])
+
+        invalid = await self.client.call_tool(
+            "validate_n8n_workflow_json",
+            {"workflow_json": "{not-json"},
+        )
+        self.assertFalse(invalid.structured_content["structurally_valid"])
+        self.assertIn("not valid JSON", invalid.structured_content["errors"][0])
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -16,8 +16,8 @@ REQUIRED = {
     ".mcp.json": ("mcpServers", "backend/app/mcp_server.py"),
     ".cursor/mcp.json": ("mcpServers", "backend/app/mcp_server.py"),
     ".codex/config.toml": ("[mcp_servers.market_mind_ai]", "backend/app/mcp_server.py"),
-    "backend/app/mcp_server.py": ("market_mind_capabilities", "validate_n8n_workflow_json", "workflow_activation"),
-    "backend/tests/test_mcp_server.py": ("MarketMindMCPTests", "test_mcp_lists_only_read_only_tools"),
+    "backend/app/mcp_server.py": ("market_mind_capabilities", "mcp_server_diagnostics", "validate_n8n_workflow_json", "workflow_activation"),
+    "backend/tests/test_mcp_server.py": ("MarketMindMCPTests", "test_mcp_lists_only_read_only_tools", "test_all_four_harness_configs_launch_the_same_stdio_tools"),
 }
 errors = []
 for relative, markers in REQUIRED.items():

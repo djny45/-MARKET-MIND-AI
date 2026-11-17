@@ -9,4 +9,6 @@ The application is harness-independent: Python/FastAPI, React/Vite, SQLite and D
 
 The optional n8n integration must remain opt-in and private. Require authenticated human review and importer authorization. Imported workflows remain inactive; do not add activation or execution paths. Keep credentials in deployment secret management and never commit them.
 
+The project MCP server is configured in `.cursor/mcp.json`. Install `backend/requirements.txt`, restart/reload Cursor, and confirm discovery. It is read-only and exposes project capabilities, a fixed engineering-skill allowlist, and n8n JSON validation only. Do not add file-write, network, workflow import/activation/execution, or brokerage tools.
+
 Inspect code and tests before editing. Run relevant checks and distinguish CI verification from a live deployment or real external integration.

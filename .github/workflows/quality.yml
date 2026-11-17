@@ -42,6 +42,9 @@ jobs:
       - name: Compile backend app
         run: python -m compileall -q backend/app
 
+      - name: Check coding-agent harness adapters
+        run: python scripts/check_harness_adapters.py
+
       - name: Run backend unit tests (require at least one test)
         env:
           PYTHONPATH: backend

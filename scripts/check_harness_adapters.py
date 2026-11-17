@@ -37,7 +37,12 @@ try:
     for relative in (".mcp.json", ".cursor/mcp.json"):
         config = json.loads((ROOT / relative).read_text(encoding="utf-8"))
         entry = config["mcpServers"]["market-mind-ai"]
-        if entry.get("command") not in {"python", "python3", "py"} or entry.get("args") != expected_args or entry.get("cwd") != ".":
+        expected_cwd = "." if relative == ".cursor/mcp.json" else None
+        if (
+            entry.get("command") not in {"python", "python3", "py"}
+            or entry.get("args") != expected_args
+            or entry.get("cwd") != expected_cwd
+        ):
             errors.append(f"{relative}: unexpected MCP server launch command.")
 
     codex = tomllib.loads((ROOT / ".codex/config.toml").read_text(encoding="utf-8"))

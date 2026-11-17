@@ -1,0 +1,12 @@
+---
+description: Shared MARKET-MIND-AI project rules
+alwaysApply: true
+---
+
+Follow the root `AGENTS.md` as the project contract. Load only task-relevant guidance from `.agents/skills/`.
+
+The application is harness-independent: Python/FastAPI, React/Vite, SQLite and Docker Compose run without a Claude/Codex-specific runtime. Keep provider interfaces neutral.
+
+The optional n8n integration must remain opt-in and private. Require authenticated human review and importer authorization. Imported workflows remain inactive; do not add activation or execution paths. Keep credentials in deployment secret management and never commit them.
+
+Inspect code and tests before editing. Run relevant checks and distinguish CI verification from a live deployment or real external integration.

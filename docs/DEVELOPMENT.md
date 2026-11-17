@@ -212,3 +212,18 @@ The market-data store initializes a `schema_migrations` ledger and records basel
 ## Local market-data coverage overview
 
 The WATCHLIST sidebar includes **LOAD MARKET DATA OVERVIEW**, backed by `GET /api/market-data/overview`. It summarizes stored symbol/timeframe coverage, observation counts, source/status labels, timestamp ranges, and latest retrieval time. The endpoint reads the local database only; it is not a live market overview, complete instrument universe, ranking, or freshness guarantee.
+
+
+## Worker-to-skill alignment diagnostics
+
+`GET /api/analytical-agent-registry` (and the registry evaluation endpoint) includes
+`specialty_skill_alignment`. Its current `lexical_screen_only` result compares
+normalized terms from each worker's department/specialty with the metadata for
+its assigned catalog skills. It reports per-worker overlap, matched skill counts,
+and workers with no lexical match so reviewers can prioritize inspection.
+
+This is deliberately a weak triage heuristic. A token match does not establish
+that a skill is semantically suitable, that its procedure is correct, or that a
+worker can perform the task. Do not use the score as a capability grant,
+autonomous routing decision, or quality score. Semantic alignment requires
+human review and task-level benchmark evidence.

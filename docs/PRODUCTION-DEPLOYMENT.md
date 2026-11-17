@@ -1,6 +1,6 @@
 # Private Docker deployment (Vercel-free)
 
-This deployment packages the React/Vite frontend as static files served by Nginx and keeps FastAPI on the internal Compose network. It is intended for **local/private use only**; the application does not currently provide user authentication or per-user authorization.
+This deployment packages the React/Vite frontend as static files served by Nginx and keeps FastAPI on the internal Compose network. It is intended for **local/private use only**. Optional deployment-wide bearer authentication is available; it is not a multi-user identity or per-user authorization system.
 
 ## Prerequisites
 
@@ -70,9 +70,18 @@ Stop the optional service with `docker compose --profile n8n stop n8n`. Its data
 
 ## Security boundary
 
-The frontend listener is bound to loopback (127.0.0.1), not all network interfaces. Compose drops Linux capabilities and enables `no-new-privileges`. This is deliberate: the current workspace API has no user authentication or per-user authorization. Do not publish it directly to the public internet or expose it on a shared network.
+The frontend listener is bound to loopback (127.0.0.1), not all network interfaces. Compose drops Linux capabilities and enables `no-new-privileges`.
 
-For remote access, use a separately maintained TLS reverse proxy and authentication layer in front of the loopback service. Restrict administrative access, apply request limits, and review proxy configuration before enabling access. The app remains a single-user research workspace.
+For an additional deployment-wide API bearer gate, set these values in the backend's uncommitted environment file or secret manager:
+
+```env
+API_AUTH_REQUIRED=true
+API_AUTH_TOKEN=replace-with-a-random-secret-at-least-32-characters-long
+```
+
+Generate a unique high-entropy token locally (for example with `openssl rand -hex 32`); do not reuse the n8n reviewer/importer tokens. Keep it server-side and never commit it or place it in frontend variables. Restart the backend after changing the environment. When enabled, all API routes except the minimal `/api/health` and `/api/ready` probes require `Authorization: Bearer <token>`; CORS preflight requests are allowed. If the required token is missing or shorter than 32 characters, protected requests fail closed with HTTP 503. Local development remains unauthenticated by default (`API_AUTH_REQUIRED=false`).
+
+This is a shared deployment token, not individual user accounts, session management, or per-user role-based authorization. The n8n review/import routes retain their separate reviewer/importer role checks. Do not publish the service directly to the public internet: use a separately maintained TLS reverse proxy, restrict administrative access, apply request limits, and obtain an independent security review before remote exposure. The app remains a single-user research workspace.
 
 No provider credentials are required. The built-in market-data adapter is synthetic-only; this deployment does not create live market connectivity. Brokerage execution and order routing remain disabled.
 

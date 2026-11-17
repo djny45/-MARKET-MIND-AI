@@ -98,7 +98,7 @@ bash scripts/deploy_check.sh --start
 bash scripts/deploy_check.sh --start --with-n8n
 ```
 
-The script checks Compose configuration, API readiness, frontend response, absence of a host-published backend port, and loopback-only frontend/n8n bindings. It prints PASS/FAIL summaries only; it does not dump environment variables or service logs. It does not configure reviewer credentials, prove that an n8n API key is valid, or import a workflow. Keep those as separate controlled acceptance tests. A successful CI run validates the GitHub-hosted runner only; run this script on the actual target host to record host-specific evidence.
+The script checks Compose configuration, API readiness, frontend response, absence of a host-published backend port, loopback-only frontend/n8n bindings, the agent-supervisor process, and SQLite PRAGMA integrity_check against the persistent application database. It prints PASS/FAIL summaries only; it does not dump environment variables or service logs. It does not configure reviewer credentials, prove that an n8n API key is valid, or import a workflow. Keep those as separate controlled acceptance tests. A successful CI run validates the GitHub-hosted runner only; run this script on the actual target host to record host-specific evidence.
 
 ## Repository security scanning
 
@@ -124,6 +124,30 @@ curl --fail http://127.0.0.1:8080/api/ready
 ```
 
 The expected published web address is `127.0.0.1:8080`; the API should have no host-published port. A successful health check does not establish data freshness, provider licensing, backup recoverability, or public-deployment security.
+
+## Supervisor restart and task-recovery drill
+
+The research-task queue is persisted in the shared SQLite volume. To verify process-restart recovery on a disposable or maintenance deployment:
+
+1. Confirm a recent database backup exists.
+2. Submit a non-sensitive test research task and record its task ID.
+3. Stop the supervisor while no task is being processed:
+
+   ```bash
+   docker compose stop agent-supervisor
+   ```
+
+4. If testing interrupted-task recovery specifically, use a controlled test fixture to mark a test task as stale-running; do not modify a production task row manually.
+5. Start the supervisor again:
+
+   ```bash
+   docker compose start agent-supervisor
+   docker compose ps agent-supervisor
+   ```
+
+6. Check the task status and audit events through the authenticated application API. A stale `running` task is eligible for requeue after the configured 15-minute grace period. Recovery requeues; it does not itself execute a task. The supervisor then dispatches queued tasks according to its bounded polling configuration.
+
+Automated tests include a two-process SQLite restart simulation, stale-task recovery, recent-running-task preservation, concurrent recovery, and execution-token fencing. Those tests establish application behavior against a local test database; they do not replace a host-specific volume-loss, backup-restore, or power-failure drill.
 
 ## SQLite backup and restore
 

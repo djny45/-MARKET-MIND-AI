@@ -224,7 +224,7 @@ jobs:
   container-smoke:
     name: Docker Compose integration
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v7
 
@@ -259,6 +259,37 @@ jobs:
           assert not any(bindings.values()), f"Backend unexpectedly publishes host ports: {bindings}"
           PY
           echo "Compose integration smoke test passed"
+
+      - name: Start optional n8n service
+        run: docker compose --profile n8n up -d n8n
+
+      - name: Verify n8n health and private network reachability
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:5678/healthz >/tmp/n8n-health.json; then
+              break
+            fi
+            sleep 2
+          done
+          test -s /tmp/n8n-health.json
+          backend=$(docker compose ps -q backend)
+          docker compose exec -T backend python -c "import urllib.request; urllib.request.urlopen('http://n8n:5678/healthz', timeout=5)"
+          python - <<'PY'
+          import json
+          import subprocess
+
+          n8n = subprocess.check_output(
+              ["docker", "compose", "ps", "-q", "n8n"], text=True
+          ).strip()
+          bindings = json.loads(subprocess.check_output([
+              "docker", "inspect", n8n, "--format",
+              "{{json .HostConfig.PortBindings}}",
+          ], text=True))
+          ports = bindings.get("5678/tcp", [])
+          assert ports and all(item.get("HostIp") == "127.0.0.1" for item in ports), bindings
+          print("n8n health and loopback-only port binding verified")
+          PY
 
       - name: Show container diagnostics on failure
         if: failure()

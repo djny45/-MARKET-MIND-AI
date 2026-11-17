@@ -170,6 +170,7 @@ class ResearchOrchestrationRequest(BaseModel):
  max_workers: int = Field(default=1, ge=1, le=16)
  max_retries: int = Field(default=0, ge=0, le=3)
  evidence_claims: list[dict[str, Any]] = Field(default_factory=list, max_length=200)
+ citation_claims: list[dict[str, Any]] = Field(default_factory=list, max_length=100)
  source_registry: list[dict[str, Any]] = Field(default_factory=list, max_length=500)
 
 class ResearchSynthesisRequest(BaseModel):
@@ -2436,6 +2437,7 @@ def orchestrate_research_request(request: ResearchOrchestrationRequest):
    nodes=request.nodes, edges=request.edges, inputs=request.inputs,
    max_workers=request.max_workers, max_retries=request.max_retries,
    evidence_claims=request.evidence_claims, source_registry=request.source_registry,
+   citation_claims=request.citation_claims,
   )
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc

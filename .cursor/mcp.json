@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "market-mind-ai": {
+      "command": "python",
+      "args": ["backend/app/mcp_server.py"]
+    }
+  }
+}

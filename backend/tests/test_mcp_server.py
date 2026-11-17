@@ -102,7 +102,7 @@ class MarketMindMCPTests(unittest.IsolatedAsyncioTestCase):
             )
             oversized = await client.call_tool(
                 "validate_n8n_workflow_json",
-                {"workflow_json": " " * 1_000_001},
+                {"workflow_json": "x" * 1_000_001},
             )
         self.assertFalse(nonstandard.structured_content["structurally_valid"])
         self.assertIn("not valid JSON", nonstandard.structured_content["errors"][0])

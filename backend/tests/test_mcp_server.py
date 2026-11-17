@@ -94,6 +94,21 @@ class MarketMindMCPTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(result["structurally_valid"])
         self.assertFalse(result["runtime_verified"])
 
+    async def test_n8n_validator_rejects_nonstandard_json_and_oversized_payloads(self):
+        async with Client(mcp, raise_exceptions=True) as client:
+            nonstandard = await client.call_tool(
+                "validate_n8n_workflow_json",
+                {"workflow_json": '{"active": false, "nodes": [], "connections": {}, "x": NaN}'},
+            )
+            oversized = await client.call_tool(
+                "validate_n8n_workflow_json",
+                {"workflow_json": " " * 1_000_001},
+            )
+        self.assertFalse(nonstandard.structured_content["structurally_valid"])
+        self.assertIn("not valid JSON", nonstandard.structured_content["errors"][0])
+        self.assertFalse(oversized.structured_content["structurally_valid"])
+        self.assertIn("character limit", oversized.structured_content["errors"][0])
+
     async def test_n8n_validator_rejects_active_or_invalid_json(self):
         active = {
             "name": "Active workflow",

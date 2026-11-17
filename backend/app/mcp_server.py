@@ -135,8 +135,11 @@ def validate_n8n_workflow_json(workflow_json: str) -> dict[str, Any]:
             "runtime_verified": False,
         }
     try:
-        workflow = json.loads(workflow_json)
-    except json.JSONDecodeError:
+        workflow = json.loads(
+            workflow_json,
+            parse_constant=lambda value: (_ for _ in ()).throw(ValueError(value)),
+        )
+    except (json.JSONDecodeError, ValueError, RecursionError):
         return {
             "structurally_valid": False,
             "errors": ["workflow_json is not valid JSON."],

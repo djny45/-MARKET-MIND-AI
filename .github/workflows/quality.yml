@@ -266,6 +266,9 @@ jobs:
           PY
           echo "Compose integration smoke test passed"
 
+      - name: Run bounded read-only API load probe
+        run: python scripts/load_check.py --url http://127.0.0.1:8080/api/ready --requests 120 --concurrency 8 --timeout 5 --max-error-rate 0
+
       - name: Start optional n8n service
         run: docker compose --profile n8n up -d n8n
 

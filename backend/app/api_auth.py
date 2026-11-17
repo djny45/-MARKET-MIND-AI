@@ -36,16 +36,23 @@ class ResearchAPIAuthMiddleware:
             await response(scope, receive, send)
             return
 
+        authorization_values = [
+            value for name, value in scope.get("headers", [])
+            if name.lower() == b"authorization"
+        ]
         supplied = ""
-        for name, value in scope.get("headers", []):
-            if name.lower() == b"authorization":
-                try:
-                    scheme, token = value.decode("latin-1").split(" ", 1)
-                    if scheme.lower() == "bearer":
-                        supplied = token.strip()
-                except ValueError:
-                    pass
-                break
+        # Reject duplicate Authorization fields rather than relying on
+        # proxy/server-specific header coalescing or first/last-value rules.
+        if len(authorization_values) == 1:
+            scheme, separator, token = authorization_values[0].decode("latin-1").partition(" ")
+            if (
+                separator
+                and scheme.lower() == "bearer"
+                and token
+                and token == token.strip()
+                and not any(character.isspace() for character in token)
+            ):
+                supplied = token
 
         if not supplied or not hmac.compare_digest(
             supplied.encode("utf-8"), expected.encode("utf-8")

@@ -164,8 +164,7 @@ class WorkerRegistryTests(unittest.TestCase):
             "description": "Identify trend direction and structure.",
             "domain": "Technical Analysis", "available": True,
         }]
-        with patch("app.worker_registry.list_workers", return_value=[profile]), \\
-             patch("app.worker_registry.list_skills", return_value=catalog):
+        with patch("app.worker_registry.list_workers", return_value=[profile]),  patch("app.worker_registry.list_skills", return_value=catalog):
             result = evaluate_registry()
         alignment = result["specialty_skill_alignment"]
         self.assertEqual(alignment["status"], "lexical_screen_only")
@@ -181,8 +180,7 @@ class WorkerRegistryTests(unittest.TestCase):
             "model": EXPECTED_CORE, "memory_namespace": "workers/test",
             "skill_refs": ["empty-skill"], "status": "template",
         }
-        with patch("app.worker_registry.list_workers", return_value=[profile]), \\
-             patch("app.worker_registry.list_skills", return_value=[
+        with patch("app.worker_registry.list_workers", return_value=[profile]),  patch("app.worker_registry.list_skills", return_value=[
                  {"id": "empty-skill", "available": True}
              ]):
             result = evaluate_registry()

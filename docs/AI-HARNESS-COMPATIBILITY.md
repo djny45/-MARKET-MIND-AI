@@ -23,6 +23,7 @@ A harness may require a newer version or a setting to load a given instruction f
 The repository includes a local stdio server using the official open-source MCP Python SDK. Its tools are deliberately read-only:
 
 - `market_mind_capabilities` — describes project capabilities and hard execution boundaries.
+- `mcp_server_diagnostics` — reports sanitized runtime, SDK and skill availability; never returns secret values.
 - `list_engineering_skills` and `read_engineering_skill` — expose a fixed engineering/n8n skill allowlist, never arbitrary filesystem paths.
 - `validate_n8n_workflow_json` — validates supplied workflow JSON locally; it does not import or run it.
 
@@ -40,7 +41,7 @@ The checked-in launch configurations are:
 
 The root `.mcp.json` intentionally omits `cwd` because Copilot's workspace-root portable configuration does not expose a working-directory field. The server resolves its own backend import path relative to the script, so it can start from the workspace root. Cursor and Codex configurations set the working directory explicitly. These launch the same `backend/app/mcp_server.py` process over stdio.
 
-If your Python executable is named `python3` (or `py` on Windows), change only the `command` value in the client configuration. Install the backend dependencies in the same environment where the harness runs. For remote/SSH/dev-container harnesses, install Python dependencies in that remote environment too. Restart/reload the harness and verify that it discovers the four tools; configuration presence alone does not prove the host can launch the process.
+If your Python executable is named `python3` (or `py` on Windows), change only the `command` value in the client configuration. Install the backend dependencies in the same environment where the harness runs. For remote/SSH/dev-container harnesses, install Python dependencies in that remote environment too. Restart/reload the harness and verify that it discovers the five tools; configuration presence alone does not prove the host can launch the process.
 
 Official setup references: [Claude Code MCP](https://docs.anthropic.com/en/docs/claude-code/mcp), [VS Code/Copilot MCP configuration](https://code.visualstudio.com/docs/agents/reference/mcp-configuration), [Cursor MCP configuration](https://cursor.com/docs/mcp), and [Codex project configuration](https://learn.chatgpt.com/docs/config-file/config-basic).
 

@@ -1,10 +1,11 @@
-import { copyFile, mkdir, rm } from 'node:fs/promises'
+import { cp, copyFile, mkdir, rm } from 'node:fs/promises'
 import { build } from 'esbuild'
 
 const outdir = 'dist'
 await rm(outdir, { recursive: true, force: true })
 await mkdir(outdir, { recursive: true })
 await copyFile('index.html', `${outdir}/index.html`)
+await cp('public', outdir, { recursive: true, force: true })
 
 await build({
   entryPoints: ['src/main.tsx'],

@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Create a host-persisted SQLite backup and verify restore into a disposable DB.
 set -Eeuo pipefail
-ROOT="$(cd "$(dirname "\${BASH_SOURCE[0]}")/.." && pwd)"
-BACKUP_DIR="\${1:-$ROOT/backups}"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+BACKUP_DIR="${1:-$ROOT/backups}"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
-BACKUP_NAME="market_mind-\${STAMP}.db"
-CONTAINER_BACKUP="/tmp/\${BACKUP_NAME}"
-CONTAINER_RESTORE="/tmp/restore-drill-\${STAMP}.db"
+BACKUP_NAME="market_mind-${STAMP}.db"
+CONTAINER_BACKUP="/tmp/${BACKUP_NAME}"
+CONTAINER_RESTORE="/tmp/restore-drill-${STAMP}.db"
 mkdir -p "$BACKUP_DIR"
 DEST="$BACKUP_DIR/$BACKUP_NAME"
 [[ ! -e "$DEST" ]] || { echo "Refusing to overwrite $DEST" >&2; exit 2; }

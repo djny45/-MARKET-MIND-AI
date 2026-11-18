@@ -173,3 +173,14 @@ Workflow run [44273459114](https://github.com/djny45/-MARKET-MIND-AI/actions/run
 - Docker Compose integration: failed during the frontend image build. The container build's Vite/Rollup CommonJS resolver reported `Code is nested too deeply` while parsing `react-dom/client.js`; later proxy, load-probe, n8n and deployment checks were skipped because the image did not build.
 
 This is a separate reproducibility/build-context issue from the npm audit finding. The standalone CI frontend build passing does not establish that the Docker image build is healthy. Investigate the container build environment and dependency resolution before changing build flags or weakening checks. Keep both blockers visible until a clean run verifies the fix.
+
+
+## Frontend build-toolchain remediation — 2026-11-18
+
+Changes committed for CI verification:
+- Replaced Vite and `@vitejs/plugin-react` with esbuild 0.28.2, removing the Vite → tinyglobby/fdir → picomatch dependency path from the declared frontend toolchain rather than suppressing the advisory.
+- Added esbuild production and watch-mode development scripts. The production build type-checks with TypeScript, bundles the React entry point and imported CSS, copies the application shell and existing public HTML assets, and substitutes the configured API URL at build time.
+- Updated the frontend HTML shell to load the generated JavaScript and CSS assets.
+- Changed the frontend Docker build stage from Alpine to Debian slim to align the container's Node runtime/libc family more closely with the Ubuntu CI build environment, reducing platform-specific native bundler differences.
+
+Not yet verified: the next complete GitHub Actions run must confirm that the new esbuild dependency graph passes `npm audit`, that the Docker image builds, and that the production proxy/Compose smoke tests pass. No audit finding has been ignored or suppressed. If other transitive advisories remain, they must be assessed separately.

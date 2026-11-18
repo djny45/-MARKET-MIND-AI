@@ -5,15 +5,18 @@ set -Eeuo pipefail
 
 WITH_N8N=0
 START=0
+BACKUP_DRILL=0
 for arg in "$@"; do
   case "$arg" in
     --with-n8n) WITH_N8N=1 ;;
     --start) START=1 ;;
+    --backup-drill) BACKUP_DRILL=1 ;;
     -h|--help)
       cat <<'EOF'
-Usage: bash scripts/deploy_check.sh [--start] [--with-n8n]
+Usage: bash scripts/deploy_check.sh [--start] [--with-n8n] [--backup-drill]
   --start     Build/start the Compose stack before checking it.
-  --with-n8n  Also require the optional n8n profile to be running and healthy.
+  --with-n8n     Also require the optional n8n profile to be running and healthy.
+  --backup-drill Create a host-persisted SQLite backup and verify restore to a disposable DB.
 EOF
       exit 0
       ;;
@@ -109,6 +112,9 @@ check "Backend has no host-published ports" backend_has_no_published_ports
 check "Frontend binds only to loopback" is_loopback_binding frontend
 check "Agent supervisor process is running" agent_supervisor_running
 check "Persistent SQLite database integrity" sqlite_integrity_ok
+if (( BACKUP_DRILL )); then
+  check "Host backup and disposable restore drill" bash scripts/backup_restore_drill.sh
+fi
 
 if (( WITH_N8N )); then
   check "n8n health endpoint" wait_http "http://127.0.0.1:5678/healthz" 45

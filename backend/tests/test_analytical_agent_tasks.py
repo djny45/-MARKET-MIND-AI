@@ -684,3 +684,59 @@ class AgentSupervisorPollingContractTests(unittest.TestCase):
             self.assertEqual(len(requeue_events), 1)
             self.assertEqual(requeue_events[0]["detail"]["reason"], "stale_recovery")
 
+    def test_supervisor_stops_after_current_poll_and_records_stopped_heartbeat(self):
+        import threading
+        from app.analytical_agent_tasks import run_supervisor
+
+        stop_event = threading.Event()
+        heartbeat_states = []
+
+        def dispatch_once(**kwargs):
+            stop_event.set()
+            return {"selected": 1, "dispatched": 1, "status": "completed"}
+
+        with patch(
+            "app.analytical_agent_tasks.recover_interrupted_research_tasks",
+            return_value={"requeued_interrupted_count": 0},
+        ), patch(
+            "app.analytical_agent_tasks.dispatch_queued_research_tasks",
+            side_effect=dispatch_once,
+        ) as dispatch, patch(
+            "app.analytical_agent_tasks._write_supervisor_heartbeat",
+            side_effect=lambda state, *args, **kwargs: heartbeat_states.append(state),
+        ):
+            result = run_supervisor(
+                stop_event, poll_interval_seconds=0.001, max_cycles=None,
+            )
+
+        self.assertEqual(result["status"], "stopped")
+        self.assertEqual(result["cycles"], 1)
+        dispatch.assert_called_once()
+        self.assertEqual(heartbeat_states[0], "starting")
+        self.assertIn("running", heartbeat_states)
+        self.assertEqual(heartbeat_states[-1], "stopped")
+
+    def test_supervisor_fails_closed_when_startup_recovery_raises(self):
+        import threading
+        from app.analytical_agent_tasks import run_supervisor
+
+        heartbeat_states = []
+        with patch(
+            "app.analytical_agent_tasks.recover_interrupted_research_tasks",
+            side_effect=RuntimeError("private database detail"),
+        ), patch(
+            "app.analytical_agent_tasks.dispatch_queued_research_tasks",
+        ) as dispatch, patch(
+            "app.analytical_agent_tasks._write_supervisor_heartbeat",
+            side_effect=lambda state, *args, **kwargs: heartbeat_states.append(state),
+        ):
+            result = run_supervisor(threading.Event(), max_cycles=1)
+
+        self.assertEqual(result["status"], "recovery_failed")
+        self.assertEqual(result["error_type"], "RuntimeError")
+        self.assertEqual(result["cycles"], 0)
+        self.assertEqual(result["dispatch_results"], [])
+        dispatch.assert_not_called()
+        self.assertEqual(heartbeat_states, ["starting", "failed"])
+        self.assertNotIn("private database detail", str(result))
+

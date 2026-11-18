@@ -634,45 +634,48 @@ class AgentSupervisorPollingContractTests(unittest.TestCase):
         from threading import Barrier
         from datetime import datetime, timedelta, timezone
         import sqlite3
-        from app.analytical_agent_tasks import (
-            enqueue_research_task, recover_interrupted_research_tasks,
-            list_task_audit_events,
-        )
-
-        queued = enqueue_research_task("worker_033", "concurrent recovery regression")
-        stale_timestamp = (
-            datetime.now(timezone.utc) - timedelta(seconds=1200)
-        ).isoformat()
-        with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
-            db.execute(
-                "UPDATE analytical_agent_tasks SET status='running',updated_at=?,"
-                "execution_attempts=1,execution_token='interrupted-claim' WHERE task_id=?",
-                (stale_timestamp, queued["task_id"]),
+        with tempfile.TemporaryDirectory() as temp_dir, patch.dict(
+            os.environ, {"MARKET_MIND_DB": os.path.join(temp_dir, "recovery.sqlite")}
+        ):
+            from app.analytical_agent_tasks import (
+                enqueue_research_task, recover_interrupted_research_tasks,
+                list_task_audit_events,
             )
 
-        start = Barrier(3)
+            queued = enqueue_research_task("worker_033", "concurrent recovery regression")
+            stale_timestamp = (
+                datetime.now(timezone.utc) - timedelta(seconds=1200)
+            ).isoformat()
+            with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+                db.execute(
+                    "UPDATE analytical_agent_tasks SET status='running',updated_at=?,"
+                    "execution_attempts=1,execution_token='interrupted-claim' WHERE task_id=?",
+                    (stale_timestamp, queued["task_id"]),
+                )
 
-        def recover():
-            start.wait(timeout=5)
-            return recover_interrupted_research_tasks(stale_after_seconds=900)
+            start = Barrier(3)
 
-        with ThreadPoolExecutor(max_workers=2) as pool:
-            first = pool.submit(recover)
-            second = pool.submit(recover)
-            start.wait(timeout=5)
-            results = [first.result(timeout=10), second.result(timeout=10)]
+            def recover():
+                start.wait(timeout=5)
+                return recover_interrupted_research_tasks(stale_after_seconds=900)
 
-        self.assertEqual(
-            sum(item["requeued_interrupted_count"] for item in results), 1
-        )
-        saved = get_research_task(queued["task_id"])
-        self.assertEqual(saved["status"], "queued")
-        self.assertEqual(saved["execution_attempts"], 1)
-        self.assertIsNone(saved["execution_token"])
-        events = list_task_audit_events(queued["task_id"])["events"]
-        requeue_events = [
-            event for event in events if event["event_type"] == "task_requeued"
-        ]
-        self.assertEqual(len(requeue_events), 1)
-        self.assertEqual(requeue_events[0]["detail"]["reason"], "stale_recovery")
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                first = pool.submit(recover)
+                second = pool.submit(recover)
+                start.wait(timeout=5)
+                results = [first.result(timeout=10), second.result(timeout=10)]
+
+            self.assertEqual(
+                sum(item["requeued_interrupted_count"] for item in results), 1
+            )
+            saved = get_research_task(queued["task_id"])
+            self.assertEqual(saved["status"], "queued")
+            self.assertEqual(saved["execution_attempts"], 1)
+            self.assertIsNone(saved["execution_token"])
+            events = list_task_audit_events(queued["task_id"])["events"]
+            requeue_events = [
+                event for event in events if event["event_type"] == "task_requeued"
+            ]
+            self.assertEqual(len(requeue_events), 1)
+            self.assertEqual(requeue_events[0]["detail"]["reason"], "stale_recovery")
 

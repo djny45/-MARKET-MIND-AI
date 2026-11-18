@@ -72,7 +72,7 @@ Stop the optional service with `docker compose --profile n8n stop n8n`. Its data
 
 The frontend listener is bound to loopback (127.0.0.1), not all network interfaces. Compose drops Linux capabilities and enables `no-new-privileges`.
 
-For an additional deployment-wide API bearer gate, set these values in the backend's uncommitted environment file or secret manager:
+For an additional deployment-wide API bearer gate, set these values in the repository-root `.env` file (uncommitted) or secret manager. Compose explicitly forwards these two variables into the backend container:
 
 ```env
 API_AUTH_REQUIRED=true
@@ -117,6 +117,26 @@ GitHub Actions runs the open-source Trivy filesystem scanner against the reposit
 The `GET /api/analytical-agent-supervisor/status` response includes a persisted supervisor heartbeat when the dedicated supervisor process has started. It reports the process ID, instance identifier, last heartbeat time and age, polling configuration, and one of these health states: `starting`, `healthy`, `stale`, `failed`, `stopped`, or `not_started`. The stale threshold is the greater of 15 seconds or three poll intervals plus five seconds.
 
 The heartbeat is operational telemetry, not a distributed leader-election or process-liveness guarantee. A stale heartbeat indicates that the API has not observed a recent update; confirm the actual container/process state in the deployment runtime. The task queue remains single-host SQLite.
+
+The optional shared bearer middleware protects API routes but is not a browser login/session system and does not provide per-user roles. The current React frontend does not inject this shared bearer token; enabling it without a separately configured trusted same-origin gateway/API client will cause browser API calls to receive 401 responses. For an interactive owner login, use the owner-session authentication integration and its own release gates; do not treat the shared token as a substitute.
+
+## Host backup and restore acceptance drill
+
+The backend image includes \`backup_database.py\` and \`restore_database.py\`. To create a host-persisted backup from the running SQLite volume and verify that it can be restored into a disposable database (without overwriting the live database), run:
+
+\`\`\`bash
+bash scripts/backup_restore_drill.sh
+\`\`\`
+
+The script creates a timestamped file under \`./backups/\`, checks SQLite integrity and required schema, prints a SHA-256 digest, and tests restore into a temporary container path. It refuses to overwrite an existing backup. The host backup directory is outside the Docker volume; restrict its filesystem permissions, encrypt backups at rest, copy them to a separate failure domain, and define retention separately. A successful disposable restore drill is not proof that a full host-loss recovery has been completed.
+
+You can include this drill in the deployment acceptance script:
+
+\`\`\`bash
+bash scripts/deploy_check.sh --backup-drill
+\`\`\`
+
+Run it only when the backend service is healthy and the operator intends to create a backup file on the host. A true production acceptance record must additionally document the host, deployment revision, backup timestamp and digest, off-host copy confirmation, restore duration, data-loss window, and an independently observed full recovery test.
 
 ## Read-only API load probe
 

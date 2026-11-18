@@ -193,3 +193,12 @@ Verification:
 - The regression test was committed in 67d8b3817e5ed327c836f45eaf707d1c2cb0d0c6; CI exposed two test-fixture/assertion issues, corrected in 421c8c1309b0e733ccce10d603c494df46b4d825 and f29b353a53656d3d80ac07786d3fd98e57631a76.
 - Workflow run [44277109570](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/44277109570) for the corrected test passed all five jobs: backend (869 tests), frontend, dependency audit, Trivy filesystem scan, and Docker Compose integration.
 - The regression verifies concurrent recovery serialization and exactly-once requeue auditing. It does not turn the SQLite queue into a distributed broker or replace host-level restart/recovery drills.
+
+## Supervisor shutdown and startup-recovery regression — 2026-11-18
+
+Added two lifecycle tests to the analytical-agent task suite:
+- Graceful stop: a stop signal raised during a polling cycle allows that cycle to finish, prevents another cycle, and records the final `stopped` heartbeat.
+- Fail-closed startup: if stale-task recovery raises an exception, the supervisor records a sanitized `failed` heartbeat and exits without dispatching queued tasks.
+
+Verification: commit `0e5a75d6ecd4e1ae461851fd0d9e6a5c3a3752a4` passed workflow run [44280558763](https://github.com/dj45/-MARKET-MIND-AI/actions/runs/44280558763) across all five jobs: backend, frontend, dependency audit, Trivy filesystem scan, and Docker Compose integration. This validates the supervisor's tested shutdown and startup-failure behavior; it does not replace a host-level process-kill, persistent-volume backup, or restore drill.
+

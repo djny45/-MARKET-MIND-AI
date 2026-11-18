@@ -190,5 +190,6 @@ Verification: workflow run [44275092002](https://github.com/djny45/-MARKET-MIND-
 Added a two-thread regression test that starts simultaneous stale-task recovery calls against the same interrupted SQLite task. The test asserts that only one caller requeues the task, only one task_requeued audit event is written, the execution-attempt count is preserved, and the stale execution token is cleared. This exercises the existing BEGIN IMMEDIATE serialization and conditional status transition rather than changing queue semantics.
 
 Verification:
-- Source change committed as 67d8b3817e5ed327c836f45eaf707d1c2cb0d0c6.
-- A fresh CI run is required; this regression is not marked verified until the backend suite and complete workflow pass.
+- The regression test was committed in 67d8b3817e5ed327c836f45eaf707d1c2cb0d0c6; CI exposed two test-fixture/assertion issues, corrected in 421c8c1309b0e733ccce10d603c494df46b4d825 and f29b353a53656d3d80ac07786d3fd98e57631a76.
+- Workflow run [44277109570](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/44277109570) for the corrected test passed all five jobs: backend (869 tests), frontend, dependency audit, Trivy filesystem scan, and Docker Compose integration.
+- The regression verifies concurrent recovery serialization and exactly-once requeue auditing. It does not turn the SQLite queue into a distributed broker or replace host-level restart/recovery drills.

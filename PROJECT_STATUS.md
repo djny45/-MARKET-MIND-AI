@@ -161,3 +161,15 @@ Latest default-branch authentication hardening:
 Verification: workflow run [44160909195](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/44160909195) completed. Backend tests, frontend production build, Docker Compose integration (including proxy/readiness, bounded GET-only load probe, optional n8n health/network checks, and deployment verification), and Trivy filesystem scan passed. The dependency-audit job failed only at the frontend npm audit step because the existing high-severity picomatch findings remain unresolved; the backend Python dependency audit passed. The audit gate remains enabled and findings are not suppressed.
 
 This CI run verifies the authentication regression changes on the default branch. It does not establish a clean all-green pipeline, host-specific deployment acceptance, or external security approval.
+
+
+## Follow-up CI investigation — 2026-11-18
+
+Workflow run [44273459114](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/44273459114), triggered by the status-documentation commit, completed with:
+- Backend compilation, unit tests and API smoke tests: passed.
+- Frontend standalone production build: passed.
+- Trivy filesystem scan: passed.
+- Frontend dependency audit: failed on the already-recorded high-severity picomatch findings; backend Python audit passed.
+- Docker Compose integration: failed during the frontend image build. The container build's Vite/Rollup CommonJS resolver reported `Code is nested too deeply` while parsing `react-dom/client.js`; later proxy, load-probe, n8n and deployment checks were skipped because the image did not build.
+
+This is a separate reproducibility/build-context issue from the npm audit finding. The standalone CI frontend build passing does not establish that the Docker image build is healthy. Investigate the container build environment and dependency resolution before changing build flags or weakening checks. Keep both blockers visible until a clean run verifies the fix.

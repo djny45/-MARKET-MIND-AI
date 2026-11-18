@@ -92,3 +92,18 @@ Implemented the first per-agent brain and governed learning lifecycle scaffold. 
 - [x] Validate research-quality and offline-benchmark baselines against supported metric allowlists and numeric ranges.
 - [x] Validate baseline schemas before processing benchmark cases or claims.
 - [x] Disclose skipped offline benchmark comparisons; skipped comparisons are not evidence of a pass.
+
+## Durable queue and supervisor coordination milestone (2026-11-18)
+
+- [ ] Introduce a queue-provider protocol while retaining SQLite as the default single-host adapter.
+- [ ] Add exclusive supervisor lease acquisition, renewal, generation fencing, and safe release before startup recovery or dispatch.
+- [ ] Add provider contract tests and two-independent-process supervisor contention tests.
+- [ ] Add migration compatibility tests for existing task and audit records.
+- [ ] Add process-kill/restart tests against a persistent database volume.
+- [ ] Add queue-depth, oldest-task-age, lease-expiry, claim-age, and retry-exhaustion observability.
+- [ ] Run the complete CI pipeline and perform a host-specific restart/recovery drill.
+
+Design and acceptance criteria: [ADR-0001 — Durable queue and supervisor lease](ADR-0001-DURABLE-QUEUE-AND-SUPERVISOR-LEASE.md).
+
+Current implementation boundary: this milestone is **not implemented** by the ADR. The supported queue remains single-host SQLite and must run with one supervisor. Atomic task claims and execution-token fencing prevent duplicate claims of the same task, but they do not elect a single supervisor or provide distributed queue guarantees.
+

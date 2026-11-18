@@ -150,3 +150,14 @@ Workflow run [44154131706](https://github.com/djny45/-MARKET-MIND-AI/actions/run
 Security handling:
 - Advisory GHSA-fc5q-39xc-vjpf (CVE-2026-112366) identifies picomatch through 4.0.7 as affected. At this review, the advisory does not state a patched version. The finding remains visible and the audit gate remains enabled; no vulnerability suppression or unverified override has been added.
 - A clean full CI run is therefore not yet achieved despite the backend and integration checks passing.
+
+
+## API authentication regression verification — 2026-11-18
+
+Latest default-branch authentication hardening:
+- Commit `2aabcc9050aeb0314013d98d5ff1bac622768dc1` rejects duplicate Authorization headers and strictly validates bearer-token formatting.
+- Commit `5646db8eb3d19527f449648a8d3f16f4d923db93` adds regression tests for duplicate headers, malformed/whitespace-padded values, and case-insensitive Bearer scheme parsing.
+
+Verification: workflow run [44160909195](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/44160909195) completed. Backend tests, frontend production build, Docker Compose integration (including proxy/readiness, bounded GET-only load probe, optional n8n health/network checks, and deployment verification), and Trivy filesystem scan passed. The dependency-audit job failed only at the frontend npm audit step because the existing high-severity picomatch findings remain unresolved; the backend Python dependency audit passed. The audit gate remains enabled and findings are not suppressed.
+
+This CI run verifies the authentication regression changes on the default branch. It does not establish a clean all-green pipeline, host-specific deployment acceptance, or external security approval.

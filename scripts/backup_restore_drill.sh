@@ -2,6 +2,7 @@
 # Create a host-persisted SQLite backup and verify restore into a disposable DB.
 set -Eeuo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
 BACKUP_DIR="${1:-$ROOT/backups}"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 BACKUP_NAME="market_mind-${STAMP}.db"

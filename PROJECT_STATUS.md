@@ -184,3 +184,11 @@ Changes committed for CI verification:
 - Changed the frontend Docker build stage from Alpine to Debian slim to align the container's Node runtime/libc family more closely with the Ubuntu CI build environment, reducing platform-specific native bundler differences.
 
 Verification: workflow run [44275092002](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/44275092002) passed all five jobs after these changes. The frontend TypeScript/esbuild production build passed; the frontend and backend dependency audits passed; the Trivy filesystem scan passed; and Docker Compose built and started the private stack, passed API/frontend proxy checks, the bounded GET-only load probe, optional n8n health/network checks, and portable deployment verification. The previous picomatch advisory no longer appears in the audited dependency graph because the Vite toolchain that introduced that dependency path was removed; the audit gate itself remains enabled and unchanged. The Docker build now uses Debian slim rather than Alpine, and the Compose image build plus runtime checks passed.
+
+## Research queue recovery concurrency regression — 2026-11-18
+
+Added a two-thread regression test that starts simultaneous stale-task recovery calls against the same interrupted SQLite task. The test asserts that only one caller requeues the task, only one task_requeued audit event is written, the execution-attempt count is preserved, and the stale execution token is cleared. This exercises the existing BEGIN IMMEDIATE serialization and conditional status transition rather than changing queue semantics.
+
+Verification:
+- Source change committed as 67d8b3817e5ed327c836f45eaf707d1c2cb0d0c6.
+- A fresh CI run is required; this regression is not marked verified until the backend suite and complete workflow pass.

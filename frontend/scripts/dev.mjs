@@ -1,9 +1,10 @@
-import { copyFile, mkdir } from 'node:fs/promises'
+import { cp, copyFile, mkdir } from 'node:fs/promises'
 import { context } from 'esbuild'
 
 const outdir = 'dist'
 await mkdir(outdir, { recursive: true })
 await copyFile('index.html', `${outdir}/index.html`)
+await cp('public', outdir, { recursive: true, force: true })
 
 const ctx = await context({
   entryPoints: ['src/main.tsx'],

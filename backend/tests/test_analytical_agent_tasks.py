@@ -671,7 +671,12 @@ class AgentSupervisorPollingContractTests(unittest.TestCase):
             saved = get_research_task(queued["task_id"])
             self.assertEqual(saved["status"], "queued")
             self.assertEqual(saved["execution_attempts"], 1)
-            self.assertIsNone(saved["execution_token"])
+            with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+                token = db.execute(
+                    "SELECT execution_token FROM analytical_agent_tasks WHERE task_id=?",
+                    (queued["task_id"],),
+                ).fetchone()[0]
+            self.assertIsNone(token)
             events = list_task_audit_events(queued["task_id"])["events"]
             requeue_events = [
                 event for event in events if event["event_type"] == "task_requeued"

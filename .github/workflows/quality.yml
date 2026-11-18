@@ -43,7 +43,7 @@ jobs:
         run: python -m compileall -q backend/app
 
       - name: Validate deployment checker shell syntax
-        run: bash -n scripts/deploy_check.sh
+        run: bash -n scripts/deploy_check.sh scripts/backup_restore_drill.sh
 
       - name: Check coding-agent harness adapters
         run: python scripts/check_harness_adapters.py

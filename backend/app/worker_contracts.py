@@ -236,7 +236,8 @@ def validate_evidence_provenance(evidence) -> None:
         )
     source = evidence["input_source"]
     if (not isinstance(source, str) or not source.strip() or len(source.strip()) > 200
-            or any(ord(char) < 32 for char in source)):
+            or any(ord(char) < 32 for char in source)
+            or any(marker in source for marker in (r"\n", r"\r", r"\t"))):
         raise ValueError("Evidence provenance input_source must contain 1 to 200 printable characters")
     timestamp = evidence["retrieval_timestamp"]
     if (not isinstance(timestamp, str) or not timestamp.strip() or len(timestamp) > 64

@@ -635,12 +635,12 @@ class AgentSupervisorPollingContractTests(unittest.TestCase):
 
         recover.assert_called_once_with()
         self.assertEqual(dispatch.call_count, 2)
-        dispatch.assert_called_once()
-        call_kwargs = dispatch.call_args.kwargs
-        self.assertEqual(call_kwargs["limit"], 12)
-        self.assertEqual(call_kwargs["max_concurrency"], 3)
-        self.assertTrue(call_kwargs["supervisor_owner_id"])
-        self.assertTrue(call_kwargs["supervisor_lease_token"])
+        self.assertEqual(dispatch.call_count, 2)
+        for call in dispatch.call_args_list:
+            self.assertEqual(call.kwargs["limit"], 12)
+            self.assertEqual(call.kwargs["max_concurrency"], 3)
+            self.assertTrue(call.kwargs["supervisor_owner_id"])
+            self.assertTrue(call.kwargs["supervisor_lease_token"])
         self.assertEqual(result["cycles"], 2)
         self.assertEqual(result["recovery"]["requeued_interrupted_count"], 2)
         self.assertEqual(result["dispatch_results"][0]["dispatched"], 2)

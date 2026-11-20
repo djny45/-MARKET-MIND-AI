@@ -208,8 +208,8 @@ A draft release-candidate branch combines the terminal coverage/screener and bac
 
 Verified on the combined candidate so far:
 - Backend compilation and unit tests, frontend production build, Python/frontend dependency audit, and Trivy filesystem scan passed.
-- Docker Compose configuration, private stack build/start, loopback frontend/API proxy checks, and bounded read-only API load probe passed.
-- Optional n8n service started; its health/network and deployment-verification steps remain subject to the final CI result.
+- Docker Compose configuration, private stack build/start, loopback frontend/API proxy checks, bounded read-only API load probe, optional n8n health/network checks, and portable deployment verification passed.
+- Supervisor health is now checked from its persisted `running` heartbeat age and process ID, and the deployment verifier waits for Docker's healthy state. This is local process health evidence, not external monitoring or alert delivery.
 
 Outstanding release gates:
 - Complete the combined Compose/n8n/deployment CI result.

@@ -214,7 +214,7 @@ Verified on the combined candidate so far:
 Outstanding release gates:
 - Complete the combined Compose/n8n/deployment CI result.
 - Run a host-specific encrypted/off-host backup and restore drill, retention validation, and migration rollback test on the intended host.
-- Configure the owner password hash and HTTPS/TLS ingress using a secret manager; complete independent security review and browser-level authentication E2E.
+- Configure the production owner password hash through a secret manager and HTTPS/TLS ingress; the deployment checker now validates auth enablement, well-formed scrypt configuration, and unauthenticated 401 denial. Complete independent security review and browser-level authentication E2E.
 - Configure a licensed live/delayed market-data provider and verify entitlements, symbol mapping, timestamp freshness, rate limits, and provider failure handling. Until then, data availability is not implied by a green CI result.
 - Add host-level metrics, alert delivery, incident thresholds, and process-kill/restart recovery evidence.
 - Complete benchmarked research-worker quality gates and human-reviewed learning promotion. The 550 worker profiles are not 550 independent models or continuous autonomous agents.

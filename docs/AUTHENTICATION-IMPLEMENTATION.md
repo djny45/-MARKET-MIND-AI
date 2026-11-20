@@ -56,3 +56,9 @@ Interactive API documentation and the OpenAPI schema endpoints are disabled in t
 - Complete independent security review and end-to-end browser testing before any public deployment.
 
 This implementation does not add public registration, multi-user accounts, OAuth, or brokerage execution.
+
+## API response hardening
+
+The API applies conservative browser security headers (X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy, and Cross-Origin-Resource-Policy) without overwriting values supplied by the application or reverse proxy. API responses default to Cache-Control: no-store so authenticated research data and auth responses are not stored by intermediaries or browsers. HSTS is added only when the ASGI request scheme is HTTPS; TLS-terminating proxies must set and validate HSTS at the edge when the app itself receives internal HTTP. This middleware does not replace a frontend Content Security Policy or reverse-proxy security review.
+
+The header choices follow the open-source [OpenAI FastAPI web-server security guidance](https://github.com/openai/skills/blob/main/skills/.curated/security-best-practices/references/python-fastapi-web-server-security.md). Re-check the policy against the actual deployment topology before public exposure.

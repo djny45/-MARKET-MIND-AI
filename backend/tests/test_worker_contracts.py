@@ -84,6 +84,18 @@ class WorkerContractTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     validate_evidence_provenance(evidence)
 
+    def test_evidence_provenance_rejects_actual_and_escaped_control_sequences(self):
+        valid_timestamp = "2026-11-10T12:30:00Z"
+        for source in (r"provider\nforged", r"provider\rforged", r"provider\tforged",
+                       "provider\nforged", "provider\rforged", "provider\tforged"):
+            with self.subTest(source=source):
+                with self.assertRaises(ValueError):
+                    validate_evidence_provenance({
+                        "input_source": source,
+                        "retrieval_timestamp": valid_timestamp,
+                        "quality_status": "pass",
+                    })
+
     def test_unknown_node_contract_rejected(self):
         with self.assertRaises(ValueError):
             get_worker_contract("unknown")

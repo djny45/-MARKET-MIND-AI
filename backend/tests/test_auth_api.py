@@ -366,5 +366,21 @@ class AuthenticationApiTests(unittest.TestCase):
         self.assertEqual(response.json()["detail"], "Authentication storage unavailable")
 
 
+    def test_security_headers_are_added_to_api_responses(self):
+        response = self.client.get("/api/health")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers.get("x-content-type-options"), "nosniff")
+        self.assertEqual(response.headers.get("x-frame-options"), "DENY")
+        self.assertEqual(response.headers.get("referrer-policy"), "no-referrer")
+        self.assertEqual(response.headers.get("cross-origin-resource-policy"), "same-origin")
+        self.assertEqual(response.headers.get("cache-control"), "no-store")
+
+    def test_security_headers_are_present_on_auth_denials(self):
+        response = self.client.get("/api/watchlist")
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.headers.get("x-content-type-options"), "nosniff")
+        self.assertEqual(response.headers.get("cache-control"), "no-store")
+
+
 if __name__ == "__main__":
     unittest.main()

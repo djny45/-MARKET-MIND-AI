@@ -1099,7 +1099,6 @@ def run_supervisor(
     owner_id = f"poller-{os.getpid()}-{uuid.uuid4()}"
     lease = acquire_research_supervisor_lease(owner_id, lease_seconds=300)
     if not lease["acquired"]:
-        _write_supervisor_heartbeat("failed", poll_interval_seconds, batch_size, max_concurrency, "LeaseAlreadyHeld")
         return {"status": "lease_held_elsewhere", "reason": "another_supervisor_instance_holds_the_lease",
                 "lease_owner": lease["owner_id"], "cycles": 0, "dispatch_results": []}
 

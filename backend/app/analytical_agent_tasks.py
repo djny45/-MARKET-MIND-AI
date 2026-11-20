@@ -312,9 +312,63 @@ def classify_research_task_failure(error: Exception) -> dict:
         "automatic_retry": False,
     }
 
-def execute_queued_research_task(task_id: str) -> bool:
-    """Execute one persisted queued task; safe to call from FastAPI BackgroundTasks."""
+def acquire_research_supervisor_lease(owner_id: str, lease_seconds: int = 300) -> dict:
+    """Acquire the singleton SQLite polling-supervisor lease."""
+    if not isinstance(owner_id, str) or not owner_id.strip() or len(owner_id) > 120:
+        raise ValueError("owner_id must be a non-empty string of at most 120 characters")
+    if isinstance(lease_seconds, bool) or not isinstance(lease_seconds, int) or not 60 <= lease_seconds <= 86400:
+        raise ValueError("lease_seconds must be between 60 and 86400")
+    now_dt = datetime.now(timezone.utc)
+    now = now_dt.isoformat()
+    expires = datetime.fromtimestamp(now_dt.timestamp() + lease_seconds, timezone.utc).isoformat()
+    token = str(uuid.uuid4())
     with _connect() as db:
+        db.execute("BEGIN IMMEDIATE")
+        current = db.execute("SELECT owner_id,expires_at FROM research_supervisor_leases WHERE lease_name='primary'").fetchone()
+        if current is not None and current["expires_at"] > now:
+            return {"acquired": False, "reason": "lease_already_held", "owner_id": current["owner_id"], "expires_at": current["expires_at"]}
+        db.execute("""INSERT INTO research_supervisor_leases (lease_name,owner_id,lease_token,expires_at,updated_at)
+                      VALUES ('primary',?,?,?,?) ON CONFLICT(lease_name) DO UPDATE SET
+                      owner_id=excluded.owner_id,lease_token=excluded.lease_token,expires_at=excluded.expires_at,updated_at=excluded.updated_at""",
+                   (owner_id, token, expires, now))
+    return {"acquired": True, "owner_id": owner_id, "lease_token": token, "expires_at": expires}
+
+
+def renew_research_supervisor_lease(owner_id: str, lease_token: str, lease_seconds: int = 300) -> bool:
+    """Renew only the currently active lease held by the supplied owner/token."""
+    now_dt = datetime.now(timezone.utc)
+    now = now_dt.isoformat()
+    expires = datetime.fromtimestamp(now_dt.timestamp() + lease_seconds, timezone.utc).isoformat()
+    with _connect() as db:
+        db.execute("BEGIN IMMEDIATE")
+        changed = db.execute("""UPDATE research_supervisor_leases SET expires_at=?,updated_at=?
+                              WHERE lease_name='primary' AND owner_id=? AND lease_token=? AND expires_at>?""",
+                             (expires, now, owner_id, lease_token, now))
+        return changed.rowcount == 1
+
+
+def release_research_supervisor_lease(owner_id: str, lease_token: str) -> bool:
+    """Release only the lease still owned by this exact owner/token pair."""
+    with _connect() as db:
+        changed = db.execute("DELETE FROM research_supervisor_leases WHERE lease_name='primary' AND owner_id=? AND lease_token=?",
+                             (owner_id, lease_token))
+        return changed.rowcount == 1
+
+def execute_queued_research_task(task_id: str, supervisor_owner_id: str | None = None, supervisor_lease_token: str | None = None) -> bool:
+    """Execute one queued task; optional supervisor claims are fenced by its active lease."""
+    if (supervisor_owner_id is None) != (supervisor_lease_token is None):
+        raise ValueError("supervisor owner and lease token must be provided together")
+    with _connect() as db:
+        if supervisor_owner_id is not None:
+            # Serialize lease validation and queued-to-running claim in one write transaction.
+            db.execute("BEGIN IMMEDIATE")
+            now_for_lease = datetime.now(timezone.utc).isoformat()
+            active_lease = db.execute("""SELECT 1 FROM research_supervisor_leases
+                WHERE lease_name='primary' AND owner_id=? AND lease_token=? AND expires_at>?""",
+                (supervisor_owner_id, supervisor_lease_token, now_for_lease)).fetchone()
+            if active_lease is None:
+                return False
+
         row = db.execute("SELECT * FROM analytical_agent_tasks WHERE task_id=?", (task_id,)).fetchone()
         if row is None or row["status"] != "queued":
             return False
@@ -948,8 +1002,10 @@ def agent_supervisor_status() -> dict:
     }
 
 
-def dispatch_queued_research_tasks(limit: int = 50, max_concurrency: int = 4) -> dict:
-    """Dispatch a bounded snapshot of queued tasks concurrently on this process."""
+def dispatch_queued_research_tasks(limit: int = 50, max_concurrency: int = 4, supervisor_owner_id: str | None = None, supervisor_lease_token: str | None = None) -> dict:
+    """Dispatch a bounded queue snapshot, optionally fencing claims by supervisor lease."""
+    if (supervisor_owner_id is None) != (supervisor_lease_token is None):
+        raise ValueError("supervisor owner and lease token must be provided together")
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
     if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 550:
@@ -980,7 +1036,10 @@ def dispatch_queued_research_tasks(limit: int = 50, max_concurrency: int = 4) ->
     dispatch_errors = []
     with ThreadPoolExecutor(max_workers=min(max_concurrency, len(task_ids)),
                             thread_name_prefix="market-mind-supervisor") as pool:
-        futures = {pool.submit(execute_queued_research_task, task_id): task_id for task_id in task_ids}
+        if supervisor_owner_id is None:
+            futures = {pool.submit(execute_queued_research_task, task_id): task_id for task_id in task_ids}
+        else:
+            futures = {pool.submit(execute_queued_research_task, task_id, supervisor_owner_id, supervisor_lease_token): task_id for task_id in task_ids}
         for future in as_completed(futures):
             task_id = futures[future]
             try:

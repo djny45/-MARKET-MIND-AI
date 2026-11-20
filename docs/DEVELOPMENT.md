@@ -12,7 +12,7 @@ docker compose up --build -d
 
 Open the terminal at http://127.0.0.1:8080. The frontend Nginx proxy forwards `/api/` to the backend on the private Compose network. The API is not published on the host. See [private Docker deployment](PRODUCTION-DEPLOYMENT.md) for the security boundary, health checks, and operational notes.
 
-For local source development without Docker, continue with the backend and frontend commands below; the Vite dev server is available at http://localhost:5173 and the API at http://localhost:8000/docs.
+For local source development without Docker, use the backend and frontend commands below. The API disables its interactive OpenAPI documentation endpoints by default. Cookie authentication is enabled in the Compose deployment; configure the owner password hash and exact frontend origin as described in [Authentication](AUTHENTICATION-IMPLEMENTATION.md) before running the protected application.
 
 ## Run services without Docker
 
@@ -48,9 +48,18 @@ The initial engine implements market input, data-quality checks, simple moving a
 - GET /api/workers?limit=550
 - POST /api/workflows/execute
 
+## Authentication and access boundary
+
+The Docker Compose stack requires single-owner cookie authentication for API routes. Set `MARKET_MIND_OWNER_PASSWORD_HASH` to a password hash generated locally with the backend's `create_owner_hash.py` helper, and set `FRONTEND_ORIGINS` to the exact browser origin (the Compose default is `http://localhost:8080`). The session cookie is HTTP-only; the separate CSRF cookie is readable by the frontend and is sent back in the CSRF request header for state-changing requests. Login and logout are same-origin protected. Do not commit the owner hash or share the password.
+
+Compose currently sets `MARKET_MIND_COOKIE_SECURE=false` because its default listener is loopback HTTP. This is only suitable for local/private development. A remote HTTPS deployment must use TLS, set secure cookies, configure the exact HTTPS frontend origin, and undergo independent security review. The owner gate is single-owner authentication, not multi-user RBAC or OAuth. See [Authentication implementation](AUTHENTICATION-IMPLEMENTATION.md) and [private deployment](PRODUCTION-DEPLOYMENT.md).
+
+For local development, configure the authentication environment deliberately rather than assuming the Compose defaults. Do not disable authentication on a network-accessible instance.
+
 ## Current limitations
-- Demo values are user-provided sample data, not a live market feed.
-- Provider adapters, authentication, persistent workspaces, real-time streaming, advanced charting, and full worker implementations remain future milestones.
+- Sample values and synthetic fixtures are not live market data; provider availability and data entitlements must be verified separately.
+- The application has single-owner authentication, not multi-user identity or per-user authorization.
+- Research worker profiles are not 550 independent models; execution is bounded by the shared inference/runtime architecture and configured providers.
 - No broker connection, order routing, automated trading, or paper-trading functionality is included.
 
 ## Instrument discovery, chart and news workspace

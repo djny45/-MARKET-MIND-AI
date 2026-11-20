@@ -43,7 +43,7 @@ jobs:
         run: python -m compileall -q backend/app
 
       - name: Validate deployment checker shell syntax
-        run: bash -n scripts/deploy_check.sh
+        run: bash -n scripts/deploy_check.sh scripts/backup_restore_drill.sh
 
       - name: Check coding-agent harness adapters
         run: python scripts/check_harness_adapters.py
@@ -51,6 +51,7 @@ jobs:
       - name: Run backend unit tests (require at least one test)
         env:
           PYTHONPATH: backend
+          MARKET_MIND_AUTH_REQUIRED: "false"
         run: |
           python - <<'PY'
           import unittest
@@ -69,6 +70,7 @@ jobs:
       - name: API runtime smoke test
         env:
           PYTHONPATH: backend
+          MARKET_MIND_AUTH_REQUIRED: "false"
           MARKET_MIND_DB: ${{ runner.temp }}/smoke.sqlite
         run: |
           set -euo pipefail

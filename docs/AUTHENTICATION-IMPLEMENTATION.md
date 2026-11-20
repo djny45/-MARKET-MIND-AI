@@ -40,7 +40,7 @@ Optional session lifetime settings:
 - `MARKET_MIND_SESSION_ABSOLUTE_TTL`: defaults to 43200 seconds.
 - Both values must be between 60 seconds and 30 days.
 
-The login throttle is process-local and intended only for the current single-process private deployment. Before scaling to multiple API workers or public hosting, replace it with a shared persistent limiter and complete an independent security review.
+Login attempts are stored in the shared SQLite authentication database. Client identifiers are SHA-256 digests rather than raw addresses; the limiter uses an atomic write transaction, a bounded number of client keys, and expiry cleanup. It therefore coordinates processes that use the same SQLite file. It is not a distributed rate limiter and does not coordinate separate hosts or independent database files; public hosting still requires an independent security review and additional edge-level abuse controls.
 
 ## Frontend integration status
 
@@ -52,7 +52,7 @@ Interactive API documentation and the OpenAPI schema endpoints are disabled in t
 
 - Keep the current Compose HTTP setup bound to loopback only.
 - For HTTPS hosting, set MARKET_MIND_COOKIE_SECURE=true, configure the exact frontend origin, and terminate TLS at a reviewed reverse proxy.
-- The login throttle is process-local. Replace it with a shared persistent limiter before using multiple API workers.
+- Login throttling is SQLite-backed and shared by processes using the same database file; it is not suitable as a cross-host distributed limiter.
 - Complete independent security review and end-to-end browser testing before any public deployment.
 
 This implementation does not add public registration, multi-user accounts, OAuth, or brokerage execution.

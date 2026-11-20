@@ -8,6 +8,7 @@ import PriceChart from './PriceChart'
 import AgentNetwork from './AgentNetwork'
 import AgentPositionMonitor from './AgentPositionMonitor'
 import LearningLab from './LearningLab'
+import MarketCoverage from './MarketCoverage'
 
 const API = (import.meta.env.VITE_API_URL ?? 'http://localhost:8000').replace(/\/$/, '')
 type NodeData = { label: string; subtitle?: string; category?: string; period?: number; values?: number[]; result?: unknown }
@@ -130,12 +131,17 @@ export default function App() {
  const [replayBusy,setReplayBusy] = useState(false)
  const [runsError,setRunsError] = useState('')
  const [workspaceTitle,setWorkspaceTitle] = useState('My research workspace')
+ const [terminalLayouts,setTerminalLayouts] = useState<any[]>([])
+ const [terminalLayoutName,setTerminalLayoutName] = useState('My terminal layout')
  const [workspaceBusy,setWorkspaceBusy] = useState(false)
  const [sampleBusy,setSampleBusy] = useState(false)
  const [dataLabel,setDataLabel] = useState('MANUAL DEMO INPUT')
  const chartValues = useMemo(()=>values.split(',').map(v=>Number(v.trim())).filter(Number.isFinite),[values])
- useEffect(()=>{fetch(API+'/api/health').then(r=>r.json()).then(()=>setApiState('CONNECTED')).catch(()=>setApiState('OFFLINE'));fetch(API+'/api/workers?limit=550').then(r=>r.json()).then(d=>setWorkers(d.workers||[])).catch(()=>{});fetch(API+'/api/skills').then(r=>r.json()).then(d=>setSkills((d.skills||[]).filter((s:any)=>s.available))).catch(()=>{});refreshWorkspaces();refreshWatchlist();refreshExecutionRuns();loadMarketOverview()},[])
+ useEffect(()=>{try{const saved=JSON.parse(localStorage.getItem('market-mind-terminal-layouts')||'[]');if(Array.isArray(saved))setTerminalLayouts(saved)}catch{};fetch(API+'/api/health').then(r=>r.json()).then(()=>setApiState('CONNECTED')).catch(()=>setApiState('OFFLINE'));fetch(API+'/api/workers?limit=550').then(r=>r.json()).then(d=>setWorkers(d.workers||[])).catch(()=>{});fetch(API+'/api/skills').then(r=>r.json()).then(d=>setSkills((d.skills||[]).filter((s:any)=>s.available))).catch(()=>{});refreshWorkspaces();refreshWatchlist();refreshExecutionRuns();loadMarketOverview()},[])
 
+ const saveTerminalLayout = ()=>{const name=terminalLayoutName.trim();if(!name)return;const next=[{id:crypto.randomUUID(),name,researchSymbol,researchInterval,createdAt:new Date().toISOString()},...terminalLayouts].slice(0,30);setTerminalLayouts(next);localStorage.setItem('market-mind-terminal-layouts',JSON.stringify(next))}
+ const loadTerminalLayout = (id:string)=>{const item=terminalLayouts.find(layout=>layout.id===id);if(!item)return;setResearchSymbol(item.researchSymbol);setResearchInterval(item.researchInterval);setActiveTab('RESEARCH')}
+ const deleteTerminalLayout = (id:string)=>{const next=terminalLayouts.filter(layout=>layout.id!==id);setTerminalLayouts(next);localStorage.setItem('market-mind-terminal-layouts',JSON.stringify(next))}
  const runOfflineBenchmark = async()=>{
   setBenchmarkBusy(true);setBenchmarkError('');setBenchmarkReport(null);
   try{
@@ -537,7 +543,7 @@ export default function App() {
       <small>Structural validation only. It does not verify source authenticity, licensing, freshness or market-session completeness.</small>
     </div>
    </section>:activeTab==='OVERVIEW'?<section className="overview-area">
-    <div className="overview-heading"><div><span className="eyebrow">MARKET-MIND-AI / RESEARCH WORKSPACE</span><h1>Market research overview</h1><p>One place to inspect stored market data, research coverage and system readiness.</p></div><button className="soft-btn" onClick={loadMarketOverview} disabled={overviewBusy}>{overviewBusy?'REFRESHING…':'REFRESH OVERVIEW'}</button></div>
+    <div className="overview-heading"><div><span className="eyebrow">MARKET-MIND-AI / RESEARCH WORKSPACE</span><h1>Market research overview</h1><p>One place to inspect stored market data, research coverage and system readiness.</p></div><div className="overview-heading-actions"><button className="soft-btn" onClick={loadMarketOverview} disabled={overviewBusy}>{overviewBusy?'REFRESHING…':'REFRESH OVERVIEW'}</button><input aria-label="Terminal layout name" value={terminalLayoutName} onChange={event=>setTerminalLayoutName(event.target.value)} /><button className="soft-btn" onClick={saveTerminalLayout}>SAVE LAYOUT</button><select aria-label="Load terminal layout" defaultValue="" onChange={event=>loadTerminalLayout(event.target.value)}><option value="">LOAD LAYOUT</option>{terminalLayouts.map(layout=><option key={layout.id} value={layout.id}>{layout.name} · {layout.researchSymbol} {layout.researchInterval}</option>)}</select></div></div>
     <div className="overview-status"><span className={apiState==='CONNECTED'?'status-ok':'status-off'}>{apiState}</span><span>API CONNECTION</span><span className="overview-separator">·</span><span>{marketOverview?.instrument_interval_count??'—'} SYMBOL / TIMEFRAME SETS</span><span className="overview-separator">·</span><span>{watchlistItems.length} WATCHLIST INSTRUMENTS</span><span className="overview-separator">·</span><span>{workers.length} WORKER TEMPLATES</span></div>
     {overviewError&&<p className="news-error">{overviewError}</p>}
     <div className="overview-grid">
@@ -548,6 +554,8 @@ export default function App() {
      <article className="overview-card"><span>STORED OBSERVATIONS</span><strong>{marketOverview?.coverage?.reduce((sum:number,item:any)=>sum+(item.observation_count||0),0)??'—'}</strong><small>Total locally stored OHLCV rows in this overview</small></article>
      <article className="overview-card"><span>RECORDED SOURCES</span><strong>{marketOverview?.coverage?new Set(marketOverview.coverage.flatMap((item:any)=>item.sources||[])).size:'—'}</strong><small>Distinct source labels across stored coverage</small></article>
     </div>
+    <MarketCoverage coverage={marketOverview?.coverage||[]} onAnalyze={(symbol,interval)=>{setResearchSymbol(symbol);setResearchInterval(interval);setActiveTab('RESEARCH')}} />
+    {terminalLayouts.length>0&&<section className="overview-panel terminal-layout-list"><div className="overview-panel-head"><div><b>SAVED TERMINAL LAYOUTS</b><small>Stored in this browser profile only</small></div></div>{terminalLayouts.map(layout=><div className="coverage-row" key={layout.id}><div><b>{layout.name}</b><small>{layout.researchSymbol} · {layout.researchInterval}</small></div><button className="soft-btn" onClick={()=>loadTerminalLayout(layout.id)}>LOAD</button><button className="soft-btn" onClick={()=>deleteTerminalLayout(layout.id)}>DELETE</button></div>)}</section>}
     <div className="overview-columns">
      <section className="overview-panel"><div className="overview-panel-head"><div><b>STORED MARKET DATA</b><small>Local historical observations only</small></div><button className="soft-btn" onClick={()=>setActiveTab('WATCHLIST')}>OPEN WATCHLIST</button></div>
       {marketOverview?.coverage?.length?marketOverview.coverage.map((item:any)=><div className="coverage-row" key={item.symbol+'-'+item.interval}><div><b>{item.symbol}</b><small>{item.interval} · {item.sources?.join(', ')||'source unavailable'}</small></div><span>{item.observation_count} bars</span><small>{item.statuses?.join(', ')||'status unavailable'} · latest {item.last_timestamp||'—'}</small><button className="soft-btn" onClick={()=>loadCoverageChart(item.symbol,item.interval)} disabled={coverageBusy}> {coverageBusy&&coverageSelection?.symbol===item.symbol&&coverageSelection?.interval===item.interval?'LOADING…':'VIEW CHART'} </button></div>):<div className="overview-empty">No stored market history found. Import a historical OHLCV CSV in Research to populate this workspace. Synthetic fixtures are clearly labelled and are not market prices.</div>}

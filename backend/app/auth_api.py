@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 import hmac
+import hashlib
 import sqlite3
 import threading
 import time
@@ -29,6 +30,8 @@ from .auth_session_store import (
     get_session,
     initialize_auth_store,
     revoke_session,
+    record_login_attempt,
+    clear_login_attempts,
 )
 
 router = APIRouter(prefix="/api/auth", tags=["authentication"])
@@ -187,12 +190,33 @@ def login(payload: LoginRequest, request: Request):
     password_hash = os.getenv("MARKET_MIND_OWNER_PASSWORD_HASH", "")
     if not password_hash:
         raise HTTPException(status_code=503, detail="Owner authentication is not configured")
-    if _login_rate_limited(_client_key(request)):
+    client_key_hash = hashlib.sha256(
+        b"market-mind-login-client-v1:" + _client_key(request).encode("utf-8", "replace")
+    ).hexdigest()
+    try:
+        rate_limited = record_login_attempt(
+            _ensure_store(),
+            client_key_hash,
+            now=int(time.time()),
+            window_seconds=_RATE_WINDOW_SECONDS,
+            max_attempts=_RATE_MAX_ATTEMPTS,
+            max_keys=_RATE_MAX_KEYS,
+        )
+    except (OSError, sqlite3.Error, RuntimeError, ValueError) as exc:
+        raise HTTPException(
+            status_code=503, detail="Authentication storage unavailable"
+        ) from exc
+    if rate_limited:
         raise HTTPException(status_code=429, detail="Too many login attempts")
     client_key = _client_key(request)
     if not verify_password(payload.password, password_hash):
         raise HTTPException(status_code=401, detail="Invalid credentials")
-    _clear_login_attempts(client_key)
+    try:
+        clear_login_attempts(_ensure_store(), client_key_hash)
+    except (OSError, sqlite3.Error, RuntimeError, ValueError) as exc:
+        raise HTTPException(
+            status_code=503, detail="Authentication storage unavailable"
+        ) from exc
 
     # Rotation must fail closed if an existing session cannot be revoked.
     # Ignore only malformed client-supplied tokens; storage errors must not

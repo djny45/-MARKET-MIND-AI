@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, Depends
 from fastapi.security import HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 from .api_auth import ResearchAPIAuthMiddleware
+from .auth_api import AuthenticationMiddleware, router as auth_router, _allowed_origins
 from pydantic import BaseModel, Field
 from typing import Any, Literal
 import hashlib
@@ -94,6 +95,9 @@ app = FastAPI(
  version="0.2.0",
  description="Multi-market, evidence-first research pipeline. No brokerage execution.",
  lifespan=lifespan,
+ docs_url=None,
+ redoc_url=None,
+ openapi_url=None,
 )
 app.add_middleware(ResearchAPIAuthMiddleware)
 # Keep browser origins explicit using a comma-separated allowlist.

@@ -377,5 +377,48 @@ class AuthenticationApiTests(unittest.TestCase):
         self.assertIn("samesite=strict", csrf_cookie.lower())
 
 
+
+    def test_persistent_login_throttle_survives_new_client_instances(self):
+        from app.auth_api import _RATE_MAX_ATTEMPTS, _RATE_WINDOW_SECONDS
+        from app.auth_session_store import record_login_attempt
+        from app.auth_api import _ensure_store
+        import hashlib
+
+        client_hash = hashlib.sha256(b"market-mind-login-client-v1:shared-client").hexdigest()
+        database = _ensure_store()
+        now = int(time.time())
+        with patch("app.auth_api._RATE_MAX_ATTEMPTS", 2):
+            self.assertFalse(record_login_attempt(database, client_hash, now=now, window_seconds=_RATE_WINDOW_SECONDS, max_attempts=2, max_keys=100))
+            self.assertFalse(record_login_attempt(database, client_hash, now=now + 1, window_seconds=_RATE_WINDOW_SECONDS, max_attempts=2, max_keys=100))
+            self.assertTrue(record_login_attempt(database, client_hash, now=now + 2, window_seconds=_RATE_WINDOW_SECONDS, max_attempts=2, max_keys=100))
+
+    def test_persistent_login_throttle_is_cleared_after_successful_login(self):
+        import hashlib
+        from app.auth_session_store import record_login_attempt
+        from app.auth_api import _ensure_store
+
+        client_hash = hashlib.sha256(b"market-mind-login-client-v1:testclient").hexdigest()
+        database = _ensure_store()
+        now = int(time.time())
+        self.assertFalse(record_login_attempt(database, client_hash, now=now, window_seconds=900, max_attempts=1, max_keys=100))
+        login = self.client.post(
+            "/api/auth/login",
+            json={"password": self.password},
+            headers={"Origin": "http://testserver"},
+        )
+        self.assertEqual(login.status_code, 200)
+        self.assertFalse(record_login_attempt(database, client_hash, now=now + 1, window_seconds=900, max_attempts=1, max_keys=100))
+
+    def test_persistent_login_throttle_fails_closed_when_auth_database_is_unavailable(self):
+        with patch("app.auth_api.record_login_attempt", side_effect=sqlite3.OperationalError("db unavailable")):
+            response = self.client.post(
+                "/api/auth/login",
+                json={"password": self.password},
+                headers={"Origin": "http://testserver"},
+            )
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()["detail"], "Authentication storage unavailable")
+
+
 if __name__ == "__main__":
     unittest.main()

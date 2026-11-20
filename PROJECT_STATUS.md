@@ -202,3 +202,21 @@ Added two lifecycle tests to the analytical-agent task suite:
 
 Verification: commit `0e5a75d6ecd4e1ae461851fd0d9e6a5c3a3752a4` passed workflow run [44280558763](https://github.com/dj45/-MARKET-MIND-AI/actions/runs/44280558763) across all five jobs: backend, frontend, dependency audit, Trivy filesystem scan, and Docker Compose integration. This validates the supervisor's tested shutdown and startup-failure behavior; it does not replace a host-level process-kill, persistent-volume backup, or restore drill.
 
+## Release-candidate integration update — 2026-11-20
+
+A draft release-candidate branch combines the terminal coverage/screener and backup-drill work, single-owner cookie authentication, and renewable SQLite supervisor lease fencing. The combined branch has its own full CI run; do not infer acceptance from earlier standalone pull requests.
+
+Verified on the combined candidate so far:
+- Backend compilation and unit tests, frontend production build, Python/frontend dependency audit, and Trivy filesystem scan passed.
+- Docker Compose configuration, private stack build/start, loopback frontend/API proxy checks, and bounded read-only API load probe passed.
+- Optional n8n service started; its health/network and deployment-verification steps remain subject to the final CI result.
+
+Outstanding release gates:
+- Complete the combined Compose/n8n/deployment CI result.
+- Run a host-specific encrypted/off-host backup and restore drill, retention validation, and migration rollback test on the intended host.
+- Configure the owner password hash and HTTPS/TLS ingress using a secret manager; complete independent security review and browser-level authentication E2E.
+- Configure a licensed live/delayed market-data provider and verify entitlements, symbol mapping, timestamp freshness, rate limits, and provider failure handling. Until then, data availability is not implied by a green CI result.
+- Add host-level metrics, alert delivery, incident thresholds, and process-kill/restart recovery evidence.
+- Complete benchmarked research-worker quality gates and human-reviewed learning promotion. The 550 worker profiles are not 550 independent models or continuous autonomous agents.
+
+Scope remains a private research terminal: no brokerage connection, order routing, or trade execution is enabled.

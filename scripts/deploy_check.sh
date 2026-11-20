@@ -82,6 +82,36 @@ if any(bindings.values()):
 PY
 }
 
+owner_auth_is_configured() {
+  docker compose exec -T backend python - <<'PY'
+import os
+from app.auth_crypto import (
+    _b64decode, _PASSWORD_DK_BYTES, _PASSWORD_SALT_BYTES,
+    _SCRYPT_N, _SCRYPT_P, _SCRYPT_R,
+)
+if os.getenv("MARKET_MIND_AUTH_REQUIRED", "").strip().lower() not in {"1", "true", "yes", "on"}:
+    raise SystemExit(1)
+encoded = os.getenv("MARKET_MIND_OWNER_PASSWORD_HASH", "")
+parts = encoded.split("$")
+if len(parts) != 6 or parts[:4] != ["scrypt", str(_SCRYPT_N), str(_SCRYPT_R), str(_SCRYPT_P)]:
+    raise SystemExit(1)
+try:
+    salt = _b64decode(parts[4])
+    digest = _b64decode(parts[5])
+except ValueError:
+    raise SystemExit(1)
+if len(salt) != _PASSWORD_SALT_BYTES or len(digest) != _PASSWORD_DK_BYTES:
+    raise SystemExit(1)
+PY
+}
+
+protected_api_denies_unauthenticated() {
+  local status
+  status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --max-time 5 \
+    http://127.0.0.1:8080/api/markets)" || return 1
+  [[ "$status" == "401" ]]
+}
+
 agent_supervisor_healthy() {
   local container state
   container="$(container_id agent-supervisor)"
@@ -116,6 +146,8 @@ fi
 check "Backend readiness endpoint" wait_http "http://127.0.0.1:8080/api/ready" 30
 check "Frontend responds" wait_http "http://127.0.0.1:8080/" 10
 check "Backend has no host-published ports" backend_has_no_published_ports
+check "Owner authentication is required and scrypt hash is configured" owner_auth_is_configured
+check "Protected API denies unauthenticated requests" protected_api_denies_unauthenticated
 check "Frontend binds only to loopback" is_loopback_binding frontend
 check "Agent supervisor heartbeat and process are healthy" agent_supervisor_healthy
 check "Persistent SQLite database integrity" sqlite_integrity_ok

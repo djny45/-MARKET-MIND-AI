@@ -100,12 +100,10 @@ app = FastAPI(
  openapi_url=None,
 )
 app.add_middleware(ResearchAPIAuthMiddleware)
-# Keep browser origins explicit using a comma-separated allowlist.
-_frontend_origins = [
-    origin.strip().rstrip("/")
-    for origin in os.getenv("FRONTEND_ORIGINS", "http://localhost:5173").split(",")
-    if origin.strip()
-]
+# Use the same strict exact-origin allowlist as cookie authentication.
+_frontend_origins = sorted(_allowed_origins())
+# CORS remains outermost so browser clients receive headers on auth denials.
+app.add_middleware(AuthenticationMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_frontend_origins,
@@ -113,6 +111,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(auth_router)
 app.include_router(agent_council_router)
 
 

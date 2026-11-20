@@ -39,12 +39,9 @@ SESSION_COOKIE = "market_mind_session"
 CSRF_COOKIE = "market_mind_csrf"
 CSRF_HEADER = "x-csrf-token"
 _PUBLIC_PATHS = {"/api/health", "/api/ready", "/api/auth/login"}
-_RATE_LOCK = threading.Lock()
-_LOGIN_ATTEMPTS: dict[str, deque[float]] = defaultdict(deque)
 _RATE_WINDOW_SECONDS = 900
 _RATE_MAX_ATTEMPTS = 8
 _RATE_MAX_KEYS = 4096
-_RATE_OVERFLOW_KEY = "__overflow__"
 _STORE_INIT_LOCK = threading.Lock()
 _INITIALIZED_DATABASES: set[str] = set()
 
@@ -131,33 +128,6 @@ def _client_key(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
-def _login_rate_limited(key: str, now: float | None = None) -> bool:
-    current = time.monotonic() if now is None else now
-    with _RATE_LOCK:
-        # Bound memory even if requests arrive with many distinct client keys.
-        # Remove expired buckets first; if all buckets are active, new
-        # identities share a conservative overflow bucket instead of evicting
-        # active limits and allowing a rate-limit bypass.
-        if len(_LOGIN_ATTEMPTS) >= _RATE_MAX_KEYS:
-            for stale_key, stale_attempts in list(_LOGIN_ATTEMPTS.items()):
-                while stale_attempts and current - stale_attempts[0] >= _RATE_WINDOW_SECONDS:
-                    stale_attempts.popleft()
-                if not stale_attempts:
-                    _LOGIN_ATTEMPTS.pop(stale_key, None)
-
-        bucket_key = key
-        if bucket_key not in _LOGIN_ATTEMPTS and len(_LOGIN_ATTEMPTS) >= _RATE_MAX_KEYS:
-            bucket_key = _RATE_OVERFLOW_KEY
-
-        attempts = _LOGIN_ATTEMPTS[bucket_key]
-        while attempts and current - attempts[0] >= _RATE_WINDOW_SECONDS:
-            attempts.popleft()
-        if len(attempts) >= _RATE_MAX_ATTEMPTS:
-            return True
-        attempts.append(current)
-        return False
-
-
 def _cookie_settings() -> dict[str, Any]:
     return {
         "httponly": True,
@@ -176,11 +146,6 @@ def _ensure_store() -> Path:
                 initialize_auth_store(path)
                 _INITIALIZED_DATABASES.add(key)
     return path
-
-
-def _clear_login_attempts(key: str) -> None:
-    with _RATE_LOCK:
-        _LOGIN_ATTEMPTS.pop(key, None)
 
 
 @router.post("/login")

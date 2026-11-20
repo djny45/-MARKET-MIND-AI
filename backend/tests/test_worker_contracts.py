@@ -84,6 +84,19 @@ class WorkerContractTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     validate_evidence_provenance(evidence)
 
+    def test_evidence_provenance_rejects_unbounded_or_control_source(self):
+        valid = {
+            "input_source": "provider:sample",
+            "retrieval_timestamp": "2026-11-10T12:30:00Z",
+            "quality_status": "pass",
+        }
+        for source in ("x" * 201, "provider\\nforged", "provider\\rforged",
+                       "provider\\tforged", "provider\nforged", "provider\tforged"):
+            with self.subTest(source=repr(source)):
+                evidence = dict(valid, input_source=source)
+                with self.assertRaises(ValueError):
+                    validate_evidence_provenance(evidence)
+
     def test_unknown_node_contract_rejected(self):
         with self.assertRaises(ValueError):
             get_worker_contract("unknown")

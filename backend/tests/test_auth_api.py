@@ -200,27 +200,19 @@ class AuthenticationApiTests(unittest.TestCase):
         self.assertEqual(bad_origin.json()["detail"], "Origin not allowed")
 
     def test_login_throttle_blocks_repeated_failures(self):
-        from app.auth_api import _LOGIN_ATTEMPTS, _RATE_LOCK, _clear_login_attempts
-
-        client_key = "testclient"
-        with _RATE_LOCK:
-            _LOGIN_ATTEMPTS.pop(client_key, None)
-        try:
-            with patch("app.auth_api._RATE_MAX_ATTEMPTS", 1):
-                first = self.client.post(
-                    "/api/auth/login",
-                    json={"password": "incorrect"},
-                    headers={"Origin": "http://testserver"},
-                )
-                second = self.client.post(
-                    "/api/auth/login",
-                    json={"password": "incorrect"},
-                    headers={"Origin": "http://testserver"},
-                )
-            self.assertEqual(first.status_code, 401)
-            self.assertEqual(second.status_code, 429)
-        finally:
-            _clear_login_attempts(client_key)
+        with patch("app.auth_api._RATE_MAX_ATTEMPTS", 1):
+            first = self.client.post(
+                "/api/auth/login",
+                json={"password": "incorrect"},
+                headers={"Origin": "http://testserver"},
+            )
+            second = self.client.post(
+                "/api/auth/login",
+                json={"password": "incorrect"},
+                headers={"Origin": "http://testserver"},
+            )
+        self.assertEqual(first.status_code, 401)
+        self.assertEqual(second.status_code, 429)
 
     def test_authenticated_request_fails_closed_when_session_store_is_unavailable(self):
         origin = {"Origin": "http://testserver"}

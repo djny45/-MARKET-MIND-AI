@@ -112,7 +112,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.add_middleware(SecurityHeadersMiddleware)\napp.include_router(auth_router)
+app.add_middleware(SecurityHeadersMiddleware)
+app.include_router(auth_router)
 app.include_router(agent_council_router)
 
 

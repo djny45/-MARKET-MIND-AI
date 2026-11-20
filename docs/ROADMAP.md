@@ -79,6 +79,7 @@ Current boundary: worker routing invokes deterministic Python handlers. The 550 
 - [ ] Add security review and dependency/licence inventory.
 - [ ] Complete host-specific backup/restore drills, retention policy, migration rollback, and incident procedures.
 - [ ] Add authentication/authorization and TLS ingress before public deployment.
+  - [x] Add deployment acceptance checks for required owner auth configuration and default-deny 401 on a protected API route; Compose CI uses an ephemeral runner-only scrypt hash.
 
 ## Acceptance criteria
 

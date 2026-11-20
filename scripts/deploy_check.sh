@@ -82,11 +82,18 @@ if any(bindings.values()):
 PY
 }
 
-agent_supervisor_running() {
-  local container
+agent_supervisor_healthy() {
+  local container state
   container="$(container_id agent-supervisor)"
   [[ -n "$container" ]] || return 1
-  [[ "$(docker inspect "$container" --format '{{.State.Running}}')" == "true" ]]
+  # Allow startup/readiness grace, but require Docker's heartbeat-backed health state.
+  for attempt in $(seq 1 30); do
+    state="$(docker inspect "$container" --format '{{.State.Running}} {{if .State.Health}}{{.State.Health.Status}}{{else}}missing-healthcheck{{end}}' 2>/dev/null || true)"
+    [[ "$state" == "true healthy" ]] && return 0
+    [[ "$state" == "true unhealthy" || "$state" == "true missing-healthcheck" ]] && return 1
+    sleep 2
+  done
+  return 1
 }
 sqlite_integrity_ok() {
   docker compose exec -T backend python -c "import sqlite3; c=sqlite3.connect('/data/market_mind.db'); result=c.execute('PRAGMA integrity_check').fetchone()[0]; c.close(); raise SystemExit(0 if result == 'ok' else 1)"
@@ -110,7 +117,7 @@ check "Backend readiness endpoint" wait_http "http://127.0.0.1:8080/api/ready" 3
 check "Frontend responds" wait_http "http://127.0.0.1:8080/" 10
 check "Backend has no host-published ports" backend_has_no_published_ports
 check "Frontend binds only to loopback" is_loopback_binding frontend
-check "Agent supervisor process is running" agent_supervisor_running
+check "Agent supervisor heartbeat and process are healthy" agent_supervisor_healthy
 check "Persistent SQLite database integrity" sqlite_integrity_ok
 if (( BACKUP_DRILL )); then
   check "Host backup and disposable restore drill" bash scripts/backup_restore_drill.sh

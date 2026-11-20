@@ -1104,6 +1104,7 @@ def run_supervisor(
 
     heartbeat_stop = threading.Event()
     heartbeat_state = {"renewals": 0, "lost": False}
+    supervisor_failed = False
 
     def maintain_lease():
         while not heartbeat_stop.wait(60):
@@ -1118,6 +1119,7 @@ def run_supervisor(
 
     lease_thread = threading.Thread(target=maintain_lease, name="market-mind-supervisor-lease", daemon=True)
     lease_thread.start()
+    _write_supervisor_heartbeat("starting", poll_interval_seconds, batch_size, max_concurrency)
     dispatch_results = []
     cycles = 0
     recovery = None
@@ -1129,6 +1131,7 @@ def run_supervisor(
         try:
             recovery = recover_interrupted_research_tasks()
         except Exception as exc:
+            supervisor_failed = True
             _write_supervisor_heartbeat("failed", poll_interval_seconds, batch_size, max_concurrency, type(exc).__name__)
             return {"status": "recovery_failed", "error_type": type(exc).__name__,
                     "cycles": 0, "dispatch_results": []}
@@ -1173,8 +1176,9 @@ def run_supervisor(
         heartbeat_stop.set()
         lease_thread.join(timeout=5)
         release_research_supervisor_lease(owner_id, lease["lease_token"])
-        _write_supervisor_heartbeat("failed" if heartbeat_state["lost"] else "stopped",
-            poll_interval_seconds, batch_size, max_concurrency, "LeaseLost" if heartbeat_state["lost"] else None)
+        final_state = "failed" if heartbeat_state["lost"] or supervisor_failed else "stopped"
+        final_error = "LeaseLost" if heartbeat_state["lost"] else ("SupervisorFailure" if supervisor_failed else None)
+        _write_supervisor_heartbeat(final_state, poll_interval_seconds, batch_size, max_concurrency, final_error)
 
 
 def _supervisor_main() -> None:

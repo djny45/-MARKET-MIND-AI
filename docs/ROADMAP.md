@@ -74,6 +74,7 @@ Current boundary: worker routing invokes deterministic Python handlers. The 550 
 - [ ] Add observability, performance profiling, and load tests.
   - [x] Add a bounded GET-only API load probe reporting throughput, status counts, p50/p95/max latency, and configurable error/latency thresholds; wired into Docker Compose CI.
   - [x] Add persisted supervisor heartbeat, process identity, last-seen age, and stale/failed/stopped/not-started health states to the supervisor status API.
+  - [x] Add Docker health status from the recent persisted heartbeat, current running state, and process-ID liveness; require a healthy supervisor in deployment verification.
   - [ ] Add alert delivery, host-level metrics, resource profiling, and incident thresholds.
 - [ ] Add security review and dependency/licence inventory.
 - [ ] Complete host-specific backup/restore drills, retention policy, migration rollback, and incident procedures.

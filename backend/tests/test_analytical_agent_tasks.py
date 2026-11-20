@@ -454,6 +454,49 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             retry_failed_research_task(" ")
 
+    def test_supervisor_lease_is_exclusive_and_token_fenced(self):
+        from app.analytical_agent_tasks import (
+            acquire_research_supervisor_lease, renew_research_supervisor_lease,
+            release_research_supervisor_lease,
+        )
+        first = acquire_research_supervisor_lease("poller-a", lease_seconds=300)
+        self.assertTrue(first["acquired"])
+        second = acquire_research_supervisor_lease("poller-b", lease_seconds=300)
+        self.assertFalse(second["acquired"])
+        self.assertEqual(second["owner_id"], "poller-a")
+        self.assertFalse(renew_research_supervisor_lease("poller-b", first["lease_token"]))
+        self.assertTrue(renew_research_supervisor_lease("poller-a", first["lease_token"]))
+        self.assertTrue(release_research_supervisor_lease("poller-a", first["lease_token"]))
+
+
+    def test_supervisor_fenced_claim_rejects_released_lease(self):
+        from app.analytical_agent_tasks import (
+            acquire_research_supervisor_lease, enqueue_research_task,
+            execute_queued_research_task, get_research_task,
+            release_research_supervisor_lease,
+        )
+        queued = enqueue_research_task("worker_043", "claim requires current supervisor lease")
+        lease = acquire_research_supervisor_lease("poller-fenced", lease_seconds=300)
+        self.assertTrue(lease["acquired"])
+        self.assertTrue(release_research_supervisor_lease("poller-fenced", lease["lease_token"]))
+        self.assertFalse(execute_queued_research_task(queued["task_id"], "poller-fenced", lease["lease_token"]))
+        self.assertEqual(get_research_task(queued["task_id"])["status"], "queued")
+
+
+    def test_supervisor_stops_dispatch_when_lease_renewal_fails(self):
+        import threading
+        from app.analytical_agent_tasks import run_supervisor
+        with (
+            patch("app.analytical_agent_tasks.renew_research_supervisor_lease", side_effect=[True, False]),
+            patch("app.analytical_agent_tasks.recover_interrupted_research_tasks",
+                  return_value={"requeued_interrupted_count": 0}),
+            patch("app.analytical_agent_tasks.dispatch_queued_research_tasks") as dispatch,
+        ):
+            result = run_supervisor(threading.Event(), poll_interval_seconds=0.001, max_cycles=1)
+        self.assertEqual(result["status"], "lease_lost")
+        self.assertEqual(result["cycles"], 0)
+        dispatch.assert_not_called()
+
 if __name__ == "__main__":
     unittest.main()
 
@@ -592,7 +635,12 @@ class AgentSupervisorPollingContractTests(unittest.TestCase):
 
         recover.assert_called_once_with()
         self.assertEqual(dispatch.call_count, 2)
-        dispatch.assert_any_call(limit=12, max_concurrency=3)
+        self.assertEqual(dispatch.call_count, 2)
+        for call in dispatch.call_args_list:
+            self.assertEqual(call.kwargs["limit"], 12)
+            self.assertEqual(call.kwargs["max_concurrency"], 3)
+            self.assertTrue(call.kwargs["supervisor_owner_id"])
+            self.assertTrue(call.kwargs["supervisor_lease_token"])
         self.assertEqual(result["cycles"], 2)
         self.assertEqual(result["recovery"]["requeued_interrupted_count"], 2)
         self.assertEqual(result["dispatch_results"][0]["dispatched"], 2)

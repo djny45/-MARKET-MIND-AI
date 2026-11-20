@@ -1082,73 +1082,100 @@ def run_supervisor(
     max_concurrency: int = 4,
     max_cycles: int | None = None,
 ) -> dict:
-    """Continuously dispatch persisted SQLite tasks until the stop event is set.
-
-    Run this in a dedicated process/container sharing MARKET_MIND_DB with the API.
-    SQLite task claims and execution-token fencing provide cross-process safety;
-    this loop supplies polling and restart recovery, not distributed broker semantics.
-    """
+    """Run the persistent SQLite polling supervisor under a renewable singleton lease."""
     import math
+    import threading
 
-    if (isinstance(poll_interval_seconds, bool)
-            or not isinstance(poll_interval_seconds, (int, float))
-            or not math.isfinite(poll_interval_seconds)
-            or poll_interval_seconds <= 0):
+    if (isinstance(poll_interval_seconds, bool) or not isinstance(poll_interval_seconds, (int, float))
+            or not math.isfinite(poll_interval_seconds) or poll_interval_seconds <= 0):
         raise ValueError("poll_interval_seconds must be a finite positive number")
     if isinstance(batch_size, bool) or not isinstance(batch_size, int) or not 1 <= batch_size <= 550:
         raise ValueError("batch_size must be an integer between 1 and 550")
     if isinstance(max_concurrency, bool) or not isinstance(max_concurrency, int) or not 1 <= max_concurrency <= 16:
         raise ValueError("max_concurrency must be an integer between 1 and 16")
-    if max_cycles is not None and (
-        isinstance(max_cycles, bool) or not isinstance(max_cycles, int) or max_cycles < 1
-    ):
+    if max_cycles is not None and (isinstance(max_cycles, bool) or not isinstance(max_cycles, int) or max_cycles < 1):
         raise ValueError("max_cycles must be a positive integer or None")
 
-    _write_supervisor_heartbeat("starting", poll_interval_seconds, batch_size, max_concurrency)
-    try:
-        recovery = recover_interrupted_research_tasks()
-    except Exception as exc:
-        _write_supervisor_heartbeat("failed", poll_interval_seconds, batch_size,
-                                    max_concurrency, type(exc).__name__)
-        return {
-            "status": "recovery_failed",
-            "error_type": type(exc).__name__,
-            "cycles": 0,
-            "dispatch_results": [],
-        }
-    _write_supervisor_heartbeat("running", poll_interval_seconds, batch_size, max_concurrency)
+    owner_id = f"poller-{os.getpid()}-{uuid.uuid4()}"
+    lease = acquire_research_supervisor_lease(owner_id, lease_seconds=300)
+    if not lease["acquired"]:
+        _write_supervisor_heartbeat("failed", poll_interval_seconds, batch_size, max_concurrency, "LeaseAlreadyHeld")
+        return {"status": "lease_held_elsewhere", "reason": "another_supervisor_instance_holds_the_lease",
+                "lease_owner": lease["owner_id"], "cycles": 0, "dispatch_results": []}
 
+    heartbeat_stop = threading.Event()
+    heartbeat_state = {"renewals": 0, "lost": False}
+
+    def maintain_lease():
+        while not heartbeat_stop.wait(60):
+            try:
+                renewed = renew_research_supervisor_lease(owner_id, lease["lease_token"], lease_seconds=300)
+            except Exception:
+                renewed = False
+            if not renewed:
+                heartbeat_state["lost"] = True
+                return
+            heartbeat_state["renewals"] += 1
+
+    lease_thread = threading.Thread(target=maintain_lease, name="market-mind-supervisor-lease", daemon=True)
+    lease_thread.start()
     dispatch_results = []
     cycles = 0
-    while not stop_event.is_set() and (max_cycles is None or cycles < max_cycles):
+    recovery = None
+    try:
+        if heartbeat_state["lost"] or not renew_research_supervisor_lease(owner_id, lease["lease_token"], lease_seconds=300):
+            heartbeat_state["lost"] = True
+            return {"status": "lease_lost", "reason": "supervisor_lease_lost_before_recovery",
+                    "cycles": 0, "dispatch_results": []}
         try:
-            result = dispatch_queued_research_tasks(
-                limit=batch_size, max_concurrency=max_concurrency
-            )
-            dispatch_results.append(result)
+            recovery = recover_interrupted_research_tasks()
         except Exception as exc:
-            # Do not terminate the supervisor because one polling cycle failed.
-            dispatch_results.append({
-                "status": "error",
-                "error_type": type(exc).__name__,
-            })
-        cycles += 1
-        _write_supervisor_heartbeat("running", poll_interval_seconds, batch_size,
-                                    max_concurrency,
-                                    "DispatchError" if dispatch_results[-1].get("status") == "error" else None)
-        if max_cycles is not None and cycles >= max_cycles:
-            break
-        stop_event.wait(float(poll_interval_seconds))
+            _write_supervisor_heartbeat("failed", poll_interval_seconds, batch_size, max_concurrency, type(exc).__name__)
+            return {"status": "recovery_failed", "error_type": type(exc).__name__,
+                    "cycles": 0, "dispatch_results": []}
 
-    _write_supervisor_heartbeat("stopped", poll_interval_seconds, batch_size, max_concurrency)
-    return {
-        "status": "stopped" if stop_event.is_set() else "cycle_limit_reached",
-        "recovery": recovery,
-        "cycles": cycles,
-        "dispatch_results": dispatch_results,
-        "dispatch_mode": "persistent_sqlite_polling_supervisor",
-        "queue_storage": "shared_sqlite_database",
-    }
+        _write_supervisor_heartbeat("running", poll_interval_seconds, batch_size, max_concurrency)
+        while not stop_event.is_set() and (max_cycles is None or cycles < max_cycles):
+            # Renew immediately before dispatch; workers also validate the lease atomically with each claim.
+            try:
+                lease_valid = renew_research_supervisor_lease(owner_id, lease["lease_token"], lease_seconds=300)
+            except Exception:
+                lease_valid = False
+            if not lease_valid or heartbeat_state["lost"]:
+                heartbeat_state["lost"] = True
+                break
+            try:
+                result = dispatch_queued_research_tasks(
+                    limit=batch_size, max_concurrency=max_concurrency,
+                    supervisor_owner_id=owner_id, supervisor_lease_token=lease["lease_token"],
+                )
+                dispatch_results.append(result)
+            except Exception as exc:
+                dispatch_results.append({"status": "error", "error_type": type(exc).__name__})
+            cycles += 1
+            _write_supervisor_heartbeat("running", poll_interval_seconds, batch_size, max_concurrency,
+                "DispatchError" if dispatch_results[-1].get("status") == "error" else None)
+            if max_cycles is not None and cycles >= max_cycles:
+                break
+            stop_event.wait(float(poll_interval_seconds))
+
+        if heartbeat_state["lost"]:
+            status = "lease_lost"
+        elif stop_event.is_set():
+            status = "stopped"
+        else:
+            status = "cycle_limit_reached"
+        return {"status": status, "reason": "supervisor_lease_lost" if status == "lease_lost" else None,
+                "recovery": recovery, "cycles": cycles, "dispatch_results": dispatch_results,
+                "dispatch_mode": "persistent_sqlite_polling_supervisor", "queue_storage": "shared_sqlite_database",
+                "lease": {"acquired": True, "heartbeat_renewals": heartbeat_state["renewals"],
+                          "lost": heartbeat_state["lost"]}}
+    finally:
+        heartbeat_stop.set()
+        lease_thread.join(timeout=5)
+        release_research_supervisor_lease(owner_id, lease["lease_token"])
+        _write_supervisor_heartbeat("failed" if heartbeat_state["lost"] else "stopped",
+            poll_interval_seconds, batch_size, max_concurrency, "LeaseLost" if heartbeat_state["lost"] else None)
 
 
 def _supervisor_main() -> None:

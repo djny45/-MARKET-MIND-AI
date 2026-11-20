@@ -43,6 +43,12 @@ services:
       backend:
         condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import datetime as dt,os,sqlite3; db=sqlite3.connect('/data/market_mind.db',timeout=5); row=db.execute('SELECT state,heartbeat_at,process_id FROM analytical_agent_supervisor_heartbeat WHERE singleton_id=1').fetchone(); db.close(); assert row is not None and row[0]=='running'; age=(dt.datetime.now(dt.timezone.utc)-dt.datetime.fromisoformat(row[1])).total_seconds(); assert -5 <= age <= 90; os.kill(row[2],0)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 45s
     security_opt:
       - no-new-privileges:true
     cap_drop:

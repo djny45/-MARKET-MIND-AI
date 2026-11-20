@@ -220,3 +220,17 @@ Outstanding release gates:
 - Complete benchmarked research-worker quality gates and human-reviewed learning promotion. The 550 worker profiles are not 550 independent models or continuous autonomous agents.
 
 Scope remains a private research terminal: no brokerage connection, order routing, or trade execution is enabled.
+
+## Follow-up hardening CI acceptance — 2026-11-20
+
+Commit `662acf37459172c7d9ddde15f9860417f3982c0d` on draft PR #48:
+- Renews the singleton supervisor lease after each dispatch batch as well as through the periodic renewal thread, preventing a subsequent poll cycle from proceeding after a batch that exceeded the lease interval.
+- Changes the Compose Secure-cookie setting to default to true. Loopback HTTP development must explicitly opt out; remote use requires HTTPS and secure cookies.
+- Corrects deployment documentation to use `scripts/backup_restore_drill.sh`, which performs an online backup, disposable restore, host copy, integrity check and SHA-256 digest.
+
+Verification:
+- Workflow run [44781056581](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/44781056581) completed successfully on this exact commit.
+- All five jobs passed: backend unit tests and runtime smoke, frontend production build, Docker Compose private-stack/n8n/deployment integration, Python/frontend dependency audits, and Trivy filesystem security scan.
+- This is CI evidence only. The intended production host has not yet had an operator-run backup/restore drill, TLS/secret-manager setup, external security review, or live-provider acceptance.
+
+The PR remains a draft. Do not merge or expose publicly until those host and security release gates are complete.

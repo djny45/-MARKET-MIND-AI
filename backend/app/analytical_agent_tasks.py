@@ -70,6 +70,13 @@ def _connect():
             max_concurrency INTEGER NOT NULL,
             last_error_type TEXT
         )""")
+        db.execute("""CREATE TABLE IF NOT EXISTS research_supervisor_leases (
+            lease_name TEXT PRIMARY KEY,
+            owner_id TEXT NOT NULL,
+            lease_token TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )""")
         db.execute("CREATE INDEX IF NOT EXISTS idx_agent_task_events_task_time ON analytical_agent_task_events(task_id,event_id)")
         db.execute("""CREATE TABLE IF NOT EXISTS research_quality_evaluations (
             evaluation_id INTEGER PRIMARY KEY AUTOINCREMENT,

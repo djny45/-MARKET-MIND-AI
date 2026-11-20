@@ -99,3 +99,9 @@ Implemented the first per-agent brain and governed learning lifecycle scaffold. 
 - [x] Validate research-quality and offline-benchmark baselines against supported metric allowlists and numeric ranges.
 - [x] Validate baseline schemas before processing benchmark cases or claims.
 - [x] Disclose skipped offline benchmark comparisons; skipped comparisons are not evidence of a pass.
+
+## Integration status — 2026-11-20
+
+A draft release-candidate branch combines the terminal coverage/screener and backup drill, owner cookie authentication, and renewable singleton SQLite supervisor lease. The combined candidate must pass its own CI run before it is treated as integrated. Earlier separate PR checks are not sufficient evidence for the combined stack.
+
+The passing feature tests do not close the remaining acceptance gates in Phase 5: host-specific backup/restore and rollback, production secret/TLS configuration, independent security review, browser-level authentication E2E, host-level observability/alert delivery, licensed live-data provider acceptance, and reviewed research-quality/learning promotion. Keep these unchecked until evidence is recorded.

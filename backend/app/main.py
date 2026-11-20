@@ -2,7 +2,8 @@ from fastapi import FastAPI, HTTPException, Depends
 from fastapi.security import HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 from .api_auth import ResearchAPIAuthMiddleware
-from .auth_api import AuthenticationMiddleware, router as auth_router, _allowed_origins\nfrom .security_headers import SecurityHeadersMiddleware
+from .auth_api import AuthenticationMiddleware, router as auth_router, _allowed_origins
+from .security_headers import SecurityHeadersMiddleware
 from pydantic import BaseModel, Field
 from typing import Any, Literal
 import hashlib

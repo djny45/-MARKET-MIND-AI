@@ -1153,6 +1153,12 @@ def run_supervisor(
                     supervisor_owner_id=owner_id, supervisor_lease_token=lease["lease_token"],
                 )
                 dispatch_results.append(result)
+                # A dispatch batch may take longer than the five-minute lease.
+                # Revalidate immediately after it completes before another cycle.
+                if heartbeat_state["lost"] or not renew_research_supervisor_lease(
+                    owner_id, lease["lease_token"], lease_seconds=300
+                ):
+                    heartbeat_state["lost"] = True
             except Exception as exc:
                 dispatch_results.append({"status": "error", "error_type": type(exc).__name__})
             cycles += 1

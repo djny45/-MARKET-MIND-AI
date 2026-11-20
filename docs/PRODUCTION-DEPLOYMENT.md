@@ -191,7 +191,7 @@ Create a verified online SQLite backup:
 docker compose exec -T backend python backup_database.py /backups/market_mind-$(date -u +%Y%m%dT%H%M%SZ).db --source /data/market_mind.db
 ```
 
-**Note:** the current simple Compose file does not mount a host backup directory. For backups, either add a reviewed bind mount to the backend service (e.g. `./backups:/backups`) before running the command, or copy the backup out of the container with `docker cp`. Keep backups encrypted and access-controlled; never commit database files to Git.
+For a host-persisted backup plus disposable restore verification, run `bash scripts/backup_restore_drill.sh [backup-directory]` while the private stack is running. The script invokes the SQLite online-backup utility, restores to a separate temporary database, copies the verified file to the host, checks SQLite integrity, and prints a SHA-256 digest. It does not provide encryption, off-host replication, retention, or key management; protect and copy the resulting backup to an approved encrypted off-host location. Never commit database files to Git.
 
 Restore only after stopping the stack and preserving a separate copy of the current database. The restore command refuses to overwrite an existing target unless `--overwrite` is supplied:
 

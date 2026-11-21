@@ -646,6 +646,31 @@ class AgentSupervisorPollingContractTests(unittest.TestCase):
         self.assertEqual(result["dispatch_results"][0]["dispatched"], 2)
         self.assertEqual(result["dispatch_results"][1]["status"], "idle")
 
+    def test_supervisor_revalidates_lease_after_long_dispatch_batch(self):
+        import threading
+        from app.analytical_agent_tasks import run_supervisor
+
+        # Startup validation and pre-dispatch renewal succeed; the post-batch
+        # renewal fails, so the supervisor must report lease loss and stop.
+        with patch(
+            "app.analytical_agent_tasks.renew_research_supervisor_lease",
+            side_effect=[True, True, False],
+        ), patch(
+            "app.analytical_agent_tasks.recover_interrupted_research_tasks",
+            return_value={"requeued_interrupted_count": 0},
+        ), patch(
+            "app.analytical_agent_tasks.dispatch_queued_research_tasks",
+            return_value={"selected": 1, "dispatched": 1, "status": "completed"},
+        ) as dispatch:
+            result = run_supervisor(
+                threading.Event(), poll_interval_seconds=0.001, max_cycles=3,
+            )
+
+        self.assertEqual(result["status"], "lease_lost")
+        self.assertEqual(result["cycles"], 1)
+        self.assertTrue(result["lease"]["lost"])
+        dispatch.assert_called_once()
+
     def test_supervisor_rejects_unsafe_polling_bounds(self):
         import threading
         from app.analytical_agent_tasks import run_supervisor

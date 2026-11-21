@@ -70,6 +70,13 @@ def _connect():
             max_concurrency INTEGER NOT NULL,
             last_error_type TEXT
         )""")
+        db.execute("""CREATE TABLE IF NOT EXISTS research_supervisor_leases (
+            lease_name TEXT PRIMARY KEY,
+            owner_id TEXT NOT NULL,
+            lease_token TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )""")
         db.execute("CREATE INDEX IF NOT EXISTS idx_agent_task_events_task_time ON analytical_agent_task_events(task_id,event_id)")
         db.execute("""CREATE TABLE IF NOT EXISTS research_quality_evaluations (
             evaluation_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -305,9 +312,63 @@ def classify_research_task_failure(error: Exception) -> dict:
         "automatic_retry": False,
     }
 
-def execute_queued_research_task(task_id: str) -> bool:
-    """Execute one persisted queued task; safe to call from FastAPI BackgroundTasks."""
+def acquire_research_supervisor_lease(owner_id: str, lease_seconds: int = 300) -> dict:
+    """Acquire the singleton SQLite polling-supervisor lease."""
+    if not isinstance(owner_id, str) or not owner_id.strip() or len(owner_id) > 120:
+        raise ValueError("owner_id must be a non-empty string of at most 120 characters")
+    if isinstance(lease_seconds, bool) or not isinstance(lease_seconds, int) or not 60 <= lease_seconds <= 86400:
+        raise ValueError("lease_seconds must be between 60 and 86400")
+    now_dt = datetime.now(timezone.utc)
+    now = now_dt.isoformat()
+    expires = datetime.fromtimestamp(now_dt.timestamp() + lease_seconds, timezone.utc).isoformat()
+    token = str(uuid.uuid4())
     with _connect() as db:
+        db.execute("BEGIN IMMEDIATE")
+        current = db.execute("SELECT owner_id,expires_at FROM research_supervisor_leases WHERE lease_name='primary'").fetchone()
+        if current is not None and current["expires_at"] > now:
+            return {"acquired": False, "reason": "lease_already_held", "owner_id": current["owner_id"], "expires_at": current["expires_at"]}
+        db.execute("""INSERT INTO research_supervisor_leases (lease_name,owner_id,lease_token,expires_at,updated_at)
+                      VALUES ('primary',?,?,?,?) ON CONFLICT(lease_name) DO UPDATE SET
+                      owner_id=excluded.owner_id,lease_token=excluded.lease_token,expires_at=excluded.expires_at,updated_at=excluded.updated_at""",
+                   (owner_id, token, expires, now))
+    return {"acquired": True, "owner_id": owner_id, "lease_token": token, "expires_at": expires}
+
+
+def renew_research_supervisor_lease(owner_id: str, lease_token: str, lease_seconds: int = 300) -> bool:
+    """Renew only the currently active lease held by the supplied owner/token."""
+    now_dt = datetime.now(timezone.utc)
+    now = now_dt.isoformat()
+    expires = datetime.fromtimestamp(now_dt.timestamp() + lease_seconds, timezone.utc).isoformat()
+    with _connect() as db:
+        db.execute("BEGIN IMMEDIATE")
+        changed = db.execute("""UPDATE research_supervisor_leases SET expires_at=?,updated_at=?
+                              WHERE lease_name='primary' AND owner_id=? AND lease_token=? AND expires_at>?""",
+                             (expires, now, owner_id, lease_token, now))
+        return changed.rowcount == 1
+
+
+def release_research_supervisor_lease(owner_id: str, lease_token: str) -> bool:
+    """Release only the lease still owned by this exact owner/token pair."""
+    with _connect() as db:
+        changed = db.execute("DELETE FROM research_supervisor_leases WHERE lease_name='primary' AND owner_id=? AND lease_token=?",
+                             (owner_id, lease_token))
+        return changed.rowcount == 1
+
+def execute_queued_research_task(task_id: str, supervisor_owner_id: str | None = None, supervisor_lease_token: str | None = None) -> bool:
+    """Execute one queued task; optional supervisor claims are fenced by its active lease."""
+    if (supervisor_owner_id is None) != (supervisor_lease_token is None):
+        raise ValueError("supervisor owner and lease token must be provided together")
+    with _connect() as db:
+        if supervisor_owner_id is not None:
+            # Serialize lease validation and queued-to-running claim in one write transaction.
+            db.execute("BEGIN IMMEDIATE")
+            now_for_lease = datetime.now(timezone.utc).isoformat()
+            active_lease = db.execute("""SELECT 1 FROM research_supervisor_leases
+                WHERE lease_name='primary' AND owner_id=? AND lease_token=? AND expires_at>?""",
+                (supervisor_owner_id, supervisor_lease_token, now_for_lease)).fetchone()
+            if active_lease is None:
+                return False
+
         row = db.execute("SELECT * FROM analytical_agent_tasks WHERE task_id=?", (task_id,)).fetchone()
         if row is None or row["status"] != "queued":
             return False
@@ -941,8 +1002,10 @@ def agent_supervisor_status() -> dict:
     }
 
 
-def dispatch_queued_research_tasks(limit: int = 50, max_concurrency: int = 4) -> dict:
-    """Dispatch a bounded snapshot of queued tasks concurrently on this process."""
+def dispatch_queued_research_tasks(limit: int = 50, max_concurrency: int = 4, supervisor_owner_id: str | None = None, supervisor_lease_token: str | None = None) -> dict:
+    """Dispatch a bounded queue snapshot, optionally fencing claims by supervisor lease."""
+    if (supervisor_owner_id is None) != (supervisor_lease_token is None):
+        raise ValueError("supervisor owner and lease token must be provided together")
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
     if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 550:
@@ -973,7 +1036,10 @@ def dispatch_queued_research_tasks(limit: int = 50, max_concurrency: int = 4) ->
     dispatch_errors = []
     with ThreadPoolExecutor(max_workers=min(max_concurrency, len(task_ids)),
                             thread_name_prefix="market-mind-supervisor") as pool:
-        futures = {pool.submit(execute_queued_research_task, task_id): task_id for task_id in task_ids}
+        if supervisor_owner_id is None:
+            futures = {pool.submit(execute_queued_research_task, task_id): task_id for task_id in task_ids}
+        else:
+            futures = {pool.submit(execute_queued_research_task, task_id, supervisor_owner_id, supervisor_lease_token): task_id for task_id in task_ids}
         for future in as_completed(futures):
             task_id = futures[future]
             try:
@@ -1016,73 +1082,111 @@ def run_supervisor(
     max_concurrency: int = 4,
     max_cycles: int | None = None,
 ) -> dict:
-    """Continuously dispatch persisted SQLite tasks until the stop event is set.
-
-    Run this in a dedicated process/container sharing MARKET_MIND_DB with the API.
-    SQLite task claims and execution-token fencing provide cross-process safety;
-    this loop supplies polling and restart recovery, not distributed broker semantics.
-    """
+    """Run the persistent SQLite polling supervisor under a renewable singleton lease."""
     import math
+    import threading
 
-    if (isinstance(poll_interval_seconds, bool)
-            or not isinstance(poll_interval_seconds, (int, float))
-            or not math.isfinite(poll_interval_seconds)
-            or poll_interval_seconds <= 0):
+    if (isinstance(poll_interval_seconds, bool) or not isinstance(poll_interval_seconds, (int, float))
+            or not math.isfinite(poll_interval_seconds) or poll_interval_seconds <= 0):
         raise ValueError("poll_interval_seconds must be a finite positive number")
     if isinstance(batch_size, bool) or not isinstance(batch_size, int) or not 1 <= batch_size <= 550:
         raise ValueError("batch_size must be an integer between 1 and 550")
     if isinstance(max_concurrency, bool) or not isinstance(max_concurrency, int) or not 1 <= max_concurrency <= 16:
         raise ValueError("max_concurrency must be an integer between 1 and 16")
-    if max_cycles is not None and (
-        isinstance(max_cycles, bool) or not isinstance(max_cycles, int) or max_cycles < 1
-    ):
+    if max_cycles is not None and (isinstance(max_cycles, bool) or not isinstance(max_cycles, int) or max_cycles < 1):
         raise ValueError("max_cycles must be a positive integer or None")
 
-    _write_supervisor_heartbeat("starting", poll_interval_seconds, batch_size, max_concurrency)
-    try:
-        recovery = recover_interrupted_research_tasks()
-    except Exception as exc:
-        _write_supervisor_heartbeat("failed", poll_interval_seconds, batch_size,
-                                    max_concurrency, type(exc).__name__)
-        return {
-            "status": "recovery_failed",
-            "error_type": type(exc).__name__,
-            "cycles": 0,
-            "dispatch_results": [],
-        }
-    _write_supervisor_heartbeat("running", poll_interval_seconds, batch_size, max_concurrency)
+    owner_id = f"poller-{os.getpid()}-{uuid.uuid4()}"
+    lease = acquire_research_supervisor_lease(owner_id, lease_seconds=300)
+    if not lease["acquired"]:
+        return {"status": "lease_held_elsewhere", "reason": "another_supervisor_instance_holds_the_lease",
+                "lease_owner": lease["owner_id"], "cycles": 0, "dispatch_results": []}
 
+    heartbeat_stop = threading.Event()
+    heartbeat_state = {"renewals": 0, "lost": False}
+    supervisor_failed = False
+    supervisor_error_type = None
+
+    def maintain_lease():
+        while not heartbeat_stop.wait(60):
+            try:
+                renewed = renew_research_supervisor_lease(owner_id, lease["lease_token"], lease_seconds=300)
+            except Exception:
+                renewed = False
+            if not renewed:
+                heartbeat_state["lost"] = True
+                return
+            heartbeat_state["renewals"] += 1
+
+    lease_thread = threading.Thread(target=maintain_lease, name="market-mind-supervisor-lease", daemon=True)
+    lease_thread.start()
+    _write_supervisor_heartbeat("starting", poll_interval_seconds, batch_size, max_concurrency)
     dispatch_results = []
     cycles = 0
-    while not stop_event.is_set() and (max_cycles is None or cycles < max_cycles):
+    recovery = None
+    try:
+        if heartbeat_state["lost"] or not renew_research_supervisor_lease(owner_id, lease["lease_token"], lease_seconds=300):
+            heartbeat_state["lost"] = True
+            return {"status": "lease_lost", "reason": "supervisor_lease_lost_before_recovery",
+                    "cycles": 0, "dispatch_results": []}
         try:
-            result = dispatch_queued_research_tasks(
-                limit=batch_size, max_concurrency=max_concurrency
-            )
-            dispatch_results.append(result)
+            recovery = recover_interrupted_research_tasks()
         except Exception as exc:
-            # Do not terminate the supervisor because one polling cycle failed.
-            dispatch_results.append({
-                "status": "error",
-                "error_type": type(exc).__name__,
-            })
-        cycles += 1
-        _write_supervisor_heartbeat("running", poll_interval_seconds, batch_size,
-                                    max_concurrency,
-                                    "DispatchError" if dispatch_results[-1].get("status") == "error" else None)
-        if max_cycles is not None and cycles >= max_cycles:
-            break
-        stop_event.wait(float(poll_interval_seconds))
+            supervisor_failed = True
+            supervisor_error_type = type(exc).__name__
+            return {"status": "recovery_failed", "error_type": supervisor_error_type,
+                    "cycles": 0, "dispatch_results": []}
 
-    _write_supervisor_heartbeat("stopped", poll_interval_seconds, batch_size, max_concurrency)
-    return {
-        "status": "stopped" if stop_event.is_set() else "cycle_limit_reached",
-        "recovery": recovery,
-        "cycles": cycles,
-        "dispatch_results": dispatch_results,
-        "dispatch_mode": "persistent_sqlite_polling_supervisor",
-        "queue_storage": "shared_sqlite_database",
-    }
+        _write_supervisor_heartbeat("running", poll_interval_seconds, batch_size, max_concurrency)
+        while not stop_event.is_set() and (max_cycles is None or cycles < max_cycles):
+            # Renew immediately before dispatch; workers also validate the lease atomically with each claim.
+            try:
+                lease_valid = renew_research_supervisor_lease(owner_id, lease["lease_token"], lease_seconds=300)
+            except Exception:
+                lease_valid = False
+            if not lease_valid or heartbeat_state["lost"]:
+                heartbeat_state["lost"] = True
+                break
+            try:
+                result = dispatch_queued_research_tasks(
+                    limit=batch_size, max_concurrency=max_concurrency,
+                    supervisor_owner_id=owner_id, supervisor_lease_token=lease["lease_token"],
+                )
+                dispatch_results.append(result)
+                # A dispatch batch may take longer than the five-minute lease.
+                # Revalidate immediately after it completes before another cycle.
+                if heartbeat_state["lost"] or not renew_research_supervisor_lease(
+                    owner_id, lease["lease_token"], lease_seconds=300
+                ):
+                    heartbeat_state["lost"] = True
+            except Exception as exc:
+                dispatch_results.append({"status": "error", "error_type": type(exc).__name__})
+            cycles += 1
+            _write_supervisor_heartbeat("running", poll_interval_seconds, batch_size, max_concurrency,
+                "DispatchError" if dispatch_results[-1].get("status") == "error" else None)
+            if max_cycles is not None and cycles >= max_cycles:
+                break
+            stop_event.wait(float(poll_interval_seconds))
+
+        if heartbeat_state["lost"]:
+            status = "lease_lost"
+        elif stop_event.is_set():
+            status = "stopped"
+        else:
+            status = "cycle_limit_reached"
+        return {"status": status, "reason": "supervisor_lease_lost" if status == "lease_lost" else None,
+                "recovery": recovery, "cycles": cycles, "dispatch_results": dispatch_results,
+                "dispatch_mode": "persistent_sqlite_polling_supervisor", "queue_storage": "shared_sqlite_database",
+                "lease": {"acquired": True, "heartbeat_renewals": heartbeat_state["renewals"],
+                          "lost": heartbeat_state["lost"]}}
+    finally:
+        heartbeat_stop.set()
+        lease_thread.join(timeout=5)
+        release_research_supervisor_lease(owner_id, lease["lease_token"])
+        final_state = "failed" if heartbeat_state["lost"] or supervisor_failed else "stopped"
+        final_error = ("LeaseLost" if heartbeat_state["lost"] else
+                       (supervisor_error_type or "SupervisorFailure" if supervisor_failed else None))
+        _write_supervisor_heartbeat(final_state, poll_interval_seconds, batch_size, max_concurrency, final_error)
 
 
 def _supervisor_main() -> None:

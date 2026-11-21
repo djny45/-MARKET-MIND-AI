@@ -5,15 +5,18 @@ set -Eeuo pipefail
 
 WITH_N8N=0
 START=0
+BACKUP_DRILL=0
 for arg in "$@"; do
   case "$arg" in
     --with-n8n) WITH_N8N=1 ;;
     --start) START=1 ;;
+    --backup-drill) BACKUP_DRILL=1 ;;
     -h|--help)
       cat <<'EOF'
-Usage: bash scripts/deploy_check.sh [--start] [--with-n8n]
+Usage: bash scripts/deploy_check.sh [--start] [--with-n8n] [--backup-drill]
   --start     Build/start the Compose stack before checking it.
   --with-n8n  Also require the optional n8n profile to be running and healthy.
+  --backup-drill  Create a host-persisted SQLite backup and verify disposable restore.
 EOF
       exit 0
       ;;
@@ -79,11 +82,48 @@ if any(bindings.values()):
 PY
 }
 
-agent_supervisor_running() {
-  local container
+owner_auth_is_configured() {
+  docker compose exec -T backend python - <<'PY'
+import os
+from app.auth_crypto import (
+    _b64decode, _PASSWORD_DK_BYTES, _PASSWORD_SALT_BYTES,
+    _SCRYPT_N, _SCRYPT_P, _SCRYPT_R,
+)
+if os.getenv("MARKET_MIND_AUTH_REQUIRED", "").strip().lower() not in {"1", "true", "yes", "on"}:
+    raise SystemExit(1)
+encoded = os.getenv("MARKET_MIND_OWNER_PASSWORD_HASH", "")
+parts = encoded.split("$")
+if len(parts) != 6 or parts[:4] != ["scrypt", str(_SCRYPT_N), str(_SCRYPT_R), str(_SCRYPT_P)]:
+    raise SystemExit(1)
+try:
+    salt = _b64decode(parts[4])
+    digest = _b64decode(parts[5])
+except ValueError:
+    raise SystemExit(1)
+if len(salt) != _PASSWORD_SALT_BYTES or len(digest) != _PASSWORD_DK_BYTES:
+    raise SystemExit(1)
+PY
+}
+
+protected_api_denies_unauthenticated() {
+  local status
+  status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --max-time 5 \
+    http://127.0.0.1:8080/api/markets)" || return 1
+  [[ "$status" == "401" ]]
+}
+
+agent_supervisor_healthy() {
+  local container state
   container="$(container_id agent-supervisor)"
   [[ -n "$container" ]] || return 1
-  [[ "$(docker inspect "$container" --format '{{.State.Running}}')" == "true" ]]
+  # Allow startup/readiness grace, but require Docker's heartbeat-backed health state.
+  for attempt in $(seq 1 30); do
+    state="$(docker inspect "$container" --format '{{.State.Running}} {{if .State.Health}}{{.State.Health.Status}}{{else}}missing-healthcheck{{end}}' 2>/dev/null || true)"
+    [[ "$state" == "true healthy" ]] && return 0
+    [[ "$state" == "true unhealthy" || "$state" == "true missing-healthcheck" ]] && return 1
+    sleep 2
+  done
+  return 1
 }
 sqlite_integrity_ok() {
   docker compose exec -T backend python -c "import sqlite3; c=sqlite3.connect('/data/market_mind.db'); result=c.execute('PRAGMA integrity_check').fetchone()[0]; c.close(); raise SystemExit(0 if result == 'ok' else 1)"
@@ -106,9 +146,14 @@ fi
 check "Backend readiness endpoint" wait_http "http://127.0.0.1:8080/api/ready" 30
 check "Frontend responds" wait_http "http://127.0.0.1:8080/" 10
 check "Backend has no host-published ports" backend_has_no_published_ports
+check "Owner authentication is required and scrypt hash is configured" owner_auth_is_configured
+check "Protected API denies unauthenticated requests" protected_api_denies_unauthenticated
 check "Frontend binds only to loopback" is_loopback_binding frontend
-check "Agent supervisor process is running" agent_supervisor_running
+check "Agent supervisor heartbeat and process are healthy" agent_supervisor_healthy
 check "Persistent SQLite database integrity" sqlite_integrity_ok
+if (( BACKUP_DRILL )); then
+  check "Host backup and disposable restore drill" bash scripts/backup_restore_drill.sh
+fi
 
 if (( WITH_N8N )); then
   check "n8n health endpoint" wait_http "http://127.0.0.1:5678/healthz" 45

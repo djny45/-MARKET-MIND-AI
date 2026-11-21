@@ -30,6 +30,14 @@ CREATE TABLE IF NOT EXISTS auth_sessions (
 );
 CREATE INDEX IF NOT EXISTS idx_auth_sessions_expiry
     ON auth_sessions(idle_expires_at, absolute_expires_at);
+CREATE TABLE IF NOT EXISTS auth_login_attempts (
+    client_key_hash TEXT NOT NULL,
+    attempted_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_auth_login_attempts_client_time
+    ON auth_login_attempts(client_key_hash, attempted_at);
+CREATE INDEX IF NOT EXISTS idx_auth_login_attempts_time
+    ON auth_login_attempts(attempted_at);
 """
 
 
@@ -223,3 +231,70 @@ def purge_expired_sessions(database_path: str | Path, *, now: int) -> int:
             (now, now),
         )
         return cursor.rowcount
+
+
+def record_login_attempt(
+    database_path: str | Path,
+    client_key_hash: str,
+    *,
+    now: int,
+    window_seconds: int,
+    max_attempts: int,
+    max_keys: int,
+) -> bool:
+    """Atomically record a login attempt in shared SQLite storage.
+
+    Returns True when the caller is over the per-client threshold or when the
+    bounded key table is full. A successful return means this attempt was
+    recorded. Only a digest of the client identifier is persisted.
+    """
+    _validate_digest(client_key_hash, "client_key_hash")
+    for value, label in (
+        (now, "now"),
+        (window_seconds, "window_seconds"),
+        (max_attempts, "max_attempts"),
+        (max_keys, "max_keys"),
+    ):
+        if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+            raise ValueError(f"{label} must be a positive integer")
+    with _connect(database_path) as connection:
+        connection.execute("BEGIN IMMEDIATE")
+        connection.execute(
+            "DELETE FROM auth_login_attempts WHERE attempted_at <= ?",
+            (now - window_seconds,),
+        )
+        known = connection.execute(
+            "SELECT 1 FROM auth_login_attempts WHERE client_key_hash=? LIMIT 1",
+            (client_key_hash,),
+        ).fetchone()
+        if known is None:
+            key_count = connection.execute(
+                "SELECT COUNT(DISTINCT client_key_hash) FROM auth_login_attempts"
+            ).fetchone()[0]
+            if key_count >= max_keys:
+                connection.commit()
+                return True
+        attempts = connection.execute(
+            "SELECT COUNT(*) FROM auth_login_attempts "
+            "WHERE client_key_hash=? AND attempted_at > ?",
+            (client_key_hash, now - window_seconds),
+        ).fetchone()[0]
+        if attempts >= max_attempts:
+            connection.commit()
+            return True
+        connection.execute(
+            "INSERT INTO auth_login_attempts(client_key_hash, attempted_at) VALUES (?, ?)",
+            (client_key_hash, now),
+        )
+        connection.commit()
+    return False
+
+
+def clear_login_attempts(database_path: str | Path, client_key_hash: str) -> None:
+    """Clear one client's persisted login-attempt window after successful login."""
+    _validate_digest(client_key_hash, "client_key_hash")
+    with _connect(database_path) as connection:
+        connection.execute(
+            "DELETE FROM auth_login_attempts WHERE client_key_hash=?",
+            (client_key_hash,),
+        )

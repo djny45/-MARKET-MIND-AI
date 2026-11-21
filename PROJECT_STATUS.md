@@ -202,3 +202,35 @@ Added two lifecycle tests to the analytical-agent task suite:
 
 Verification: commit `0e5a75d6ecd4e1ae461851fd0d9e6a5c3a3752a4` passed workflow run [44280558763](https://github.com/dj45/-MARKET-MIND-AI/actions/runs/44280558763) across all five jobs: backend, frontend, dependency audit, Trivy filesystem scan, and Docker Compose integration. This validates the supervisor's tested shutdown and startup-failure behavior; it does not replace a host-level process-kill, persistent-volume backup, or restore drill.
 
+## Release-candidate integration update — 2026-11-20
+
+A draft release-candidate branch combines the terminal coverage/screener and backup-drill work, single-owner cookie authentication, and renewable SQLite supervisor lease fencing. The combined branch has its own full CI run; do not infer acceptance from earlier standalone pull requests.
+
+Verified on the combined candidate so far:
+- Backend compilation and unit tests, frontend production build, Python/frontend dependency audit, and Trivy filesystem scan passed.
+- Docker Compose configuration, private stack build/start, loopback frontend/API proxy checks, bounded read-only API load probe, optional n8n health/network checks, and portable deployment verification passed.
+- Supervisor health is now checked from its persisted `running` heartbeat age and process ID, and the deployment verifier waits for Docker's healthy state. This is local process health evidence, not external monitoring or alert delivery.
+
+Outstanding release gates:
+- Complete the combined Compose/n8n/deployment CI result.
+- Run a host-specific encrypted/off-host backup and restore drill, retention validation, and migration rollback test on the intended host.
+- Configure the production owner password hash through a secret manager and HTTPS/TLS ingress; the deployment checker now validates auth enablement, well-formed scrypt configuration, and unauthenticated 401 denial. Complete independent security review and browser-level authentication E2E.
+- Configure a licensed live/delayed market-data provider and verify entitlements, symbol mapping, timestamp freshness, rate limits, and provider failure handling. Until then, data availability is not implied by a green CI result.
+- Add host-level metrics, alert delivery, incident thresholds, and process-kill/restart recovery evidence.
+- Complete benchmarked research-worker quality gates and human-reviewed learning promotion. The 550 worker profiles are not 550 independent models or continuous autonomous agents.
+
+Scope remains a private research terminal: no brokerage connection, order routing, or trade execution is enabled.
+
+## Follow-up hardening CI acceptance — 2026-11-20
+
+Commit `662acf37459172c7d9ddde15f9860417f3982c0d` on draft PR #48:
+- Renews the singleton supervisor lease after each dispatch batch as well as through the periodic renewal thread, preventing a subsequent poll cycle from proceeding after a batch that exceeded the lease interval.
+- Changes the Compose Secure-cookie setting to default to true. Loopback HTTP development must explicitly opt out; remote use requires HTTPS and secure cookies.
+- Corrects deployment documentation to use `scripts/backup_restore_drill.sh`, which performs an online backup, disposable restore, host copy, integrity check and SHA-256 digest.
+
+Verification:
+- Workflow run [44781056581](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/44781056581) completed successfully on this exact commit.
+- All five jobs passed: backend unit tests and runtime smoke, frontend production build, Docker Compose private-stack/n8n/deployment integration, Python/frontend dependency audits, and Trivy filesystem security scan.
+- This is CI evidence only. The intended production host has not yet had an operator-run backup/restore drill, TLS/secret-manager setup, external security review, or live-provider acceptance.
+
+The PR remains a draft. Do not merge or expose publicly until those host and security release gates are complete.

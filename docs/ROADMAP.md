@@ -2,6 +2,8 @@
 
 This roadmap is a plan, not a claim that features already exist. Mark an item complete only after implementation, tests, and documentation are merged.
 
+> **Integration-branch status:** terminal coverage/heatmap/screener work is in PR #45 and owner cookie-authentication work is in PR #46. Both remain unmerged; their roadmap items stay open until the changes are merged and acceptance criteria are met.
+
 ## Phase 0 — Repository foundation
 - [x] Define research-terminal product scope.
 - [x] Exclude brokerage execution and order routing.
@@ -40,9 +42,11 @@ This roadmap is a plan, not a claim that features already exist. Mark an item co
 
 ## Phase 4 — Intelligence and workflow canvas
 - [ ] Define complete typed specialist-worker input/output contracts.
-- [x] Add versioned v1.0.0 contract definitions and runtime shape validation for supported workflow node types; detailed domain schemas and mandatory provenance enforcement remain pending.\n  - [x] Validate optional supplied source provenance (non-empty source, timezone-aware ISO-8601 retrieval timestamp, and quality status); provider-wide mandatory provenance remains pending.
+- [x] Add versioned v1.0.0 contract definitions and runtime shape validation for supported workflow node types; detailed domain schemas and mandatory provenance enforcement remain pending.
+  - [x] Validate optional supplied source provenance (non-empty source, timezone-aware ISO-8601 retrieval timestamp, and quality status); provider-wide mandatory provenance remains pending.
   - [x] Propagate validated provenance metadata into findings and report coverage metrics (coverage, unprovenanced nodes, declared source counts, and quality-status counts); these metadata checks do not prove source authenticity or claim entailment.
-- [x] Build deterministic central research orchestrator with worker aggregation, evidence metadata coverage, source-text citation traceability audit, and optional single-core synthesis; model-backed inference remains provider-dependent and disabled by default.\n  - [x] Integrate citation excerpt/hash/offset checks into orchestration reports and API input; semantic entailment and source authenticity remain human-review tasks.
+- [x] Build deterministic central research orchestrator with worker aggregation, evidence metadata coverage, source-text citation traceability audit, and optional single-core synthesis; model-backed inference remains provider-dependent and disabled by default.
+  - [x] Integrate citation excerpt/hash/offset checks into orchestration reports and API input; semantic entailment and source authenticity remain human-review tasks.
 - [x] Add optional single-core local Ollama provider boundary (loopback-only, disabled by default, bounded input, timeout/failure fallback and status API); evidence-citation prompts, human approval and model-backed integration tests remain pending.
 - [x] Implement initial deterministic shared-core orchestration API with worker result aggregation, contract references, registry integrity gate and descriptive report; model-backed inference and source-provenance attachment remain pending.
 - [x] Add initial shared-core worker registry and deterministic routing.
@@ -67,10 +71,15 @@ Current boundary: worker routing invokes deterministic Python handlers. The 550 
 - [x] Add safe SQLite restore with source/target verification, atomic replacement, and overwrite protection.
 - [x] Add CI backup/restore round-trip test inside production API image.
 - [x] Add private Docker deployment documentation, resource limits, dropped Linux capabilities, no-new-privileges, and rotating container logs.
-- [ ] Add observability, performance profiling, and load tests.\n  - [x] Add a bounded GET-only API load probe reporting throughput, status counts, p50/p95/max latency, and configurable error/latency thresholds; wired into Docker Compose CI.\n  - [x] Add persisted supervisor heartbeat, process identity, last-seen age, and stale/failed/stopped/not-started health states to the supervisor status API.\n  - [ ] Add alert delivery, host-level metrics, resource profiling, and incident thresholds.
+- [ ] Add observability, performance profiling, and load tests.
+  - [x] Add a bounded GET-only API load probe reporting throughput, status counts, p50/p95/max latency, and configurable error/latency thresholds; wired into Docker Compose CI.
+  - [x] Add persisted supervisor heartbeat, process identity, last-seen age, and stale/failed/stopped/not-started health states to the supervisor status API.
+  - [x] Add Docker health status from the recent persisted heartbeat, current running state, and process-ID liveness; require a healthy supervisor in deployment verification.
+  - [ ] Add alert delivery, host-level metrics, resource profiling, and incident thresholds.
 - [ ] Add security review and dependency/licence inventory.
 - [ ] Complete host-specific backup/restore drills, retention policy, migration rollback, and incident procedures.
 - [ ] Add authentication/authorization and TLS ingress before public deployment.
+  - [x] Add deployment acceptance checks for required owner auth configuration and default-deny 401 on a protected API route; Compose CI uses an ephemeral runner-only scrypt hash.
 
 ## Acceptance criteria
 
@@ -92,3 +101,9 @@ Implemented the first per-agent brain and governed learning lifecycle scaffold. 
 - [x] Validate research-quality and offline-benchmark baselines against supported metric allowlists and numeric ranges.
 - [x] Validate baseline schemas before processing benchmark cases or claims.
 - [x] Disclose skipped offline benchmark comparisons; skipped comparisons are not evidence of a pass.
+
+## Integration status — 2026-11-20
+
+A draft release-candidate branch combines the terminal coverage/screener and backup drill, owner cookie authentication, and renewable singleton SQLite supervisor lease. The combined candidate must pass its own CI run before it is treated as integrated. Earlier separate PR checks are not sufficient evidence for the combined stack.
+
+The passing feature tests do not close the remaining acceptance gates in Phase 5: host-specific backup/restore and rollback, production secret/TLS configuration, independent security review, browser-level authentication E2E, host-level observability/alert delivery, licensed live-data provider acceptance, and reviewed research-quality/learning promotion. Keep these unchecked until evidence is recorded.

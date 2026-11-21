@@ -1,6 +1,6 @@
 # Private Docker deployment (Vercel-free)
 
-This deployment packages the React/Vite frontend as static files served by Nginx and keeps FastAPI on the internal Compose network. It is intended for **local/private use only**. Optional deployment-wide bearer authentication is available; it is not a multi-user identity or per-user authorization system.
+This deployment packages the React/Vite frontend as static files served by Nginx and keeps FastAPI on the internal Compose network. It is intended for **local/private use only**. The current Compose configuration requires single-owner cookie authentication on API routes; it is not a multi-user identity, RBAC, or OAuth system.
 
 ## Prerequisites
 
@@ -28,7 +28,10 @@ The named `market_mind_data` volume persists SQLite data when containers are rec
 
 ## Persistent research-task supervisor
 
-The `agent-supervisor` service shares the `market_mind_data` volume with the API. Queue submissions are committed to SQLite before returning; the supervisor polls every 2 seconds by default, recovers stale `running` tasks at startup after a 15-minute grace period, and dispatches up to 50 queued tasks per cycle with a maximum concurrency of 4. Tune with `AGENT_SUPERVISOR_POLL_SECONDS`, `AGENT_SUPERVISOR_BATCH_SIZE`, and `AGENT_SUPERVISOR_MAX_CONCURRENCY` in `docker-compose.yml`. The API no longer schedules queued work in its own process. Atomic SQLite claims and execution-token fencing prevent duplicate workers from finalizing the same attempt. This is durable single-host queueing on the shared SQLite volume, not a distributed broker or multi-host queue. The API status endpoint reports that a separate supervisor is required; it does not independently attest to the supervisor container's health. Check `docker compose ps` and `docker compose logs agent-supervisor` for process status.
+The `agent-supervisor` service shares the `market_mind_data` volume with the API. Queue submissions are committed to SQLite before returning; the supervisor polls every 2 seconds by default, recovers stale `running` tasks at startup after a 15-minute grace period, and dispatches up to 50 queued tasks per cycle with a maximum concurrency of 4. Tune with `AGENT_SUPERVISOR_POLL_SECONDS`, `AGENT_SUPERVISOR_BATCH_SIZE`, and `AGENT_SUPERVISOR_MAX_CONCURRENCY` in `docker-compose.yml`. The API no longer schedules queued work in its own process. The polling supervisor acquires a renewable singleton lease in the shared SQLite database; only the current owner/token can claim queued tasks, and the supervisor stops dispatching after lease-renewal failure. Task claims and execution-token finalization are fenced inside SQLite write transactions to reject stale or duplicate owners. Lease renewal runs on a separate heartbeat thread with a five-minute lease and a 60-second renewal interval. This is single-host SQLite ownership and queueing, not a distributed broker, consensus protocol, or multi-host queue. The Compose health check validates that the persisted supervisor heartbeat is in the `running` state, is no more than 90 seconds old, and belongs to a process ID that still exists inside the container. The portable deployment verifier waits for the supervisor's Docker health state to become `healthy`, rather than accepting a running container alone. This is local process/heartbeat evidence, not proof of external provider availability or host-level alert delivery. Check `docker compose ps` and `docker compose logs agent-supervisor` for process status.
+
+
+The portable deployment checker also verifies that `MARKET_MIND_AUTH_REQUIRED` is enabled, the configured owner hash has a valid scrypt encoding, and an unauthenticated request to a protected API route receives HTTP 401. It does not verify that the owner knows the password or that the HTTPS reverse proxy is correctly configured.
 
 ## Optional n8n workflow review and import service
 
@@ -72,16 +75,17 @@ Stop the optional service with `docker compose --profile n8n stop n8n`. Its data
 
 The frontend listener is bound to loopback (127.0.0.1), not all network interfaces. Compose drops Linux capabilities and enables `no-new-privileges`.
 
-For an additional deployment-wide API bearer gate, set these values in the backend's uncommitted environment file or secret manager:
+The current Compose stack sets `MARKET_MIND_AUTH_REQUIRED=true` and expects `MARKET_MIND_OWNER_PASSWORD_HASH` to be supplied from the host's uncommitted `.env` file or a secret manager. Generate the hash locally from the backend directory:
 
-```env
-API_AUTH_REQUIRED=true
-API_AUTH_TOKEN=replace-with-a-random-secret-at-least-32-characters-long
+```bash
+python create_owner_hash.py
 ```
 
-Generate a unique high-entropy token locally (for example with `openssl rand -hex 32`); do not reuse the n8n reviewer/importer tokens. Keep it server-side and never commit it or place it in frontend variables. Restart the backend after changing the environment. When enabled, all API routes except the minimal `/api/health` and `/api/ready` probes require `Authorization: Bearer <token>`; CORS preflight requests are allowed. If the required token is missing or shorter than 32 characters, protected requests fail closed with HTTP 503. Local development remains unauthenticated by default (`API_AUTH_REQUIRED=false`).
+Copy the generated hash into the backend environment as `MARKET_MIND_OWNER_PASSWORD_HASH`; never commit the hash or plaintext password. Configure `FRONTEND_ORIGINS` as a comma-separated list of exact browser origins, without paths or wildcards. The Compose default is `http://localhost:8080`. The frontend uses the cookie session and CSRF token flow; do not put owner credentials in frontend build variables.
 
-This is a shared deployment token, not individual user accounts, session management, or per-user role-based authorization. The n8n review/import routes retain their separate reviewer/importer role checks. Do not publish the service directly to the public internet: use a separately maintained TLS reverse proxy, restrict administrative access, apply request limits, and obtain an independent security review before remote exposure. The app remains a single-user research workspace.
+Compose currently sets `MARKET_MIND_COOKIE_SECURE=false` for its loopback-only HTTP listener. This is strictly a local/private setting. For remote HTTPS, configure a separately maintained TLS reverse proxy, set `MARKET_MIND_COOKIE_SECURE=true`, set the exact HTTPS value in `FRONTEND_ORIGINS`, and verify proxy/origin behavior before use. Do not expose the service directly to the public internet. Login attempts are rate-limited in the shared SQLite authentication database, so API processes using the same database file share the limit. The limiter is not distributed across hosts or separate databases; retain edge-level abuse controls and obtain an independent security review before public exposure.
+
+The authentication system is single-owner session authentication. It does not provide multiple users, registration, OAuth, or per-user role-based authorization. The separate n8n reviewer/importer role checks remain distinct and do not grant general application accounts.
 
 No provider credentials are required. The built-in market-data adapter is synthetic-only; this deployment does not create live market connectivity. Brokerage execution and order routing remain disabled.
 
@@ -187,7 +191,7 @@ Create a verified online SQLite backup:
 docker compose exec -T backend python backup_database.py /backups/market_mind-$(date -u +%Y%m%dT%H%M%SZ).db --source /data/market_mind.db
 ```
 
-**Note:** the current simple Compose file does not mount a host backup directory. For backups, either add a reviewed bind mount to the backend service (e.g. `./backups:/backups`) before running the command, or copy the backup out of the container with `docker cp`. Keep backups encrypted and access-controlled; never commit database files to Git.
+For a host-persisted backup plus disposable restore verification, run `bash scripts/backup_restore_drill.sh [backup-directory]` while the private stack is running. The script invokes the SQLite online-backup utility, restores to a separate temporary database, copies the verified file to the host, checks SQLite integrity, and prints a SHA-256 digest. It does not provide encryption, off-host replication, retention, or key management; protect and copy the resulting backup to an approved encrypted off-host location. Never commit database files to Git.
 
 Restore only after stopping the stack and preserving a separate copy of the current database. The restore command refuses to overwrite an existing target unless `--overwrite` is supplied:
 

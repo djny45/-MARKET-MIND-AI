@@ -60,6 +60,14 @@ curl -fsSL https://nodejs.org/dist/v22.23.5/node-v22.23.5-linux-x64.tar.xz \
   | tar -xJ --strip-components=1 -C ~/.local/node22
 ```
 
+## Verification performed
+
+The registered adapter was launched through the same config the harnesses use
+(`npx -y @askjo/camofox-browser-mcp`, v1.19.0) and `list_tools` returned **31**
+tools, including `camofox_click`, `camofox_evaluate`, `camofox_ax`,
+`camofox_create_tab`, `camofox_extract` and `camofox_import_cookies`. The REST
+server must still be running for those tools to execute actions.
+
 ## Removal / rollback
 
 Remove the `camofox-browser` entries from the three MCP config files and delete

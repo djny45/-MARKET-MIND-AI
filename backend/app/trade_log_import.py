@@ -138,6 +138,7 @@ def inspect_trade_log(
         instruments: dict[str, int] = {}
         accepted = rejected = duplicates = 0
         samples: list[dict] = []
+    accepted_events: list[dict] = []
         rejection_reasons: dict[str, int] = {}
         for row_number, raw in enumerate(reader, start=2):
             if row_number - 1 > max_rows:
@@ -178,6 +179,15 @@ def inspect_trade_log(
                 last_time = event_time if last_time is None else max(last_time, event_time)
                 instruments[instrument] = instruments.get(instrument, 0) + 1
                 accepted += 1
+                accepted_events.append({
+                    "event_id": event_id, "event_time": event_time.isoformat(),
+                    "instrument": instrument, "event_type": event_type, "side": side,
+                    "quantity": str(quantity) if quantity is not None else None,
+                    "price": str(price) if price is not None else None,
+                    "fee": str(fee) if fee is not None else None,
+                    "fee_currency": fee_currency, "order_reference": order_reference,
+                    "source_row": row_number,
+                })
                 if len(samples) < max(0, sample_size):
                     samples.append({
                         "event_id": event_id, "event_time": event_time.isoformat(),
@@ -216,11 +226,12 @@ def inspect_trade_log(
         "instrument_counts": dict(sorted(instruments.items())),
         "rejection_reasons": dict(sorted(rejection_reasons.items())),
         "sample": samples,
+        "accepted_events": accepted_events,
         "persistence": "not_performed",
         "broker_execution": False,
         "wallet_or_signing_access": False,
         "limitations": [
-            "Dry run only; raw file is not persisted or activated.",
+            "Dry run only; persistence requires explicit manifest review and a separate storage call.",
             "Input is spooled in bounded chunks; permanent quarantine storage and authenticated upload remain a separate service.",
             "Column semantics must be reviewed against the original archive before accepting a production mapping.",
         ],

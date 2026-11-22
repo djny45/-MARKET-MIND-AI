@@ -77,6 +77,47 @@ class ShadowSessionEngineTests(unittest.TestCase):
         order = self.engine.record_shadow_order(self._order(), run_id="run-2")
         self.assertEqual(order.id, 0)
 
+    def test_record_rejects_non_finite_and_boolean_numbers(self):
+        for field, value in (
+            ("quantity", float("nan")),
+            ("quantity", float("inf")),
+            ("reference_price", float("-inf")),
+            ("cost", float("nan")),
+            ("expected_pnl", float("inf")),
+            ("quantity", True),
+        ):
+            with self.subTest(field=field, value=value):
+                order = self._order()
+                order[field] = value
+                with self.assertRaises(ValueError):
+                    self.engine.record_shadow_order(order, run_id="run-1")
+
+    def test_record_rejects_invalid_numeric_ranges(self):
+        for field, value in (
+            ("quantity", -0.01),
+            ("reference_price", 0),
+            ("notional", -1),
+            ("cost", -0.01),
+        ):
+            with self.subTest(field=field, value=value):
+                order = self._order()
+                order[field] = value
+                with self.assertRaises(ValueError):
+                    self.engine.record_shadow_order(order, run_id="run-1")
+
+    def test_record_rejects_blank_identifiers_and_text_fields(self):
+        for order in (
+            self._order(symbol=" "),
+            {**self._order(), "timestamp": " "},
+        ):
+            with self.subTest(order=order):
+                with self.assertRaises(ValueError):
+                    self.engine.record_shadow_order(order, run_id="run-1")
+        with self.assertRaises(ValueError):
+            self.engine.record_shadow_order(self._order(), run_id=" ")
+        with self.assertRaises(ValueError):
+            self.engine.record_shadow_order([], run_id="run-1")
+
 
 if __name__ == "__main__":
     unittest.main()

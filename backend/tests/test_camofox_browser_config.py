@@ -44,6 +44,8 @@ class CamofoxBrowserConfigTests(unittest.TestCase):
         script = (ROOT / "scripts/setup_camofox_browser.sh").read_text(encoding="utf-8")
         self.assertIn("CAMOFOX_BIND_HOST=127.0.0.1", script)
         self.assertIn("unset CAMOFOX_API_KEY", script)
+        self.assertIn("node24", script)
+        self.assertIn('"$NODE_MAJOR" -lt 24', script)
 
     def test_agent_instructions_state_browser_boundary(self):
         instructions = (ROOT / "AGENTS.md").read_text(encoding="utf-8")

@@ -7,10 +7,16 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CHECKOUT="$ROOT/third_party/camofox-browser"
 RUNTIME="$CHECKOUT/.runtime"
 
-# Prefer a locally installed Node 22 (e.g. ~/.local/node22) when the system
-# Node is older than Camofox's minimum. Keeps the toolchain project-local.
-LOCAL_NODE_BIN="$HOME/.local/node22/bin"
-if [ -x "$LOCAL_NODE_BIN/node" ]; then
+# Prefer a local Node 24 when the system Node is older. Camofox's own docs say
+# Node >= 22, but its openclaw dependency currently requires >= 24.16.
+LOCAL_NODE_BIN=""
+for candidate in "$HOME/.local/node24/bin" "$HOME/.local/node22/bin"; do
+  if [ -x "$candidate/node" ]; then
+    LOCAL_NODE_BIN="$candidate"
+    break
+  fi
+done
+if [ -n "$LOCAL_NODE_BIN" ]; then
   export PATH="$LOCAL_NODE_BIN:$PATH"
   echo "Using local Node: $(node -v) ($LOCAL_NODE_BIN)"
 fi
@@ -22,8 +28,9 @@ if [ ! -d "$CHECKOUT/mcp" ]; then
 fi
 
 NODE_MAJOR="$(node -v | sed 's/^v//' | cut -d. -f1)"
-if [ "$NODE_MAJOR" -lt 22 ]; then
-  echo "ERROR: Camofox requires Node.js >= 22 (found $(node -v))." >&2
+if [ "$NODE_MAJOR" -lt 24 ]; then
+  echo "ERROR: Camofox's openclaw dependency requires Node.js >= 24.16 (found $(node -v))." >&2
+  echo "Install a local Node 24 under ~/.local/node24/bin and retry." >&2
   exit 1
 fi
 

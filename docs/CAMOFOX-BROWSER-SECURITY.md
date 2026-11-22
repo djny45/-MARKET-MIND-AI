@@ -49,15 +49,16 @@ execution layer.
 
 ## Node.js requirement
 
-Upstream requires Node.js **>= 22**. The system Node here is 20, so a local
-Node 22 is installed at `~/.local/node22/bin`. The setup script prefers that
-directory automatically when present; otherwise it checks the version and
-refuses to start on older runtimes. To install it yourself:
+Upstream states Node.js **>= 22**, but its `openclaw` dependency currently
+requires **>= 24.16**. The system Node here is 20, so a local Node 24 is
+installed at `~/.local/node24/bin`. The setup script prefers `~/.local/node24/bin`
+(then `~/.local/node22/bin`) automatically; with neither present it checks the
+version and refuses to start on older runtimes. To install Node 24 yourself:
 
 ```bash
-mkdir -p ~/.local/node22
-curl -fsSL https://nodejs.org/dist/v22.23.5/node-v22.23.5-linux-x64.tar.xz \
-  | tar -xJ --strip-components=1 -C ~/.local/node22
+mkdir -p ~/.local/node24
+curl -fsSL https://nodejs.org/dist/v24.22.3/node-v24.22.3-linux-x64.tar.xz \
+  | tar -xJ --strip-components=1 -C ~/.local/node24
 ```
 
 ## Verification performed

@@ -54,8 +54,9 @@ procedures, 10 `trader-*`, 3 `rea-*`, 8 other research/engineering skills,
 
 | Check | Result |
 | --- | --- |
-| Backend unit/integration suite (`unittest discover`) | **894 tests, 0 failures, 0 errors** |
-| New skill/worker integrity suite | **5 tests, 0 failures** |
+| Backend unit/integration suite (`unittest discover`) | **909 tests, 0 failures, 0 errors** |
+| Skill/worker, rate-limit and env-validation suites (included above) | 20 tests, 0 failures |
+| Frontend unit tests (`node:test`) | **5 tests, 0 failures** |
 | Frontend TypeScript + esbuild build (root) | success |
 | Frontend build with `VITE_BASE_PATH=/MARKET-MIND-AI/` | success, rewritten asset URLs verified |
 | `npm audit --omit=dev --audit-level=high` | 0 vulnerabilities |

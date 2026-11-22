@@ -1,6 +1,6 @@
 # Private Docker deployment (Vercel-free)
 
-This deployment packages the React/Vite frontend as static files served by Nginx and keeps FastAPI on the internal Compose network. It is intended for **local/private use only**. Optional deployment-wide bearer authentication is available; it is not a multi-user identity or per-user authorization system.
+This deployment packages the React frontend (TypeScript + esbuild) as static files served by Nginx and keeps FastAPI on the internal Compose network. It is intended for **local/private use only**. Optional deployment-wide bearer authentication is available; it is not a multi-user identity or per-user authorization system.
 
 ## Prerequisites
 

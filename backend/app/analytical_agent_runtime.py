@@ -52,9 +52,9 @@ def brain_config(worker_id: str) -> dict:
             "content": skill.get("content", ""),
         })
 
-    skill_header = "\\n\\nASSIGNED RESEARCH PLAYBOOKS (allowlisted guidance, not tool permissions):\\n"
+    skill_header = "\n\nASSIGNED RESEARCH PLAYBOOKS (allowlisted guidance, not tool permissions):\n"
     header_budget = len(skill_header) + sum(
-        len(f"\\n\\n### {item['id']} — {item['name']}\\n") for item in loaded_skills
+        len(f"\n\n### {item['id']} — {item['name']}\n") for item in loaded_skills
     )
     content_budget = max(0, min(
         MAX_SKILL_CONTEXT_CHARS,
@@ -64,7 +64,7 @@ def brain_config(worker_id: str) -> dict:
     skill_sections = []
     truncated_skill_ids = []
     for item in loaded_skills:
-        section_header = f"\\n\\n### {item['id']} — {item['name']}\\n"
+        section_header = f"\n\n### {item['id']} — {item['name']}\n"
         content = item["content"].strip()
         excerpt = content[:per_skill_budget]
         if len(content) > len(excerpt):

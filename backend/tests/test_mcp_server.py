@@ -23,6 +23,7 @@ class MarketMindMCPTests(unittest.IsolatedAsyncioTestCase):
                 "list_engineering_skills",
                 "read_engineering_skill",
                 "validate_n8n_workflow_json",
+                "browser_research_read",
             },
         )
         self.assertFalse(any("import" in name or "execute" in name for name in names))
@@ -38,7 +39,7 @@ class MarketMindMCPTests(unittest.IsolatedAsyncioTestCase):
         names = {tool.name for tool in response.tools}
         self.assertIn("market_mind_capabilities", names)
         self.assertIn("validate_n8n_workflow_json", names)
-        self.assertEqual(len(names), 5)
+        self.assertEqual(len(names), 6)
 
     async def test_all_four_harness_configs_launch_the_same_stdio_tools(self):
         root = Path(__file__).resolve().parents[2]
@@ -75,6 +76,7 @@ class MarketMindMCPTests(unittest.IsolatedAsyncioTestCase):
                         "list_engineering_skills",
                         "read_engineering_skill",
                         "validate_n8n_workflow_json",
+                        "browser_research_read",
                     },
                 )
 
@@ -98,7 +100,9 @@ class MarketMindMCPTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(data["python_version"])
         self.assertTrue(data["mcp_sdk_version"])
         self.assertFalse(data["secret_values_exposed"])
-        self.assertFalse(data["external_network_access"])
+        self.assertEqual(data["external_network_access"], "read_only_allowlisted_https")
+        self.assertFalse(data["browser_research"]["javascript"])
+        self.assertFalse(data["browser_research"]["downloads"])
         self.assertFalse(data["repository_write_access"])
         self.assertFalse(data["workflow_import"])
         self.assertFalse(data["workflow_activation"])

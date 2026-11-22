@@ -70,9 +70,9 @@ export default function AgentPositionMonitor({ agents }: Props) {
     </div>
 
     <div className="agent-position-toolbar">
-      <label className="agent-position-search"><Search size={14}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search agent ID, name, specialty…" /></label>
-      <select value={department} onChange={e=>setDepartment(e.target.value)}>{departments.map(d=><option key={d}>{d}</option>)}</select>
-      <select value={biasFilter} onChange={e=>setBiasFilter(e.target.value)}>{['ALL BIASES',...biasOptions].map(b=><option key={b}>{b}</option>)}</select>
+      <label className="agent-position-search"><Search size={14}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search agent ID, name, specialty…" aria-label="Search agent positions" /></label>
+      <select aria-label="Filter by department" value={department} onChange={e=>setDepartment(e.target.value)}>{departments.map(d=><option key={d}>{d}</option>)}</select>
+      <select aria-label="Filter by stance" value={biasFilter} onChange={e=>setBiasFilter(e.target.value)}>{['ALL BIASES',...biasOptions].map(b=><option key={b}>{b}</option>)}</select>
       <button onClick={()=>assignAll('NEUTRAL')} title="Assign neutral research label to currently filtered agents">TAG FILTERED NEUTRAL</button>
       <button onClick={reset}><RotateCcw size={13}/> RESET</button>
       <span>{filtered.length} matching profiles</span>

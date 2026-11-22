@@ -6,19 +6,32 @@
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "build": "tsc -p tsconfig.json && node scripts/build.mjs",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests/*.test.mjs",
+    "test:ui": "vitest run",
+    "test:ui:watch": "vitest",
+    "test:all": "npm test && npm run test:ui",
+    "typecheck:test": "tsc -p tsconfig.test.json --noEmit"
   },
   "dependencies": {
     "@xyflow/react": "^13.0.2",
+    "lightweight-charts": "^5.0.8",
     "lucide-react": "^1.76.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "lightweight-charts": "^5.0.8"
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.13",
+    "@types/jest-axe": "^3.5.9",
+    "@types/node": "^20.19.43",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
     "esbuild": "^0.28.2",
-    "typescript": "~5.7.2"
+    "jest-axe": "^9.0.0",
+    "jsdom": "^25.0.1",
+    "typescript": "~5.7.2",
+    "vitest": "^2.1.9"
   }
 }

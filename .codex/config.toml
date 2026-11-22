@@ -2,3 +2,9 @@
 command = "python"
 args = ["backend/app/mcp_server.py"]
 cwd = "."
+
+[mcp_servers.camofox-browser]
+command = "npx"
+args = ["-y", "@askjo/camofox-browser-mcp"]
+cwd = "."
+env = { CAMOFOX_BASE_URL = "http://127.0.0.1:9377" }

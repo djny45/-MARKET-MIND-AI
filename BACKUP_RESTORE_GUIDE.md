@@ -48,6 +48,39 @@ atomic replacement and leaves the target untouched on failure.
 - Migration rollback and incident procedures remain tracked as outstanding in
   `REMAINING_WORK.md`.
 
+## Executed drill (2026-11-22, operator-local)
+
+Database: `data/market_mind.db` (production schema). Target:
+`/tmp/opencode/backup-drill/`.
+
+```bash
+# 1. Ensure the runtime schema exists (idempotent).
+PYTHONPATH=. python3 -c "from app.market_store import _connect; _connect()"
+
+# 2. Backup (verified).
+PYTHONPATH=. python3 backend/backup_database.py \
+  /tmp/opencode/backup-drill/market_mind_backup.db --source data/market_mind.db
+
+# 3. Restore (verified).
+PYTHONPATH=. python3 backend/restore_database.py \
+  /tmp/opencode/backup-drill/market_mind_backup.db \
+  /tmp/opencode/backup-drill/restored_market_mind.db --overwrite
+
+# 4. Verify source vs restored: integrity + row counts per table.
+```
+
+Results (verified 2026-11-22):
+
+- Backup: `status=verified`, `backup_integrity=ok`, `source_integrity=ok`
+- Restore: `status=restored_and_verified`, `restored_integrity=ok`
+- Row-count parity: `analytical_agent_tasks`, `analytical_agent_task_retries`,
+  `analytical_agent_task_events`, `research_quality_evaluations`, `workflows`,
+  `analytical_agent_supervisor_lease`, `analytical_agent_supervisor_metrics` all
+  match between source and restored; `PRAGMA integrity_check` returns `ok`.
+- The source and restored files' SHA-256 differ because the source file is
+  recreated after each run (the drill was performed on a schema-initialized
+  DB; equivalence was verified by row-count and integrity parity).
+
 ## Safety
 
 Backups may contain research notes and operator feedback. Treat them as

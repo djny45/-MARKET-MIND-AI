@@ -48,7 +48,7 @@ Implemented areas:
 | Frontend integration | Implemented in source | Maintain clean production-build verification |
 | Live/delayed data provider | Not configured | Validate permissions, licensing, symbol mapping, freshness, and rate limits before enabling a provider |
 | Private container packaging | CI build/start, proxy/API smoke, container isolation, and backup/restore integration passed | Verify persistence and recovery on the target Docker host |
-| Backup and restore | Implemented and CI round-trip verified | Perform a host-specific restore drill and document retention/off-host storage |
+| Backup and restore | Implemented and CI round-trip verified; **host drill executed 2026-11-22** (backup/restore of `data/market_mind.db` verified) | Perform off-host retention and periodic restore drills (documented in `BACKUP_RESTORE_GUIDE.md`) |
 | Public deployment security | Blocked | Add authentication/authorization, TLS ingress, request limits, and independent security review before public exposure |
 | Operations | Partially implemented | Add observability, alerting, load tests, migration rollback, and incident procedures |
 | Durable task execution | Implemented on a single host | Validate supervisor restart/recovery on the target Docker host |

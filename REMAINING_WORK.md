@@ -51,11 +51,15 @@ Actions quality workflow remains the authoritative source; its latest run on
 `main` (`45003960135`) succeeded.
 Impact: clean-host reproducibility is asserted by CI, not by local execution.
 
-## 7. Host-specific operations — NOT VERIFIED
-Evidence: `PROJECT_STATUS.md` still lists host backup/restore drills, retention
-policy, migration rollback, incident procedures, alert delivery and TLS ingress
-as outstanding.
-Impact: deployment readiness is limited to private, operator-managed hosts.
+## 7. Host-specific operations — PARTIAL
+Evidence:
+- **Backup/restore drill: EXECUTED 2026-11-22** against `data/market_mind.db`.
+  Backup → `status=verified`; restore → `status=restored_and_verified`;
+  `PRAGMA integrity_check` = `ok` on source and restored; row counts match.
+  Details in `BACKUP_RESTORE_GUIDE.md`; evidence recorded in
+  `PROJECT_STATUS.md` (Backup/restore row) and this file.
+- Not yet done: retention-policy repetition, off-host storage, migration
+  rollback drills, alerting-on-incident reproduction, TLS ingress hardening.
 
 ## 8. Pull request housekeeping — reconciled 2026-11-22
 Evidence: `gh pr list --state open` now returns 35 PRs (29 drafts, 6 non-draft).

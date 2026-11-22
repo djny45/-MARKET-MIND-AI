@@ -91,6 +91,8 @@ operator-managed** deployment only. Public deployment remains blocked.
   runtime, cloud workspaces, licensed live market data, Docker Compose and
   Trivy execution — see `REMAINING_WORK.md`. Trivy is committed locally but
   blocked from pushing (OAuth scope).
+- Host-specific backup/restore drill: **executed and verified** 2026-11-22
+  (`BACKUP_RESTORE_GUIDE.md`).
 - Frontend tests cover build-path and market utilities; no React/DOM component
   test runner.
 

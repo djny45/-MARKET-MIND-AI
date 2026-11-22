@@ -15,9 +15,10 @@ inferred from documentation.
 | 7 | Read-only browser tool (live) | MCP `browser_research_read` → `https://en.wikipedia.org/wiki/Market` | HTTP 200, 4,528 chars, side effects false |
 | 8 | Full browser (live) | Camofox MCP `camofox_create_tab` + `camofox_snapshot` → `https://example.com` | HTTP 200, snapshot content returned; `browserConnected: true` |
 | 9 | GitHub Actions quality workflow | `gh run list --branch main` | success (run `45015450017`, merge of PR #28, 2m34s; PR #26 rerun success) |
-| 10 | Trivy CI (local) | `trivy fs --scanners misconfig,secret --severity MEDIUM,HIGH,CRITICAL .` | blocked from pushing by OAuth `workflow` scope; file committed locally (`feat/trivy-fs`, `1827be8`) |
-| 10 | Docker Compose config | `docker compose config` | **not run locally** — `docker` binary absent; CI authoritative |
-| 11 | Trivy filesystem scan | `trivy` | **not run locally** — binary absent; CI authoritative |
+| 10 | Backup/restore drill (host) | `python3 backend/backup_database.py` → `python3 backend/restore_database.py` | Verified 2026-11-22: backup + restore of `data/market_mind.db` — both `verified`/`restored_and_verified`, `integrity_check=ok`, row-count parity across all tables |
+| 11 | Trivy CI (local) | `trivy fs --scanners misconfig,secret --severity MEDIUM,HIGH,CRITICAL .` | blocked from pushing by OAuth `workflow` scope; file committed locally (`feat/trivy-fs`, `1827be8`) |
+| 12 | Docker Compose config | `docker compose config` | **not run locally** — `docker` binary absent; CI authoritative |
+| 13 | Trivy filesystem scan | `trivy` | **not run locally** — binary absent; CI authoritative (blocked by OAuth scope; see below) |
 | 12 | Python dependency audit | `pip-audit` | **not run locally** — tool unavailable |
 
 ## Test categories covered by the 987 backend tests

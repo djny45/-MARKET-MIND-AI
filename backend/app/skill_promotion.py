@@ -109,14 +109,14 @@ class PromotionEngine:
         from .workers import list_workers
         return list_workers()
 
-    def score_all(self, limit: int = 400) -> list[SkillScore]:
+    def score_all(self, limit: int | None = None) -> list[SkillScore]:
         candidates = list(self._catalog["ids"]) + [e["id"] for e in self._reference["entries"]]
         scores = sorted(
             (self.score_skill(skill_id) for skill_id in set(candidates)),
             key=lambda score: score.base_score,
             reverse=True,
         )
-        return scores[:limit]
+        return scores if limit is None else scores[:limit]
 
     # --- proposals -------------------------------------------------------
     def generate_proposal(self, skill_id: str) -> PromotionProposal:

@@ -7,7 +7,7 @@ class SkillCatalogTests(unittest.TestCase):
     def test_catalog_contains_only_allowlisted_research_skills(self):
         skills = list_skills()
         by_id = {skill["id"]: skill for skill in skills}
-        self.assertEqual(len(skills), 324)
+        self.assertEqual(len(skills), 325)
         self.assertNotIn("trader-broker", by_id)
         self.assertTrue(all(
             skill["mode"] == "research_and_paper_only"
@@ -163,6 +163,17 @@ class SkillCatalogTests(unittest.TestCase):
                 content = load_skill(slug)["content"]
                 for marker in markers:
                     self.assertIn(marker, content)
+
+    def test_freqtrade_backtest_skill_is_allowlisted_and_research_only(self):
+        skills = {skill["id"]: skill for skill in list_skills()}
+        slug = "freqtrade-backtest-research"
+        self.assertIn(slug, skills)
+        self.assertTrue(skills[slug]["available"])
+        self.assertEqual(skills[slug]["mode"], "research_and_paper_only")
+        self.assertFalse(skills[slug]["broker_execution"])
+        content = load_skill(slug)["content"].lower()
+        for marker in ("lookahead", "recursive-indicator", "reproducibility manifest", "research_only"):
+            self.assertIn(marker, content)
 
     def test_300_skill_pack_is_discoverable_and_loads_one_skill_at_a_time(self):
         skills = {skill["id"]: skill for skill in list_skills()}

@@ -14,6 +14,7 @@ QLIB_SKILL_ROOT = REPO_ROOT / ".agents" / "skills" / "qlib-research"
 SOCIAL_RESEARCH_SKILL_ROOT = REPO_ROOT / ".agents" / "skills" / "social-research"
 N8N_SKILL_ROOT = REPO_ROOT / ".agents" / "skills" / "n8n-workflow-check"
 AUTOHEDGE_SKILL_ROOT = REPO_ROOT / ".agents" / "skills"
+FREQTRADE_SKILL_ROOT = REPO_ROOT / ".agents" / "skills"
 
 SKILL_DESCRIPTIONS = {
     "trader-alerts": "Alert interpretation and notification research.",
@@ -68,6 +69,10 @@ AUTOHEDGE_SKILL_DESCRIPTIONS = {
     "autohedge-agent-analysis": "AutoHedge multi-agent research reasoning (thesis, quant, sentiment, risk) adapted to paper research only.",
     "autohedge-market-making-research": "Historical replay of AutoHedge's experimental market-making strategy against imported trade logs; simulation only.",
     "autohedge-execution-architecture-review": "Read-only architecture review of AutoHedge signing/order flow; reference for security review, never an execution capability.",
+}
+
+FREQTRADE_SKILL_DESCRIPTIONS = {
+    "freqtrade-backtest-research": "Freqtrade-derived rigorous backtesting methodology: lookahead/recursive checks, fees, walk-forward tuning and reproducibility; paper research only.",
 }
 
 
@@ -187,7 +192,19 @@ def list_skills():
         }
         for slug, description in AUTOHEDGE_SKILL_DESCRIPTIONS.items()
     ]
-    return trading + engineering + ui_design + market_data + stooq_data + quant_research + qlib_research + social_research + n8n_automation + autohedge + list_pack_skills()
+    freqtrade = [
+        {
+            "id": slug,
+            "description": description,
+            "path": f".agents/skills/{slug}/SKILL.md",
+            "available": (FREQTRADE_SKILL_ROOT / slug / "SKILL.md").is_file(),
+            "mode": "research_and_paper_only",
+            "requires_external_tools": False,
+            "broker_execution": False,
+        }
+        for slug, description in FREQTRADE_SKILL_DESCRIPTIONS.items()
+    ]
+    return trading + engineering + ui_design + market_data + stooq_data + quant_research + qlib_research + social_research + n8n_automation + autohedge + freqtrade + list_pack_skills()
 
 
 def load_skill(slug: str):
@@ -242,6 +259,11 @@ def load_skill(slug: str):
     elif slug in AUTOHEDGE_SKILL_DESCRIPTIONS:
         root = AUTOHEDGE_SKILL_ROOT
         description = AUTOHEDGE_SKILL_DESCRIPTIONS[slug]
+        mode = "research_and_paper_only"
+        requires_external_tools = False
+    elif slug in FREQTRADE_SKILL_DESCRIPTIONS:
+        root = FREQTRADE_SKILL_ROOT
+        description = FREQTRADE_SKILL_DESCRIPTIONS[slug]
         mode = "research_and_paper_only"
         requires_external_tools = False
     else:

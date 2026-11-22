@@ -56,7 +56,7 @@ def _safe_text(value: str | None, field: str, max_length: int = 240) -> str:
     if not cleaned or len(cleaned) > max_length:
         raise ValueError(f"{field} must contain 1 to {max_length} characters")
     # Reject obvious credential-bearing columns rather than retaining unknown secrets.
-    lowered = field.lower()
+    lowered = field.lower() + " " + cleaned.lower()
     if any(token in lowered for token in ("private_key", "secret", "seed_phrase", "api_key", "password", "token")):
         raise ValueError(f"{field} is not an accepted event field")
     return cleaned
@@ -116,6 +116,8 @@ def inspect_trade_log(
         raise ValueError(f"max_bytes must be between 1 and {DEFAULT_MAX_BYTES}")
     if max_rows < 1 or max_rows > DEFAULT_MAX_ROWS:
         raise ValueError(f"max_rows must be between 1 and {DEFAULT_MAX_ROWS}")
+    if sample_size < 0 or sample_size > 100:
+        raise ValueError("sample_size must be between 0 and 100")
 
     spool, byte_count, content_hash = _spool_input(stream, max_bytes)
     text_stream = io.TextIOWrapper(spool, encoding="utf-8-sig", errors="strict", newline="")

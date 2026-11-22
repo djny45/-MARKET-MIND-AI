@@ -7,7 +7,7 @@ class SkillCatalogTests(unittest.TestCase):
     def test_catalog_contains_only_allowlisted_research_skills(self):
         skills = list_skills()
         by_id = {skill["id"]: skill for skill in skills}
-        self.assertEqual(len(skills), 321)
+        self.assertEqual(len(skills), 326)
         self.assertNotIn("trader-broker", by_id)
         self.assertTrue(all(
             skill["mode"] == "research_and_paper_only"
@@ -135,6 +135,30 @@ class SkillCatalogTests(unittest.TestCase):
             with self.subTest(skill_id=skill_id):
                 with self.assertRaises(KeyError):
                     load_skill(skill_id)
+
+
+    def test_autohedge_research_skills_are_allowlisted_and_assigned(self):
+        skills = {skill["id"]: skill for skill in list_skills()}
+        expected = {
+            "autohedge-director-coordination": "director-coordination",
+            "autohedge-quant-analysis": "quant-analysis",
+            "autohedge-sentiment-analysis": "sentiment-analysis",
+            "autohedge-risk-assessment": "risk-assessment",
+            "autohedge-thesis-validation": "thesis-validation",
+        }
+        for skill_id, folder in expected.items():
+            with self.subTest(skill_id=skill_id):
+                skill = skills[skill_id]
+                self.assertTrue(skill["available"])
+                self.assertEqual(skill["mode"], "research_evaluation_only")
+                self.assertFalse(skill["requires_external_tools"])
+                loaded = load_skill(skill_id)
+                self.assertIn("AutoHedge-derived", loaded["content"])
+                self.assertFalse(loaded["broker_execution"])
+                self.assertIn(folder, loaded["content"].lower() if folder == "director-coordination" else loaded["content"].lower())
+
+        self.assertIn("autohedge-quant-analysis", skills)
+        self.assertIn("autohedge-thesis-validation", skills)
 
     def test_unknown_and_broker_skills_are_rejected(self):
         for slug in ("trader-broker", "../README.md", "missing-skill"):

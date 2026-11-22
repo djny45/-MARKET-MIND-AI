@@ -83,7 +83,7 @@ python create_owner_hash.py
 
 Copy the generated hash into the backend environment as `MARKET_MIND_OWNER_PASSWORD_HASH`; never commit the hash or plaintext password. Configure `FRONTEND_ORIGINS` as a comma-separated list of exact browser origins, without paths or wildcards. The Compose default is `http://localhost:8080`. The frontend uses the cookie session and CSRF token flow; do not put owner credentials in frontend build variables.
 
-Compose currently sets `MARKET_MIND_COOKIE_SECURE=false` for its loopback-only HTTP listener. This is strictly a local/private setting. For remote HTTPS, configure a separately maintained TLS reverse proxy, set `MARKET_MIND_COOKIE_SECURE=true`, set the exact HTTPS value in `FRONTEND_ORIGINS`, and verify proxy/origin behavior before use. Do not expose the service directly to the public internet. Login attempts are rate-limited in the shared SQLite authentication database, so API processes using the same database file share the limit. The limiter is not distributed across hosts or separate databases; retain edge-level abuse controls and obtain an independent security review before public exposure.
+Compose defaults `MARKET_MIND_COOKIE_SECURE=true`. Keep this secure default for HTTPS deployments. For the explicitly loopback-only local HTTP listener (`http://127.0.0.1:8080`), set `MARKET_MIND_COOKIE_SECURE=false` in the host's uncommitted `.env` file; never use that override on a network-accessible or HTTPS deployment. For remote HTTPS, retain `true`, configure a separately maintained TLS reverse proxy, set the exact HTTPS value in `FRONTEND_ORIGINS`, and verify proxy/origin behavior before use. Do not expose the service directly to the public internet. Login attempts are rate-limited in the shared SQLite authentication database, so API processes using the same database file share the limit. The limiter is not distributed across hosts or separate databases; retain edge-level abuse controls and obtain an independent security review before public exposure.
 
 The authentication system is single-owner session authentication. It does not provide multiple users, registration, OAuth, or per-user role-based authorization. The separate n8n reviewer/importer role checks remain distinct and do not grant general application accounts.
 
@@ -109,9 +109,12 @@ To explicitly ask the script to build and start the stack before checking it:
 bash scripts/deploy_check.sh --start
 # or, including optional n8n
 bash scripts/deploy_check.sh --start --with-n8n
+
+# Include host-persisted backup and disposable restore verification
+bash scripts/deploy_check.sh --backup-drill
 ```
 
-The script checks Compose configuration, API readiness, frontend response, absence of a host-published backend port, loopback-only frontend/n8n bindings, the agent-supervisor process, and SQLite PRAGMA integrity_check against the persistent application database. It prints PASS/FAIL summaries only; it does not dump environment variables or service logs. It does not configure reviewer credentials, prove that an n8n API key is valid, or import a workflow. Keep those as separate controlled acceptance tests. A successful CI run validates the GitHub-hosted runner only; run this script on the actual target host to record host-specific evidence.
+The script checks Compose configuration, API readiness, frontend response, absence of a host-published backend port, required owner authentication and scrypt hash shape, unauthenticated denial on a protected API route, loopback-only frontend/n8n bindings, Docker health for the agent supervisor, and SQLite PRAGMA integrity_check against the persistent application database. Add `--backup-drill` to create a host-persisted SQLite backup and verify a disposable restore. It prints PASS/FAIL summaries only; it does not dump environment variables or service logs. It does not prove that the configured owner password is known, configure reviewer credentials, prove that an n8n API key is valid, or import a workflow. Keep those as separate controlled acceptance tests. A successful CI run validates the GitHub-hosted runner only; run this script on the actual target host to record host-specific evidence.
 
 ## Repository security scanning
 

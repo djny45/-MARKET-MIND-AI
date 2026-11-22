@@ -10,10 +10,12 @@ from __future__ import annotations
 import hashlib
 import json
 from .workers import list_workers
+from .skill_catalog import load_skill
 
 CORE_ID = "shared_central_intelligence"
 WORKERS = {item["id"]: item for item in list_workers()}
 MAX_CONTEXT_CHARS = 6000
+MAX_SKILL_CONTEXT_CHARS = 5000
 MAX_FEEDBACK_CHARS = 4000
 MAX_PROPOSAL_CHARS = 4000
 
@@ -34,14 +36,54 @@ def brain_config(worker_id: str) -> dict:
         "calculations, assumptions, and unknowns. Cite supplied source references. "
         "Never invent data, claim certainty without evidence, or execute trades."
     )
-    digest = hashlib.sha256(role.encode("utf-8")).hexdigest()
+
+    # Resolve only this worker's repository-allowlisted skill references. The
+    # resulting text is bounded before it reaches the shared inference provider.
+    skill_refs = list(dict.fromkeys(worker.get("skill_refs", [])))
+    loaded_skills = []
+    for skill_id in skill_refs:
+        skill = load_skill(skill_id)
+        if skill.get("broker_execution") is not False:
+            raise ValueError(f"Skill {skill_id} does not meet the research-only runtime boundary")
+        loaded_skills.append({
+            "id": skill_id,
+            "name": skill.get("name") or skill_id,
+            "description": skill.get("description", ""),
+            "content": skill.get("content", ""),
+        })
+
+    skill_header = "\\n\\nASSIGNED RESEARCH PLAYBOOKS (allowlisted guidance, not tool permissions):\\n"
+    header_budget = len(skill_header) + sum(
+        len(f"\\n\\n### {item['id']} — {item['name']}\\n") for item in loaded_skills
+    )
+    content_budget = max(0, min(
+        MAX_SKILL_CONTEXT_CHARS,
+        MAX_CONTEXT_CHARS - len(role) - header_budget,
+    ))
+    per_skill_budget = content_budget // max(1, len(loaded_skills))
+    skill_sections = []
+    truncated_skill_ids = []
+    for item in loaded_skills:
+        section_header = f"\\n\\n### {item['id']} — {item['name']}\\n"
+        content = item["content"].strip()
+        excerpt = content[:per_skill_budget]
+        if len(content) > len(excerpt):
+            truncated_skill_ids.append(item["id"])
+        skill_sections.append(section_header + excerpt)
+    skill_context = skill_header + "".join(skill_sections) if loaded_skills else ""
+    brain_context = role + skill_context
+    digest = hashlib.sha256(brain_context.encode("utf-8")).hexdigest()
     return {
         "agent_id": worker_id,
         "agent_name": worker["name"],
         "department": worker["department"],
         "specialty": worker["specialty"],
-        "brain_context": role,
+        "brain_context": brain_context,
         "brain_context_sha256": digest,
+        "skill_refs": skill_refs,
+        "loaded_skill_count": len(loaded_skills),
+        "skill_context_truncated": bool(truncated_skill_ids),
+        "truncated_skill_ids": truncated_skill_ids,
         "memory_namespace": worker["memory_namespace"],
         "intelligence_core": CORE_ID,
         "model_topology": "individual_agent_context_shared_inference_provider",

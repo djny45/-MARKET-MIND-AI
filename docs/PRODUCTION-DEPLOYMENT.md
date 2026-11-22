@@ -209,3 +209,8 @@ Replace the example timestamp with the actual backup filename. Test restores aga
 ## Release gates
 
 This packaging is not a public production release. Before any public deployment, implement and independently review authentication/authorization, TLS and ingress controls, migration/rollback procedures, observability, and a licensed market-data provider integration. Verify provider entitlements, symbol mapping, rate limits, timestamps, and stale-data handling before enabling any real feed. Automate backup retention and conduct a host-specific recovery drill.
+
+
+## Backup retention and encrypted off-host procedure
+
+The local retention utility keeps the 14 newest timestamped backups by default and is dry-run unless `--apply` is supplied. Review its policy and encrypted off-host operator procedure in [BACKUP-RETENTION.md](BACKUP-RETENTION.md). The documented encryption workflow is not an automated uploader or key-management service; verify the tool, keys, off-host object, and isolated restore on the actual VPS before accepting this release gate.

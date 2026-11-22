@@ -61,6 +61,20 @@ class DatabaseBackupTests(unittest.TestCase):
             with sqlite3.connect(destination) as connection:
                 self.assertEqual(connection.execute("SELECT COUNT(*) FROM market_bars").fetchone()[0], 1)
 
+    def test_paths_with_uri_special_characters(self):
+        """SQLite file URIs must be escaped (spaces, '#', '?')."""
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "db storage #1?research"
+            root.mkdir()
+            source = root / "market.db"
+            destination = root / "backups" / "copy.db"
+            self._database(source)
+            result = create_backup(source, destination)
+            self.assertEqual(result["status"], "verified")
+            self.assertEqual(result["backup_integrity"], "ok")
+            with sqlite3.connect(destination) as connection:
+                self.assertEqual(connection.execute("SELECT symbol FROM market_bars").fetchone()[0], "BTCUSD")
+
 
 if __name__ == "__main__":
     unittest.main()

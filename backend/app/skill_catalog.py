@@ -157,15 +157,6 @@ def list_skills():
     ]
     autohedge_research = [
         {
-            "id": "autohedge-public-token-data",
-            "description": AUTOHEDGE_SKILL_DESCRIPTIONS["autohedge-public-token-data"],
-            "path": ".agents/skills/autohedge-research/public-token-data/SKILL.md",
-            "available": (AUTOHEDGE_SKILL_ROOT / "public-token-data" / "SKILL.md").is_file(),
-            "mode": "research_evaluation_only",
-            "requires_external_tools": True,
-            "upstream": "https://github.com/The-Swarm-Corporation/AutoHedge",
-        },
-        {
             "id": "autohedge-market-making-lab",
             "description": AUTOHEDGE_SKILL_DESCRIPTIONS["autohedge-market-making-lab"],
             "path": ".agents/skills/autohedge-research/market-making-lab/SKILL.md",
@@ -268,7 +259,7 @@ def load_skill(slug: str):
     else:
         raise KeyError(slug)
 
-    path = root / slug.removeprefix("autohedge-") / "SKILL.md" if slug in AUTOHEDGE_SKILL_DESCRIPTIONS else (root / "SKILL.md" if slug in N8N_SKILL_DESCRIPTIONS or slug in UI_SKILL_DESCRIPTIONS or slug in MARKET_DATA_SKILL_DESCRIPTIONS or slug in STOOQ_SKILL_DESCRIPTIONS or slug in QUANT_RESEARCH_SKILL_DESCRIPTIONS or slug in SOCIAL_RESEARCH_SKILL_DESCRIPTIONS or slug in QLIB_SKILL_DESCRIPTIONS else root / slug / "SKILL.md")
+    path = root / "public-token-data" / "SKILL.md" if slug == "autohedge-public-token-data" else (root / "market-making-lab" / "SKILL.md" if slug == "autohedge-market-making-lab" else (root / slug.removeprefix("autohedge-") / "SKILL.md" if slug in AUTOHEDGE_SKILL_DESCRIPTIONS else (root / "SKILL.md" if slug in N8N_SKILL_DESCRIPTIONS or slug in UI_SKILL_DESCRIPTIONS or slug in MARKET_DATA_SKILL_DESCRIPTIONS or slug in STOOQ_SKILL_DESCRIPTIONS or slug in QUANT_RESEARCH_SKILL_DESCRIPTIONS or slug in SOCIAL_RESEARCH_SKILL_DESCRIPTIONS or slug in QLIB_SKILL_DESCRIPTIONS else root / slug / "SKILL.md")))
     if not path.is_file():
         raise FileNotFoundError(slug)
     return {

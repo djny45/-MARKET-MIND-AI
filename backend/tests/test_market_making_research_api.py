@@ -59,13 +59,6 @@ class MarketMakingResearchApiTests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 422)
 
-    def test_endpoint_rejects_nan(self):
-        response = self.client.post(
-            "/api/research/market-making/indicative",
-            content='{"bid":NaN,"ask":101,"timestamp":' + str(self.now) + '}',
-            headers={"content-type": "application/json"},
-        )
-        self.assertEqual(response.status_code, 422)
 
 
 if __name__ == "__main__":

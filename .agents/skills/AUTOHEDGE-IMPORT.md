@@ -5,7 +5,10 @@ Upstream: `https://github.com/The-Swarm-Corporation/AutoHedge` @ `c549c7950da112
 
 AutoHedge contains no native skill files. Its agent prompts and experimental
 strategy modules were distilled into three research-only playbooks, registered in
-`backend/app/skill_catalog.py`:
+`backend/app/skill_catalog.py`. On 2026-11-22 the playbooks were substantially
+upgraded (v2) with explicit validation gates, statistical rigor, reproducibility
+manifests, adversarial review and structured threat modelling — all still within
+the research/paper-simulation boundary:
 
 | Skill id | Source material | Purpose |
 | --- | --- | --- |

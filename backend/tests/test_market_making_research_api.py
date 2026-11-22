@@ -1,5 +1,5 @@
 import unittest
-from datetime import datetime, timedelta, timezone
+import time
 
 from fastapi.testclient import TestClient
 
@@ -9,30 +9,32 @@ from app.main import app
 class MarketMakingResearchApiTests(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(app)
-        self.now = datetime.now(timezone.utc)
+        self.now = time.time()
 
-    def snapshot(self, *, bid="99", ask="101", timestamp=None):
+    def payload(self, *, bid=99, ask=101, timestamp=None, **extra):
         return {
-            "best_bid": bid,
-            "best_ask": ask,
-            "timestamp": (timestamp or self.now).isoformat(),
+            "bid": bid,
+            "ask": ask,
+            "timestamp": self.now if timestamp is None else timestamp,
+            **extra,
         }
 
     def test_endpoint_returns_indicative_research_only_quote(self):
         response = self.client.post(
             "/api/research/market-making/indicative",
-            json={"snapshot": self.snapshot(), "inventory": 1, "inventory_skew_bps": 5},
+            json=self.payload(inventory=1, inventory_skew_bps_per_unit=5),
         )
         self.assertEqual(response.status_code, 200, response.text)
         payload = response.json()
-        self.assertEqual(payload["mode"], "research_only_indicative")
-        self.assertEqual(payload["mid"], "100")
-        self.assertIn("limitations", payload)
+        self.assertEqual(payload["mode"], "research_only_indicative_quotes")
+        self.assertFalse(payload["broker_execution"])
+        self.assertFalse(payload["orders_submitted"])
+        self.assertAlmostEqual(payload["mid_price"], 100)
 
     def test_endpoint_rejects_stale_book(self):
         response = self.client.post(
             "/api/research/market-making/indicative",
-            json={"snapshot": self.snapshot(timestamp=self.now - timedelta(minutes=2))},
+            json=self.payload(timestamp=self.now - 120),
         )
         self.assertEqual(response.status_code, 400)
         self.assertIn("stale", response.json()["detail"])
@@ -40,7 +42,7 @@ class MarketMakingResearchApiTests(unittest.TestCase):
     def test_endpoint_rejects_crossed_book(self):
         response = self.client.post(
             "/api/research/market-making/indicative",
-            json={"snapshot": self.snapshot(bid="102", ask="101")},
+            json=self.payload(bid=102, ask=101),
         )
         self.assertEqual(response.status_code, 400)
         self.assertIn("crossed", response.json()["detail"])
@@ -48,7 +50,14 @@ class MarketMakingResearchApiTests(unittest.TestCase):
     def test_endpoint_bounds_parameters(self):
         response = self.client.post(
             "/api/research/market-making/indicative",
-            json={"snapshot": self.snapshot(), "max_age_seconds": 10000},
+            json=self.payload(max_age_seconds=10000),
+        )
+        self.assertEqual(response.status_code, 422)
+
+    def test_endpoint_rejects_nan(self):
+        response = self.client.post(
+            "/api/research/market-making/indicative",
+            json=self.payload(bid=float("nan")),
         )
         self.assertEqual(response.status_code, 422)
 

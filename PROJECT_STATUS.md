@@ -51,18 +51,17 @@ Implemented areas:
 | Backup and restore | Implemented and CI round-trip verified | Perform a host-specific restore drill and document retention/off-host storage |
 | Public deployment security | Blocked | Add authentication/authorization, TLS ingress, request limits, and independent security review before public exposure |
 | Operations | Partially implemented | Add observability, alerting, load tests, migration rollback, and incident procedures |
-| Durable task execution | Partial | Replace process-local background dispatch with a durable queue and prove restart/recovery semantics |
+| Durable task execution | Implemented for single-host Compose | Persistent SQLite queue, dedicated polling supervisor, renewable singleton lease, fenced claims, bounded retries, stale-task recovery, subprocess restart and concurrent-recovery tests; still requires host-level kill/restart and volume-recovery acceptance |
 | Agent intelligence | Partial | Add evidence-grounded retrieval/synthesis, isolated task context, benchmarked quality gates, and reviewed learning promotion |
 
 ## Recommended completion sequence
 
-1. Replace process-local task dispatch with durable queueing and validate worker restart/recovery semantics.
-2. Validate persistence and backup/restore on the intended private Docker host, including a recovery drill.
-3. Add host-level observability, alerting, and representative load tests.
-4. Add authentication/authorization and TLS ingress, followed by independent security review, before any public exposure.
-5. Select and validate a properly licensed market-data provider before presenting non-synthetic data as current.
-6. Implement evidence-grounded specialist research and benchmarked, reviewed learning before describing the system as autonomous or self-learning.
-7. Record deployment environment, recovery results, and security review before calling the release complete.
+1. Complete host-level supervisor kill/restart, persistent-volume recovery, encrypted/off-host backup, retention, and migration-rollback drills.
+2. Add host-level metrics, alert delivery, incident thresholds, and representative workload/load tests.
+3. Complete production secret-manager configuration, HTTPS/TLS ingress, browser-level authentication E2E, and independent security review before any public exposure.
+4. Select and validate a properly licensed market-data provider before presenting non-synthetic data as current.
+5. Implement evidence-grounded specialist research and benchmarked, reviewed learning before describing the system as autonomous or self-learning.
+6. Record deployment environment, recovery results, and security review before calling the release complete.
 
 ## Scope boundary
 
@@ -234,3 +233,14 @@ Verification:
 - This is CI evidence only. The intended production host has not yet had an operator-run backup/restore drill, TLS/secret-manager setup, external security review, or live-provider acceptance.
 
 The PR remains a draft. Do not merge or expose publicly until those host and security release gates are complete.
+
+
+## Queue ownership hardening — 2026-11-22
+
+Implemented on the release-candidate branch:
+- Corrected the task lifecycle documentation to match the current persistent single-host SQLite queue and dedicated polling supervisor.
+- Disabled API-process startup recovery in the Compose topology. The dedicated supervisor is the sole automated recovery owner after acquiring its renewable singleton lease. This prevents an API restart from independently requeueing a task that may still be running under the supervisor.
+- Extended the portable deployment checker to fail unless the backend container has `MARKET_MIND_STARTUP_RECOVERY=false` configured.
+- Existing regression coverage already includes a real subprocess restart simulation, concurrent stale recovery with exactly one audit event, lease-fencing checks, graceful shutdown, and fail-closed recovery startup.
+
+Verification pending: the next full GitHub Actions run must validate the Compose environment and deployment-checker assertion on the combined release candidate. Host-level process-kill, persistent-volume, and backup/restore drills remain external acceptance gates.

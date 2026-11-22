@@ -167,6 +167,8 @@ def inspect_trade_log(
                 quantity = _decimal(row.get(column_mapping.get("quantity", "").casefold(), ""), "quantity", positive=True) if "quantity" in column_mapping else None
                 price = _decimal(row.get(column_mapping.get("price", "").casefold(), ""), "price", positive=True) if "price" in column_mapping else None
                 fee = _decimal(row.get(column_mapping.get("fee", "").casefold(), ""), "fee") if "fee" in column_mapping else None
+                fee_currency = _safe_text(row.get(column_mapping.get("fee_currency", "").casefold(), ""), "fee_currency", 24).upper() if "fee_currency" in column_mapping and row.get(column_mapping["fee_currency"].casefold(), "").strip() else None
+                order_reference = _safe_text(row.get(column_mapping.get("order_reference", "").casefold(), ""), "order_reference", 120) if "order_reference" in column_mapping and row.get(column_mapping["order_reference"].casefold(), "").strip() else None
                 if fee is not None and fee < 0:
                     raise ValueError("fee must be non-negative")
                 if event_type in {"PARTIAL_FILL", "FILL"} and (quantity is None or price is None or side is None):
@@ -183,6 +185,8 @@ def inspect_trade_log(
                         "side": side, "quantity": str(quantity) if quantity is not None else None,
                         "price": str(price) if price is not None else None,
                         "fee": str(fee) if fee is not None else None,
+                        "fee_currency": fee_currency,
+                        "order_reference": order_reference,
                         "source_row": row_number,
                     })
             except (KeyError, ValueError) as exc:
@@ -201,7 +205,7 @@ def inspect_trade_log(
         "status": "dry_run_only",
         "sha256": content_hash,
         "bytes": byte_count,
-        "parser_version": "trade-event-csv-v1",
+        "parser_version": "trade-event-csv-v2",
         "mapping": dict(column_mapping),
         "total_rows": accepted + rejected + duplicates,
         "accepted_rows": accepted,

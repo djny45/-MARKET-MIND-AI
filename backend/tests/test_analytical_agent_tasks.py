@@ -239,6 +239,11 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         )
         self.assertEqual(snapshot["audit_event_count"], len(snapshot["recent_audit_events"]))
 
+    def test_network_activity_snapshot_rejects_boolean_limit(self):
+        from app.analytical_agent_tasks import list_recent_task_activity
+        with self.assertRaises(ValueError):
+            list_recent_task_activity(limit=True)
+
     def test_task_audit_events_are_bounded_and_unknown_task_is_empty(self):
         from app.analytical_agent_tasks import enqueue_research_task, list_task_audit_events
         queued = enqueue_research_task("worker_008", "audit bounds")

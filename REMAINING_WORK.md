@@ -12,10 +12,18 @@ authorization.
 Impact: public deployment remains blocked (already stated in README and
 PROJECT_STATUS.md).
 
-## 2. Rate limiting — NOT IMPLEMENTED
-Evidence: no rate-limit middleware or dependency in `backend/app`; CORS and the
-optional bearer middleware are the only request-gating layers.
-Impact: abuse protection must be provided at ingress until implemented.
+## 2. Rate limiting — BASIC IMPLEMENTATION
+Evidence: `backend/app/rate_limit.py` provides an in-process, per-client-IP
+limiter enabled by `API_RATE_LIMIT_PER_MINUTE` (disabled by default); health and
+readiness are exempt. It is registered in `main.py` and covered by 5 tests.
+Limitation: it is single-process only and is not a substitute for ingress/proxy
+rate limiting in a distributed deployment. Per-user quotas are not implemented.
+
+## 2b. Environment validation — IMPLEMENTED
+Evidence: `backend/app/env_validation.py` validates auth-token length, CORS
+origins (no wildcards), startup-recovery and rate-limit settings without
+exposing secret values; exposed via `GET /api/environment-validation` and covered
+by 5 tests. It is advisory, not a startup gate.
 
 ## 3. Distributed / multi-host task execution — NOT IMPLEMENTED (intentional)
 Evidence: `docker-compose.yml` runs one `backend` and one `agent-supervisor`

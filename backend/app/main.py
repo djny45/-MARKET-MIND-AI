@@ -2,6 +2,8 @@ from fastapi import FastAPI, HTTPException, Depends
 from fastapi.security import HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 from .api_auth import ResearchAPIAuthMiddleware
+from .rate_limit import RateLimitMiddleware
+from .env_validation import validate_environment
 from pydantic import BaseModel, Field
 from typing import Any, Literal
 import hashlib
@@ -96,6 +98,7 @@ app = FastAPI(
  lifespan=lifespan,
 )
 app.add_middleware(ResearchAPIAuthMiddleware)
+app.add_middleware(RateLimitMiddleware)
 # Keep browser origins explicit using a comma-separated allowlist.
 _frontend_origins = [
     origin.strip().rstrip("/")
@@ -409,6 +412,12 @@ def model_integrations():
 def health():
  return {"status":"ok","service":"market-mind-ai","mode":"research-only",
   "paper_trading":False,"broker_execution":False}
+
+@app.get("/api/environment-validation")
+def environment_validation():
+ """Report non-secret configuration findings for private deployments."""
+ return validate_environment()
+
 
 @app.get("/api/watchlist")
 def get_watchlist(limit: int = 100):

@@ -4,9 +4,25 @@ from fastapi.security import HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 from .api_auth import ResearchAPIAuthMiddleware
 from .rate_limit import RateLimitMiddleware
-from .env_validation import validate_environment
+from .distributed_rate_limit import DistributedRateLimitMiddleware
+from .env_validation import enforce_environment, validate_environment
+from .audit_events import audit_log, record_authorization_decision
+from .authorization import (
+    actor_owner,
+    authorize_current,
+    claim_current,
+    current_actor,
+    ownership_registry,
+    require_role as require_sensitive_role,
+    safe_actor,
+)
 from . import user_auth
-from .user_session_middleware import UserSessionAuthMiddleware
+from .user_session_middleware import (
+    SecurityHeadersMiddleware,
+    UserSessionAuthMiddleware,
+    clear_session_cookies,
+    set_session_cookies,
+)
 from pydantic import BaseModel, Field
 from typing import Any, Literal
 import hashlib
@@ -89,7 +105,13 @@ from fastapi.responses import Response
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
- """Run guarded task recovery once when the API process starts."""
+ """Enforce strict configuration, then run guarded task recovery on startup."""
+ report = enforce_environment()
+ audit_log.record(
+  "startup", None, "environment", "validate_environment",
+  "success" if report["ok"] else "info",
+  metadata={"strict_mode": report["strict_mode"], "issue_count": len(report["issues"])},
+ )
  recover_stale_tasks_on_startup()
  yield
 
@@ -102,7 +124,9 @@ app = FastAPI(
 )
 app.add_middleware(ResearchAPIAuthMiddleware)
 app.add_middleware(RateLimitMiddleware)
+app.add_middleware(DistributedRateLimitMiddleware)
 app.add_middleware(UserSessionAuthMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)
 # Keep browser origins explicit using a comma-separated allowlist.
 _frontend_origins = [
     origin.strip().rstrip("/")
@@ -414,14 +438,36 @@ def model_integrations():
 
 def require_user_role(required: str):
  """FastAPI dependency enforcing a minimum user role when user auth is enabled."""
- def guard(request: Request):
-  if not user_auth.enabled():
-   return None
-  actor = getattr(request.state, "user", None)
-  if not actor or not user_auth.role_allows(actor["role"], required):
-   raise HTTPException(status_code=403, detail="Insufficient role for this action")
-  return actor
- return guard
+ return require_sensitive_role(required)
+
+
+def require_resource_owner(resource_type: str, resource_id_param: str, minimum_role: str = "viewer"):
+ """FastAPI dependency enforcing ownership of a user-created resource."""
+ from .authorization import require_ownership
+ return require_ownership(resource_type, resource_id_param, minimum_role=minimum_role)
+
+
+def enforce_ownership(resource_type: str, resource_id: str, minimum_role: str = "viewer"):
+ """Check ownership inside an endpoint (no signature changes needed)."""
+ if not user_auth.enabled():
+  return
+ decision = authorize_current(minimum_role, resource_type, resource_id)
+ if not decision.allowed:
+  record_authorization_decision(
+   audit_log, current_actor(), resource=resource_type, action=resource_id, decision=decision
+  )
+  raise HTTPException(status_code=403, detail=f"Authorization denied: {decision.reason}")
+
+
+def visible_resource_ids(resource_type: str, resource_ids: list[str]) -> list[str]:
+ """Filter user-scoped identifiers to those owned by the current actor."""
+ if not user_auth.enabled():
+  return resource_ids
+ owner = actor_owner(current_actor())
+ return [
+  item for item in resource_ids
+  if ownership_registry.owner_of(resource_type, str(item)) in (None, owner)
+ ]
 
 
 @app.post("/api/auth/login")
@@ -437,17 +483,27 @@ async def login(request: Request):
   raise HTTPException(status_code=400, detail="Invalid login body")
  identity = user_auth.authenticate(str(body.get("username", "")), str(body.get("password", "")))
  if identity is None:
+  audit_log.record("authentication", None, "/api/auth/login", "login", "denied")
   raise HTTPException(status_code=401, detail="Invalid credentials")
+ # Session fixation prevention: discard any pre-authentication session token
+ # presented by the browser before issuing a fresh one.
+ previous = request.cookies.get(user_auth.SESSION_COOKIE, "")
+ if previous:
+  user_auth.revoke_user_session(previous)
  session = user_auth.create_user_session(identity)
+ # CSRF rotation is inherent in create_user_session: a fresh high-entropy token
+ # is hashed into the new session and returned to the caller exactly once.
  response = JSONResponse({
   "username": identity["username"],
   "role": identity["role"],
   "csrf_token": session["csrf_token"],
   "absolute_expires_at": session["absolute_expires_at"],
  })
- secure = os.getenv("MARKET_MIND_SECURE_COOKIES", "false").strip().lower() in {"1", "true", "yes", "on"}
- response.set_cookie(user_auth.SESSION_COOKIE, session["session_token"], httponly=True, samesite="strict", secure=secure, path="/")
- response.set_cookie(user_auth.CSRF_COOKIE, session["csrf_token"], httponly=False, samesite="strict", secure=secure, path="/")
+ set_session_cookies(response, session["session_token"], session["csrf_token"])
+ audit_log.record(
+  "authentication", safe_actor(identity), "/api/auth/login", "login", "success",
+  metadata={"username": identity["username"], "role": identity["role"]},
+ )
  return response
 
 
@@ -459,8 +515,9 @@ async def logout(request: Request):
  token = request.cookies.get(user_auth.SESSION_COOKIE, "")
  user_auth.revoke_user_session(token)
  response = JSONResponse({"status": "logged_out"})
- response.delete_cookie(user_auth.SESSION_COOKIE, path="/")
- response.delete_cookie(user_auth.CSRF_COOKIE, path="/")
+ clear_session_cookies(response)
+ actor = getattr(request.state, "user", None)
+ audit_log.record("session", actor, "/api/auth/logout", "logout", "success")
  return response
 
 
@@ -473,44 +530,74 @@ def current_user(request: Request):
  return {"enabled": True, "user": actor}
 
 
+@app.get("/api/admin/users")
+def admin_list_users(_principal: Any = Depends(require_user_role("admin"))):
+ """List configured usernames and roles without exposing password hashes."""
+ users = user_auth.load_users()
+ return {
+  "users": [
+   {"username": username, "role": details["role"]}
+   for username, details in sorted(users.items())
+  ],
+  "count": len(users),
+ }
+
+
+@app.get("/api/system/config")
+def system_configuration(_principal: Any = Depends(require_user_role("admin"))):
+ """Return non-secret security configuration for administrative review."""
+ return validate_environment()
+
+
 @app.get("/api/health")
 def health():
  return {"status":"ok","service":"market-mind-ai","mode":"research-only",
   "paper_trading":False,"broker_execution":False}
 
 @app.get("/api/environment-validation")
-def environment_validation():
- """Report non-secret configuration findings for private deployments."""
+def environment_validation(_actor: Any = Depends(require_user_role("admin"))):
+ """Report non-secret configuration findings (admin only when auth enabled)."""
  return validate_environment()
 
 
 @app.get("/api/watchlist")
 def get_watchlist(limit: int = 100):
- """List saved instrument references for the local research workspace."""
+ """List saved instrument references visible to the current user."""
  if limit < 1 or limit > 500:
   raise HTTPException(status_code=400, detail="limit must be between 1 and 500")
- return watchlist.list_symbols(limit)
+ result = watchlist.list_symbols(limit)
+ result["symbols"] = [
+  item for item in result["symbols"]
+  if item["symbol"] in visible_resource_ids("watchlist", [item["symbol"]])
+ ]
+ result["count"] = len(result["symbols"])
+ return result
 
 
 @app.post("/api/watchlist")
 def add_watchlist_symbol(request: WatchlistRequest):
- """Add an instrument reference to the local watchlist."""
+ """Add an instrument reference to the caller's watchlist."""
  try:
-  return watchlist.add_symbol(request.symbol)
+  result = watchlist.add_symbol(request.symbol)
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
+ claim_current("watchlist", result["symbol"])
+ return result
 
 
 @app.delete("/api/watchlist/{symbol}")
 def delete_watchlist_symbol(symbol: str):
- """Remove an instrument reference from the local watchlist."""
+ """Remove an instrument reference from the caller's watchlist."""
+ normalized = symbol.strip().upper()
+ enforce_ownership("watchlist", normalized)
  try:
-  deleted = watchlist.remove_symbol(symbol)
+  deleted = watchlist.remove_symbol(normalized)
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
  if not deleted:
   raise HTTPException(status_code=404, detail="Symbol not found in watchlist")
- return {"deleted": True, "symbol": symbol.strip().upper()}
+ ownership_registry.forget("watchlist", normalized)
+ return {"deleted": True, "symbol": normalized}
 
 
 @app.get("/api/audit/events")
@@ -523,6 +610,26 @@ def audit_events(symbol: str | None = None, interval: str | None = None, limit: 
  if limit < 1 or limit > 500:
   raise HTTPException(status_code=400, detail="limit must be between 1 and 500")
  return market_store.get_audit_events(symbol, interval, limit)
+
+
+@app.get("/api/security/audit-events")
+def security_audit_events(
+ limit: int = 100,
+ event_type: str | None = None,
+ outcome: str | None = None,
+ actor: str | None = None,
+ _principal: Any = Depends(require_user_role("operator")),
+):
+ """Query recent, redacted security events (operator/admin only when auth enabled)."""
+ try:
+  events = audit_log.recent(limit, event_type=event_type, actor=actor, outcome=outcome)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+ audit_log.record(
+  "audit_access", current_actor(), "/api/security/audit-events", "query", "success",
+  metadata={"limit": limit, "event_type": event_type, "outcome_filter": outcome},
+ )
+ return {"count": len(events), "events": events, "secret_values_exposed": False}
 
 
 class SocialFeedRequest(BaseModel):
@@ -639,12 +746,14 @@ def nodes():
 def add_worker_memory(worker_id: str, request: WorkerMemoryRequest):
  """Append an evidence-linked research note to one registered worker profile."""
  try:
-  return append_memory(
+  result = append_memory(
    worker_id, request.memory_type, request.content,
    request.source_refs, request.quality_status,
   )
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
+ claim_current("memory", result["memory_id"])
+ return result
 
 
 
@@ -666,6 +775,7 @@ def route_and_queue_research(request: SpecialistResearchQueueRequest):
   for candidate in routing["candidates"]:
    worker_id = candidate["worker_id"]
    queued = enqueue_research_task(worker_id, request.brief, request.data)
+   claim_current("task", queued["task_id"])
    queued_tasks.append({**queued, "department": candidate["department"], "specialty": candidate["specialty"],
                         "routing_score": candidate["routing_score"]})
   return {
@@ -1170,9 +1280,11 @@ def recall_worker_memory(worker_id: str, query: str, limit: int = 5):
 def analytical_agent_submit_task(worker_id: str, request: AgentResearchTaskRequest):
  """Run a bounded research brief with one worker context and the shared core."""
  try:
-  return submit_research_task(worker_id, request.brief, request.data)
+  result = submit_research_task(worker_id, request.brief, request.data)
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
+ claim_current("task", result["task_id"])
+ return result
 
 @app.post("/api/analytical-agents/{worker_id}/tasks/queue", status_code=202)
 def analytical_agent_queue_task(worker_id: str, request: AgentResearchTaskRequest):
@@ -1181,6 +1293,7 @@ def analytical_agent_queue_task(worker_id: str, request: AgentResearchTaskReques
   queued = enqueue_research_task(worker_id, request.brief, request.data)
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
+ claim_current("task", queued["task_id"])
  return queued
 
 @app.get("/api/analytical-agents/{worker_id}/tasks")
@@ -1227,17 +1340,20 @@ def analytical_agent_recover_tasks():
 @app.post("/api/analytical-agent-tasks/{task_id}/retry")
 def analytical_agent_retry_task(task_id: str):
  """Create one fresh queued retry for a failed task; dispatch remains explicit."""
+ enforce_ownership("task", task_id)
  try:
   result = retry_failed_research_task(task_id)
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
  if result is None:
   raise HTTPException(status_code=404, detail="Analytical-agent task not found")
+ claim_current("task", result["task_id"])
  return result
 
 @app.post("/api/analytical-agent-tasks/{task_id}/cancel")
 def analytical_agent_cancel_task(task_id: str):
  """Cancel a task only if it is still queued; running work is not interrupted."""
+ enforce_ownership("task", task_id)
  try:
   result = cancel_queued_research_task(task_id)
  except ValueError as exc:
@@ -1249,6 +1365,7 @@ def analytical_agent_cancel_task(task_id: str):
 @app.get("/api/analytical-agent-tasks/{task_id}")
 def analytical_agent_task_detail(task_id: str):
  """Retrieve one persisted analytical-agent task and its result."""
+ enforce_ownership("task", task_id)
  record = get_research_task(task_id)
  if record is None:
   raise HTTPException(status_code=404, detail="Analytical-agent task not found")
@@ -1810,10 +1927,13 @@ def analyze_performance(request: PerformanceRequest):
 
 @app.get("/api/workspaces")
 def list_saved_workflows(limit: int = 50):
- return {"workflows":workspace.list_workflows(limit)}
+ workflows = workspace.list_workflows(limit)
+ visible = visible_resource_ids("layout", [item["id"] for item in workflows])
+ return {"workflows": [item for item in workflows if item["id"] in visible]}
 
 @app.get("/api/workspaces/{workflow_id}")
 def get_saved_workflow(workflow_id: str):
+ enforce_ownership("layout", workflow_id)
  result=workspace.get_workflow(workflow_id)
  if result is None: raise HTTPException(status_code=404,detail="Workflow not found")
  return result
@@ -1821,12 +1941,15 @@ def get_saved_workflow(workflow_id: str):
 @app.post("/api/workspaces")
 def save_named_workflow(request: SaveWorkflowRequest):
  try:
-  return workspace.save_workflow(request.title,request.description,request.nodes,request.edges)
+  result = workspace.save_workflow(request.title,request.description,request.nodes,request.edges)
  except ValueError as exc:
   raise HTTPException(status_code=400,detail=str(exc)) from exc
+ claim_current("layout", result["id"])
+ return result
 
 @app.put("/api/workspaces/{workflow_id}")
 def update_named_workflow(workflow_id: str, request: SaveWorkflowRequest):
+ enforce_ownership("layout", workflow_id)
  if workspace.get_workflow(workflow_id) is None:
   raise HTTPException(status_code=404,detail="Workflow not found")
  try:
@@ -1836,8 +1959,10 @@ def update_named_workflow(workflow_id: str, request: SaveWorkflowRequest):
 
 @app.delete("/api/workspaces/{workflow_id}")
 def remove_named_workflow(workflow_id: str):
+ enforce_ownership("layout", workflow_id)
  if not workspace.delete_workflow(workflow_id):
   raise HTTPException(status_code=404,detail="Workflow not found")
+ ownership_registry.forget("layout", workflow_id)
  return {"deleted":True,"id":workflow_id}
 
 
@@ -2346,6 +2471,7 @@ def _execute_and_persist(request: WorkflowRequest, parent_run_id: str | None = N
    _validate_checkpoint_integrity(request_payload, initial_checkpoint, known_ids)
   run_id = str(uuid.uuid4())
   record = workspace.create_execution(run_id, request_payload, parent_run_id)
+  claim_current("run", run_id)
   def persist_checkpoint(snapshot):
    snapshot["request_fingerprint"] = fingerprint
    snapshot["checkpoint_schema_version"] = 1
@@ -2528,11 +2654,14 @@ def run_workflow(request: WorkflowRequest):
 def list_workflow_runs(limit: int = 50):
  if limit < 1 or limit > 100:
   raise HTTPException(status_code=400, detail="limit must be between 1 and 100")
- return {"runs": workspace.list_executions(limit)}
+ runs = workspace.list_executions(limit)
+ visible = visible_resource_ids("run", [item["id"] for item in runs])
+ return {"runs": [item for item in runs if item["id"] in visible]}
 
 
 @app.get("/api/workflows/runs/{run_id}")
 def get_workflow_run(run_id: str):
+ enforce_ownership("run", run_id)
  record = workspace.get_execution(run_id)
  if record is None:
   raise HTTPException(status_code=404, detail="Workflow run not found")
@@ -2541,6 +2670,7 @@ def get_workflow_run(run_id: str):
 
 @app.post("/api/workflows/runs/{run_id}/resume")
 def resume_workflow_run(run_id: str):
+ enforce_ownership("run", run_id)
  record = workspace.get_execution(run_id)
  if record is None:
   raise HTTPException(status_code=404, detail="Workflow run not found")

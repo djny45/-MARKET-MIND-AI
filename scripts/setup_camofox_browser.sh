@@ -7,6 +7,14 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CHECKOUT="$ROOT/third_party/camofox-browser"
 RUNTIME="$CHECKOUT/.runtime"
 
+# Prefer a locally installed Node 22 (e.g. ~/.local/node22) when the system
+# Node is older than Camofox's minimum. Keeps the toolchain project-local.
+LOCAL_NODE_BIN="$HOME/.local/node22/bin"
+if [ -x "$LOCAL_NODE_BIN/node" ]; then
+  export PATH="$LOCAL_NODE_BIN:$PATH"
+  echo "Using local Node: $(node -v) ($LOCAL_NODE_BIN)"
+fi
+
 if [ ! -d "$CHECKOUT/mcp" ]; then
   echo "Cloning Camofox Browser into $CHECKOUT ..."
   mkdir -p "$(dirname "$CHECKOUT")"

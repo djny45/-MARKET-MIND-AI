@@ -49,9 +49,16 @@ execution layer.
 
 ## Node.js requirement
 
-Upstream requires Node.js **>= 22**. This environment has Node 20, so runtime
-verification is limited; the setup script checks the version and refuses to
-start on older runtimes. Install Node 22+ before first use.
+Upstream requires Node.js **>= 22**. The system Node here is 20, so a local
+Node 22 is installed at `~/.local/node22/bin`. The setup script prefers that
+directory automatically when present; otherwise it checks the version and
+refuses to start on older runtimes. To install it yourself:
+
+```bash
+mkdir -p ~/.local/node22
+curl -fsSL https://nodejs.org/dist/v22.23.5/node-v22.23.5-linux-x64.tar.xz \
+  | tar -xJ --strip-components=1 -C ~/.local/node22
+```
 
 ## Removal / rollback
 

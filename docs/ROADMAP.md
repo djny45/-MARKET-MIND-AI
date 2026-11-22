@@ -59,7 +59,7 @@ This roadmap is a plan, not a claim that features already exist. Mark an item co
 - [ ] Complete evidence-grounded agent task execution with source retrieval and stronger task-level quality benchmarks.
   - [x] Persist bounded per-agent research tasks in SQLite with isolated role/context hashes and a shared inference-provider boundary.
   - [x] Add a dedicated Compose polling supervisor with bounded concurrency, renewable singleton lease, fenced claims, stale-task recovery, and audit events.
-  - [x] Test subprocess restart recovery, concurrent stale recovery, graceful supervisor shutdown, fail-closed startup recovery, and lease loss after a long dispatch batch.
+  - [x] Test subprocess restart recovery, abrupt supervisor-process termination with lease-expiry takeover, stale-task recovery, concurrent recovery, graceful shutdown, fail-closed startup recovery, and lease loss after a long dispatch batch.
   - [ ] Add licensed source retrieval, host-level process-kill/volume-recovery acceptance, and task-level factual/semantic quality evaluation.
 - [ ] Implement autonomous research scheduling and cloud workspaces (not implemented).
 - [ ] Implement evaluated learning loop with benchmark datasets, quality metrics, regression gates, and reviewed promotion.

@@ -82,6 +82,26 @@ if any(bindings.values()):
 PY
 }
 
+backend_startup_recovery_is_disabled() {
+  local container
+  container="$(container_id backend)"
+  [[ -n "$container" ]] || return 1
+  python3 - "$container" <<'PY'
+import json, subprocess, sys
+raw = subprocess.check_output(
+    ["docker", "inspect", sys.argv[1], "--format", "{{json .Config.Env}}"],
+    text=True,
+)
+environment = {}
+for item in json.loads(raw or "[]"):
+    if "=" in item:
+        key, value = item.split("=", 1)
+        environment[key] = value
+if environment.get("MARKET_MIND_STARTUP_RECOVERY", "").strip().lower() not in {"0", "false", "no", "off"}:
+    raise SystemExit(1)
+PY
+}
+
 owner_auth_is_configured() {
   docker compose exec -T backend python - <<'PY'
 import os
@@ -146,6 +166,7 @@ fi
 check "Backend readiness endpoint" wait_http "http://127.0.0.1:8080/api/ready" 30
 check "Frontend responds" wait_http "http://127.0.0.1:8080/" 10
 check "Backend has no host-published ports" backend_has_no_published_ports
+check "API startup recovery is disabled; dedicated supervisor owns recovery" backend_startup_recovery_is_disabled
 check "Owner authentication is required and scrypt hash is configured" owner_auth_is_configured
 check "Protected API denies unauthenticated requests" protected_api_denies_unauthenticated
 check "Frontend binds only to loopback" is_loopback_binding frontend

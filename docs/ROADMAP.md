@@ -56,7 +56,11 @@ This roadmap is a plan, not a claim that features already exist. Mark an item co
 - [x] Add append-only worker-scoped evidence memory with provenance and quality labels.
 - [x] Add prototype evidence-aware review gate; source IDs must match a supplied registry. Reviewer authentication and persistent audit remain pending.
 - [x] Add conservative evidence traceability audit: unknown reference reporting, URL/declared-group source grouping, and explicitly keyed stance-disagreement candidates with human-review status. This is heuristic metadata analysis, not source authenticity, entailment, or truth verification.
-- [ ] Implement actual agent task execution with shared-core inference, isolated per-agent context, source retrieval and task lifecycle persistence.
+- [ ] Complete evidence-grounded agent task execution with source retrieval and stronger task-level quality benchmarks.
+  - [x] Persist bounded per-agent research tasks in SQLite with isolated role/context hashes and a shared inference-provider boundary.
+  - [x] Add a dedicated Compose polling supervisor with bounded concurrency, renewable singleton lease, fenced claims, stale-task recovery, and audit events.
+  - [x] Test subprocess restart recovery, concurrent stale recovery, graceful supervisor shutdown, fail-closed startup recovery, and lease loss after a long dispatch batch.
+  - [ ] Add licensed source retrieval, host-level process-kill/volume-recovery acceptance, and task-level factual/semantic quality evaluation.
 - [ ] Implement autonomous research scheduling and cloud workspaces (not implemented).
 - [ ] Implement evaluated learning loop with benchmark datasets, quality metrics, regression gates, and reviewed promotion.
 - [ ] Build visual node-based research workflows.
@@ -76,6 +80,7 @@ Current boundary: worker routing invokes deterministic Python handlers. The 550 
   - [x] Add persisted supervisor heartbeat, process identity, last-seen age, and stale/failed/stopped/not-started health states to the supervisor status API.
   - [x] Add Docker health status from the recent persisted heartbeat, current running state, and process-ID liveness; require a healthy supervisor in deployment verification.
   - [ ] Add alert delivery, host-level metrics, resource profiling, and incident thresholds.
+- [x] Add single-host durable SQLite task queue, dedicated supervisor ownership, lease-fenced claims, and recovery regression tests.
 - [ ] Add security review and dependency/licence inventory.
 - [ ] Complete host-specific backup/restore drills, retention policy, migration rollback, and incident procedures.
 - [ ] Add authentication/authorization and TLS ingress before public deployment.
@@ -106,4 +111,4 @@ Implemented the first per-agent brain and governed learning lifecycle scaffold. 
 
 A draft release-candidate branch combines the terminal coverage/screener and backup drill, owner cookie authentication, and renewable singleton SQLite supervisor lease. The combined candidate must pass its own CI run before it is treated as integrated. Earlier separate PR checks are not sufficient evidence for the combined stack.
 
-The passing feature tests do not close the remaining acceptance gates in Phase 5: host-specific backup/restore and rollback, production secret/TLS configuration, independent security review, browser-level authentication E2E, host-level observability/alert delivery, licensed live-data provider acceptance, and reviewed research-quality/learning promotion. Keep these unchecked until evidence is recorded.
+The combined candidate now has a persistent single-host SQLite queue and dedicated lease-fenced polling supervisor. Compose disables API startup recovery so only the dedicated supervisor recovers tasks against the shared database. CI covers subprocess restart recovery, concurrent recovery, lease fencing, graceful shutdown, and deployment configuration. This does not establish multi-host queue semantics or host-level crash/volume recovery. Remaining Phase 5 acceptance gates are host-specific backup/restore and rollback, process-kill/volume recovery, production secret/TLS configuration, independent security review, browser-level authentication E2E, host-level observability/alert delivery, licensed live-data provider acceptance, and reviewed research-quality/learning promotion. Keep these unchecked until evidence is recorded.

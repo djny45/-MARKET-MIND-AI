@@ -7,7 +7,7 @@ class SkillCatalogTests(unittest.TestCase):
     def test_catalog_contains_only_allowlisted_research_skills(self):
         skills = list_skills()
         by_id = {skill["id"]: skill for skill in skills}
-        self.assertEqual(len(skills), 321)
+        self.assertEqual(len(skills), 324)
         self.assertNotIn("trader-broker", by_id)
         self.assertTrue(all(
             skill["mode"] == "research_and_paper_only"
@@ -117,6 +117,23 @@ class SkillCatalogTests(unittest.TestCase):
         loaded = load_skill("qlib-research")
         self.assertIn("chronological train/validation/test", loaded["content"])
         self.assertFalse(loaded["broker_execution"])
+
+    def test_autohedge_imported_skills_are_allowlisted_and_research_only(self):
+        skills = {skill["id"]: skill for skill in list_skills()}
+        for slug in (
+            "autohedge-agent-analysis",
+            "autohedge-market-making-research",
+            "autohedge-execution-architecture-review",
+        ):
+            with self.subTest(slug=slug):
+                self.assertIn(slug, skills)
+                self.assertTrue(skills[slug]["available"])
+                self.assertEqual(skills[slug]["mode"], "research_and_paper_only")
+                self.assertFalse(skills[slug]["broker_execution"])
+                loaded = load_skill(slug)
+                self.assertTrue(loaded["content"].strip())
+                self.assertFalse(loaded["broker_execution"])
+                self.assertIn("research", loaded["content"].lower())
 
     def test_300_skill_pack_is_discoverable_and_loads_one_skill_at_a_time(self):
         skills = {skill["id"]: skill for skill in list_skills()}

@@ -73,8 +73,8 @@ class TradeLogImportTests(unittest.TestCase):
 
     def test_optional_fee_currency_and_order_reference_are_preserved(self):
         body = (
-            "id,time,symbol,type,side,qty,price,fee,fee_ccy,order_ref\\n"
-            "e1,2026-01-01T00:00:00Z,BTCUSD,FILL,BUY,0.2,50000,0.1,USDT,ord-77\\n"
+            "id,time,symbol,type,side,qty,price,fee,fee_ccy,order_ref\n"
+            "e1,2026-01-01T00:00:00Z,BTCUSD,FILL,BUY,0.2,50000,0.1,USDT,ord-77\n"
         ).encode()
         mapping = {**MAPPING, "fee_currency": "fee_ccy", "order_reference": "order_ref"}
         result = inspect_trade_log(io.BytesIO(body), column_mapping=mapping)
@@ -84,8 +84,8 @@ class TradeLogImportTests(unittest.TestCase):
 
     def test_rejects_secret_like_optional_event_metadata(self):
         body = (
-            "id,time,symbol,type,side,qty,price,fee,fee_ccy,order_ref\\n"
-            "e1,2026-01-01T00:00:00Z,BTCUSD,FILL,BUY,0.2,50000,0.1,USDT,api_token_value\\n"
+            "id,time,symbol,type,side,qty,price,fee,fee_ccy,order_ref\n"
+            "e1,2026-01-01T00:00:00Z,BTCUSD,FILL,BUY,0.2,50000,0.1,USDT,api_token_value\n"
         ).encode()
         mapping = {**MAPPING, "fee_currency": "fee_ccy", "order_reference": "order_ref"}
         result = inspect_trade_log(io.BytesIO(body), column_mapping=mapping)

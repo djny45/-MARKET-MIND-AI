@@ -71,6 +71,28 @@ class TradeLogImportTests(unittest.TestCase):
                 "event_id":"id","event_time":"time","instrument":"symbol","event_type":"type"
             })
 
+    def test_optional_fee_currency_and_order_reference_are_preserved(self):
+        body = (
+            "id,time,symbol,type,side,qty,price,fee,fee_ccy,order_ref\\n"
+            "e1,2026-01-01T00:00:00Z,BTCUSD,FILL,BUY,0.2,50000,0.1,USDT,ord-77\\n"
+        ).encode()
+        mapping = {**MAPPING, "fee_currency": "fee_ccy", "order_reference": "order_ref"}
+        result = inspect_trade_log(io.BytesIO(body), column_mapping=mapping)
+        self.assertEqual(result["parser_version"], "trade-event-csv-v2")
+        self.assertEqual(result["sample"][0]["fee_currency"], "USDT")
+        self.assertEqual(result["sample"][0]["order_reference"], "ord-77")
+
+    def test_rejects_secret_like_optional_event_metadata(self):
+        body = (
+            "id,time,symbol,type,side,qty,price,fee,fee_ccy,order_ref\\n"
+            "e1,2026-01-01T00:00:00Z,BTCUSD,FILL,BUY,0.2,50000,0.1,USDT,api_token_value\\n"
+        ).encode()
+        mapping = {**MAPPING, "fee_currency": "fee_ccy", "order_reference": "order_ref"}
+        result = inspect_trade_log(io.BytesIO(body), column_mapping=mapping)
+        self.assertEqual(result["accepted_rows"], 0)
+        self.assertEqual(result["rejected_rows"], 1)
+        self.assertNotIn("api_token_value", str(result))
+
 
 if __name__ == "__main__":
     unittest.main()

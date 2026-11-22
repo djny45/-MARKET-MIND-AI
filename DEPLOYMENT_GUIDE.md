@@ -35,6 +35,27 @@ FRONTEND_ORIGINS=https://your-private-frontend.example
 Health and readiness stay unauthenticated. Check configuration with
 `GET /api/environment-validation` — it returns findings only, never secret values.
 
+## Optional per-user sessions
+
+User authentication is opt-in. Generate a password hash, then define users:
+
+```bash
+PYTHONPATH=.:./backend python -c "from app.auth_crypto import hash_password; print(hash_password('choose-a-long-password'))"
+```
+
+Set the backend environment:
+
+```
+MARKET_MIND_USER_AUTH=true
+MARKET_MIND_USERS=[{"username":"admin","password_hash":"<hash>","role":"admin"},{"username":"analyst","password_hash":"<hash>","role":"analyst"}]
+MARKET_MIND_SECURE_COOKIES=true        # when served over HTTPS
+```
+
+Log in at `POST /api/auth/login`, send the returned `X-CSRF-Token` header on all
+write requests, and use `GET /api/auth/me` / `POST /api/auth/logout`. Roles are
+`viewer`, `analyst`, `operator`, `admin`; memory reviews require `operator`.
+Health, readiness and environment validation stay unauthenticated.
+
 ## Optional rate limiting
 
 `API_RATE_LIMIT_PER_MINUTE=60` enables a basic per-IP sliding window. Prefer

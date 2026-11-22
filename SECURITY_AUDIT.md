@@ -8,6 +8,7 @@ reference material only and was not executed as part of the application.
 
 | Finding | Resolution |
 | --- | --- |
+| No per-user identity or authorization | Added opt-in per-user sessions (`user_auth.py`, `user_session_middleware.py`): scrypt password verification, HttpOnly session cookie, hashed session/CSRF tokens stored in SQLite, idle/absolute expiry, roles (viewer/analyst/operator/admin), login/logout/me endpoints, operator-gated memory review. 14 tests. |
 | No abuse throttling on API | Added opt-in `RateLimitMiddleware` (`API_RATE_LIMIT_PER_MINUTE`), health/ready exempt; 5 tests. Ingress/proxy limits still required for production. |
 | Unvalidated deployment environment | Added `validate_environment()` and `GET /api/environment-validation`; checks auth token length, CORS wildcards, numeric settings; never returns secret values. 5 tests. |
 | Misleading/incorrect security documentation | Corrected authentication scope (deployment-wide bearer only, no per-user roles), MCP tool count and browser boundaries. |
@@ -18,7 +19,7 @@ reference material only and was not executed as part of the application.
 
 ## Outstanding security work
 
-- Per-user identity, roles and per-resource authorization (none).
+- Per-user auth is opt-in and requires operator-provisioned users; per-resource authorization is currently coarse (role hierarchy on the memory-review endpoint only).
 - TLS ingress and network segmentation (operator responsibility).
 - Independent penetration test and formal dependency/licence review.
 - Distributed rate limiting and audit aggregation (single-process limiter only).

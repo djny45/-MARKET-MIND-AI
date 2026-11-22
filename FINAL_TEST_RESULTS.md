@@ -5,7 +5,7 @@ inferred from documentation.
 
 | # | Check | Command / source | Result |
 | --- | --- | --- | --- |
-| 1 | Backend unit + integration tests | `PYTHONPATH=.:./backend python -m unittest discover -s backend/tests -q` | **909 tests, OK** |
+| 1 | Backend unit + integration tests | `PYTHONPATH=.:./backend python -m unittest discover -s backend/tests -q` | **923 tests, OK** (includes 14 per-user auth tests) |
 | 2 | Frontend unit tests | `cd frontend && npm test` (`node:test`) | **5 tests, 5 pass, 0 fail** |
 | 3 | Frontend production build | `cd frontend && npm run build` | success |
 | 4 | Frontend project-site build | `VITE_BASE_PATH=/MARKET-MIND-AI/ npm run build` | success; asset/page URLs rewritten |

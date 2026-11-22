@@ -16,8 +16,9 @@ Branch: `main`
   dialog backed by live app state.
 - **Documentation reconciled**: worker-registry endpoint/status, MCP tool count,
   supervisor queue architecture, Pages deployment, authentication scope.
-- **Basic security hardening**: opt-in per-IP rate limiting and secret-free
-  environment validation endpoint.
+- **Basic security hardening**: opt-in per-IP rate limiting, secret-free
+  environment validation endpoint, and opt-in per-user sessions with roles,
+  CSRF protection and login/logout/me.
 - **Frontend unit tests**: 5 dependency-free `node:test` tests.
 - **Imported research resources kept inert**: AutoHedge, Vibe-Trading,
   FinceptTerminal and Freqtrade are reference-only; Camofox is an isolated,
@@ -77,9 +78,10 @@ operator-managed** deployment only. Public deployment remains blocked.
 ## 8. Verified completion percentage
 
 A 45-item requirement matrix was scored from the mission: 1.0 = met, 0.5 =
-partial, 0 = not met. **32 met + 11 partial (5.5) + 2 not met = 37.5 / 45 =
-83.3% verified coverage.** Partial items are listed in `REMAINING_WORK.md`; no
-credit was taken for documentation-only claims.
+partial, 0 = not met. **33 met + 10 partial (5.0) + 2 not met = 38.0 / 45 =
+84.4% verified coverage** (updated after per-user auth was implemented and
+tested). Partial items are listed in `REMAINING_WORK.md`; no credit was taken
+for documentation-only claims.
 
 ## 9. Latest commit
 

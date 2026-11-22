@@ -155,30 +155,23 @@ def list_skills():
         }
         for slug, description in QLIB_SKILL_DESCRIPTIONS.items()
     ]
-    autohedge_research = [
-        {
+    autohedge_research = []
+    for slug, description in AUTOHEDGE_SKILL_DESCRIPTIONS.items():
+        if slug == "autohedge-market-making-lab":
+            relative_path = "market-making-lab/SKILL.md"
+        elif slug == "autohedge-public-token-data":
+            relative_path = "public-token-data/SKILL.md"
+        else:
+            relative_path = f"{slug.removeprefix('autohedge-')}/SKILL.md"
+        autohedge_research.append({
             "id": slug,
             "description": description,
-            "path": (
-                ".agents/skills/autohedge-research/market-making-lab/SKILL.md"
-                if slug == "autohedge-market-making-lab"
-                else ".agents/skills/autohedge-research/public-token-data/SKILL.md"
-                if slug == "autohedge-public-token-data"
-                else f".agents/skills/autohedge-research/{slug.removeprefix('autohedge-')}/SKILL.md"
-            ),
-            "available": (
-                AUTOHEDGE_SKILL_ROOT / "market-making-lab" / "SKILL.md"
-            ).is_file() if slug == "autohedge-market-making-lab" else (
-                AUTOHEDGE_SKILL_ROOT / "public-token-data" / "SKILL.md"
-            ).is_file() if slug == "autohedge-public-token-data" else (
-                AUTOHEDGE_SKILL_ROOT / slug.removeprefix("autohedge-") / "SKILL.md"
-            ).is_file(),
+            "path": f".agents/skills/autohedge-research/{relative_path}",
+            "available": (AUTOHEDGE_SKILL_ROOT / relative_path).is_file(),
             "mode": "research_evaluation_only",
             "requires_external_tools": slug == "autohedge-public-token-data",
             "upstream": "https://github.com/The-Swarm-Corporation/AutoHedge",
-        }
-        for slug, description in AUTOHEDGE_SKILL_DESCRIPTIONS.items()
-    ]
+        })
     n8n_automation = [
         {
             "id": slug,

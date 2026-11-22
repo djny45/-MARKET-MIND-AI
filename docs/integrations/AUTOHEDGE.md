@@ -47,3 +47,15 @@ The connector could not retrieve the contents for schema, provenance, sensitive-
 ## Verification
 
 The skill catalogue unit test covers the five additional entries and their research-only mode. Full GitHub Actions status must be checked against the latest branch HEAD before treating this integration as verified.
+
+
+## Additional research adapters and runtime skill loading
+
+The research-only integration also includes:
+
+- `backend/app/autohedge_market_making_research.py`: pure calculations for indicative quotes and in-memory fill arithmetic from supplied order-book data. It rejects stale/inverted snapshots and makes no network or venue calls.
+- `backend/app/autohedge_public_token_research.py`: bounded public token metadata search and public token-price lookup. It does not expose wallet holdings, key material, transaction-building, signing, transfers, or swap submission.
+- `autohedge-market-making-lab` is assigned to technical-analysis, market-structure, volume/liquidity, quantitative-research, and risk profiles. `autohedge-public-token-data` is assigned to crypto-market profiles.
+- `brain_config()` now loads each profile's allowlisted `skill_refs` into its specialist context, with a 6,000-character total context bound. The shared synthesis core uses these playbooks for supported methods and quality checks; skill text does not grant tool permissions or external-action authority.
+
+The historical CSVs remain excluded because their content was not retrievable for schema, provenance, sensitive-field, and quality review. The upstream file paths and exact sizes above are retained as source references only.

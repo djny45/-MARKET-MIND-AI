@@ -8,7 +8,7 @@ import re
 import sys
 from pathlib import Path
 
-BACKUP_NAME = re.compile(r"^market_mind-(\\d{8}T\\d{6}Z)\\.db$")
+BACKUP_NAME = re.compile(r"^market_mind-(\d{8}T\d{6}Z)\.db$")
 
 
 def plan_retention(directory: Path, keep: int = 14) -> dict:

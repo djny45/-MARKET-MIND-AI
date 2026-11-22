@@ -469,6 +469,75 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertTrue(release_research_supervisor_lease("poller-a", first["lease_token"]))
 
 
+    def test_supervisor_process_termination_allows_recovery_after_lease_expiry(self):
+        import json
+        import sqlite3
+        import subprocess
+        import sys
+        import time
+        from pathlib import Path
+        from app.analytical_agent_tasks import (
+            acquire_research_supervisor_lease,
+            get_research_task,
+            recover_interrupted_research_tasks,
+        )
+
+        ready_file = Path(self.temp.name) / "supervisor-ready"
+        child_code = """
+import os, sqlite3, sys, time
+from pathlib import Path
+from app.analytical_agent_tasks import acquire_research_supervisor_lease, enqueue_research_task
+lease = acquire_research_supervisor_lease("crash-test-supervisor", lease_seconds=300)
+if not lease.get("acquired"):
+    raise SystemExit("child could not acquire supervisor lease")
+task = enqueue_research_task("worker_043", "recover after supervisor process termination")
+with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+    db.execute(
+        "UPDATE analytical_agent_tasks SET status='running', updated_at=?, "
+        "execution_attempts=1, execution_token='crash-test-claim' WHERE task_id=?",
+        ("2000-01-01T00:00:00+00:00", task["task_id"]),
+    )
+Path(sys.argv[1]).write_text(task["task_id"], encoding="utf-8")
+time.sleep(60)
+"""
+        child = subprocess.Popen(
+            [sys.executable, "-c", child_code, str(ready_file)],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        try:
+            deadline = time.monotonic() + 10
+            while not ready_file.exists() and child.poll() is None and time.monotonic() < deadline:
+                time.sleep(0.05)
+            if not ready_file.exists():
+                stderr = child.stderr.read() if child.poll() is not None else "readiness timeout"
+                self.fail(f"Supervisor subprocess did not become ready: {stderr}")
+            task_id = ready_file.read_text(encoding="utf-8")
+            child.kill()
+            child.wait(timeout=5)
+
+            blocked = acquire_research_supervisor_lease("replacement-supervisor", lease_seconds=300)
+            self.assertFalse(blocked["acquired"], "process death must not bypass the unexpired lease")
+
+            with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+                db.execute(
+                    "UPDATE research_supervisor_leases SET expires_at=? WHERE lease_name='primary'",
+                    ("2000-01-01T00:00:00+00:00",),
+                )
+
+            takeover = acquire_research_supervisor_lease("replacement-supervisor", lease_seconds=300)
+            self.assertTrue(takeover["acquired"])
+            recovery = recover_interrupted_research_tasks(stale_after_seconds=900)
+            self.assertEqual(recovery["requeued_interrupted_count"], 1)
+            self.assertEqual(get_research_task(task_id)["status"], "queued")
+        finally:
+            if child.poll() is None:
+                child.kill()
+                child.wait(timeout=5)
+            if child.stderr:
+                child.stderr.close()
+
     def test_supervisor_fenced_claim_rejects_released_lease(self):
         from app.analytical_agent_tasks import (
             acquire_research_supervisor_lease, enqueue_research_task,

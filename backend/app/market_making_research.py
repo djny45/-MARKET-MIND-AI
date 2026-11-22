@@ -38,9 +38,11 @@ def calculate_market_making_research(
         ask=float(snapshot.get("best_ask")),
         timestamp=timestamp.timestamp(),
     )
+    skew_per_unit = float(inventory_skew_bps)
     config = MarketMakingResearchConfig(
         half_spread_bps=float(half_spread_bps),
         max_data_age_seconds=float(max_age_seconds),
+        inventory_skew_bps_per_unit=skew_per_unit,
     )
     result = calculate_research_quotes(
         book, config, now=now.timestamp(), inventory_units=float(inventory)

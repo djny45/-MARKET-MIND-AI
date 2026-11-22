@@ -1,5 +1,7 @@
 import unittest
 import time
+import os
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
@@ -8,6 +10,9 @@ from app.main import app
 
 class MarketMakingResearchApiTests(unittest.TestCase):
     def setUp(self):
+        self.auth_patch = patch.dict(os.environ, {"API_AUTH_REQUIRED": "false"})
+        self.auth_patch.start()
+        self.addCleanup(self.auth_patch.stop)
         self.client = TestClient(app)
         self.now = time.time()
 

@@ -71,6 +71,27 @@ class TradeEventStoreTests(unittest.TestCase):
             with self.subTest(change=change), self.assertRaises(ValueError):
                 persist_trade_event_import(self.manifest, [{**self.events[0], **change}])
 
+    def test_dry_run_parser_output_can_be_explicitly_persisted(self):
+        import io
+        from app.trade_log_import import inspect_trade_log
+
+        body = (
+            "id,time,symbol,type,side,qty,price,fee,fee_ccy,order_ref\n"
+            "fill-1,2026-11-01T10:00:00+05:30,BTCUSDT,FILL,BUY,0.2500,65000.10,0.01,USDT,order-22\n"
+        ).encode()
+        mapping = {
+            "event_id": "id", "event_time": "time", "instrument": "symbol",
+            "event_type": "type", "side": "side", "quantity": "qty",
+            "price": "price", "fee": "fee", "fee_currency": "fee_ccy",
+            "order_reference": "order_ref",
+        }
+        manifest = inspect_trade_log(io.BytesIO(body), column_mapping=mapping)
+        result = persist_trade_event_import(manifest, manifest["accepted_events"])
+        self.assertEqual(result["status"], "imported")
+        stored = query_trade_events(result["import_id"])
+        self.assertEqual(stored["events"][0]["order_reference"], "order-22")
+        self.assertEqual(stored["events"][0]["quantity"], "0.2500")
+
 
 if __name__ == "__main__":
     unittest.main()

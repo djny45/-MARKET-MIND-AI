@@ -159,6 +159,34 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertEqual(result["dispatch_errors"], [{"task_id": first["task_id"], "error_type": "RuntimeError"}])
         self.assertEqual(get_research_task(second["task_id"])["status"], "completed")
 
+    def test_concurrent_dispatchers_claim_same_queued_task_once(self):
+        from concurrent.futures import ThreadPoolExecutor
+        from threading import Barrier
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, dispatch_queued_research_tasks,
+            execute_queued_research_task as real_execute, list_task_audit_events,
+        )
+        queued = enqueue_research_task("worker_037", "concurrent duplicate dispatch")
+        barrier = Barrier(2)
+
+        def synchronized_execute(task_id):
+            barrier.wait(timeout=5)
+            return real_execute(task_id)
+
+        def dispatch():
+            return dispatch_queued_research_tasks(limit=1, max_concurrency=1)
+
+        with patch("app.analytical_agent_tasks.execute_queued_research_task",
+                   side_effect=synchronized_execute):
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                results = list(pool.map(lambda _: dispatch(), range(2)))
+
+        self.assertEqual(sum(result["dispatched"] for result in results), 1)
+        self.assertEqual(get_research_task(queued["task_id"])["status"], "completed")
+        events = list_task_audit_events(queued["task_id"])["events"]
+        self.assertEqual(sum(event["event_type"] == "task_claimed" for event in events), 1)
+        self.assertEqual(sum(event["event_type"] == "task_completed" for event in events), 1)
+
     def test_agent_task_performance_reports_outcome_rates(self):
         from app.analytical_agent_tasks import (
             enqueue_research_task, execute_queued_research_task, agent_task_performance,

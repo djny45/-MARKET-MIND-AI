@@ -106,7 +106,7 @@ class ShadowSessionEngine:
             raise ValueError("shadow order symbol must be a non-empty string")
         if not isinstance(order["timestamp"], str) or not order["timestamp"].strip():
             raise ValueError("shadow order timestamp must be a non-empty string")
-        if order["side"] not in {"BUY", "SELL"}:
+        if not isinstance(order["side"], str) or order["side"] not in {"BUY", "SELL"}:
             raise ValueError("shadow order side must be BUY or SELL")
 
         def finite_number(name: str, default=None) -> float:

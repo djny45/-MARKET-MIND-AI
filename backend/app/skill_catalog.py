@@ -61,6 +61,8 @@ AUTOHEDGE_SKILL_DESCRIPTIONS = {
     "autohedge-sentiment-analysis": "AutoHedge-derived news and public-sentiment research with source-quality checks.",
     "autohedge-risk-assessment": "AutoHedge-derived market, model, data, and operational risk analysis.",
     "autohedge-thesis-validation": "AutoHedge-derived independent thesis validation; replaces trade execution.",
+    "autohedge-market-making-lab": "Indicative quote calculations, inventory sensitivity, and in-memory simulated fills; no venue connectivity.",
+    "autohedge-public-token-data": "Public Solana token metadata and prices for research only; no wallets or transactions.",
 }
 
 N8N_SKILL_DESCRIPTIONS = {
@@ -154,6 +156,24 @@ def list_skills():
         for slug, description in QLIB_SKILL_DESCRIPTIONS.items()
     ]
     autohedge_research = [
+        {
+            "id": "autohedge-public-token-data",
+            "description": AUTOHEDGE_SKILL_DESCRIPTIONS["autohedge-public-token-data"],
+            "path": ".agents/skills/autohedge-research/public-token-data/SKILL.md",
+            "available": (AUTOHEDGE_SKILL_ROOT / "public-token-data" / "SKILL.md").is_file(),
+            "mode": "research_evaluation_only",
+            "requires_external_tools": True,
+            "upstream": "https://github.com/The-Swarm-Corporation/AutoHedge",
+        },
+        {
+            "id": "autohedge-market-making-lab",
+            "description": AUTOHEDGE_SKILL_DESCRIPTIONS["autohedge-market-making-lab"],
+            "path": ".agents/skills/autohedge-research/market-making-lab/SKILL.md",
+            "available": (AUTOHEDGE_SKILL_ROOT / "market-making-lab" / "SKILL.md").is_file(),
+            "mode": "research_evaluation_only",
+            "requires_external_tools": False,
+            "upstream": "https://github.com/The-Swarm-Corporation/AutoHedge",
+        },
         {
             "id": "autohedge-market-making-lab",
             "description": AUTOHEDGE_SKILL_DESCRIPTIONS["autohedge-market-making-lab"],

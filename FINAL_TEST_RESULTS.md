@@ -21,8 +21,8 @@ final integration of all workstreams. Nothing is inferred from older reports.
 | # | Check | Command | Result |
 | --- | --- | --- | --- |
 | 9 | Original node:test suite | `cd frontend && npm test` | **PASS — 10/10** |
-| 10 | React component/DOM/API suite | `cd frontend && npm run test:ui` | **PASS — 16 files, 99/99** |
-| 11 | Combined frontend suite | `cd frontend && npm run test:all` | **PASS — 109 tests total** |
+| 10 | React component/DOM/API suite | `npx -y node@22 ./node_modules/vitest/vitest.mjs run` (Vitest 5.1.1; CI uses Node 22) | **PASS — 16 files, 99/99** |
+| 11 | Combined frontend suite | 10 node:test + 99 Vitest tests | **PASS — 109 tests total** |
 | 12 | Production build | `cd frontend && npm run build` | **PASS — tsc + esbuild bundle created** |
 | 13 | Production dependency audit | `cd frontend && npm audit --omit=dev --audit-level=high` | **PASS — 0 vulnerabilities** |
 | 14 | Test typecheck | `cd frontend && npm run typecheck:test` | **PASS** |
@@ -38,7 +38,7 @@ final integration of all workstreams. Nothing is inferred from older reports.
 | 19 | Trivy in GitHub Actions | `.github/workflows/quality.yml` Trivy job | **PASS on prior `main` runs; not updated with misconfig/MEDIUM scope — see BLOCKED** |
 | 20 | Docker Compose config / container build | `docker compose config`, `docker build` | **BLOCKED — `docker` binary absent in this container; CI is authoritative** |
 | 21 | Host-level cron/systemd install, real S3 target, process-kill drill | operator host actions | **NOT RUN — no host/init access or credentials** |
-| 22 | CI run for the final commits | `gh run list --branch main` | **PENDING at time of writing — see FINAL_COMPLETION_REPORT.md for the final run link** |
+| 22 | CI run after first push | [run 45057550963](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45057550963) | Backend, Frontend, Docker Compose and Trivy **PASS**; Dependency audit **FAIL** — Vitest 2.1.9 dev-dependency advisories (`tinypool` critical). Not a bypass: Vitest upgraded to 5.1.1 + Vite 6.4.6 + `@types/node` 22, local `npm audit --audit-level=high` now clean; re-push CI link in `FINAL_COMPLETION_REPORT.md`. |
 
 ## Honest notes
 

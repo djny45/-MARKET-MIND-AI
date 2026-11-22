@@ -36,9 +36,10 @@ if (!Blob.prototype.text) {
   }
 }
 
-// jsdom does not implement object URLs used by the benchmark JSON export.
-if (!URL.createObjectURL) URL.createObjectURL = vi.fn(() => 'blob:test')
-if (!URL.revokeObjectURL) URL.revokeObjectURL = vi.fn()
+// jsdom/Vitest versions differ on whether object URLs exist. Always install
+// spies so assertions on URL.createObjectURL work consistently.
+URL.createObjectURL = vi.fn(() => 'blob:test')
+URL.revokeObjectURL = vi.fn()
 
 afterEach(() => {
   cleanup()

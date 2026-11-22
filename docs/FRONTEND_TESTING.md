@@ -21,6 +21,14 @@ Run from `frontend/`:
 `npm run test:ui` is deliberately scoped by `vitest.config.ts` to
 `tests/ui/**/*.test.{ts,tsx}` so it never re-runs the `node:test` `.mjs` files.
 
+**Runtime requirement:** Vitest 5.1.1 (upgraded from 2.1.9 after CI's
+dependency audit found critical advisories in `tinypool`/`vite`/`@vitest/mocker`)
+requires Node.js **>=22.12.0**, declared in `frontend/package.json` `engines`.
+CI already uses Node 22. The original `npm test` and the production build still
+run on the repository's older local Node, but the UI suite must be run with
+Node 22+ (e.g. `npx -y node@22 ./node_modules/vitest/vitest.mjs run`).
+`npm audit --audit-level=high` is clean with this dependency set.
+
 ## Stack and why Doubles Are Used
 
 Dev dependencies added: `vitest`, `jsdom`, `@testing-library/react`,

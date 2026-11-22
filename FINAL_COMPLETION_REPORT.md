@@ -3,119 +3,115 @@
 Date: 2026-11-22
 Repository: `https://github.com/djny45/-MARKET-MIND-AI`
 Branch: `main`
+Final pushed commit: `480fa27083888ad4878642756d3f27bf955a1a99`
 
-## 1. Actual features completed in this delivery
+## 1. Actual completion percentage
 
-- **Repository audit** with measured values (`FINAL_COMPLETION_AUDIT.md`).
-- **Verified skill/worker integrity**: 325 allowlisted catalog skills + 89
-  reference-only Vibe skills = 414 definitions; 550 workers / 20 departments;
-  0 integrity issues; 0 brokerage-enabled skills.
-- **Frontend build repaired for GitHub Pages**: `VITE_BASE_PATH` now drives
-  esbuild's `publicPath` and HTML reference rewriting; dead Vite files removed.
-- **UI control connected**: the Configure button now opens a read-only settings
-  dialog backed by live app state.
-- **Documentation reconciled**: worker-registry endpoint/status, MCP tool count,
-  supervisor queue architecture, Pages deployment, authentication scope.
-- **Basic security hardening**: opt-in per-IP rate limiting, secret-free
-  environment validation endpoint, opt-in per-user sessions with roles,
-  CSRF protection, login/logout/me, and the licensed-data access gate.
-- **Research-loop engine**: drift detection (Phase 1), skill-promotion
-  proposals (Phase 2), shadow-tracker + ten-cycle demotion automation (Phase 3),
-  24-hour shadow rule (Phase 4), skill-generation/validation cadence (Phase 5).
-- **Distributed multi-host queue design**: `MultiHostQueue` contract with
-  retries, deadletter and observability spec.
-- **Frontend unit tests**: 10 tests (build-path + market utilities).
-- **Imported research resources kept inert**: AutoHedge, Vibe-Trading,
-  FinceptTerminal and Freqtrade are reference-only; Camofox is an isolated,
-  localhost-only research browser with no credentials.
+**≈88% of the in-scope engineering work is implemented, verified and pushed.**
 
-## 2. Files created / modified / removed
+This is not 100%. The gap is external or explicitly out of scope: TLS ingress
+and network segmentation, independent penetration test, OAuth `workflow` scope
+for one Dependabot PR and a CI-scope improvement, host-level install/real S3
+drills, Docker validation in this container, multi-host queue runtime, licensed
+live data, and the absence of certain frontend features (auth UI, screener,
+heatmap) that requested tests cannot target.
 
-Created:
-- `backend/app/skill_integrity.py`, `backend/tests/test_skill_integrity.py`
-- `backend/app/rate_limit.py`, `backend/tests/test_rate_limit.py`
-- `backend/app/env_validation.py`, `backend/tests/test_env_validation.py`
-- `frontend/scripts/path-utils.mjs`, `frontend/tests/path-utils.test.mjs`
-- `FINAL_COMPLETION_AUDIT.md`, `IMPLEMENTATION_ROADMAP.md`, `REMAINING_WORK.md`
-- `backend/app/research_backtest_harness.py`, `research_regime.py`,
-  `skill_promotion.py`, `shadow_tracker.py`, `shadow_rule.py`,
-  `skill_cadence.py`, `research_shadow_session.py`, `data_licensing_gate.py`,
-  `distributed_queue.py`, `security_hardening` modules (`rate_limit.py`,
-  `env_validation.py`, `user_auth.py`, `user_session_middleware.py`)
-- `backend/app/data_licensing_gate.py` plus `docs/TRIVY-CI.md` and
-  `.github/workflows/trivy-fs.yml` (see Trivy note)
-- this report and the other final documents
+Product boundary: research-only. Live brokerage execution, wallet keys,
+transaction signing, order routing and market making remain disabled by design.
 
-Modified:
-- `backend/app/main.py`, `frontend/scripts/build.mjs`, `frontend/scripts/dev.mjs`,
-  `frontend/src/App.tsx`, `frontend/package.json`, `frontend/src/env.d.ts`
-- docs: `README.md`, `PROJECT_STATUS.md`, `docs/DEVELOPMENT.md`,
-  `docs/WORKER-REGISTRY.md`, `docs/AI-HARNESS-COMPATIBILITY.md`,
-  `docs/ANALYTICAL-AGENT-TASK-LIFECYCLE.md`, `docs/GITHUB-PAGES-DEPLOYMENT.md`
+## 2. Work completed
 
-Removed:
-- `frontend/vite.config.ts` (unused after the esbuild migration)
+- **Security (Phase 1):** four-role resource-level authorization and ownership
+  checks; admin/operator gates; strict production startup validation; session
+  fixation prevention and CSRF rotation; hardened cookies, headers, CORS and
+  trusted-proxy handling; Redis-capable distributed rate limiting with safe
+  in-process fallback; secret-redacting audit-event aggregation. 35 focused
+  tests including privilege-escalation and cross-user access denial.
+- **Frontend testing (Phase 2):** Vitest + jsdom + Testing Library + jest-axe;
+  99 component/DOM/API/state/accessibility tests over real components, 10
+  original node:test tests retained; production build intact.
+- **Backup/DR (Phase 3):** journaled/resumable backup, retention, off-host hook,
+  SHA-256 integrity, clean restore, migration rollback, interrupted-task and
+  restart recovery, incident webhook, cron/systemd generators. Executed drills
+  with verbatim evidence.
+- **Trivy (Phase 4):** local Trivy 0.76.2 scan with vuln+misconfig+secret at
+  MEDIUM/HIGH/CRITICAL is clean; HIGH `DS-0002` fixed with explicit non-root
+  `USER 101`. CI scope change remains permission-blocked.
+- **Dependencies/PRs (Phases 5–6):** all 19 open PRs reviewed. Merged #5, #6,
+  #7, #9, #75; closed #1, #4, #11, #27, #31, #35, #37, #45, #77 with evidence.
+  Five PRs remain open with documented reasons.
+- **Architecture (Phase 7):** ADRs for single-host queue, provenance-gated data,
+  inert execution code, frontend test stack; provider freshness/health module
+  with 8 tests.
+- **Operations/hygiene:** committed frontend lockfile (fixes empty CI npm scan),
+  added root `.gitignore`, fixed SQLite URI escaping for paths with special
+  characters.
 
-## 3. Tests actually executed
+## 3. Commits and CI
 
-See `FINAL_TEST_RESULTS.md`. Summary: **987 backend tests**, **10 frontend unit
-tests**, root and project-site production builds, `npm audit --omit=dev` (0
-vulnerabilities), and the integrity report (325 catalog + 89 reference skills,
-550 workers, 0 issues) all passed locally. GitHub Actions is the authority for
-Docker Compose and container checks; the latest observed `main` CI run is
-recorded in `FINAL_TEST_RESULTS.md`.
+Local workstream commits, in order:
+`848b001f` provider health/ADRs · `0c531180` backup/DR + container hardening ·
+`c21036dd` security hardening · `36a4d9a6` merge of verified remote PRs ·
+`5f0f0b35` frontend test suite · `c86b92d0` gitignore/test tsconfig ·
+`480fa270` final documentation.
 
-## 4. Security findings and resolutions
+Remote PRs merged during this mission:
+`6c6b8be4` (#75), `fc7eba40` (#6), `40748560` (#7), `a484335c` (#9),
+`841c9247` (#5).
 
-See `SECURITY_AUDIT.md`. No real-money execution, wallet signing, private-key
-handling, or live order routing exists. Added: per-user auth (deployment-wide
-bearer + opt-in sessions), basic rate limiting, secret-free environment
-validation, licensed-data access gate, and read-only browser research.
-Residual: full policy-based per-resource authorization, TLS ingress, full
-platform-level security review are blocking items for public exposure.
+CI: first push run
+[45057550963](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45057550963)
+passed Backend, Frontend, Docker Compose and Trivy, but failed Dependency audit
+on Vitest 2.x dev-dependency advisories. This was fixed by upgrading to Vitest
+5.1.1 / Vite 6.4.6 / `@types/node` 22 (no gate bypass; local
+`npm audit --audit-level=high` is clean and all 109 frontend tests pass on
+Node 22). Final re-push run link: see `FINAL_TEST_RESULTS.md`.
+Prior main run
+[45025385096](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45025385096)
+passed before these changes.
 
-## 3b. Research-loop phases
+## 4. Test results (summary)
 
-All five phases completed and tested: drift/regime detection (10 tests),
-skill-promotion engine with human gates (7), shadow-tracker + 10-cycle demotion
-(5), 24-hour shadow rule (6), skill-generation/validation cadence (9).
+| Area | Result |
+| --- | --- |
+| Backend unit/API/integration/auth/queue/DR | **PASS — 1043 tests** |
+| Frontend node:test + Vitest/jsdom | **PASS — 10 + 99 tests** |
+| Frontend production build, test typecheck | **PASS** |
+| pip-audit / npm audit | **PASS — 0 known vulnerabilities** |
+| Trivy filesystem (vuln+misconfig+secret, MEDIUM/HIGH/CRITICAL) | **PASS — 0 findings** |
+| Backup/restore and recovery drills | **PASS — local evidence recorded** |
+| Docker Compose config/build | **BLOCKED locally — docker absent; CI authoritative** |
+| Host cron/systemd/S3/process-kill drills | **NOT RUN — no host access/credentials** |
 
-## 5. Deployment readiness
+Exact commands and outputs: `FINAL_TEST_RESULTS.md`.
 
-See `DEPLOYMENT_GUIDE.md` and `BACKUP_RESTORE_GUIDE.md`. Ready for **private,
-operator-managed** deployment only. Public deployment remains blocked.
+## 5. Security findings
 
-## 6. Known limitations
+No live-trading or wallet-signing path exists. The previously open authorization,
+rate-limiting, environment-validation, session/CSRF and audit gaps are closed
+with tests. Residual items are TLS/network segmentation, independent review,
+CI scan scope (permission-blocked) and ingress/proxy rate limiting. See
+`SECURITY_AUDIT.md`.
 
-- Full per-resource authorization policy, TLS ingress, distributed queue
-  runtime, cloud workspaces, licensed live market data, Docker Compose and
-  Trivy execution — see `REMAINING_WORK.md`. Trivy is committed locally but
-  blocked from pushing (OAuth scope).
-- Host-specific backup/restore drill: **executed and verified** 2026-11-22
-  (`BACKUP_RESTORE_GUIDE.md`).
-- Frontend tests cover build-path and market utilities; no React/DOM component
-  test runner.
+## 6. Deployment readiness
 
-## 7. Remaining work with evidence
+Ready for **private, operator-managed deployment only**. Not ready for public
+exposure until TLS ingress, network segmentation, independent review and CI
+scan-scope update are complete.
 
-`REMAINING_WORK.md` lists every item with file/line evidence.
+## 7. Work still outstanding
 
-## 8. Verified completion percentage
+See `REMAINING_WORK.md`. In short: #76 workflow-scope blocker, #40/#39/#38/#8
+PR re-ports, host-level DR actions, Docker validation via CI, multi-host queue
+(requires new ADR), licensed live data (requires legal review), and the
+frontend feature/test gaps enumerated in `docs/FRONTEND_TESTING.md`.
 
-The mission is divided into five research-loop phases plus platform gaps.
-Verified scoring:
+## 8. External actions required from the owner
 
-| Area | Score | Evidence |
-| --- | --- | --- |
-| Research-loop phases (1–5) | 5/5 | drift (10), promotion (7), shadow-tracker (5), 24h rule (6), cadence (9) — all merged, 987 backend tests pass |
-| Platform gaps | ~0.95/1 | frontend utils (10 tests), licensed data gate, distributed-queue design, security hardening — but distributed-queue runtime is design-only, Trivy push blocked, TLS/host drills pending |
-| Explicitly excluded (not scored) | 0/1 | live trading, broker execution, wallet keys — forbidden by design |
-
-Summary: **≈97% of the achievable in-scope work is implemented, tested and
-verified**. Residuals (all evidence in `REMAINING_WORK.md`): distributed-queue
-runtime, host drills, Trivy push scope, PR #31, dependabot backlog.
-
-## 9. Latest commit
-
-`6349230` on `main` (merge of PR #28, 2026-11-22). CI on `main`: success
-(run `45015450017`, PR #28, 2m34s; PR #26 cancel-rerun success).
+1. `gh auth refresh -h github.com -s workflow` and approve at
+   https://github.com/login/device, then merge PR #76 and widen the Trivy CI
+   step to `scanners: vuln,misconfig,secret`, `severity: MEDIUM,HIGH,CRITICAL`.
+2. Provision TLS ingress and network segmentation; commission an independent
+   security review before any public exposure.
+3. Provide a host with Docker/systemd and, if required, S3-compatible
+   credentials to repeat the infrastructure drills outside this container.

@@ -7,7 +7,7 @@ class SkillCatalogTests(unittest.TestCase):
     def test_catalog_contains_only_allowlisted_research_skills(self):
         skills = list_skills()
         by_id = {skill["id"]: skill for skill in skills}
-        self.assertEqual(len(skills), 326)
+        self.assertEqual(len(skills), 328)
         self.assertNotIn("trader-broker", by_id)
         self.assertTrue(all(
             skill["mode"] == "research_and_paper_only"
@@ -159,6 +159,16 @@ class SkillCatalogTests(unittest.TestCase):
 
         self.assertIn("autohedge-quant-analysis", skills)
         self.assertIn("autohedge-thesis-validation", skills)
+
+
+    def test_autohedge_market_making_and_token_data_skills(self):
+        skills = {skill["id"]: skill for skill in list_skills()}
+        for skill_id in ("autohedge-market-making-lab", "autohedge-public-token-data"):
+            with self.subTest(skill_id=skill_id):
+                self.assertTrue(skills[skill_id]["available"])
+                self.assertEqual(skills[skill_id]["mode"], "research_evaluation_only")
+                loaded = load_skill(skill_id)
+                self.assertFalse(loaded["broker_execution"])
 
     def test_unknown_and_broker_skills_are_rejected(self):
         for slug in ("trader-broker", "../README.md", "missing-skill"):

@@ -1,56 +1,61 @@
-# IMPLEMENTATION ROADMAP — verified status
+# IMPLEMENTATION ROADMAP — verified status (2026-11-22)
 
-Status values: **DONE** (verified in this session), **EXISTING** (present and
-verified, not changed here), **REMAINING** (not implemented; evidence in
-`REMAINING_WORK.md`).
+Status values: **DONE** (verified locally and/or in CI), **PARTIAL**, **BLOCKED**
+(external permission/host action), **NOT IMPLEMENTED** (intentional scope).
 
 ## Stage 0 — Baseline audit — DONE
-- Inspected tracked tree, branches, commits, docs, modules and tests.
-- Created `FINAL_COMPLETION_AUDIT.md` with measured values.
-- Verified 550 workers, 414 skill definitions, 0 integrity issues.
+Fresh inspection of latest `main` (`89c20dde`) replaced stale completion
+claims. Baseline: 987 backend tests, 10 frontend tests, build green after
+installing declared dependencies.
 
-## Stage 1 — Documentation and build reconciliation — DONE
-- `frontend/scripts/build.mjs` honors `VITE_BASE_PATH`; generated HTML rewritten.
-- Dead Vite config/typings removed; framework-neutral `env.d.ts` added.
-- Configure button wired to a read-only settings dialog (no placeholder action).
-- Stale endpoint/status/tool-count/supervisor documentation corrected.
-- Verified: 894 backend tests pass; root and project-site builds pass.
+## Stage 1 — Security and authorization — DONE (public exposure BLOCKED)
+Four-role authorization with resource ownership checks, strict startup env
+gate, session fixation/CSRF rotation, hardened cookies/headers/proxy handling,
+Redis-capable distributed rate limiting with safe fallback, and audit-event
+aggregation. Tests: 35 focused + full suite. Details: `SECURITY_IMPLEMENTATION.md`.
 
-## Stage 2 — Skill and worker integrity — DONE
-- `app/skill_integrity.py`: catalog, reference-skill and worker audits.
-- `tests/test_skill_integrity.py`: 5 tests asserting 325 + 89 = 414 skills,
-  550 workers, 20 departments, no unresolved references.
+## Stage 2 — Frontend component testing — PARTIAL
+Vitest + jsdom + Testing Library + jest-axe suite: 99 UI tests over real
+components, API mocks, loading/error states, keyboard/role checks. Original
+10 node:test tests still pass. Gaps: no auth UI, screener or heatmap exists on
+`main`; computed responsive layout needs a real browser.
+Details: `docs/FRONTEND_TESTING.md`.
 
-## Stage 3 — Security and governance — EXISTING / PARTIAL
-- Existing: optional deployment-wide bearer auth, CORS allowlist, research-only
-  execution boundary, allowlisted read-only browser tool, sandboxed Camofox
-  browser design, secret-free diagnostics.
-- Remaining: per-user identity/roles, rate limiting, independent security review.
+## Stage 3 — Backup and disaster recovery — DONE (host actions NOT RUN)
+Journaled/resumable backups, configurable retention, off-host hook, SHA-256
+integrity, clean restore, migration rollback, interrupted-task and restart
+recovery, incident webhook (redacted), cron/systemd generators. Executed local
+drills with verbatim evidence in `docs/BACKUP_RECOVERY_DRILL.md`.
 
-## Stage 4 — Research, backtesting and market-making methodology — EXISTING / REFERENCE
-- Existing: historical research modules, evidence/citation auditing, benchmark
-  and promotion review, deterministic 300-skill research pack.
-- Added: Freqtrade-derived backtest research skill (lookahead/recursive checks,
-  walk-forward, reproducibility).
-- Imported AutoHedge market-making and execution code remains inert; logs are
-  available for historical replay research only.
+## Stage 4 — Trivy and security CI — PARTIAL / BLOCKED
+Trivy 0.76.2 installed locally; filesystem scan with vuln+misconfig+secret at
+MEDIUM/HIGH/CRITICAL is clean after the `USER 101` Dockerfile fix. CI job still
+uses the narrower scope; workflow edits are blocked by missing OAuth
+`workflow` scope. Details: `docs/TRIVY_CI_AUDIT.md`.
 
-## Stage 5 — Frontend/terminal completeness — PARTIAL
-- Verified real backend connections for watchlists, research, runs, workers,
-  learning, validation and coverage views.
-- Remaining: no frontend unit-test framework; multi-panel layout customisation
-  and some advanced visualisation milestones are still open in `docs/ROADMAP.md`.
+## Stage 5 — Dependabot and PR cleanup — DONE (one PR BLOCKED)
+Reviewed all 19 open PRs. Merged #5, #6, #7, #9, #75; closed 9 obsolete,
+duplicate or incompatible PRs. #77 closed for proven ERESOLVE incompatibility.
+#76 remains open only because of the OAuth scope blocker.
 
-## Stage 6 — Infrastructure and CI — EXISTING / EXTERNAL
-- GitHub Actions quality workflow passes on `main`; root and project-site
-  frontend builds verified locally; `npm audit` clean for production deps.
-- Docker Compose and Trivy cannot be executed in this container; CI remains the
-  authoritative check.
+## Stage 6 — Market data and queue scope — DONE
+ADRs recorded: single-host SQLite queue, provenance-gated market data, inert
+execution code, esbuild frontend tests. `provider_health.py` adds freshness and
+health reporting without activating any provider.
 
-## Execution order for remaining work
-1. Per-user auth/authorization and rate limiting (security gate for public use).
-2. Frontend test framework and component/integration tests.
-3. Licensed live/delayed market-data provider (only after legal/security review).
-4. Host-specific backup/restore and observability drills.
-5. Distributed queue/cloud workspaces — only if the research-only architecture
-   is deliberately expanded; explicitly excluded from this delivery.
+## Stage 7 — Final verification — DONE (Docker checks BLOCKED locally)
+1043 backend tests, 109 frontend tests, builds, audits, Trivy and DR drills
+all passed locally. Docker absent → Compose validation remains CI-authoritative.
+
+## Stage 8 — Documentation — DONE
+All final reports rewritten with actual commands, results, commit hashes and
+blockers; stale claims (old commit SHA, old PR count, old test counts) removed.
+
+## Remaining execution order
+1. Owner grants `workflow` scope (`gh auth refresh -h github.com -s workflow`),
+   then merge #76 and update the Trivy CI job scope.
+2. Owner provisions TLS ingress, network segmentation and independent review
+   before any public exposure.
+3. Revive #40 as a fresh PR if screener/heatmap UI is approved product scope.
+4. Redesign #38 lease-loss protection for the current supervisor heartbeat.
+5. Multi-host queue and licensed live data only via new ADRs and legal review.

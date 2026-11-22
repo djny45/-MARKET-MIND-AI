@@ -1,89 +1,68 @@
-# REMAINING WORK — evidence-based
+# REMAINING WORK — evidence-based (2026-11-22)
 
 This file records work that is **not** complete, with evidence. Nothing here is
 claimed as delivered.
 
-## 1. Authentication and authorization — IMPLEMENTED (opt-in)
-Evidence: `backend/app/user_auth.py` and `user_session_middleware.py` provide
-per-user sessions with scrypt password verification, HttpOnly session cookies,
-hashed CSRF tokens, idle/absolute expiry, four roles, and login/logout/me
-endpoints. The memory-review endpoint requires the `operator` role. 14 tests.
-The deployment-wide bearer token in `api_auth.py` remains as an additional
-layer. Limitation: per-resource authorization is coarse (role hierarchy), not a
-full policy engine; auth is disabled by default and must be configured by the
-operator. TLS ingress is still required before public exposure.
+## 1. Public exposure gates — BLOCKED (external)
+TLS ingress, network segmentation, independent penetration test and formal
+security review are operator/external responsibilities. Server-side authz,
+session/CSRF hardening, strict env validation, audit aggregation, headers and
+distributed rate limiting are implemented (see `SECURITY_AUDIT.md`). No public
+deployment is authorized.
 
-## 2. Rate limiting — BASIC IMPLEMENTATION
-Evidence: `backend/app/rate_limit.py` provides an in-process, per-client-IP
-limiter enabled by `API_RATE_LIMIT_PER_MINUTE` (disabled by default); health and
-readiness are exempt. It is registered in `main.py` and covered by 5 tests.
-Limitation: it is single-process only and is not a substitute for ingress/proxy
-rate limiting in a distributed deployment. Per-user quotas are not implemented.
+## 2. Trivy CI scope — BLOCKED (OAuth permission)
+Local Trivy 0.76.2 `fs --scanners vuln,misconfig,secret --severity MEDIUM,HIGH,CRITICAL .`
+is clean. The CI job in `.github/workflows/quality.yml` still uses
+`scanners: vuln,secret` and `severity: HIGH,CRITICAL`; adding misconfiguration
+and MEDIUM findings requires a workflow change. `gh pr merge 76` failed with
+`refusing to allow an OAuth App to create or update workflow ... without workflow scope`.
+Remedy: owner runs `gh auth refresh -h github.com -s workflow` and completes
+the device-code approval, then merge #76 and update the Trivy step.
 
-## 2b. Environment validation — IMPLEMENTED
-Evidence: `backend/app/env_validation.py` validates auth-token length, CORS
-origins (no wildcards), startup-recovery and rate-limit settings without
-exposing secret values; exposed via `GET /api/environment-validation` and covered
-by 5 tests. It is advisory, not a startup gate.
+## 3. Multi-host task execution — NOT IMPLEMENTED (intentional)
+`docker-compose.yml` runs one backend + one supervisor on one SQLite volume;
+`QueueCapabilities().multi_host_supported == False`. `backend/app/distributed_queue.py`
+is a contract only. No broker, no multi-host integration test, no claim of
+multi-host support. See `docs/ARCHITECTURE_DECISIONS.md` ADR-001.
 
-## 3. Distributed / multi-host task execution — NOT IMPLEMENTED (intentional)
-Evidence: `docker-compose.yml` runs one `backend` and one `agent-supervisor`
-against a single SQLite volume. `ANALYTICAL-AGENT-TASK-LIFECYCLE.md` now states
-single-host only. There is no broker, scheduler, or cloud workspace.
-Note: expanding this is a deliberate architecture change, not a defect fix.
+## 4. Licensed live/delayed market data — NOT CONFIGURED (intentional)
+`DataLicensingGate` blocks unauthorized sources; providers remain pending
+manual license review. `provider_health.py` reports freshness/health without
+external calls. No statement about current market prices is permitted. ADR-002.
 
-## 4. Frontend automated tests — PARTIAL
-Evidence: `frontend/package.json` now has a `test` script using Node's built-in
-`node:test` runner (no new dependency); `frontend/tests/path-utils.test.mjs`
-contains 5 passing tests for base-path normalization and HTML rewriting.
-Limitation: there is no React component/DOM test runner, so UI behaviour beyond
-the build path and CI smoke checks remains untested automatically.
+## 5. Frontend coverage gaps — PARTIAL
+109 frontend tests pass (10 node:test, 99 Vitest/jsdom). There is **no**
+authentication UI, screener or heatmap component on `main`, so those requested
+tests cannot target real code (`docs/FRONTEND_TESTING.md`,
+`frontend/tests/ui/coverage-gaps.test.ts`). The Help (`?`) button in `App.tsx`
+still has no handler; `loadNews` ignores `response.ok`; watchlist refresh has
+no busy state; computed responsive layout needs a real browser. See the same
+document for the full list.
 
-## 5. Licensed live/delayed market data — NOT CONFIGURED (intentional)
-Evidence: health responses report `paper_trading: false` and
-`broker_execution: false`; `docs/FOUR-MARKET-PLATFORM.md` documents disabled
-provider adapters. Historical/synthetic data is used for research.
-Impact: no claims about current market prices are permitted.
+## 6. Host-specific operations — PARTIAL
+Executed locally with evidence in `docs/BACKUP_RECOVERY_DRILL.md`: verified
+backup/restore, retention, off-host hook, resume, stale-lock recovery,
+migration rollback, restart recovery, webhook alerting. Not run: cron/systemd
+installation, Docker volume restore (`docker` absent), real S3 target,
+production process-kill drill.
 
-## 6. Docker Compose and Trivy verification — NOT RUN LOCALLY
-Evidence: `docker` and `trivy` binaries are absent in this container. The GitHub
-Actions quality workflow remains the authoritative source; its latest run on
-`main` (`45003960135`) succeeded.
-Impact: clean-host reproducibility is asserted by CI, not by local execution.
+## 7. Pull requests — mostly reconciled
+Merged after CI verification: #5, #6, #7, #9, #75. Closed with evidence:
+#1, #4, #11, #27, #31, #35, #37, #45, #77.
+Still open: #76 (workflow-scope blocked), #40 (screener/heatmap re-port needed),
+#39 (durable-queue ADR partly superseded), #38 (lease-loss redesign needed),
+#8 (ownership fencing needs narrow rebase). None were merged unreviewed.
 
-## 7. Host-specific operations — PARTIAL
-Evidence:
-- **Backup/restore drill: EXECUTED 2026-11-22** against `data/market_mind.db`.
-  Backup → `status=verified`; restore → `status=restored_and_verified`;
-  `PRAGMA integrity_check` = `ok` on source and restored; row counts match.
-  Details in `BACKUP_RESTORE_GUIDE.md`; evidence recorded in
-  `PROJECT_STATUS.md` (Backup/restore row) and this file.
-- Not yet done: retention-policy repetition, off-host storage, migration
-  rollback drills, alerting-on-incident reproduction, TLS ingress hardening.
+## 8. CI for the final commits — see FINAL_TEST_RESULTS.md
+Local suites are green; the GitHub Actions run for the final push is recorded in
+`FINAL_COMPLETION_REPORT.md`. Docker Compose validation remains CI-authoritative
+because `docker` is absent locally.
 
-## 8. Pull request housekeeping — reconciled 2026-11-22
-Evidence: `gh pr list --state open` now returns 35 PRs (29 drafts, 6 non-draft).
-- Merged in this session: #3, #19, #23, #41, #26, #28 (+ the 11 research-loop PRs).
-- Closed as superseded by new work: #2, #29, #30, #34, #36, #43, #44, #46, #47,
-  #48, #49, #66.
-- Remaining open: mostly DRAFTs (29) from older work needing review;
-  #31 (open, docs refresh) was left open because it is independently valuable
-  but conflicts with current `main`; `main` was reset to `origin/main`
-  (`57930e0`) because local `main` had an unmergeable Trivy-workflow commit
-  (`77467d0`).
-- Trivy CI file committed locally (`feat/trivy-fs`); blocked from pushing by the
-  OAuth `workflow` scope.
+## 9. Imported execution code — INTENTIONALLY INERT
+AutoHedge signing/order modules, FinceptTerminal and Freqtrade live-bot code
+remain reference-only; never imported, built or executed. Camofox browser is
+localhost-only with no credentials. ADR-003.
 
-## 9. New Trivy CI gap — COMMITTED LOCALLY, BLOCKED FROM PUSH
-Evidence: commit `1827be8` ("ci(security): add Trivy filesystem scan workflow")
-on `feat/trivy-fs`. OAuth app rejects pushes to `.github/workflows/*` without the
-`workflow` scope. Documented in `docs/TRIVY-CI.md`; run Trivy locally with the
-documented commands (`trivy fs --scanners misconfig,secret --severity MEDIUM,HIGH,CRITICAL .`)
-and review any findings.
-
-## 10. Imported execution code — INTENTIONALLY INERT
-Evidence: `third_party/FinceptTerminal/` (AGPL-3.0), `third_party/freqtrade/`
-(GPL-3.0), and AutoHedge signing/order modules are local reference copies; no
-imports, builds, or executions were wired into the application. The Camofox
-browser is isolated, localhost-only, and has no credentials.
-Impact: this is a deliberate security boundary, not pending work.
+## 10. Explicitly excluded from scope
+Live brokerage execution, autonomous live trading, wallet private keys,
+transaction signing, live order routing and market-making execution.

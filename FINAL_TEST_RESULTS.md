@@ -1,38 +1,58 @@
 # FINAL TEST RESULTS — executed 2026-11-22
 
-All results below were produced by commands run in this workspace. Nothing is
-inferred from documentation.
+All results below were produced by commands run in this workspace after the
+final integration of all workstreams. Nothing is inferred from older reports.
 
-| # | Check | Command / source | Result |
+## Backend
+
+| # | Check | Command | Result |
 | --- | --- | --- | --- |
-| 1 | Backend unit + integration tests | `PYTHONPATH=.:./backend python -m unittest discover -s backend/tests -q` | **987 tests, OK** (includes per-user auth, research-loop, and market-utility suites) |
-| 1b | Skill/worker/system integrity | `full_integrity_report()` | 325 catalog + 89 reference = 414 definitions, 550 workers, 0 issues |
-| 2 | Frontend unit tests | `cd frontend && npm test` (`node:test`) | **10 tests, 10 pass, 0 fail** |
-| 3 | Frontend production build | `cd frontend && npm run build` | success |
-| 4 | Frontend project-site build | `VITE_BASE_PATH=/MARKET-MIND-AI/ npm run build` | success; asset/page URLs rewritten |
-| 5 | Dependency audit | `npm audit --omit=dev --audit-level=high` | 0 vulnerabilities |
-| 6 | Skill/worker integrity | `full_integrity_report()` | 325 + 89 = 414 skills, 550 workers, 0 issues |
-| 7 | Read-only browser tool (live) | MCP `browser_research_read` → `https://en.wikipedia.org/wiki/Market` | HTTP 200, 4,528 chars, side effects false |
-| 8 | Full browser (live) | Camofox MCP `camofox_create_tab` + `camofox_snapshot` → `https://example.com` | HTTP 200, snapshot content returned; `browserConnected: true` |
-| 9 | GitHub Actions quality workflow | `gh run list --branch main` | success (run `45015450017`, merge of PR #28, 2m34s; PR #26 rerun success) |
-| 10 | Backup/restore drill (host) | `python3 backend/backup_database.py` → `python3 backend/restore_database.py` | Verified 2026-11-22: backup + restore of `data/market_mind.db` — both `verified`/`restored_and_verified`, `integrity_check=ok`, row-count parity across all tables |
-| 11 | Trivy CI (local) | `trivy fs --scanners misconfig,secret --severity MEDIUM,HIGH,CRITICAL .` | blocked from pushing by OAuth `workflow` scope; file committed locally (`feat/trivy-fs`, `1827be8`) |
-| 12 | Docker Compose config | `docker compose config` | **not run locally** — `docker` binary absent; CI authoritative |
-| 13 | Trivy filesystem scan | `trivy` | **not run locally** — binary absent; CI authoritative (blocked by OAuth scope; see below) |
-| 12 | Python dependency audit | `pip-audit` | **not run locally** — tool unavailable |
+| 1 | Full backend suite | `PYTHONPATH=.:./backend python -m unittest discover -s backend/tests -q` | **PASS — 1043 tests, OK (119.2s)** |
+| 2 | Focused security suite | `PYTHONPATH=.:./backend python -m unittest backend.tests.test_authorization backend.tests.test_audit_events backend.tests.test_distributed_rate_limit backend.tests.test_env_validation -q` | **PASS — 35 tests, OK** |
+| 3 | Backup/DR suites | `PYTHONPATH=.:./backend python -m unittest backend.tests.test_backup_database backend.tests.test_recovery_drills -q` | **PASS — 19 tests, OK** |
+| 4 | Provider health | `PYTHONPATH=.:./backend python -m unittest tests.test_provider_health -v` | **PASS — 8 tests, OK** |
+| 5 | Compile check | `python -m compileall -q backend/app scripts` | **PASS** |
+| 6 | Harness adapters | `python scripts/check_harness_adapters.py` | **PASS — 12 files, 3 MCP configs** |
+| 7 | Python dependency audit | `pip-audit -r backend/requirements.txt` | **PASS — No known vulnerabilities found** |
+| 8 | Strict startup gate smoke | `APP_ENV=production` with short auth token | **PASS — startup fails with secret-free error** |
 
-## Test categories covered by the 987 backend tests
+## Frontend
 
-API contract and route behaviour, agent registry (550 profiles), worker routing,
-skill catalog (325), persistent memory, research pipeline, historical evaluation,
-supervisor/task lifecycle (recovery, cancellation, retry), API auth middleware,
-rate limiting, environment validation, backup/restore helpers, and the imported
-browser-research policy.
+| # | Check | Command | Result |
+| --- | --- | --- | --- |
+| 9 | Original node:test suite | `cd frontend && npm test` | **PASS — 10/10** |
+| 10 | React component/DOM/API suite | `cd frontend && npm run test:ui` | **PASS — 16 files, 99/99** |
+| 11 | Combined frontend suite | `cd frontend && npm run test:all` | **PASS — 109 tests total** |
+| 12 | Production build | `cd frontend && npm run build` | **PASS — tsc + esbuild bundle created** |
+| 13 | Production dependency audit | `cd frontend && npm audit --omit=dev --audit-level=high` | **PASS — 0 vulnerabilities** |
+| 14 | Test typecheck | `cd frontend && npm run typecheck:test` | **PASS** |
 
-## Notes
+## Infrastructure / security
 
-- No skipped or xfail tests were found in the backend suite.
-- Frontend tests are limited to build-path utilities; there is no React DOM test
-  runner in the repository.
-- Local execution of Docker/Trivy is impossible in this container; their status
-  is reported honestly rather than claimed as passing.
+| # | Check | Command | Result |
+| --- | --- | --- | --- |
+| 15 | Trivy filesystem scan | `trivy fs --scanners vuln,misconfig,secret --severity MEDIUM,HIGH,CRITICAL .` (Trivy 0.76.2) | **PASS — 0 vulnerabilities, 0 misconfigurations, 0 secrets** |
+| 16 | Backup/restore drill | `scripts/backup_orchestrator.py` → `scripts/restore_orchestrator.py` into a clean temp target | **PASS — verified backup, sha256 sidecars, parity, `restored_and_verified`** |
+| 17 | Retention / off-host hook / resume / locks | drill runner in `docs/BACKUP_RECOVERY_DRILL.md` | **PASS** |
+| 18 | Migration rollback / restart recovery | `scripts/migration_rollback.py`, `scripts/service_restart_recovery.py` | **PASS (local drill)** |
+| 19 | Trivy in GitHub Actions | `.github/workflows/quality.yml` Trivy job | **PASS on prior `main` runs; not updated with misconfig/MEDIUM scope — see BLOCKED** |
+| 20 | Docker Compose config / container build | `docker compose config`, `docker build` | **BLOCKED — `docker` binary absent in this container; CI is authoritative** |
+| 21 | Host-level cron/systemd install, real S3 target, process-kill drill | operator host actions | **NOT RUN — no host/init access or credentials** |
+| 22 | CI run for the final commits | `gh run list --branch main` | **PENDING at time of writing — see FINAL_COMPLETION_REPORT.md for the final run link** |
+
+## Honest notes
+
+- Backend count grew from the historical 987 → 1043 as the new security, DR and
+  provider-health tests were added. No tests were skipped or marked xfail by
+  these changes.
+- Frontend UI tests cover real components only. There is no authentication UI,
+  screener or heatmap component on `main`; corresponding requested tests cannot
+  target real code and are recorded as coverage gaps in
+  `docs/FRONTEND_TESTING.md` and `frontend/tests/ui/coverage-gaps.test.ts`.
+- `jsdom` cannot evaluate CSS media queries; responsive coverage asserts DOM
+  availability and media-query declarations, not computed layout in a browser.
+- The first backup drill attempt failed on a fixture bug, was corrected, and
+  was re-run from an empty directory; both logs are preserved in
+  `docs/BACKUP_RECOVERY_DRILL.md`.
+- Trivy's earlier HIGH `DS-0002` finding was resolved by adding explicit
+  `USER 101` to `frontend/Dockerfile`; the post-fix scan is clean.

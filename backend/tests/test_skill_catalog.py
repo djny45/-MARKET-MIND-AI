@@ -1,6 +1,7 @@
 import unittest
 
 from app.skill_catalog import list_skills, load_skill
+from app.workers import list_workers
 
 
 class SkillCatalogTests(unittest.TestCase):
@@ -169,6 +170,10 @@ class SkillCatalogTests(unittest.TestCase):
                 self.assertEqual(skills[skill_id]["mode"], "research_evaluation_only")
                 loaded = load_skill(skill_id)
                 self.assertFalse(loaded["broker_execution"])
+
+        profiles = {item["id"]: item for item in list_workers()}
+        self.assertIn("autohedge-market-making-lab", profiles["worker_001"]["skill_refs"])
+        self.assertIn("autohedge-public-token-data", profiles["worker_012"]["skill_refs"])
 
     def test_unknown_and_broker_skills_are_rejected(self):
         for slug in ("trader-broker", "../README.md", "missing-skill"):

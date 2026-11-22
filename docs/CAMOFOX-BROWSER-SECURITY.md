@@ -61,6 +61,18 @@ curl -fsSL https://nodejs.org/dist/v24.22.3/node-v24.22.3-linux-x64.tar.xz \
   | tar -xJ --strip-components=1 -C ~/.local/node24
 ```
 
+## System libraries
+
+Camoufox fails to launch without GTK3 (`libgtk-3.so.0`, `libgdk-3.so.0`) and a
+few transitive libraries (`libatk-1.0`, `libatk-bridge-2.0`, `libepoxy`,
+`libXcomposite`, `libXdamage`, `libatspi`). This container has no root and the
+conda solve stalled, so the Ubuntu Jammy `.deb` packages were downloaded from
+`archive.ubuntu.com` and unpacked with `dpkg-deb -x` into `~/.local/gtk3/`.
+The setup script adds that directory's `usr/lib/x86_64-linux-gnu` to
+`LD_LIBRARY_PATH`. Verified result: `browserConnected: true`,
+`browserRunning: true`, and a real tab navigation plus accessibility snapshot
+through the MCP adapter.
+
 ## Verification performed
 
 The registered adapter was launched through the same config the harnesses use

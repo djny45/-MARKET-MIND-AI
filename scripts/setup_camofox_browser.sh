@@ -21,6 +21,15 @@ if [ -n "$LOCAL_NODE_BIN" ]; then
   echo "Using local Node: $(node -v) ($LOCAL_NODE_BIN)"
 fi
 
+# Camoufox needs GTK3 at runtime. When system libraries are unavailable (this
+# container has no root), unpack the required Ubuntu .debs into ~/.local/gtk3
+# and expose that directory to the browser process.
+GTK_LIB_DIR="$HOME/.local/gtk3/usr/lib/x86_64-linux-gnu"
+if [ -d "$GTK_LIB_DIR" ]; then
+  export LD_LIBRARY_PATH="$GTK_LIB_DIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+  echo "Exposing local GTK3 libs: $GTK_LIB_DIR"
+fi
+
 if [ ! -d "$CHECKOUT/mcp" ]; then
   echo "Cloning Camofox Browser into $CHECKOUT ..."
   mkdir -p "$(dirname "$CHECKOUT")"

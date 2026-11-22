@@ -46,6 +46,8 @@ class CamofoxBrowserConfigTests(unittest.TestCase):
         self.assertIn("unset CAMOFOX_API_KEY", script)
         self.assertIn("node24", script)
         self.assertIn('"$NODE_MAJOR" -lt 24', script)
+        self.assertIn("LD_LIBRARY_PATH", script)
+        self.assertIn("gtk3/usr/lib/x86_64-linux-gnu", script)
 
     def test_agent_instructions_state_browser_boundary(self):
         instructions = (ROOT / "AGENTS.md").read_text(encoding="utf-8")

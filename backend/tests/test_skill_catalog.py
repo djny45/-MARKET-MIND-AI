@@ -155,7 +155,7 @@ class SkillCatalogTests(unittest.TestCase):
                 loaded = load_skill(skill_id)
                 self.assertIn("AutoHedge-derived", loaded["content"])
                 self.assertFalse(loaded["broker_execution"])
-                self.assertIn(folder, loaded["content"].lower() if folder == "director-coordination" else loaded["content"].lower())
+                self.assertTrue(skill["path"].endswith(f"{folder}/SKILL.md"))
 
         self.assertIn("autohedge-quant-analysis", skills)
         self.assertIn("autohedge-thesis-validation", skills)

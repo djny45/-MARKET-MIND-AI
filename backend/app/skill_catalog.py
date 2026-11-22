@@ -223,7 +223,7 @@ def load_skill(slug: str):
         root = AUTOHEDGE_SKILL_ROOT
         description = AUTOHEDGE_SKILL_DESCRIPTIONS[slug]
         mode = "research_evaluation_only"
-        requires_external_tools = False
+        requires_external_tools = slug == "autohedge-public-token-data"
     elif slug in N8N_SKILL_DESCRIPTIONS:
         root = N8N_SKILL_ROOT
         description = N8N_SKILL_DESCRIPTIONS[slug]

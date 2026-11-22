@@ -8,10 +8,11 @@ from __future__ import annotations
 import csv
 import hashlib
 import io
-import math
+import tempfile
+import contextlib
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
-from typing import BinaryIO, Iterable
+from typing import BinaryIO
 
 
 DEFAULT_MAX_BYTES = 50 * 1024 * 1024
@@ -61,33 +62,30 @@ def _safe_text(value: str | None, field: str, max_length: int = 240) -> str:
     return cleaned
 
 
-def _read_chunks(stream: BinaryIO, max_bytes: int, chunk_size: int = 64 * 1024):
+def _spool_input(stream: BinaryIO, max_bytes: int):
+    """Copy bounded chunks to a spooled temp file while hashing; never buffer the full file."""
     total = 0
     digest = hashlib.sha256()
-    while True:
-        chunk = stream.read(chunk_size)
-        if not chunk:
-            break
-        if not isinstance(chunk, (bytes, bytearray)):
-            raise ValueError("input stream must return bytes")
-        total += len(chunk)
-        if total > max_bytes:
-            raise ValueError(f"trade log exceeds configured {max_bytes}-byte limit")
-        digest.update(chunk)
-        yield bytes(chunk)
-    if total == 0:
-        raise ValueError("trade log is empty")
-
-
-def _decoded_text(chunks: Iterable[bytes]) -> tuple[str, str]:
-    decoder_parts = []
-    for chunk in chunks:
-        decoder_parts.append(chunk)
-    content = b"".join(decoder_parts)
+    spool = tempfile.SpooledTemporaryFile(max_size=1024 * 1024, mode="w+b")
     try:
-        return content.decode("utf-8-sig", errors="strict"), hashlib.sha256(content).hexdigest()
-    except UnicodeDecodeError as exc:
-        raise ValueError("trade log must be valid UTF-8 CSV") from exc
+        while True:
+            chunk = stream.read(64 * 1024)
+            if not chunk:
+                break
+            if not isinstance(chunk, (bytes, bytearray)):
+                raise ValueError("input stream must return bytes")
+            total += len(chunk)
+            if total > max_bytes:
+                raise ValueError(f"trade log exceeds configured {max_bytes}-byte limit")
+            digest.update(chunk)
+            spool.write(chunk)
+        if total == 0:
+            raise ValueError("trade log is empty")
+        spool.seek(0)
+        return spool, total, digest.hexdigest()
+    except Exception:
+        spool.close()
+        raise
 
 
 def inspect_trade_log(
@@ -98,11 +96,11 @@ def inspect_trade_log(
     max_rows: int = DEFAULT_MAX_ROWS,
     sample_size: int = 5,
 ) -> dict:
-    """Inspect and dry-run a text CSV file using an explicit canonical->source mapping.
+    """Inspect a bounded CSV stream using an explicit canonical->source mapping.
 
-    The parser bounds input size and records a whole-file hash. For this first
-    cut, bytes are decoded as bounded UTF-8 before CSV iteration; production
-    quarantine upload should stream chunks directly to an external file.
+    Input is copied in chunks to a spooled temporary file while hashing. Large
+    inputs spill to disk; CSV rows are then decoded and processed incrementally.
+    No permanent persistence or upload endpoint is provided by this module.
     """
     if not isinstance(column_mapping, dict) or not REQUIRED_MAPPING.issubset(column_mapping):
         raise ValueError("column_mapping must map event_id, event_time, instrument and event_type")
@@ -119,11 +117,12 @@ def inspect_trade_log(
     if max_rows < 1 or max_rows > DEFAULT_MAX_ROWS:
         raise ValueError(f"max_rows must be between 1 and {DEFAULT_MAX_ROWS}")
 
-    chunks = list(_read_chunks(stream, max_bytes))
-    text, content_hash = _decoded_text(chunks)
-    reader = csv.DictReader(io.StringIO(text, newline=""))
-    if not reader.fieldnames:
-        raise ValueError("CSV header row is required")
+    spool, byte_count, content_hash = _spool_input(stream, max_bytes)
+    text_stream = io.TextIOWrapper(spool, encoding="utf-8-sig", errors="strict", newline="")
+    reader = csv.DictReader(text_stream)
+    try:
+        if not reader.fieldnames:
+            raise ValueError("CSV header row is required")
     normalized_headers = [(name or "").strip().casefold() for name in reader.fieldnames]
     if len(normalized_headers) != len(set(normalized_headers)):
         raise ValueError("CSV contains duplicate headers after normalization")
@@ -148,6 +147,9 @@ def inspect_trade_log(
         row = {(key or "").strip().casefold(): value for key, value in raw.items()}
         try:
             event_id = _safe_text(row[column_mapping["event_id"].casefold()], "event_id")
+            if event_id in seen_ids:
+                duplicates += 1
+                continue
             event_time = _timestamp(row[column_mapping["event_time"].casefold()])
             instrument = _safe_text(row[column_mapping["instrument"].casefold()], "instrument", 80).upper()
             event_type = _safe_text(row[column_mapping["event_type"].casefold()], "event_type", 40).upper()
@@ -167,9 +169,6 @@ def inspect_trade_log(
                 raise ValueError("fee must be non-negative")
             if event_type in {"PARTIAL_FILL", "FILL"} and (quantity is None or price is None or side is None):
                 raise ValueError("fill events require side, quantity and price mappings and values")
-            if event_id in seen_ids:
-                duplicates += 1
-                continue
             seen_ids.add(event_id)
             first_time = event_time if first_time is None else min(first_time, event_time)
             last_time = event_time if last_time is None else max(last_time, event_time)
@@ -189,12 +188,17 @@ def inspect_trade_log(
             reason = str(exc)[:160]
             rejection_reasons[reason] = rejection_reasons.get(reason, 0) + 1
 
+    except UnicodeDecodeError as exc:
+        raise ValueError("trade log must be valid UTF-8 CSV") from exc
+    finally:
+        text_stream.close()
+
     if accepted + rejected + duplicates == 0:
         raise ValueError("CSV contains no trade event rows")
     return {
         "status": "dry_run_only",
         "sha256": content_hash,
-        "bytes": sum(len(chunk) for chunk in chunks),
+        "bytes": byte_count,
         "parser_version": "trade-event-csv-v1",
         "mapping": dict(column_mapping),
         "total_rows": accepted + rejected + duplicates,
@@ -211,7 +215,7 @@ def inspect_trade_log(
         "wallet_or_signing_access": False,
         "limitations": [
             "Dry run only; raw file is not persisted or activated.",
-            "The entire bounded file is currently decoded before row parsing; true streaming-to-quarantine is a separate upload layer.",
+            "Input is spooled in bounded chunks; permanent quarantine storage and authenticated upload remain a separate service.",
             "Column semantics must be reviewed against the original archive before accepting a production mapping.",
         ],
     }

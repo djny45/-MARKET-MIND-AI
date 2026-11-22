@@ -1,9 +1,12 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Request
+from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 from .api_auth import ResearchAPIAuthMiddleware
 from .rate_limit import RateLimitMiddleware
 from .env_validation import validate_environment
+from . import user_auth
+from .user_session_middleware import UserSessionAuthMiddleware
 from pydantic import BaseModel, Field
 from typing import Any, Literal
 import hashlib
@@ -99,6 +102,7 @@ app = FastAPI(
 )
 app.add_middleware(ResearchAPIAuthMiddleware)
 app.add_middleware(RateLimitMiddleware)
+app.add_middleware(UserSessionAuthMiddleware)
 # Keep browser origins explicit using a comma-separated allowlist.
 _frontend_origins = [
     origin.strip().rstrip("/")
@@ -406,6 +410,67 @@ class SetupReportRequest(BaseModel):
 def model_integrations():
  """List vendored model metadata without loading weights or enabling inference."""
  return list_model_integrations()
+
+
+def require_user_role(required: str):
+ """FastAPI dependency enforcing a minimum user role when user auth is enabled."""
+ def guard(request: Request):
+  if not user_auth.enabled():
+   return None
+  actor = getattr(request.state, "user", None)
+  if not actor or not user_auth.role_allows(actor["role"], required):
+   raise HTTPException(status_code=403, detail="Insufficient role for this action")
+  return actor
+ return guard
+
+
+@app.post("/api/auth/login")
+async def login(request: Request):
+ """Create a per-user session; raw tokens are returned once and never logged."""
+ if not user_auth.enabled():
+  raise HTTPException(status_code=404, detail="User authentication is not enabled")
+ try:
+  body = await request.json()
+ except Exception as exc:
+  raise HTTPException(status_code=400, detail="Invalid JSON body") from exc
+ if not isinstance(body, dict):
+  raise HTTPException(status_code=400, detail="Invalid login body")
+ identity = user_auth.authenticate(str(body.get("username", "")), str(body.get("password", "")))
+ if identity is None:
+  raise HTTPException(status_code=401, detail="Invalid credentials")
+ session = user_auth.create_user_session(identity)
+ response = JSONResponse({
+  "username": identity["username"],
+  "role": identity["role"],
+  "csrf_token": session["csrf_token"],
+  "absolute_expires_at": session["absolute_expires_at"],
+ })
+ secure = os.getenv("MARKET_MIND_SECURE_COOKIES", "false").strip().lower() in {"1", "true", "yes", "on"}
+ response.set_cookie(user_auth.SESSION_COOKIE, session["session_token"], httponly=True, samesite="strict", secure=secure, path="/")
+ response.set_cookie(user_auth.CSRF_COOKIE, session["csrf_token"], httponly=False, samesite="strict", secure=secure, path="/")
+ return response
+
+
+@app.post("/api/auth/logout")
+async def logout(request: Request):
+ """Revoke the current session and clear its cookies."""
+ if not user_auth.enabled():
+  raise HTTPException(status_code=404, detail="User authentication is not enabled")
+ token = request.cookies.get(user_auth.SESSION_COOKIE, "")
+ user_auth.revoke_user_session(token)
+ response = JSONResponse({"status": "logged_out"})
+ response.delete_cookie(user_auth.SESSION_COOKIE, path="/")
+ response.delete_cookie(user_auth.CSRF_COOKIE, path="/")
+ return response
+
+
+@app.get("/api/auth/me")
+def current_user(request: Request):
+ """Describe the authenticated user, or report that user auth is disabled."""
+ if not user_auth.enabled():
+  return {"enabled": False, "user": None}
+ actor = getattr(request.state, "user", None)
+ return {"enabled": True, "user": actor}
 
 
 @app.get("/api/health")
@@ -770,7 +835,7 @@ def get_worker_learning_candidates(worker_id: str, limit: int = 50):
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 @app.post("/api/workers/{worker_id}/memory/{memory_id}/review")
-def review_worker_learning_candidate(worker_id: str, memory_id: str, request: WorkerMemoryCandidateReviewRequest):
+def review_worker_learning_candidate(worker_id: str, memory_id: str, request: WorkerMemoryCandidateReviewRequest, authorization: Any = Depends(require_user_role("operator"))):
  """Append an operator review event for a metrics-only research learning candidate.
 
  This labels a candidate for human/operator workflow only; it does not train a model,

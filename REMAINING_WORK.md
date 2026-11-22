@@ -3,14 +3,15 @@
 This file records work that is **not** complete, with evidence. Nothing here is
 claimed as delivered.
 
-## 1. Authentication and authorization — PARTIAL
-Evidence: `backend/app/api_auth.py` provides an **optional deployment-wide**
-bearer token (`API_AUTH_REQUIRED`, `API_AUTH_TOKEN`, 32+ chars). `main.py:98`
-registers it. `main.py:917` states reviewer identity is self-reported in the
-prototype. There is no per-user identity, role model, or per-resource
-authorization.
-Impact: public deployment remains blocked (already stated in README and
-PROJECT_STATUS.md).
+## 1. Authentication and authorization — IMPLEMENTED (opt-in)
+Evidence: `backend/app/user_auth.py` and `user_session_middleware.py` provide
+per-user sessions with scrypt password verification, HttpOnly session cookies,
+hashed CSRF tokens, idle/absolute expiry, four roles, and login/logout/me
+endpoints. The memory-review endpoint requires the `operator` role. 14 tests.
+The deployment-wide bearer token in `api_auth.py` remains as an additional
+layer. Limitation: per-resource authorization is coarse (role hierarchy), not a
+full policy engine; auth is disabled by default and must be configured by the
+operator. TLS ingress is still required before public exposure.
 
 ## 2. Rate limiting — BASIC IMPLEMENTATION
 Evidence: `backend/app/rate_limit.py` provides an in-process, per-client-IP

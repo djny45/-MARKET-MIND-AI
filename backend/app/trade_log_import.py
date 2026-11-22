@@ -123,71 +123,71 @@ def inspect_trade_log(
     try:
         if not reader.fieldnames:
             raise ValueError("CSV header row is required")
-    normalized_headers = [(name or "").strip().casefold() for name in reader.fieldnames]
-    if len(normalized_headers) != len(set(normalized_headers)):
-        raise ValueError("CSV contains duplicate headers after normalization")
-    normalized_to_original = dict(zip(normalized_headers, reader.fieldnames))
-    absent = [v for v in source_names if v.casefold() not in normalized_to_original]
-    if absent:
-        raise ValueError("mapped source columns missing from CSV: " + ", ".join(absent))
-
-    seen_ids: set[str] = set()
-    first_time = last_time = None
-    instruments: dict[str, int] = {}
-    accepted = rejected = duplicates = 0
-    samples: list[dict] = []
-    rejection_reasons: dict[str, int] = {}
-    for row_number, raw in enumerate(reader, start=2):
-        if row_number - 1 > max_rows:
-            raise ValueError(f"trade log exceeds {max_rows} data rows")
-        if None in raw or any(v is None for v in raw.values()):
-            rejected += 1
-            rejection_reasons["column_count_mismatch"] = rejection_reasons.get("column_count_mismatch", 0) + 1
-            continue
-        row = {(key or "").strip().casefold(): value for key, value in raw.items()}
-        try:
-            event_id = _safe_text(row[column_mapping["event_id"].casefold()], "event_id")
-            if event_id in seen_ids:
-                duplicates += 1
+        normalized_headers = [(name or "").strip().casefold() for name in reader.fieldnames]
+        if len(normalized_headers) != len(set(normalized_headers)):
+            raise ValueError("CSV contains duplicate headers after normalization")
+        normalized_to_original = dict(zip(normalized_headers, reader.fieldnames))
+        absent = [v for v in source_names if v.casefold() not in normalized_to_original]
+        if absent:
+            raise ValueError("mapped source columns missing from CSV: " + ", ".join(absent))
+    
+        seen_ids: set[str] = set()
+        first_time = last_time = None
+        instruments: dict[str, int] = {}
+        accepted = rejected = duplicates = 0
+        samples: list[dict] = []
+        rejection_reasons: dict[str, int] = {}
+        for row_number, raw in enumerate(reader, start=2):
+            if row_number - 1 > max_rows:
+                raise ValueError(f"trade log exceeds {max_rows} data rows")
+            if None in raw or any(v is None for v in raw.values()):
+                rejected += 1
+                rejection_reasons["column_count_mismatch"] = rejection_reasons.get("column_count_mismatch", 0) + 1
                 continue
-            event_time = _timestamp(row[column_mapping["event_time"].casefold()])
-            instrument = _safe_text(row[column_mapping["instrument"].casefold()], "instrument", 80).upper()
-            event_type = _safe_text(row[column_mapping["event_type"].casefold()], "event_type", 40).upper()
-            if event_type not in ALLOWED_EVENT_TYPES:
-                raise ValueError("unsupported event_type")
-            side = None
-            if "side" in column_mapping:
-                raw_side = row[column_mapping["side"].casefold()].strip().upper()
-                if raw_side:
-                    if raw_side not in ALLOWED_SIDES:
-                        raise ValueError("side must be BUY or SELL")
-                    side = raw_side
-            quantity = _decimal(row.get(column_mapping.get("quantity", "").casefold(), ""), "quantity", positive=True) if "quantity" in column_mapping else None
-            price = _decimal(row.get(column_mapping.get("price", "").casefold(), ""), "price", positive=True) if "price" in column_mapping else None
-            fee = _decimal(row.get(column_mapping.get("fee", "").casefold(), ""), "fee") if "fee" in column_mapping else None
-            if fee is not None and fee < 0:
-                raise ValueError("fee must be non-negative")
-            if event_type in {"PARTIAL_FILL", "FILL"} and (quantity is None or price is None or side is None):
-                raise ValueError("fill events require side, quantity and price mappings and values")
-            seen_ids.add(event_id)
-            first_time = event_time if first_time is None else min(first_time, event_time)
-            last_time = event_time if last_time is None else max(last_time, event_time)
-            instruments[instrument] = instruments.get(instrument, 0) + 1
-            accepted += 1
-            if len(samples) < max(0, sample_size):
-                samples.append({
-                    "event_id": event_id, "event_time": event_time.isoformat(),
-                    "instrument": instrument, "event_type": event_type,
-                    "side": side, "quantity": str(quantity) if quantity is not None else None,
-                    "price": str(price) if price is not None else None,
-                    "fee": str(fee) if fee is not None else None,
-                    "source_row": row_number,
-                })
-        except (KeyError, ValueError) as exc:
-            rejected += 1
-            reason = str(exc)[:160]
-            rejection_reasons[reason] = rejection_reasons.get(reason, 0) + 1
-
+            row = {(key or "").strip().casefold(): value for key, value in raw.items()}
+            try:
+                event_id = _safe_text(row[column_mapping["event_id"].casefold()], "event_id")
+                if event_id in seen_ids:
+                    duplicates += 1
+                    continue
+                event_time = _timestamp(row[column_mapping["event_time"].casefold()])
+                instrument = _safe_text(row[column_mapping["instrument"].casefold()], "instrument", 80).upper()
+                event_type = _safe_text(row[column_mapping["event_type"].casefold()], "event_type", 40).upper()
+                if event_type not in ALLOWED_EVENT_TYPES:
+                    raise ValueError("unsupported event_type")
+                side = None
+                if "side" in column_mapping:
+                    raw_side = row[column_mapping["side"].casefold()].strip().upper()
+                    if raw_side:
+                        if raw_side not in ALLOWED_SIDES:
+                            raise ValueError("side must be BUY or SELL")
+                        side = raw_side
+                quantity = _decimal(row.get(column_mapping.get("quantity", "").casefold(), ""), "quantity", positive=True) if "quantity" in column_mapping else None
+                price = _decimal(row.get(column_mapping.get("price", "").casefold(), ""), "price", positive=True) if "price" in column_mapping else None
+                fee = _decimal(row.get(column_mapping.get("fee", "").casefold(), ""), "fee") if "fee" in column_mapping else None
+                if fee is not None and fee < 0:
+                    raise ValueError("fee must be non-negative")
+                if event_type in {"PARTIAL_FILL", "FILL"} and (quantity is None or price is None or side is None):
+                    raise ValueError("fill events require side, quantity and price mappings and values")
+                seen_ids.add(event_id)
+                first_time = event_time if first_time is None else min(first_time, event_time)
+                last_time = event_time if last_time is None else max(last_time, event_time)
+                instruments[instrument] = instruments.get(instrument, 0) + 1
+                accepted += 1
+                if len(samples) < max(0, sample_size):
+                    samples.append({
+                        "event_id": event_id, "event_time": event_time.isoformat(),
+                        "instrument": instrument, "event_type": event_type,
+                        "side": side, "quantity": str(quantity) if quantity is not None else None,
+                        "price": str(price) if price is not None else None,
+                        "fee": str(fee) if fee is not None else None,
+                        "source_row": row_number,
+                    })
+            except (KeyError, ValueError) as exc:
+                rejected += 1
+                reason = str(exc)[:160]
+                rejection_reasons[reason] = rejection_reasons.get(reason, 0) + 1
+    
     except UnicodeDecodeError as exc:
         raise ValueError("trade log must be valid UTF-8 CSV") from exc
     finally:

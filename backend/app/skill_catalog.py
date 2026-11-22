@@ -13,6 +13,7 @@ QUANT_RESEARCH_SKILL_ROOT = REPO_ROOT / ".agents" / "skills" / "quant-research-e
 QLIB_SKILL_ROOT = REPO_ROOT / ".agents" / "skills" / "qlib-research"
 SOCIAL_RESEARCH_SKILL_ROOT = REPO_ROOT / ".agents" / "skills" / "social-research"
 N8N_SKILL_ROOT = REPO_ROOT / ".agents" / "skills" / "n8n-workflow-check"
+AUTOHEDGE_SKILL_ROOT = REPO_ROOT / ".agents" / "skills" / "autohedge-research"
 
 SKILL_DESCRIPTIONS = {
     "trader-alerts": "Alert interpretation and notification research.",
@@ -52,6 +53,14 @@ QUANT_RESEARCH_SKILL_DESCRIPTIONS = {
 
 QLIB_SKILL_DESCRIPTIONS = {
     "qlib-research": "Qlib-inspired experiment design, chronological evaluation, and reproducible quantitative research; no copied Qlib implementation code.",
+}
+
+AUTOHEDGE_SKILL_DESCRIPTIONS = {
+    "autohedge-director-coordination": "AutoHedge-derived research director coordination and evidence synthesis.",
+    "autohedge-quant-analysis": "AutoHedge-derived quantitative analysis and reproducible time-series research.",
+    "autohedge-sentiment-analysis": "AutoHedge-derived news and public-sentiment research with source-quality checks.",
+    "autohedge-risk-assessment": "AutoHedge-derived market, model, data, and operational risk analysis.",
+    "autohedge-thesis-validation": "AutoHedge-derived independent thesis validation; replaces trade execution.",
 }
 
 N8N_SKILL_DESCRIPTIONS = {
@@ -144,6 +153,18 @@ def list_skills():
         }
         for slug, description in QLIB_SKILL_DESCRIPTIONS.items()
     ]
+    autohedge_research = [
+        {
+            "id": slug,
+            "description": description,
+            "path": f".agents/skills/autohedge-research/{slug.removeprefix('autohedge-')}/SKILL.md",
+            "available": (AUTOHEDGE_SKILL_ROOT / slug.removeprefix("autohedge-") / "SKILL.md").is_file(),
+            "mode": "research_evaluation_only",
+            "requires_external_tools": False,
+            "upstream": "https://github.com/The-Swarm-Corporation/AutoHedge",
+        }
+        for slug, description in AUTOHEDGE_SKILL_DESCRIPTIONS.items()
+    ]
     n8n_automation = [
         {
             "id": slug,
@@ -167,7 +188,7 @@ def list_skills():
         }
         for slug, description in SOCIAL_RESEARCH_SKILL_DESCRIPTIONS.items()
     ]
-    return trading + engineering + ui_design + market_data + stooq_data + quant_research + qlib_research + social_research + n8n_automation + list_pack_skills()
+    return trading + engineering + ui_design + market_data + stooq_data + quant_research + qlib_research + social_research + n8n_automation + autohedge_research + list_pack_skills()
 
 
 def load_skill(slug: str):
@@ -184,6 +205,11 @@ def load_skill(slug: str):
         description = REA_SKILL_DESCRIPTIONS[slug]
         mode = "engineering_research"
         requires_external_tools = True
+    elif slug in AUTOHEDGE_SKILL_DESCRIPTIONS:
+        root = AUTOHEDGE_SKILL_ROOT
+        description = AUTOHEDGE_SKILL_DESCRIPTIONS[slug]
+        mode = "research_evaluation_only"
+        requires_external_tools = False
     elif slug in N8N_SKILL_DESCRIPTIONS:
         root = N8N_SKILL_ROOT
         description = N8N_SKILL_DESCRIPTIONS[slug]

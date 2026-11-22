@@ -61,6 +61,12 @@ curl -fsSL https://nodejs.org/dist/v24.22.3/node-v24.22.3-linux-x64.tar.xz \
   | tar -xJ --strip-components=1 -C ~/.local/node24
 ```
 
+## System libraries
+
+Camoufox fails to launch without GTK3 (`libgtk-3.so.0`). On this conda-based
+host install it with `conda install -y -c conda-forge gtk3`; the setup script
+adds `/opt/conda/lib` to `LD_LIBRARY_PATH` so the browser can find it.
+
 ## Verification performed
 
 The registered adapter was launched through the same config the harnesses use

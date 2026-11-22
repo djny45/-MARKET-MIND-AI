@@ -4,7 +4,8 @@ Last reviewed: 2026-11-22 (fresh inspection of `main`, not older reports)
 
 ## Current state
 
-- Latest pushed commit: `480fa27083888ad4878642756d3f27bf955a1a99` on `main`.
+- Verified code commit: `4abfa3dab9a34a5d7830122fda7440ae31a9b9f4`; latest
+  docs-only commit: `1bab48a69d802372f022f90101a6e9b4b4c4d6e8` on `main`.
 - Product boundary: **research-only market intelligence**. Broker execution,
   wallet private keys, transaction signing, live order routing and market
   making are disabled by design. Health reports `broker_execution: false`.

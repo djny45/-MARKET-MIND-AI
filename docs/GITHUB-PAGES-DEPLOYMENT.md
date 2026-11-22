@@ -1,6 +1,6 @@
 # Vercel-free frontend deployment with GitHub Pages
 
-This workflow publishes the **static React/Vite frontend** using GitHub Actions and GitHub Pages. It does not host FastAPI, SQLite, or any background worker.
+This workflow publishes the **static React frontend** (built with TypeScript and esbuild) using GitHub Actions and GitHub Pages. It does not host FastAPI, SQLite, or any background worker.
 
 ## One-time GitHub setup
 
@@ -10,7 +10,7 @@ This workflow publishes the **static React/Vite frontend** using GitHub Actions 
 
 ## Prepare the backend before deployment
 
-The frontend calls the API URL baked into the Vite build. Before deploying, provide an HTTPS backend URL that is secured for browser access.
+The frontend calls the API URL baked into the production bundle via `VITE_API_URL`. Before deploying, provide an HTTPS backend URL that is secured for browser access.
 
 **Security gate:** the current FastAPI application does not implement user authentication or per-user authorization. Do not expose it to the public internet or connect a public Pages site to an openly accessible instance. Add authentication, authorization, TLS ingress, request limits, and a security review first. Configure the backend's `FRONTEND_ORIGINS` allowlist to include the exact Pages origin; do not use wildcard CORS.
 
@@ -24,7 +24,7 @@ The workflow input is a URL, not a secret. Never place API keys, passwords, or t
 4. Run the workflow and wait for the build and Pages deployment jobs to finish.
 5. Open the published Pages URL shown in the deployment job.
 
-The workflow uses the repository name as Vite's Pages base path. Local Vite development and self-hosted root deployments keep the default `/` base path.
+The workflow sets `VITE_BASE_PATH=/<repository-name>/`. `frontend/scripts/build.mjs` uses it as esbuild's `publicPath` and rewrites asset/page references in the generated HTML, so a project site works at a subpath. Local development and self-hosted root deployments keep the default `/` base path.
 
 ## Local development
 

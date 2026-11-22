@@ -4,13 +4,13 @@ This document describes the implemented task lifecycle and its current execution
 
 ## Lifecycle
 
-- **Queue:** `POST /api/research/route-and-queue` routes a brief to selected worker profiles and queues tasks for process-local background execution.
-- **Explicit dispatch:** `POST /api/analytical-agent-supervisor/dispatch` dispatches a bounded queued-task snapshot. It is process-local, not a durable distributed queue.
+- **Queue:** `POST /api/research/route-and-queue` routes a brief to selected worker profiles and queues tasks in the shared SQLite queue.
+- **Explicit dispatch:** `POST /api/analytical-agent-supervisor/dispatch` dispatches a bounded queued-task snapshot. The queue is durable on a single host; the dedicated `agent-supervisor` Compose service also polls and dispatches it. It is not a distributed broker.
 - **Inspect:** `GET /api/analytical-agent-tasks/{task_id}` returns task state and stored result.
 - **Audit:** `GET /api/analytical-agent-tasks/{task_id}/audit` returns bounded, cursor-paginated lifecycle events.
 - **Cancel:** `POST /api/analytical-agent-tasks/{task_id}/cancel` changes a task from `queued` to `cancelled`. It cannot interrupt a task already claimed as `running`, nor alter completed/failed/cancelled tasks.
 - **Retry:** `POST /api/analytical-agent-tasks/{task_id}/retry` accepts only failed tasks and creates a *new* queued task with the original input. One retry per original task is allowed. It does not automatically dispatch or rerun in place; the new task must be explicitly dispatched.
-- **Recover:** on backend startup, stale `running` tasks are requeued automatically (best-effort) after the recovery grace period. `MARKET_MIND_STARTUP_RECOVERY=false` disables this behavior. `POST /api/analytical-agent-tasks/recover` remains available for manual recovery. Recovery does **not** dispatch tasks; dispatch remains explicit. A task is allowed at most three execution claims; a stale task already at that limit is moved to `failed` with a sanitized `ExecutionAttemptLimit` result instead of being requeued again.
+- **Recover:** on backend startup, stale `running` tasks are requeued automatically (best-effort) after the recovery grace period. `MARKET_MIND_STARTUP_RECOVERY=false` disables this behavior. `POST /api/analytical-agent-tasks/recover` remains available for manual recovery. The supervisor requeues stale tasks at startup and then dispatches them in bounded batches; manual dispatch remains available. A task is allowed at most three execution claims; a stale task already at that limit is moved to `failed` with a sanitized `ExecutionAttemptLimit` result instead of being requeued again.
 
 ## State and safety properties
 
@@ -24,8 +24,8 @@ This document describes the implemented task lifecycle and its current execution
 
 ## Not implemented by this lifecycle
 
-- Distributed/cloud queue or multi-process coordination. Startup recovery is safe only for the documented single-process SQLite deployment; multiple API processes sharing one database can mistakenly treat another process's active task as stale.
-- Scheduled research or cloud workspaces. Stale recovery is bounded to three execution claims per task; manual retry creates a separate fresh task and is capped at one retry per failed original.
+- Distributed/multi-host queue coordination. The durable SQLite queue and supervisor are designed for a single host; multiple hosts sharing one database are not supported.
+- Scheduled cloud research or cloud-hosted workspaces. Stale recovery is bounded to three execution claims per task; manual retry creates a separate fresh task and is capped at one retry per failed original.
 - Live market-data execution as part of the task runner.
 - Broker or exchange order execution.
 - Independent model instances or continuous autonomous training for 550 workers.

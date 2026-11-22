@@ -25,7 +25,7 @@ A non-list catalog is normalized to an empty list for safe reporting and adds `s
 
 The department/domain matrix reports which catalog domains are represented by assigned research skill IDs. It is explicitly labeled `catalog_domain_coverage_only_not_semantic_alignment`. It does not prove that a skill is appropriate for a worker's department or specialty.
 
-The `specialty_skill_alignment` result remains `not_evaluated` until a curated mapping has documented rationale and review evidence. Do not infer semantic fit from a valid ID, a file being present, or a non-zero coverage count.
+The `specialty_skill_alignment` result is reported as `lexical_screen_only`: it compares normalized department/specialty terms against skill metadata and is not a semantic or curated fit assessment. Do not infer semantic fit from a valid ID, a file being present, a lexical overlap score, or a non-zero coverage count.
 
 ## Safety and execution boundary
 

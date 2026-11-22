@@ -50,7 +50,7 @@ The initial engine implements market input, data-quality checks, simple moving a
 
 ## Current limitations
 - Demo values are user-provided sample data, not a live market feed.
-- Provider adapters, authentication, persistent workspaces, real-time streaming, advanced charting, and full worker implementations remain future milestones.
+- Provider adapters, operator authentication, saved workspaces, real-time streaming, advanced charting, and the 550-worker registry are implemented in source; task-level specialist benchmarks and cloud-hosted autonomous agents remain future milestones.
 - No broker connection, order routing, automated trading, or paper-trading functionality is included.
 
 ## Instrument discovery, chart and news workspace
@@ -216,7 +216,7 @@ The WATCHLIST sidebar includes **LOAD MARKET DATA OVERVIEW**, backed by `GET /ap
 
 ## Worker-to-skill alignment diagnostics
 
-`GET /api/analytical-agent-registry` (and the registry evaluation endpoint) includes
+`GET /api/worker-registry` (manifest and evaluation in one endpoint) includes
 `specialty_skill_alignment`. Its current `lexical_screen_only` result compares
 normalized terms from each worker's department/specialty with the metadata for
 its assigned catalog skills. It reports per-worker overlap, matched skill counts,

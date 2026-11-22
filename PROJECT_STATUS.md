@@ -27,7 +27,7 @@ Implemented areas:
 - Health/readiness responses set `paper_trading=false` and `broker_execution=false`.
 - The backend provides no brokerage execution or order routing.
 - `/api/ready` proves local database readiness only; it does not prove market data is available or current.
-- Production deployment is intended to remain private. Optional shared bearer-token API authentication is implemented; individual identity and per-user role authorization are not implemented.
+- Production deployment is intended to remain private. Optional shared bearer-token API authentication is implemented, and per-user sessions (deployment opt-in: scrypt passwords, HttpOnly session cookies, hashed CSRF, idle/absolute expiry, `viewer/analyst/operator/admin` roles, login/logout/me) are implemented and tested; full per-resource authorization, TLS ingress, and independent security review remain outstanding.
 
 ## Latest CI evidence
 
@@ -134,7 +134,11 @@ Implemented in source and covered by focused unit tests:
 Verification status:
 - The latest workflow run [44081788224](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/44081788224) passed frontend, dependency audit, Docker Compose integration and Trivy; backend failed on the test-file syntax issue described above.
 - Commit `7d8e1a34583a4dea5ef944c9f5a2eaa278da956c` fixes the two malformed test lines. A fresh workflow result is still required before marking the backend suite green.
-- A durable single-host SQLite queue with supervisor restart/recovery is implemented; distributed multi-host queueing, per-user identity/authorization, task-level specialist benchmarks, host-specific restore and security acceptance remain outstanding.
+- A durable single-host SQLite queue with supervisor restart/recovery is implemented. Per-user sessions (password auth, CSRF, roles, login/logout/me), opt-in rate limiting, and the licensed-data access gate are implemented and tested.
+- Research-loop engine is complete: drift/regime detection, skill-promotion engine, shadow tracker with ten-cycle demotion, 24-hour shadow rule, and skill-generation/validation cadence are all merged and CI-green (HEAD `6349230`).
+- Trivy CI: `.github/workflows/trivy-fs.yml` is committed locally but not pushed — the OAuth app refuses workflow-file changes without `workflow` scope. Run Trivy locally with `trivy fs --scanners misconfig,secret --severity MEDIUM,HIGH,CRITICAL .` and review any findings.
+- Distributed multi-host queue: design contract implemented (`backend/app/distributed_queue.py`), runtime is not yet implemented.
+- Distributed multi-host queueing, full per-resource authorization, TLS ingress, task-level specialist benchmarks, host-specific restore and security acceptance remain outstanding.
 - The follow-up run's dependency-audit job still fails on four high-severity frontend dependency findings involving picomatch through Vite's fdir/tinyglobby chain. The current GitHub advisory identifies picomatch versions through 4.0.7 as affected and does not list a patched version. Do not silence the audit or force a potentially breaking downgrade; re-evaluate when an upstream fixed release is available.
 
 

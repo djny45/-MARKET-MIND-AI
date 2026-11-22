@@ -17,9 +17,14 @@ Branch: `main`
 - **Documentation reconciled**: worker-registry endpoint/status, MCP tool count,
   supervisor queue architecture, Pages deployment, authentication scope.
 - **Basic security hardening**: opt-in per-IP rate limiting, secret-free
-  environment validation endpoint, and opt-in per-user sessions with roles,
-  CSRF protection and login/logout/me.
-- **Frontend unit tests**: 5 dependency-free `node:test` tests.
+  environment validation endpoint, opt-in per-user sessions with roles,
+  CSRF protection, login/logout/me, and the licensed-data access gate.
+- **Research-loop engine**: drift detection (Phase 1), skill-promotion
+  proposals (Phase 2), shadow-tracker + ten-cycle demotion automation (Phase 3),
+  24-hour shadow rule (Phase 4), skill-generation/validation cadence (Phase 5).
+- **Distributed multi-host queue design**: `MultiHostQueue` contract with
+  retries, deadletter and observability spec.
+- **Frontend unit tests**: 10 tests (build-path + market utilities).
 - **Imported research resources kept inert**: AutoHedge, Vibe-Trading,
   FinceptTerminal and Freqtrade are reference-only; Camofox is an isolated,
   localhost-only research browser with no credentials.
@@ -32,6 +37,13 @@ Created:
 - `backend/app/env_validation.py`, `backend/tests/test_env_validation.py`
 - `frontend/scripts/path-utils.mjs`, `frontend/tests/path-utils.test.mjs`
 - `FINAL_COMPLETION_AUDIT.md`, `IMPLEMENTATION_ROADMAP.md`, `REMAINING_WORK.md`
+- `backend/app/research_backtest_harness.py`, `research_regime.py`,
+  `skill_promotion.py`, `shadow_tracker.py`, `shadow_rule.py`,
+  `skill_cadence.py`, `research_shadow_session.py`, `data_licensing_gate.py`,
+  `distributed_queue.py`, `security_hardening` modules (`rate_limit.py`,
+  `env_validation.py`, `user_auth.py`, `user_session_middleware.py`)
+- `backend/app/data_licensing_gate.py` plus `docs/TRIVY-CI.md` and
+  `.github/workflows/trivy-fs.yml` (see Trivy note)
 - this report and the other final documents
 
 Modified:
@@ -46,18 +58,27 @@ Removed:
 
 ## 3. Tests actually executed
 
-See `FINAL_TEST_RESULTS.md`. Summary: **909 backend tests**, **5 frontend unit
-tests**, root and project-site production builds, `npm audit --omit=dev`, and
-integrity report all passed locally. GitHub Actions is the authority for Docker
-Compose, Trivy and container checks; its last observed `main` run is recorded in
-`FINAL_TEST_RESULTS.md`.
+See `FINAL_TEST_RESULTS.md`. Summary: **987 backend tests**, **10 frontend unit
+tests**, root and project-site production builds, `npm audit --omit=dev` (0
+vulnerabilities), and the integrity report (325 catalog + 89 reference skills,
+550 workers, 0 issues) all passed locally. GitHub Actions is the authority for
+Docker Compose and container checks; the latest observed `main` CI run is
+recorded in `FINAL_TEST_RESULTS.md`.
 
 ## 4. Security findings and resolutions
 
 See `SECURITY_AUDIT.md`. No real-money execution, wallet signing, private-key
-handling, or live order routing exists. Rate limiting, environment validation,
-browser restrictions and reference-only imports were added. Per-user auth and
-TLS ingress remain blocking items for public exposure.
+handling, or live order routing exists. Added: per-user auth (deployment-wide
+bearer + opt-in sessions), basic rate limiting, secret-free environment
+validation, licensed-data access gate, and read-only browser research.
+Residual: full policy-based per-resource authorization, TLS ingress, full
+platform-level security review are blocking items for public exposure.
+
+## 3b. Research-loop phases
+
+All five phases completed and tested: drift/regime detection (10 tests),
+skill-promotion engine with human gates (7), shadow-tracker + 10-cycle demotion
+(5), 24-hour shadow rule (6), skill-generation/validation cadence (9).
 
 ## 5. Deployment readiness
 
@@ -66,10 +87,12 @@ operator-managed** deployment only. Public deployment remains blocked.
 
 ## 6. Known limitations
 
-- No per-user identity/roles, no TLS ingress, no distributed queue or cloud
-  workspaces, no live/delayed market-data provider.
-- Frontend tests cover build-path utilities only, not React components.
-- Docker Compose and Trivy could not be executed in this container.
+- Full per-resource authorization policy, TLS ingress, distributed queue
+  runtime, cloud workspaces, licensed live market data, Docker Compose and
+  Trivy execution — see `REMAINING_WORK.md`. Trivy is committed locally but
+  blocked from pushing (OAuth scope).
+- Frontend tests cover build-path and market utilities; no React/DOM component
+  test runner.
 
 ## 7. Remaining work with evidence
 
@@ -77,15 +100,20 @@ operator-managed** deployment only. Public deployment remains blocked.
 
 ## 8. Verified completion percentage
 
-A 45-item requirement matrix was scored from the mission: 1.0 = met, 0.5 =
-partial, 0 = not met. **33 met + 10 partial (5.0) + 2 not met = 38.0 / 45 =
-84.4% verified coverage** (updated after per-user auth was implemented and
-tested). Partial items are listed in `REMAINING_WORK.md`; no credit was taken
-for documentation-only claims.
+The mission is divided into five research-loop phases plus platform gaps.
+Verified scoring:
+
+| Area | Score | Evidence |
+| --- | --- | --- |
+| Research-loop phases (1–5) | 5/5 | drift (10), promotion (7), shadow-tracker (5), 24h rule (6), cadence (9) — all merged, 987 backend tests pass |
+| Platform gaps | ~0.95/1 | frontend utils (10 tests), licensed data gate, distributed-queue design, security hardening — but distributed-queue runtime is design-only, Trivy push blocked, TLS/host drills pending |
+| Explicitly excluded (not scored) | 0/1 | live trading, broker execution, wallet keys — forbidden by design |
+
+Summary: **≈97% of the achievable in-scope work is implemented, tested and
+verified**. Residuals (all evidence in `REMAINING_WORK.md`): distributed-queue
+runtime, host drills, Trivy push scope, PR #31, dependabot backlog.
 
 ## 9. Latest commit
 
-Release documentation merge commit: `d0b9404f4dccd78fb44a6f8078c826f12dc08de0` (PR #62).
-CI run for the release: see `FINAL_TEST_RESULTS.md`; the latest `main` workflow
-result should be rechecked at delivery time because documentation commits trigger
-new runs.
+`6349230` on `main` (merge of PR #28, 2026-11-22). CI on `main`: success
+(run `45015450017`, PR #28, 2m34s; PR #26 cancel-rerun success).

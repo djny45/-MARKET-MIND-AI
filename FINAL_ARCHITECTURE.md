@@ -2,6 +2,22 @@
 
 This describes what is actually present in the repository, not an aspiration.
 
+## Research-loop engine (appended)
+
+- **Backtest harness** (`research_backtest_harness.py`): deterministic
+  chronological splits, costs/slippage, shadow orders, multiple-testing
+  correction.
+- **Shadow session engine** (`research_shadow_session.py`): log-only orders,
+  audit trail, daily metrics.
+- **Shadow tracker** (`shadow_tracker.py`): daily aggregation, 10-cycle
+  demotion and recovery, human-required proposals.
+- **24h rule** (`shadow_rule.py`): 24h shadow window + minimum evaluation
+  cycles + human-required eligibility.
+- **Skill cadence** (`skill_cadence.py`): generation, validation, security
+  scanning, human-required approvals.
+- **Skill promotion** (`skill_promotion.py`): quality scoring, human gates.
+- **Regime/drift detection** (`research_regime.py`): deterministic regimes.
+
 ## Runtime topology
 
 - **FastAPI backend** (`backend/app/main.py`, 140 routes) — research APIs,

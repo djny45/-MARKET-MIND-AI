@@ -57,14 +57,27 @@ policy, migration rollback, incident procedures, alert delivery and TLS ingress
 as outstanding.
 Impact: deployment readiness is limited to private, operator-managed hosts.
 
-## 8. Stale pull requests — 45 OPEN
-Evidence: `gh pr list --state open` returns 45 PRs, 43 DRAFT. PR #31 conflicts
-with current `main` (stale PROJECT_STATUS wording); PR #19 adds dependabot and
-free-cloud docs and is mergeable. These pre-existing PRs were not merged as part
-of this work because their changes are superseded by current `main` or require
-independent review.
+## 8. Pull request housekeeping — reconciled 2026-11-22
+Evidence: `gh pr list --state open` now returns 35 PRs (29 drafts, 6 non-draft).
+- Merged in this session: #3, #19, #23, #41, #26, #28 (+ the 11 research-loop PRs).
+- Closed as superseded by new work: #2, #29, #30, #34, #36, #43, #44, #46, #47,
+  #48, #49, #66.
+- Remaining open: mostly DRAFTs (29) from older work needing review;
+  #31 (open, docs refresh) was left open because it is independently valuable
+  but conflicts with current `main`; `main` was reset to `origin/main`
+  (`57930e0`) because local `main` had an unmergeable Trivy-workflow commit
+  (`77467d0`).
+- Trivy CI file committed locally (`feat/trivy-fs`); blocked from pushing by the
+  OAuth `workflow` scope.
 
-## 9. Imported execution code — INTENTIONALLY INERT
+## 9. New Trivy CI gap — COMMITTED LOCALLY, BLOCKED FROM PUSH
+Evidence: commit `1827be8` ("ci(security): add Trivy filesystem scan workflow")
+on `feat/trivy-fs`. OAuth app rejects pushes to `.github/workflows/*` without the
+`workflow` scope. Documented in `docs/TRIVY-CI.md`; run Trivy locally with the
+documented commands (`trivy fs --scanners misconfig,secret --severity MEDIUM,HIGH,CRITICAL .`)
+and review any findings.
+
+## 10. Imported execution code — INTENTIONALLY INERT
 Evidence: `third_party/FinceptTerminal/` (AGPL-3.0), `third_party/freqtrade/`
 (GPL-3.0), and AutoHedge signing/order modules are local reference copies; no
 imports, builds, or executions were wired into the application. The Camofox

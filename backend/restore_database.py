@@ -10,9 +10,14 @@ import tempfile
 from pathlib import Path
 
 
+def _readonly_database_uri(path: Path) -> str:
+    """Build a correctly escaped SQLite file URI for read-only access."""
+    return path.resolve().as_uri() + "?mode=ro"
+
+
 def _integrity(path: Path) -> tuple[bool, str]:
     try:
-        with sqlite3.connect(f"file:{path.resolve()}?mode=ro", uri=True) as connection:
+        with sqlite3.connect(_readonly_database_uri(path), uri=True) as connection:
             result = connection.execute("PRAGMA integrity_check").fetchone()
             tables = {
                 row[0] for row in connection.execute(
@@ -49,7 +54,7 @@ def restore_backup(backup: Path, destination: Path, overwrite: bool = False) -> 
             dir=destination.parent, delete=False,
         ) as temporary:
             temporary_path = Path(temporary.name)
-        with sqlite3.connect(f"file:{backup}?mode=ro", uri=True) as source_db:
+        with sqlite3.connect(_readonly_database_uri(backup), uri=True) as source_db:
             with sqlite3.connect(temporary_path) as target_db:
                 source_db.backup(target_db)
         restored_ok, restored_status = _integrity(temporary_path)

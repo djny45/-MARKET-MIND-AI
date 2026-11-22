@@ -2585,7 +2585,7 @@ def market_making_indicative(request: MarketMakingResearchRequest):
    max_data_age_seconds=request.max_age_seconds,
   )
   return calculate_research_quotes(
-   book, config, now=datetime.now(timezone.utc), inventory_units=request.inventory,
+   book, config, now=datetime.now(timezone.utc).timestamp(), inventory_units=request.inventory,
   )
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc

@@ -54,7 +54,7 @@ from .volume_indicators import calculate_volume_indicators
 from .liquidity_indicators import calculate_volume_profile
 from .performance import performance_metrics
 from . import workspace
-from .market_making_research import calculate_market_making_research
+from .autohedge_market_making_research import BookSnapshot, MarketMakingResearchConfig, calculate_research_quotes
 from .research_execution_simulator import SimulationLedger, SimulatedFill, OrderState
 from .market_data import SyntheticFixtureAdapter, MarketDataBatch
 from .yahoo_finance_adapter import YahooFinanceAdapter
@@ -2563,24 +2563,29 @@ def export_worker_staging_audit(worker_id: str, limit: int = 100):
 
 
 class MarketMakingResearchRequest(BaseModel):
- snapshot: dict[str, Any]
- max_age_seconds: int = Field(default=30, ge=1, le=300)
- half_spread_bps: float = Field(default=10, gt=0, le=500)
- inventory: float = Field(default=0, ge=-1000000, le=1000000)
- inventory_skew_bps: float = Field(default=0, ge=0, le=1000)
+ bid: float = Field(gt=0, allow_inf_nan=False)
+ ask: float = Field(gt=0, allow_inf_nan=False)
+ timestamp: float = Field(gt=0, allow_inf_nan=False)
+ max_age_seconds: float = Field(default=30, gt=0, le=300, allow_inf_nan=False)
+ half_spread_bps: float = Field(default=5, gt=0, le=500, allow_inf_nan=False)
+ max_quote_notional: float = Field(default=1000, gt=0, le=1000000, allow_inf_nan=False)
+ inventory: float = Field(default=0, ge=-1000000, le=1000000, allow_inf_nan=False)
+ inventory_skew_bps_per_unit: float = Field(default=0, ge=0, le=1000, allow_inf_nan=False)
 
 
 @app.post("/api/research/market-making/indicative")
 def market_making_indicative(request: MarketMakingResearchRequest):
  """Compute offline indicative research quotes; does not create or submit orders."""
  try:
-  result = calculate_market_making_research(
-   request.snapshot,
-   max_age_seconds=request.max_age_seconds,
+  book = BookSnapshot(bid=request.bid, ask=request.ask, timestamp=request.timestamp)
+  config = MarketMakingResearchConfig(
    half_spread_bps=request.half_spread_bps,
-   inventory=request.inventory,
-   inventory_skew_bps=request.inventory_skew_bps,
+   max_quote_notional=request.max_quote_notional,
+   inventory_skew_bps_per_unit=request.inventory_skew_bps_per_unit,
+   max_data_age_seconds=request.max_age_seconds,
+  )
+  return calculate_research_quotes(
+   book, config, now=datetime.now(timezone.utc), inventory_units=request.inventory,
   )
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
- return result

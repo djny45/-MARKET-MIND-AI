@@ -83,4 +83,7 @@ credit was taken for documentation-only claims.
 
 ## 9. Latest commit
 
-Final commit hash: _pending — filled after the final documentation commit_.
+Release documentation merge commit: `d0b9404f4dccd78fb44a6f8078c826f12dc08de0` (PR #62).
+CI run for the release: see `FINAL_TEST_RESULTS.md`; the latest `main` workflow
+result should be rechecked at delivery time because documentation commits trigger
+new runs.

@@ -14,14 +14,18 @@ class MarketMakingResearchTests(unittest.TestCase):
                 "timestamp": (timestamp or NOW).isoformat()}
 
     def test_calculates_mid_spread_and_inventory_skew(self):
+        baseline = calculate_market_making_research(
+            self.snapshot(), observed_at=NOW, half_spread_bps=10,
+            inventory=0, inventory_skew_bps=5,
+        )
         result = calculate_market_making_research(
             self.snapshot(), observed_at=NOW, half_spread_bps=10,
             inventory=2, inventory_skew_bps=5,
         )
         self.assertEqual(Decimal(result["mid"]), Decimal("100"))
         self.assertEqual(Decimal(result["spread"]), Decimal("2"))
-        self.assertLess(Decimal(result["indicative_bid"]), Decimal("99"))
-        self.assertLess(Decimal(result["indicative_ask"]), Decimal("101"))
+        self.assertLess(Decimal(result["indicative_bid"]), Decimal(baseline["indicative_bid"]))
+        self.assertLess(Decimal(result["indicative_ask"]), Decimal(baseline["indicative_ask"]))
         self.assertEqual(result["mode"], "research_only_indicative")
 
     def test_rejects_crossed_book(self):

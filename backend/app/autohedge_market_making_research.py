@@ -66,10 +66,12 @@ def calculate_research_quotes(
         raise ValueError("inventory_units must be finite")
     mid = (snapshot.bid + snapshot.ask) / 2.0
     skew = float(config.inventory_skew_bps_per_unit) * inventory_units / 10000.0
-    bid_offset = max(0.0, half_spread + skew)
-    ask_offset = max(0.0, half_spread - skew)
-    indicative_bid = mid * (1.0 - bid_offset)
-    indicative_ask = mid * (1.0 + ask_offset)
+    # Shift the quote center with inventory while preserving the configured spread.
+    center = mid * (1.0 - skew)
+    indicative_bid = center * (1.0 - half_spread)
+    indicative_ask = center * (1.0 + half_spread)
+    if not isfinite(indicative_bid) or not isfinite(indicative_ask) or indicative_bid <= 0 or indicative_ask <= indicative_bid:
+        raise ValueError("inventory skew produces invalid indicative quotes")
     return {
         "mode": "research_only_indicative_quotes",
         "mid_price": mid,

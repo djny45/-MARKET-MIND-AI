@@ -175,15 +175,6 @@ def list_skills():
             "upstream": "https://github.com/The-Swarm-Corporation/AutoHedge",
         },
         {
-            "id": "autohedge-market-making-lab",
-            "description": AUTOHEDGE_SKILL_DESCRIPTIONS["autohedge-market-making-lab"],
-            "path": ".agents/skills/autohedge-research/market-making-lab/SKILL.md",
-            "available": (AUTOHEDGE_SKILL_ROOT / "market-making-lab" / "SKILL.md").is_file(),
-            "mode": "research_evaluation_only",
-            "requires_external_tools": False,
-            "upstream": "https://github.com/The-Swarm-Corporation/AutoHedge",
-        },
-        {
             "id": slug,
             "description": description,
             "path": f".agents/skills/autohedge-research/{slug.removeprefix('autohedge-')}/SKILL.md",

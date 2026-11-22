@@ -213,16 +213,44 @@ def retry_failed_research_task(task_id: str) -> dict | None:
         if row["status"] != "failed":
             return {"task_id": task_id, "status": row["status"], "retried": False,
                     "reason": "task_not_failed"}
+        # The retry ledger is the authoritative parent/child relation. Check it
+        # before consulting the audit payload, which may be malformed or incomplete.
+        retry_parent = db.execute(
+            "SELECT original_task_id FROM analytical_agent_task_retries WHERE retry_task_id=?",
+            (task_id,),
+        ).fetchone()
+        if retry_parent is not None:
+            return {
+                "task_id": task_id, "status": "failed", "retried": False,
+                "reason": "retry_limit_reached", "retry_limit": 1,
+                "retry_task_id": None, "retry_lineage_limit": 1,
+            }
         # Do not allow retry-of-retry chains: one retry maximum per task lineage.
         queued_event_rows = db.execute(
             "SELECT detail_json FROM analytical_agent_task_events "
             "WHERE task_id=? AND event_type='task_queued'", (task_id,)
         ).fetchall()
-        is_retry_task = any(
-            isinstance((detail := json.loads(event["detail_json"])), dict)
-            and detail.get("retry_of_task_id")
-            for event in queued_event_rows
-        )
+        is_retry_task = False
+        for event in queued_event_rows:
+            try:
+                detail = json.loads(event["detail_json"])
+            except (TypeError, ValueError):
+                # Retry lineage is a safety boundary: corrupted audit history
+                # must not silently make a retry task eligible for another retry.
+                return {
+                    "task_id": task_id, "status": "failed", "retried": False,
+                    "reason": "retry_history_unavailable",
+                    "retry_task_id": None, "retry_lineage_limit": 1,
+                }
+            if not isinstance(detail, dict):
+                return {
+                    "task_id": task_id, "status": "failed", "retried": False,
+                    "reason": "retry_history_unavailable",
+                    "retry_task_id": None, "retry_lineage_limit": 1,
+                }
+            if detail.get("retry_of_task_id"):
+                is_retry_task = True
+                break
         if is_retry_task:
             return {"task_id": task_id, "status": "failed", "retried": False,
                     "reason": "retry_limit_reached", "retry_limit": 1,
@@ -324,9 +352,11 @@ def execute_queued_research_task(task_id: str) -> bool:
             return False
         _record_event(db, task_id, row["worker_id"], "task_claimed",
                       from_status="queued", to_status="running", occurred_at=now)
-        task_input = json.loads(row["input_json"])
         agent_id = row["worker_id"]
     try:
+        # Decode persisted input inside the guarded execution block. Corrupted
+        # rows must fail safely instead of remaining stuck in the running state.
+        task_input = json.loads(row["input_json"])
         # Build context inside the guarded execution block. A memory/configuration
         # failure must transition the claimed task to failed, not strand it as running.
         brain = brain_config(agent_id)
@@ -590,11 +620,15 @@ def get_research_task(task_id: str) -> dict | None:
         row = db.execute("SELECT * FROM analytical_agent_tasks WHERE task_id=?", (task_id,)).fetchone()
     if row is None:
         return None
+    try:
+        task_input = json.loads(row["input_json"])
+    except (TypeError, ValueError):
+        task_input = {"error": "Stored task input is invalid JSON."}
     return {
         "task_id": row["task_id"], "agent_id": row["worker_id"], "worker_id": row["worker_id"],
         "task_type": row["task_type"], "status": row["status"],
         "execution_attempts": row["execution_attempts"],
-        "input": json.loads(row["input_json"]), "result": json.loads(row["result_json"]),
+        "input": task_input, "result": json.loads(row["result_json"]),
         "brain_context_sha256": row["brain_context_sha256"],
         "created_at": row["created_at"], "updated_at": row["updated_at"],
     }
@@ -613,7 +647,7 @@ def list_research_tasks(agent_id: str, limit: int = 20) -> dict:
 
 def list_recent_task_activity(limit: int = 500) -> dict:
     """Return a bounded cross-agent task activity snapshot for the network UI."""
-    if not isinstance(limit, int) or not 1 <= limit <= 1000:
+    if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 1000:
         raise ValueError("limit must be between 1 and 1000")
     with _connect() as db:
         rows = db.execute(

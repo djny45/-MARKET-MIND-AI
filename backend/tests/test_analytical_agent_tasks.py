@@ -31,6 +31,27 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertEqual(list_research_tasks("worker_001")["total"], 1)
         self.assertEqual(list_research_tasks("worker_002")["total"], 0)
 
+    def test_malformed_persisted_task_input_fails_safely(self):
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, execute_queued_research_task, list_task_audit_events,
+        )
+        import sqlite3
+        queued = enqueue_research_task("worker_032", "malformed persisted payload")
+        with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+            db.execute(
+                "UPDATE analytical_agent_tasks SET input_json=? WHERE task_id=?",
+                ("{malformed-json", queued["task_id"]),
+            )
+        self.assertTrue(execute_queued_research_task(queued["task_id"]))
+        saved = get_research_task(queued["task_id"])
+        self.assertEqual(saved["status"], "failed")
+        self.assertEqual(saved["input"], {"error": "Stored task input is invalid JSON."})
+        self.assertEqual(saved["result"]["error"], "Research task failed safely.")
+        self.assertEqual(saved["result"]["error_type"], "JSONDecodeError")
+        events = list_task_audit_events(queued["task_id"])["events"]
+        self.assertEqual(events[-1]["event_type"], "task_failed")
+        self.assertEqual(events[-1]["to_status"], "failed")
+
     def test_context_preparation_failure_marks_claimed_task_failed(self):
         from app.analytical_agent_tasks import enqueue_research_task, execute_queued_research_task, list_task_audit_events
         queued = enqueue_research_task("worker_031", "context failure should not strand task")
@@ -238,6 +259,11 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
             ["task_submitted", "task_completed"],
         )
         self.assertEqual(snapshot["audit_event_count"], len(snapshot["recent_audit_events"]))
+
+    def test_network_activity_snapshot_rejects_boolean_limit(self):
+        from app.analytical_agent_tasks import list_recent_task_activity
+        with self.assertRaises(ValueError):
+            list_recent_task_activity(limit=True)
 
     def test_task_audit_events_are_bounded_and_unknown_task_is_empty(self):
         from app.analytical_agent_tasks import enqueue_research_task, list_task_audit_events
@@ -453,6 +479,67 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         from app.analytical_agent_tasks import retry_failed_research_task
         with self.assertRaises(ValueError):
             retry_failed_research_task(" ")
+
+
+    def test_retry_lineage_ledger_blocks_retry_when_audit_detail_is_erased(self):
+        import sqlite3
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, execute_queued_research_task,
+            retry_failed_research_task,
+        )
+        original = enqueue_research_task("worker_033", "retry ledger is authoritative")
+        with patch("app.analytical_agent_tasks.synthesize_research", side_effect=RuntimeError("initial failure")):
+            execute_queued_research_task(original["task_id"])
+        first_retry = retry_failed_research_task(original["task_id"])
+        with patch("app.analytical_agent_tasks.synthesize_research", side_effect=RuntimeError("retry failure")):
+            execute_queued_research_task(first_retry["task_id"])
+        with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+            db.execute(
+                "UPDATE analytical_agent_task_events SET detail_json='{}' "
+                "WHERE task_id=? AND event_type='task_queued'",
+                (first_retry["task_id"],),
+            )
+        blocked = retry_failed_research_task(first_retry["task_id"])
+        self.assertFalse(blocked["retried"])
+        self.assertEqual(blocked["reason"], "retry_limit_reached")
+        self.assertIsNone(blocked["retry_task_id"])
+        with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+            self.assertEqual(
+                db.execute(
+                    "SELECT COUNT(*) FROM analytical_agent_task_retries WHERE retry_task_id=?",
+                    (first_retry["task_id"],),
+                ).fetchone()[0],
+                1,
+            )
+
+    def test_retry_fails_closed_when_queued_audit_detail_is_malformed(self):
+        import sqlite3
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, execute_queued_research_task,
+            retry_failed_research_task,
+        )
+        queued = enqueue_research_task("worker_032", "malformed retry audit")
+        with patch("app.analytical_agent_tasks.synthesize_research", side_effect=RuntimeError("provider failure")):
+            execute_queued_research_task(queued["task_id"])
+        with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+            db.execute(
+                "UPDATE analytical_agent_task_events SET detail_json=? "
+                "WHERE task_id=? AND event_type='task_queued'",
+                ("not-json", queued["task_id"]),
+            )
+        blocked = retry_failed_research_task(queued["task_id"])
+        self.assertFalse(blocked["retried"])
+        self.assertEqual(blocked["reason"], "retry_history_unavailable")
+        self.assertIsNone(blocked["retry_task_id"])
+        self.assertEqual(get_research_task(queued["task_id"])["status"], "failed")
+        with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+            self.assertEqual(
+                db.execute(
+                    "SELECT COUNT(*) FROM analytical_agent_task_retries WHERE original_task_id=?",
+                    (queued["task_id"],),
+                ).fetchone()[0],
+                0,
+            )
 
 if __name__ == "__main__":
     unittest.main()

@@ -10,3 +10,8 @@ This directory contains original MARKET-MIND-AI research-only adaptations of rol
 The upstream project includes autonomous trading and transaction-execution functionality. These adaptations intentionally exclude execution instructions, wallet handling, signing, brokerage connectivity, order routing, and live-trading workflows. No upstream historical trade-log CSV files are included.
 
 The MIT licence permits use, modification, distribution, and sublicensing subject to retaining the applicable copyright and permission notice. The upstream licence text is available at the project URL above.
+
+
+## Additional adapted research component
+
+The market-making research lab is an original implementation inspired by the concepts in upstream `experimental/market_making.py`; it does not copy its continuous strategy loop, venue polling, network fallback, or order placement flow. The upstream source licence and copyright notice above also cover attribution for this adaptation.

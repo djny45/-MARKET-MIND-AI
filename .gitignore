@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.log
+
+# Local application state and databases
+data/
+*.sqlite
+*.sqlite3
+*.db
+
+# Node / frontend build artifacts
+node_modules/
+frontend/dist/
+frontend/.vite/
+npm-debug.log*
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/

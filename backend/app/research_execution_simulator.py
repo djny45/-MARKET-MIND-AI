@@ -7,7 +7,6 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from enum import Enum
-from typing import Iterable
 
 
 class OrderState(str, Enum):
@@ -103,7 +102,12 @@ class SimulationLedger:
             raise ValueError("unknown simulated order")
         order = self.orders[order_id]
         target = OrderState(target)
-        when = _aware(timestamp).isoformat()
+        timestamp = _aware(timestamp)
+        if order.events:
+            previous_time = datetime.fromisoformat(order.events[-1]["timestamp"])
+            if timestamp < previous_time:
+                raise ValueError("event timestamp cannot move backwards")
+        when = timestamp.isoformat()
         if target not in ALLOWED_TRANSITIONS.get(order.state, set()):
             raise ValueError(f"invalid transition: {order.state.value} -> {target.value}")
         if target in {OrderState.PARTIALLY_FILLED, OrderState.FILLED}:

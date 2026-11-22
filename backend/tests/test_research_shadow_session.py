@@ -109,6 +109,7 @@ class ShadowSessionEngineTests(unittest.TestCase):
         for order in (
             self._order(symbol=" "),
             {**self._order(), "timestamp": " "},
+            {**self._order(), "side": []},
         ):
             with self.subTest(order=order):
                 with self.assertRaises(ValueError):

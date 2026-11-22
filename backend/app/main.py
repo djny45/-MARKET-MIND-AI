@@ -54,6 +54,8 @@ from .volume_indicators import calculate_volume_indicators
 from .liquidity_indicators import calculate_volume_profile
 from .performance import performance_metrics
 from . import workspace
+from .market_making_research import calculate_market_making_research
+from .research_execution_simulator import SimulationLedger, SimulatedFill, OrderState
 from .market_data import SyntheticFixtureAdapter, MarketDataBatch
 from .yahoo_finance_adapter import YahooFinanceAdapter
 from .market_data_validation import validate_market_data_payload
@@ -2556,3 +2558,29 @@ def export_worker_staging_audit(worker_id: str, limit: int = 100):
   )
  except ValueError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+
+
+class MarketMakingResearchRequest(BaseModel):
+ snapshot: dict[str, Any]
+ max_age_seconds: int = Field(default=30, ge=1, le=300)
+ half_spread_bps: float = Field(default=10, gt=0, le=500)
+ inventory: float = Field(default=0, ge=-1000000, le=1000000)
+ inventory_skew_bps: float = Field(default=0, ge=0, le=1000)
+
+
+@app.post("/api/research/market-making/indicative")
+def market_making_indicative(request: MarketMakingResearchRequest):
+ """Compute offline indicative research quotes; does not create or submit orders."""
+ try:
+  result = calculate_market_making_research(
+   request.snapshot,
+   max_age_seconds=request.max_age_seconds,
+   half_spread_bps=request.half_spread_bps,
+   inventory=request.inventory,
+   inventory_skew_bps=request.inventory_skew_bps,
+  )
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+ return result

@@ -135,6 +135,35 @@ class SkillCatalogTests(unittest.TestCase):
                 self.assertFalse(loaded["broker_execution"])
                 self.assertIn("research", loaded["content"].lower())
 
+    def test_autohedge_v2_required_sections_cannot_be_dropped(self):
+        required_sections = {
+            "autohedge-agent-analysis": (
+                "falsifiable",
+                "data_quality",
+                "multiple-testing",
+                "red_team",
+                "reproducibility",
+            ),
+            "autohedge-market-making-research": (
+                "SHA-256",
+                "chronological",
+                "frictions",
+                "block bootstrap",
+                "run manifest",
+            ),
+            "autohedge-execution-architecture-review": (
+                "Trust boundaries",
+                "Adversaries",
+                "kill switch",
+                "no_keys_accessed",
+            ),
+        }
+        for slug, markers in required_sections.items():
+            with self.subTest(slug=slug):
+                content = load_skill(slug)["content"]
+                for marker in markers:
+                    self.assertIn(marker, content)
+
     def test_300_skill_pack_is_discoverable_and_loads_one_skill_at_a_time(self):
         skills = {skill["id"]: skill for skill in list_skills()}
         self.assertEqual(sum(skill_id.startswith("mm-skill-") for skill_id in skills), 300)

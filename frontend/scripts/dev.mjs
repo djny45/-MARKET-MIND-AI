@@ -18,6 +18,7 @@ const ctx = await context({
   loader: { '.svg': 'file' },
   define: {
     'import.meta.env.VITE_API_URL': JSON.stringify(process.env.VITE_API_URL ?? ''),
+    'import.meta.env.VITE_BASE_PATH': JSON.stringify('/'),
   },
 })
 await ctx.watch()

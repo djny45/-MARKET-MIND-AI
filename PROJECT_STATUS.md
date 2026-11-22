@@ -51,12 +51,12 @@ Implemented areas:
 | Backup and restore | Implemented and CI round-trip verified | Perform a host-specific restore drill and document retention/off-host storage |
 | Public deployment security | Blocked | Add authentication/authorization, TLS ingress, request limits, and independent security review before public exposure |
 | Operations | Partially implemented | Add observability, alerting, load tests, migration rollback, and incident procedures |
-| Durable task execution | Partial | Replace process-local background dispatch with a durable queue and prove restart/recovery semantics |
+| Durable task execution | Implemented on a single host | Validate supervisor restart/recovery on the target Docker host |
 | Agent intelligence | Partial | Add evidence-grounded retrieval/synthesis, isolated task context, benchmarked quality gates, and reviewed learning promotion |
 
 ## Recommended completion sequence
 
-1. Replace process-local task dispatch with durable queueing and validate worker restart/recovery semantics.
+1. Validate the existing single-host durable queue and supervisor restart/recovery semantics on the target Docker host.
 2. Validate persistence and backup/restore on the intended private Docker host, including a recovery drill.
 3. Add host-level observability, alerting, and representative load tests.
 4. Add authentication/authorization and TLS ingress, followed by independent security review, before any public exposure.
@@ -134,7 +134,7 @@ Implemented in source and covered by focused unit tests:
 Verification status:
 - The latest workflow run [44081788224](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/44081788224) passed frontend, dependency audit, Docker Compose integration and Trivy; backend failed on the test-file syntax issue described above.
 - Commit `7d8e1a34583a4dea5ef944c9f5a2eaa278da956c` fixes the two malformed test lines. A fresh workflow result is still required before marking the backend suite green.
-- Durable distributed task queue/restart recovery, per-user identity/authorization, task-level specialist benchmarks, host-specific restore and security acceptance remain outstanding.
+- A durable single-host SQLite queue with supervisor restart/recovery is implemented; distributed multi-host queueing, per-user identity/authorization, task-level specialist benchmarks, host-specific restore and security acceptance remain outstanding.
 - The follow-up run's dependency-audit job still fails on four high-severity frontend dependency findings involving picomatch through Vite's fdir/tinyglobby chain. The current GitHub advisory identifies picomatch versions through 4.0.7 as affected and does not list a patched version. Do not silence the audit or force a potentially breaking downgrade; re-evaluate when an upstream fixed release is available.
 
 

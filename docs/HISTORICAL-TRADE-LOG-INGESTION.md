@@ -28,3 +28,36 @@ A trade log may contain order lifecycle events, fills, fees and balances rather 
 ## Input still required
 
 The approximately 37 MB archive has not been supplied in this conversation or verified in the repository. Do not claim ingestion or validation until the actual bytes are received.
+
+
+## First-phase event-log schema and safeguards
+
+A first usable normalized event contract can be defined without binding to a venue-specific CSV layout:
+
+| Field | Type | Required | Meaning |
+|---|---|---:|---|
+| event_id | string | yes | Stable source event identifier; deterministic row fallback only when documented |
+| event_time | ISO-8601 UTC | yes | Event timestamp, normalized to UTC |
+| instrument | string | yes | Market or instrument identifier |
+| event_type | enum | yes | ORDER_CREATED, ACKNOWLEDGED, PARTIAL_FILL, FILL, CANCELLED, REJECTED, EXPIRED, FEE |
+| side | enum/null | conditional | BUY, SELL or null for non-side events |
+| quantity | decimal/null | conditional | Positive event quantity, null when not applicable |
+| price | decimal/null | conditional | Positive event price, null when not applicable |
+| fee | decimal/null | no | Non-negative fee |
+| fee_currency | string/null | no | Fee denomination |
+| order_reference | string/null | no | Source order correlation key |
+| source_row | integer | yes | Original 1-based source row reference |
+
+Importer must preserve the original source row, distinguish missing from malformed fields, and record all rejected-row reasons. Do not assume that the user's archive uses this contract: first inspect file name, format, encoding, headers and a redacted sample. Never commit the archive itself.
+
+## Import sequencing
+
+1. Verify the received archive's SHA-256 and byte size; retain source bytes unchanged in quarantine.
+2. Detect format and encoding; reject unsupported/binary content rather than guessing.
+3. Inspect headers and a small redacted sample, then map source columns explicitly.
+4. Parse incrementally with strict file and row limits, decimal-safe numeric parsing and UTC timestamp validation.
+5. Produce a dry-run manifest with accepted/rejected counts, duplicates, timestamp range and reason codes.
+6. Only after manifest review, persist as a separate immutable event dataset in a transaction.
+7. Re-import of identical bytes + schema mapping must be idempotent; changed mapping version must create a distinct import version.
+8. Keep event data separate from OHLCV bars; no event row may be silently converted into a candle.
+

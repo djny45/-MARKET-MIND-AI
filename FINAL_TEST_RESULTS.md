@@ -38,7 +38,8 @@ final integration of all workstreams. Nothing is inferred from older reports.
 | 19 | Trivy in GitHub Actions | `.github/workflows/quality.yml` Trivy job | **PASS on prior `main` runs; not updated with misconfig/MEDIUM scope — see BLOCKED** |
 | 20 | Docker Compose config / container build | `docker compose config`, `docker build` | **BLOCKED — `docker` binary absent in this container; CI is authoritative** |
 | 21 | Host-level cron/systemd install, real S3 target, process-kill drill | operator host actions | **NOT RUN — no host/init access or credentials** |
-| 22 | CI run after first push | [run 45057550963](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45057550963) | Backend, Frontend, Docker Compose and Trivy **PASS**; Dependency audit **FAIL** — Vitest 2.1.9 dev-dependency advisories (`tinypool` critical). Not a bypass: Vitest upgraded to 5.1.1 + Vite 6.4.6 + `@types/node` 22, local `npm audit --audit-level=high` now clean; re-push CI link in `FINAL_COMPLETION_REPORT.md`. |
+| 22 | CI run after first push | [run 45057550963](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45057550963) | Backend, Frontend, Docker Compose and Trivy **PASS**; Dependency audit **FAIL** — Vitest 2.1.9 dev-dependency advisories (`tinypool` critical). Fixed by upgrading Vitest 5.1.1 + Vite 6.4.6 + `@types/node` 22, not by weakening the audit gate. |
+| 23 | **CI run after final push** (`4abfa3da`) | [run 45057999583](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45057999583) | **PASS — all five jobs**: Backend, Frontend, Dependency audit, Trivy filesystem scan, Docker Compose integration. |
 
 ## Honest notes
 

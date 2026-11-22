@@ -49,7 +49,7 @@ Last reviewed: 2026-11-22 (fresh inspection of `main`, not older reports)
 | Trivy `fs --scanners vuln,misconfig,secret --severity MEDIUM,HIGH,CRITICAL` | PASS — 0 findings |
 | Backup/restore, retention, rollback, restart drills | PASS — local evidence |
 | Docker Compose config/build | BLOCKED locally (docker absent); CI authoritative |
-| CI for final push | [run 45057550963](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45057550963) |
+| CI for final push | [run 45057999583](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45057999583) — PASS, all 5 jobs |
 
 Full commands and evidence: `FINAL_TEST_RESULTS.md`.
 

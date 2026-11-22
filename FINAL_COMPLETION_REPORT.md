@@ -65,7 +65,10 @@ passed Backend, Frontend, Docker Compose and Trivy, but failed Dependency audit
 on Vitest 2.x dev-dependency advisories. This was fixed by upgrading to Vitest
 5.1.1 / Vite 6.4.6 / `@types/node` 22 (no gate bypass; local
 `npm audit --audit-level=high` is clean and all 109 frontend tests pass on
-Node 22). Final re-push run link: see `FINAL_TEST_RESULTS.md`.
+Node 22). **Final re-push run
+[45057999583](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45057999583)
+PASSED all five jobs** (Backend, Frontend, Dependency audit, Trivy, Docker
+Compose). Final commit: `4abfa3dab9a34a5d7830122fda7440ae31a9b9f4`.
 Prior main run
 [45025385096](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45025385096)
 passed before these changes.

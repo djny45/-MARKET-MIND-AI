@@ -4,6 +4,7 @@ import unittest
 from unittest.mock import patch
 
 from fastapi import HTTPException
+from app.analytical_agent_runtime import MAX_CONTEXT_CHARS, brain_config
 from app.main import (
     AgentLearningFeedbackRequest,
     AgentUpdateProposalRequest,
@@ -40,6 +41,23 @@ class AnalyticalAgentRuntimeApiTests(unittest.TestCase):
         self.assertNotEqual(first["brain_context_sha256"], second["brain_context_sha256"])
         self.assertEqual(first["memory_namespace"], "workers/worker_001")
         self.assertFalse(first["independent_model"])
+
+    def test_brain_context_loads_assigned_skills_within_budget(self):
+        brain = brain_config("worker_001")
+        self.assertEqual(brain["loaded_skill_count"], len(brain["skill_refs"]))
+        self.assertIn("autohedge-director-coordination", brain["skill_refs"])
+        self.assertIn("autohedge-quant-analysis", brain["skill_refs"])
+        self.assertIn("ASSIGNED RESEARCH PLAYBOOKS", brain["brain_context"])
+        self.assertIn("AutoHedge-derived", brain["brain_context"])
+        self.assertLessEqual(len(brain["brain_context"]), MAX_CONTEXT_CHARS)
+        self.assertTrue(brain["brain_context_sha256"])
+        self.assertFalse(brain["broker_execution"])
+
+    def test_brain_context_is_isolated_to_worker_skill_assignments(self):
+        first = brain_config("worker_001")
+        another = brain_config("worker_020")
+        self.assertNotEqual(first["skill_refs"], another["skill_refs"])
+        self.assertNotEqual(first["brain_context_sha256"], another["brain_context_sha256"])
 
     def test_unknown_agent_brain_is_rejected(self):
         with self.assertRaises(HTTPException) as error:

@@ -124,7 +124,9 @@ class ShadowSessionEngine:
         self._persist(shadow)
         return shadow
 
-    def list_orders(self, run_id: str) -> list[dict]:
+    def list_orders(self, run_id: str | None = None) -> list[dict]:
+        if run_id is None:
+            return [order.as_record() for order in self._orders]
         return [order.as_record() for order in self._orders if order.run_id == run_id]
 
     def metrics(self, run_id: str) -> dict:

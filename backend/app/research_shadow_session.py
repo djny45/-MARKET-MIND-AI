@@ -95,28 +95,57 @@ class ShadowSessionEngine:
 
     def record_shadow_order(self, order: dict, *, run_id: str) -> ShadowOrder:
         """Record one shadow order and persist it to the append-only audit log."""
-        if self._run_id != run_id:
-            self._run_id = run_id
-            self._next_id = 0
+        if not isinstance(run_id, str) or not run_id.strip():
+            raise ValueError("run_id is required")
+        if not isinstance(order, dict):
+            raise ValueError("shadow order must be an object")
         for field_name in ("symbol", "side", "quantity", "reference_price", "timestamp"):
             if field_name not in order:
                 raise ValueError(f"shadow order missing required field: {field_name}")
-        if order["quantity"] < 0:
-            raise ValueError("shadow order quantity cannot be negative")
+        if not isinstance(order["symbol"], str) or not order["symbol"].strip():
+            raise ValueError("shadow order symbol must be a non-empty string")
+        if not isinstance(order["timestamp"], str) or not order["timestamp"].strip():
+            raise ValueError("shadow order timestamp must be a non-empty string")
         if order["side"] not in {"BUY", "SELL"}:
             raise ValueError("shadow order side must be BUY or SELL")
+
+        def finite_number(name: str, default=None) -> float:
+            value = order[name] if name in order else default
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise ValueError(f"shadow order {name} must be a finite number")
+            converted = float(value)
+            if not math.isfinite(converted):
+                raise ValueError(f"shadow order {name} must be a finite number")
+            return converted
+
+        quantity = finite_number("quantity")
+        reference_price = finite_number("reference_price")
+        notional = finite_number("notional", quantity * reference_price)
+        cost = finite_number("cost", 0.0)
+        expected_pnl = finite_number("expected_pnl", 0.0)
+        if quantity < 0:
+            raise ValueError("shadow order quantity cannot be negative")
+        if reference_price <= 0:
+            raise ValueError("shadow order reference_price must be positive")
+        if notional < 0:
+            raise ValueError("shadow order notional cannot be negative")
+        if cost < 0:
+            raise ValueError("shadow order cost cannot be negative")
+        if self._run_id != run_id:
+            self._run_id = run_id
+            self._next_id = 0
         shadow = ShadowOrder(
             id=self._next_id,
             run_id=run_id,
-            symbol=order["symbol"],
+            symbol=order["symbol"].strip(),
             side=order["side"],
-            quantity=float(order["quantity"]),
-            reference_price=float(order["reference_price"]),
-            notional=float(order.get("notional", order["quantity"] * order["reference_price"])),
-            cost=float(order.get("cost", 0.0)),
-            expected_pnl=float(order.get("expected_pnl", 0.0)),
+            quantity=quantity,
+            reference_price=reference_price,
+            notional=notional,
+            cost=cost,
+            expected_pnl=expected_pnl,
             rationale=str(order.get("rationale", "model-generated hypothesis")),
-            timestamp=str(order["timestamp"]),
+            timestamp=order["timestamp"].strip(),
             order_type=str(order.get("order_type", "model_order")),
         )
         self._orders.append(shadow)

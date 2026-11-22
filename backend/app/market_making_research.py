@@ -1,28 +1,31 @@
-"""Pure market-making research calculations over supplied order-book snapshots."""
+"""Compatibility exports for the canonical AutoHedge-inspired research module.
+
+Keep this path temporarily for older internal imports. All calculations are
+delegated to the canonical implementation so assumptions do not drift.
+"""
 from datetime import datetime, timezone
-from decimal import Decimal, InvalidOperation
+
+from .autohedge_market_making_research import (
+    BookSnapshot,
+    MarketMakingResearchConfig,
+    calculate_research_quotes,
+)
 
 
-def _number(value, label):
-    try:
-        result = Decimal(str(value))
-    except (InvalidOperation, ValueError, TypeError) as exc:
-        raise ValueError(f"{label} must be a finite positive number") from exc
-    if not result.is_finite() or result <= 0:
-        raise ValueError(f"{label} must be a finite positive number")
-    return result
-
-
-def calculate_market_making_research(snapshot, *, observed_at=None, max_age_seconds=30,
-                                     half_spread_bps=10, inventory=0, inventory_skew_bps=0):
-    """Return indicative prices only; never constructs venue/order API requests."""
+def calculate_market_making_research(
+    snapshot,
+    *,
+    observed_at=None,
+    max_age_seconds=30,
+    half_spread_bps=10,
+    inventory=0,
+    inventory_skew_bps=0,
+):
+    """Compatibility adapter; output remains indicative and research-only."""
     if not isinstance(snapshot, dict):
         raise ValueError("snapshot must be a mapping")
-    bid = _number(snapshot.get("best_bid"), "best_bid")
-    ask = _number(snapshot.get("best_ask"), "best_ask")
-    stamp = snapshot.get("timestamp")
     try:
-        timestamp = datetime.fromisoformat(str(stamp).replace("Z", "+00:00"))
+        timestamp = datetime.fromisoformat(str(snapshot.get("timestamp")).replace("Z", "+00:00"))
     except (TypeError, ValueError) as exc:
         raise ValueError("timestamp must be ISO-8601") from exc
     if timestamp.tzinfo is None or timestamp.utcoffset() is None:
@@ -30,39 +33,33 @@ def calculate_market_making_research(snapshot, *, observed_at=None, max_age_seco
     now = observed_at or datetime.now(timezone.utc)
     if now.tzinfo is None or now.utcoffset() is None:
         raise ValueError("observed_at must be timezone-aware")
-    age = (now - timestamp).total_seconds()
-    if age < 0:
-        raise ValueError("future-dated order book is not accepted")
-    if age > max_age_seconds:
-        raise ValueError("stale order book is not accepted")
-    if bid >= ask:
-        raise ValueError("crossed or locked order book is not accepted")
-    spread_bps = (ask - bid) / ((ask + bid) / Decimal("2")) * Decimal("10000")
-    half = _number(half_spread_bps, "half_spread_bps") / Decimal("10000")
-    try:
-        inventory_value = Decimal(str(inventory))
-        skew_bps = Decimal(str(inventory_skew_bps))
-    except (InvalidOperation, ValueError, TypeError) as exc:
-        raise ValueError("inventory inputs must be finite decimals") from exc
-    if not inventory_value.is_finite() or not skew_bps.is_finite() or skew_bps < 0:
-        raise ValueError("inventory inputs must be finite and skew must be non-negative")
-    mid = (bid + ask) / Decimal("2")
-    skew = inventory_value * skew_bps / Decimal("10000")
-    # Positive inventory moves indicative center down; negative inventory moves it up.
-    center = mid * (Decimal("1") - skew)
-    bid_quote = center * (Decimal("1") - half)
-    ask_quote = center * (Decimal("1") + half)
-    if bid_quote <= 0 or ask_quote <= bid_quote:
-        raise ValueError("inventory skew produces invalid indicative quotes")
+    book = BookSnapshot(
+        bid=float(snapshot.get("best_bid")),
+        ask=float(snapshot.get("best_ask")),
+        timestamp=timestamp.timestamp(),
+    )
+    config = MarketMakingResearchConfig(
+        half_spread_bps=float(half_spread_bps),
+        max_data_age_seconds=float(max_age_seconds),
+    )
+    result = calculate_research_quotes(
+        book, config, now=now.timestamp(), inventory_units=float(inventory)
+    )
     return {
         "mode": "research_only_indicative",
         "timestamp": timestamp.isoformat(),
-        "age_seconds": age,
-        "best_bid": str(bid), "best_ask": str(ask),
-        "mid": str(mid), "spread": str(ask - bid),
-        "spread_bps": str(spread_bps),
-        "indicative_bid": str(bid_quote), "indicative_ask": str(ask_quote),
-        "inventory": str(inventory_value), "inventory_skew_bps": str(skew_bps),
-        "limitations": ["No venue connection, order construction, placement, cancellation, wallet, signing or live execution.",
-                        "Does not model queue position, adverse selection, latency, depth or partial fills."]
+        "age_seconds": (now - timestamp).total_seconds(),
+        "best_bid": str(book.bid),
+        "best_ask": str(book.ask),
+        "mid": str(result["mid_price"]),
+        "spread": str(book.ask - book.bid),
+        "spread_bps": str((book.ask - book.bid) / result["mid_price"] * 10000),
+        "indicative_bid": str(result["indicative_bid"]),
+        "indicative_ask": str(result["indicative_ask"]),
+        "inventory": str(inventory),
+        "inventory_skew_bps": str(inventory_skew_bps),
+        "limitations": [
+            "No venue connection, order construction, placement, cancellation, wallet, signing or live execution.",
+            "Does not model queue position, adverse selection, latency, depth or partial fills.",
+        ],
     }

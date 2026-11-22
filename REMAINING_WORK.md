@@ -31,11 +31,12 @@ against a single SQLite volume. `ANALYTICAL-AGENT-TASK-LIFECYCLE.md` now states
 single-host only. There is no broker, scheduler, or cloud workspace.
 Note: expanding this is a deliberate architecture change, not a defect fix.
 
-## 4. Frontend automated tests — NOT IMPLEMENTED
-Evidence: `frontend/package.json` scripts are only `dev` and `build`; no test
-runner or test files exist in `frontend/`.
-Impact: UI regressions are caught only by the production build and CI smoke
-checks.
+## 4. Frontend automated tests — PARTIAL
+Evidence: `frontend/package.json` now has a `test` script using Node's built-in
+`node:test` runner (no new dependency); `frontend/tests/path-utils.test.mjs`
+contains 5 passing tests for base-path normalization and HTML rewriting.
+Limitation: there is no React component/DOM test runner, so UI behaviour beyond
+the build path and CI smoke checks remains untested automatically.
 
 ## 5. Licensed live/delayed market data — NOT CONFIGURED (intentional)
 Evidence: health responses report `paper_trading: false` and

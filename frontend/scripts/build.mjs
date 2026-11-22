@@ -1,11 +1,10 @@
 import { cp, copyFile, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { build } from 'esbuild'
+import { normalizeBasePath, rewriteHtmlRefs } from './path-utils.mjs'
 
 const outdir = 'dist'
-const rawBase = process.env.VITE_BASE_PATH || '/'
-const basePath = rawBase.startsWith('/') ? rawBase : `/${rawBase}`
-const normalizedBase = basePath.endsWith('/') ? basePath : `${basePath}/`
+const normalizedBase = normalizeBasePath(process.env.VITE_BASE_PATH)
 
 await rm(outdir, { recursive: true, force: true })
 await mkdir(outdir, { recursive: true })
@@ -42,8 +41,7 @@ if (normalizedBase !== '/') {
         await rewrite(path)
       } else if (entry.name.endsWith('.html')) {
         const html = await readFile(path, 'utf8')
-        const updated = html.replace(/(href|src)=["']\//g, `$1="${normalizedBase}`)
-        await writeFile(path, updated)
+        await writeFile(path, rewriteHtmlRefs(html, normalizedBase))
       }
     }
   }

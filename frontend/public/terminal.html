@@ -2,7 +2,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Bloomberg Terminal Pro | Global Multi-Asset AI Trading Platform</title>
+<title>MARKET-MIND TERMINAL | Global Multi-Asset Research Terminal</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -18,7 +18,7 @@ tailwind.config = {
         jets: ['JetBrains Mono', 'monospace'],
       },
       colors: {
-        bbg: {
+        mmt: {
           bg: '#05080C',
           panel: '#0E141E',
           card: '#111B2B',
@@ -52,7 +52,7 @@ tailwind.config = {
 canvas { display: block; }
 </style>
 </head>
-<body class="bg-bbg-bg text-slate-200 font-sans antialiased overflow-x-hidden selection:bg-bbg-orange selection:text-white">
+<body class="bg-mmt-bg text-slate-200 font-sans antialiased overflow-x-hidden selection:bg-mmt-orange selection:text-white">
 
 <!-- Backend connection status: API health only; dashboard sample market values remain illustrative. -->
 <div id="mm-api-status" style="position:relative;z-index:60;background:#111827;color:#cbd5e1;border-bottom:1px solid #26364b;padding:7px 14px;font:11px monospace;display:flex;gap:10px;align-items:center">
@@ -61,15 +61,15 @@ canvas { display: block; }
   <span id="mm-api-detail">Checking research API…</span>
 </div>
 
-<!-- TOP BLOOMBERG BAR -->
+<!-- TOP MARKET-MIND BAR -->
 <header class="sticky top-0 z-50 bg-black border-b border-[#1E2E44]">
   <div class="flex items-center h-[48px] px-3 lg:px-4 gap-3">
     <!-- Logo -->
     <div class="flex items-center gap-3 shrink-0">
-      <div class="bg-bbg-orange text-black font-black px-2.5 py-1.5 text-[13px] leading-none tracking-widest">BLOOMBERG</div>
+      <div class="bg-mmt-orange text-black font-black px-2.5 py-1.5 text-[13px] leading-none tracking-widest">MARKET-MIND</div>
       <div class="hidden md:block">
-        <div class="text-white font-bold text-[13px] leading-none tracking-wide">TERMINAL<span class="text-bbg-orange"> PRO</span> <span class="font-mono text-[10px] bg-[#1E2E44] px-1.5 py-0.5 rounded ml-1">v4.8.2</span></div>
-        <div class="text-[10px] text-bbg-muted font-mono tracking-widest">GLOBAL MULTI-ASSET AI // SECURE FEED</div>
+        <div class="text-white font-bold text-[13px] leading-none tracking-wide">TERMINAL <span class="font-mono text-[10px] bg-[#1E2E44] px-1.5 py-0.5 rounded ml-1">v4.8.2</span></div>
+        <div class="text-[10px] text-mmt-muted font-mono tracking-widest">GLOBAL MULTI-ASSET // RESEARCH INTERFACE</div>
       </div>
       <button id="mobileMenuBtn" class="lg:hidden ml-2 p-2 border border-[#1E2E44] rounded">
         <i data-lucide="menu" class="w-4 h-4"></i>
@@ -79,27 +79,27 @@ canvas { display: block; }
     <!-- Market Status Pills -->
     <div class="hidden xl:flex items-center gap-2 ml-6">
       <div class="flex items-center gap-2 bg-[#0E141E] border border-[#1E2E44] rounded-full px-3 py-1.5">
-        <span class="w-2 h-2 bg-bbg-green rounded-full blink"></span>
+        <span class="w-2 h-2 bg-mmt-green rounded-full blink"></span>
         <span class="text-[11px] font-mono font-semibold text-white">NYSE OPEN</span>
-        <span class="text-[11px] font-mono text-bbg-muted">09:41 EST</span>
+        <span class="text-[11px] font-mono text-mmt-muted">09:41 EST</span>
       </div>
       <div class="flex items-center gap-2 bg-[#0E141E] border border-[#1E2E44] rounded-full px-3 py-1.5">
-        <span class="w-2 h-2 bg-bbg-green rounded-full blink"></span>
+        <span class="w-2 h-2 bg-mmt-green rounded-full blink"></span>
         <span class="text-[11px] font-mono font-semibold text-white">NSE OPEN</span>
-        <span class="text-[11px] font-mono text-bbg-muted">19:11 IST</span>
+        <span class="text-[11px] font-mono text-mmt-muted">19:11 IST</span>
       </div>
       <div class="flex items-center gap-2 bg-[#0E141E] border border-[#1E2E44] rounded-full px-3 py-1.5">
-        <span class="w-2 h-2 bg-bbg-amber rounded-full"></span>
+        <span class="w-2 h-2 bg-mmt-amber rounded-full"></span>
         <span class="text-[11px] font-mono font-semibold text-white">CRYPTO 24/7</span>
-        <span class="text-[11px] font-mono text-bbg-green">VOL $89.2B</span>
+        <span class="text-[11px] font-mono text-mmt-green">VOL $89.2B</span>
       </div>
     </div>
 
     <!-- Search -->
     <div class="flex-1 max-w-[420px] mx-3 hidden md:flex">
       <button id="cmdBtn" class="w-full flex items-center gap-3 bg-[#0E141E] border border-[#1E2E44] rounded px-3 py-2 hover:border-[#2a3f5e] transition">
-        <i data-lucide="search" class="w-4 h-4 text-bbg-muted"></i>
-        <span class="text-[12px] font-mono text-bbg-muted flex-1 text-left">Search ticker, agent, function... </span>
+        <i data-lucide="search" class="w-4 h-4 text-mmt-muted"></i>
+        <span class="text-[12px] font-mono text-mmt-muted flex-1 text-left">Search ticker, agent, function... </span>
         <span class="hidden lg:flex items-center gap-1 text-[10px] font-mono bg-black border border-[#1E2E44] px-1.5 py-1 rounded">⌘ K</span>
       </button>
     </div>
@@ -108,24 +108,24 @@ canvas { display: block; }
     <div class="flex items-center gap-2 ml-auto shrink-0">
       <div class="hidden lg:flex items-center gap-3 bg-[#0E141E] border border-[#1E2E44] rounded px-3 py-2">
         <div class="text-right">
-          <div class="text-[10px] font-mono text-bbg-muted leading-none">AI AGENTS LIVE</div>
-          <div class="text-[13px] font-mono font-bold text-bbg-green leading-none flex items-center gap-1"><span class="w-2 h-2 bg-bbg-green rounded-full animate-pulse"></span> 587 / 600</div>
+          <div class="text-[10px] font-mono text-mmt-muted leading-none">AI AGENTS LIVE</div>
+          <div class="text-[13px] font-mono font-bold text-mmt-green leading-none flex items-center gap-1"><span class="w-2 h-2 bg-mmt-green rounded-full animate-pulse"></span> 587 / 600</div>
         </div>
         <div class="w-px h-8 bg-[#1E2E44]"></div>
         <div class="text-right">
-          <div class="text-[10px] font-mono text-bbg-muted leading-none">LATENCY</div>
+          <div class="text-[10px] font-mono text-mmt-muted leading-none">LATENCY</div>
           <div class="text-[13px] font-mono font-bold text-white leading-none">4.2ms</div>
         </div>
       </div>
-      <button class="relative p-2.5 bg-[#0E141E] border border-[#1E2E44] rounded hover:border-bbg-orange transition">
+      <button class="relative p-2.5 bg-[#0E141E] border border-[#1E2E44] rounded hover:border-mmt-orange transition">
         <i data-lucide="bell" class="w-4 h-4"></i>
-        <span class="absolute -top-1 -right-1 bg-bbg-red text-white text-[10px] font-bold px-1 rounded-full">9+</span>
+        <span class="absolute -top-1 -right-1 bg-mmt-red text-white text-[10px] font-bold px-1 rounded-full">9+</span>
       </button>
       <div class="hidden sm:flex items-center gap-2 bg-[#111B2B] border border-[#1E2E44] rounded-full pl-1 pr-3 py-1">
         <img src="https://i.pravatar.cc/100?img=11" class="w-7 h-7 rounded-full border border-[#24344E]">
         <div class="text-left">
           <div class="text-[11px] font-semibold leading-none">Alex Morgan</div>
-          <div class="text-[10px] font-mono text-bbg-amber leading-none">TIER 1 • PRO</div>
+          <div class="text-[10px] font-mono text-mmt-amber leading-none">TIER 1 • PRO</div>
         </div>
       </div>
     </div>
@@ -133,60 +133,60 @@ canvas { display: block; }
 
   <!-- Ticker Strip -->
   <div class="h-[32px] bg-[#0E141E] border-t border-[#1E2E44] flex items-center overflow-hidden relative">
-    <div class="absolute left-0 top-0 bottom-0 bg-bbg-orange text-black font-black text-[10px] tracking-widest px-3 flex items-center z-10">LIVE FEED</div>
+    <div class="absolute left-0 top-0 bottom-0 bg-mmt-orange text-black font-black text-[10px] tracking-widest px-3 flex items-center z-10">LIVE FEED</div>
     <div class="flex-1 overflow-hidden ml-[78px]">
       <div class="ticker-track flex items-center gap-8 whitespace-nowrap will-change-transform" id="tickerTrack">
         <!-- JS fills -->
       </div>
     </div>
     <div class="hidden md:flex items-center gap-2 pr-3 bg-[#0E141E] pl-4 border-l border-[#1E2E44] text-[11px] font-mono shrink-0">
-      <span class="text-bbg-muted">USD/INR</span><span class="text-bbg-green font-semibold">83.42 ▲0.12%</span>
+      <span class="text-mmt-muted">USD/INR</span><span class="text-mmt-green font-semibold">83.42 ▲0.12%</span>
       <span class="w-px h-4 bg-[#1E2E44]"></span>
-      <span class="text-bbg-muted">VIX</span><span class="text-bbg-red font-semibold">14.82 ▼2.1%</span>
+      <span class="text-mmt-muted">VIX</span><span class="text-mmt-red font-semibold">14.82 ▼2.1%</span>
     </div>
   </div>
 </header>
 
 <div class="flex min-h-[calc(100vh-80px)]">
   <!-- SIDEBAR -->
-  <aside id="sidebar" class="fixed lg:sticky top-[80px] lg:top-[80px] left-0 z-40 w-[250px] h-[calc(100vh-80px)] lg:h-[calc(100vh-80px)] bg-bbg-panel border-r border-[#1E2E44] flex flex-col overflow-hidden -translate-x-full lg:translate-x-0 transition-transform duration-300">
+  <aside id="sidebar" class="fixed lg:sticky top-[80px] lg:top-[80px] left-0 z-40 w-[250px] h-[calc(100vh-80px)] lg:h-[calc(100vh-80px)] bg-mmt-panel border-r border-[#1E2E44] flex flex-col overflow-hidden -translate-x-full lg:translate-x-0 transition-transform duration-300">
     <div class="p-3 border-b border-[#1E2E44]">
       <div class="flex items-center justify-between">
-        <span class="text-[10px] font-mono tracking-[0.15em] text-bbg-muted font-semibold">NAVIGATION</span>
+        <span class="text-[10px] font-mono tracking-[0.15em] text-mmt-muted font-semibold">NAVIGATION</span>
         <button id="closeSidebar" class="lg:hidden p-1"><i data-lucide="x" class="w-4 h-4"></i></button>
       </div>
       <nav class="mt-3 space-y-1">
-        <a class="flex items-center gap-3 bg-bbg-orange text-black font-semibold text-[12px] px-3 py-2.5 rounded"><i data-lucide="layout-dashboard" class="w-4 h-4"></i> Dashboard <span class="ml-auto bg-black text-bbg-orange text-[10px] px-1.5 py-0.5 rounded font-mono">⌘1</span></a>
-        <a class="flex items-center gap-3 text-slate-300 hover:bg-[#111B2B] hover:text-white text-[12px] px-3 py-2.5 rounded border border-transparent hover:border-[#1E2E44]"><i data-lucide="bitcoin" class="w-4 h-4 text-bbg-amber"></i> Crypto Market <span class="ml-auto text-[11px] font-mono bg-[#111B2B] border border-[#1E2E44] px-1.5 py-0.5 rounded">24H</span></a>
-        <a class="flex items-center gap-3 text-slate-300 hover:bg-[#111B2B] hover:text-white text-[12px] px-3 py-2.5 rounded"><i data-lucide="trending-up" class="w-4 h-4 text-bbg-cyan"></i> US Equities <span class="ml-auto w-2 h-2 bg-bbg-green rounded-full blink"></span></a>
-        <a class="flex items-center gap-3 text-slate-300 hover:bg-[#111B2B] hover:text-white text-[12px] px-3 py-2.5 rounded"><i data-lucide="banknote" class="w-4 h-4 text-emerald-400"></i> Forex Desk <span class="ml-auto text-[10px] font-mono text-bbg-muted">FX-48</span></a>
-        <a class="flex items-center gap-3 text-slate-300 hover:bg-[#111B2B] hover:text-white text-[12px] px-3 py-2.5 rounded"><i data-lucide="landmark" class="w-4 h-4 text-orange-400"></i> India NSE/BSE <span class="ml-auto bg-bbg-green text-black text-[10px] font-bold px-1.5 rounded">LIVE</span></a>
-        <a class="flex items-center gap-3 text-white bg-[#111B2B] border border-[#1E2E44] text-[12px] px-3 py-2.5 rounded"><i data-lucide="bot" class="w-4 h-4 text-bbg-orange"></i> AI Agents <span class="ml-auto bg-bbg-orange text-black text-[11px] font-mono font-bold px-1.5 rounded">587</span></a>
-        <a class="flex items-center gap-3 text-slate-300 hover:bg-[#111B2B] hover:text-white text-[12px] px-3 py-2.5 rounded"><i data-lucide="alert-triangle" class="w-4 h-4 text-bbg-red"></i> Alerts & Signals</a>
+        <a class="flex items-center gap-3 bg-mmt-orange text-black font-semibold text-[12px] px-3 py-2.5 rounded"><i data-lucide="layout-dashboard" class="w-4 h-4"></i> Dashboard <span class="ml-auto bg-black text-mmt-orange text-[10px] px-1.5 py-0.5 rounded font-mono">⌘1</span></a>
+        <a class="flex items-center gap-3 text-slate-300 hover:bg-[#111B2B] hover:text-white text-[12px] px-3 py-2.5 rounded border border-transparent hover:border-[#1E2E44]"><i data-lucide="bitcoin" class="w-4 h-4 text-mmt-amber"></i> Crypto Market <span class="ml-auto text-[11px] font-mono bg-[#111B2B] border border-[#1E2E44] px-1.5 py-0.5 rounded">24H</span></a>
+        <a class="flex items-center gap-3 text-slate-300 hover:bg-[#111B2B] hover:text-white text-[12px] px-3 py-2.5 rounded"><i data-lucide="trending-up" class="w-4 h-4 text-mmt-cyan"></i> US Equities <span class="ml-auto w-2 h-2 bg-mmt-green rounded-full blink"></span></a>
+        <a class="flex items-center gap-3 text-slate-300 hover:bg-[#111B2B] hover:text-white text-[12px] px-3 py-2.5 rounded"><i data-lucide="banknote" class="w-4 h-4 text-emerald-400"></i> Forex Desk <span class="ml-auto text-[10px] font-mono text-mmt-muted">FX-48</span></a>
+        <a class="flex items-center gap-3 text-slate-300 hover:bg-[#111B2B] hover:text-white text-[12px] px-3 py-2.5 rounded"><i data-lucide="landmark" class="w-4 h-4 text-orange-400"></i> India NSE/BSE <span class="ml-auto bg-mmt-green text-black text-[10px] font-bold px-1.5 rounded">LIVE</span></a>
+        <a class="flex items-center gap-3 text-white bg-[#111B2B] border border-[#1E2E44] text-[12px] px-3 py-2.5 rounded"><i data-lucide="bot" class="w-4 h-4 text-mmt-orange"></i> AI Agents <span class="ml-auto bg-mmt-orange text-black text-[11px] font-mono font-bold px-1.5 rounded">587</span></a>
+        <a class="flex items-center gap-3 text-slate-300 hover:bg-[#111B2B] hover:text-white text-[12px] px-3 py-2.5 rounded"><i data-lucide="alert-triangle" class="w-4 h-4 text-mmt-red"></i> Alerts & Signals</a>
         <a class="flex items-center gap-3 text-slate-300 hover:bg-[#111B2B] hover:text-white text-[12px] px-3 py-2.5 rounded"><i data-lucide="message-square" class="w-4 h-4"></i> Terminal Chat</a>
       </nav>
     </div>
 
     <div class="p-3 border-b border-[#1E2E44] bg-[#0C121C]">
       <div class="flex items-center justify-between">
-        <span class="text-[10px] font-mono tracking-widest text-bbg-muted">WATCHLIST</span>
-        <span class="text-[10px] font-mono text-bbg-orange">EDIT</span>
+        <span class="text-[10px] font-mono tracking-widest text-mmt-muted">WATCHLIST</span>
+        <span class="text-[10px] font-mono text-mmt-orange">EDIT</span>
       </div>
       <div class="mt-3 space-y-2 font-mono text-[11px]" id="watchlist">
         <!-- JS -->
       </div>
-      <button class="w-full mt-3 bg-[#111B2B] border border-[#1E2E44] text-[11px] font-mono py-2 rounded hover:border-bbg-orange transition">+ Add Symbol</button>
+      <button class="w-full mt-3 bg-[#111B2B] border border-[#1E2E44] text-[11px] font-mono py-2 rounded hover:border-mmt-orange transition">+ Add Symbol</button>
     </div>
 
     <div class="mt-auto p-3 bg-black border-t border-[#1E2E44]">
       <div class="flex items-center gap-2 text-[11px] font-mono">
-        <span class="w-2 h-2 bg-bbg-green rounded-full"></span> System Operational
-        <span class="ml-auto text-bbg-muted">Uptime 99.97%</span>
+        <span class="w-2 h-2 bg-mmt-green rounded-full"></span> System Operational
+        <span class="ml-auto text-mmt-muted">Uptime 99.97%</span>
       </div>
       <div class="mt-2 h-1.5 bg-[#1E2E44] rounded-full overflow-hidden flex">
-        <div class="w-[68%] bg-bbg-green"></div><div class="w-[22%] bg-bbg-amber"></div><div class="w-[10%] bg-bbg-red"></div>
+        <div class="w-[68%] bg-mmt-green"></div><div class="w-[22%] bg-mmt-amber"></div><div class="w-[10%] bg-mmt-red"></div>
       </div>
-      <div class="flex justify-between text-[10px] font-mono text-bbg-muted mt-1">
+      <div class="flex justify-between text-[10px] font-mono text-mmt-muted mt-1">
         <span>CPU 68%</span><span>MEM 22%</span><span>NET 10%</span>
       </div>
     </div>
@@ -197,93 +197,93 @@ canvas { display: block; }
     <!-- HERO METRICS -->
     <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 p-3 lg:p-4">
       <!-- Crypto -->
-      <div class="bg-bbg-card border border-[#1E2E44] rounded-lg overflow-hidden relative group hover:border-[#2a4266] transition">
-        <div class="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-bbg-amber to-orange-500"></div>
+      <div class="bg-mmt-card border border-[#1E2E44] rounded-lg overflow-hidden relative group hover:border-[#2a4266] transition">
+        <div class="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-mmt-amber to-orange-500"></div>
         <div class="p-4">
           <div class="flex items-start justify-between">
             <div>
-              <div class="text-[10px] font-mono tracking-[0.15em] text-bbg-muted">CRYPTO MARKET</div>
-              <div class="text-[11px] font-mono text-bbg-amber mt-0.5">BTC • ETH • SOL Dominance</div>
+              <div class="text-[10px] font-mono tracking-[0.15em] text-mmt-muted">CRYPTO MARKET</div>
+              <div class="text-[11px] font-mono text-mmt-amber mt-0.5">BTC • ETH • SOL Dominance</div>
             </div>
-            <div class="bg-[#1A2332] border border-[#24344E] rounded px-2 py-1 text-[10px] font-mono text-bbg-green">▲ 2.84%</div>
+            <div class="bg-[#1A2332] border border-[#24344E] rounded px-2 py-1 text-[10px] font-mono text-mmt-green">▲ 2.84%</div>
           </div>
           <div class="mt-3 flex items-end gap-2">
-            <div class="text-[22px] font-bold tracking-tight">$2.41<span class="text-bbg-muted text-[14px]">T</span></div>
-            <div class="text-[11px] font-mono text-bbg-muted mb-1">Vol $89.2B</div>
+            <div class="text-[22px] font-bold tracking-tight">$2.41<span class="text-mmt-muted text-[14px]">T</span></div>
+            <div class="text-[11px] font-mono text-mmt-muted mb-1">Vol $89.2B</div>
           </div>
           <div class="mt-3 h-[42px] relative">
             <canvas id="sparkCrypto" height="42"></canvas>
           </div>
           <div class="mt-3 flex gap-2 text-[11px] font-mono">
-            <span class="flex-1 bg-[#0E141E] border border-[#1E2E44] rounded px-2 py-1.5 flex justify-between"><span class="text-bbg-muted">BTC</span><span class="text-bbg-green">64.2%</span></span>
-            <span class="flex-1 bg-[#0E141E] border border-[#1E2E44] rounded px-2 py-1.5 flex justify-between"><span class="text-bbg-muted">ETH</span><span class="text-white">18.4%</span></span>
+            <span class="flex-1 bg-[#0E141E] border border-[#1E2E44] rounded px-2 py-1.5 flex justify-between"><span class="text-mmt-muted">BTC</span><span class="text-mmt-green">64.2%</span></span>
+            <span class="flex-1 bg-[#0E141E] border border-[#1E2E44] rounded px-2 py-1.5 flex justify-between"><span class="text-mmt-muted">ETH</span><span class="text-white">18.4%</span></span>
           </div>
         </div>
       </div>
       <!-- US Market -->
-      <div class="bg-bbg-card border border-[#1E2E44] rounded-lg overflow-hidden relative hover:border-[#2a4266] transition">
-        <div class="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-bbg-cyan to-blue-500"></div>
+      <div class="bg-mmt-card border border-[#1E2E44] rounded-lg overflow-hidden relative hover:border-[#2a4266] transition">
+        <div class="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-mmt-cyan to-blue-500"></div>
         <div class="p-4">
           <div class="flex items-start justify-between">
             <div>
-              <div class="text-[10px] font-mono tracking-[0.15em] text-bbg-muted">US EQUITIES</div>
-              <div class="text-[11px] font-mono text-bbg-cyan mt-0.5">S&P 500 • NASDAQ • DOW</div>
+              <div class="text-[10px] font-mono tracking-[0.15em] text-mmt-muted">US EQUITIES</div>
+              <div class="text-[11px] font-mono text-mmt-cyan mt-0.5">S&P 500 • NASDAQ • DOW</div>
             </div>
-            <div class="bg-[#1A2332] border border-[#24344E] rounded px-2 py-1 text-[10px] font-mono text-bbg-green">▲ 0.92%</div>
+            <div class="bg-[#1A2332] border border-[#24344E] rounded px-2 py-1 text-[10px] font-mono text-mmt-green">▲ 0.92%</div>
           </div>
           <div class="mt-3 flex items-end gap-2">
             <div class="text-[22px] font-bold">5,842.18</div>
-            <div class="text-[11px] font-mono text-bbg-green mb-1">S&P +1.21%</div>
+            <div class="text-[11px] font-mono text-mmt-green mb-1">S&P +1.21%</div>
           </div>
           <div class="mt-3 h-[42px]"><canvas id="sparkUS" height="42"></canvas></div>
           <div class="mt-3 grid grid-cols-3 gap-2 text-[11px] font-mono text-center">
-            <div class="bg-[#0E141E] border border-[#1E2E44] rounded py-1.5"><div class="text-bbg-muted text-[10px]">DOW</div><div class="text-bbg-green">+0.64%</div></div>
-            <div class="bg-[#0E141E] border border-[#1E2E44] rounded py-1.5"><div class="text-bbg-muted text-[10px]">NASDAQ</div><div class="text-bbg-green">+1.48%</div></div>
-            <div class="bg-[#0E141E] border border-[#1E2E44] rounded py-1.5"><div class="text-bbg-muted text-[10px]">R2000</div><div class="text-bbg-red">-0.21%</div></div>
+            <div class="bg-[#0E141E] border border-[#1E2E44] rounded py-1.5"><div class="text-mmt-muted text-[10px]">DOW</div><div class="text-mmt-green">+0.64%</div></div>
+            <div class="bg-[#0E141E] border border-[#1E2E44] rounded py-1.5"><div class="text-mmt-muted text-[10px]">NASDAQ</div><div class="text-mmt-green">+1.48%</div></div>
+            <div class="bg-[#0E141E] border border-[#1E2E44] rounded py-1.5"><div class="text-mmt-muted text-[10px]">R2000</div><div class="text-mmt-red">-0.21%</div></div>
           </div>
         </div>
       </div>
       <!-- Forex -->
-      <div class="bg-bbg-card border border-[#1E2E44] rounded-lg overflow-hidden relative hover:border-[#2a4266] transition">
+      <div class="bg-mmt-card border border-[#1E2E44] rounded-lg overflow-hidden relative hover:border-[#2a4266] transition">
         <div class="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-emerald-400 to-teal-500"></div>
         <div class="p-4">
           <div class="flex items-start justify-between">
             <div>
-              <div class="text-[10px] font-mono tracking-[0.15em] text-bbg-muted">FOREX DESK</div>
+              <div class="text-[10px] font-mono tracking-[0.15em] text-mmt-muted">FOREX DESK</div>
               <div class="text-[11px] font-mono text-emerald-400 mt-0.5">G10 • EM • DXY</div>
             </div>
             <div class="bg-[#1A2332] border border-[#24344E] rounded px-2 py-1 text-[10px] font-mono text-white">DXY 104.12</div>
           </div>
           <div class="mt-3 flex items-end gap-2">
-            <div class="text-[22px] font-bold">$7.5<span class="text-bbg-muted text-[14px]">T</span></div>
-            <div class="text-[11px] font-mono text-bbg-muted mb-1">Daily Turnover</div>
+            <div class="text-[22px] font-bold">$7.5<span class="text-mmt-muted text-[14px]">T</span></div>
+            <div class="text-[11px] font-mono text-mmt-muted mb-1">Daily Turnover</div>
           </div>
           <div class="mt-3 h-[42px]"><canvas id="sparkForex" height="42"></canvas></div>
           <div class="mt-3 flex gap-2 text-[11px] font-mono">
             <span class="flex-1 bg-emerald-500/10 border border-emerald-500/20 rounded px-2 py-1.5 flex justify-between text-emerald-400"><span>EUR/USD</span><span>1.0842</span></span>
-            <span class="flex-1 bg-[#0E141E] border border-[#1E2E44] rounded px-2 py-1.5 flex justify-between"><span class="text-bbg-muted">GBP/USD</span><span class="text-white">1.2698</span></span>
+            <span class="flex-1 bg-[#0E141E] border border-[#1E2E44] rounded px-2 py-1.5 flex justify-between"><span class="text-mmt-muted">GBP/USD</span><span class="text-white">1.2698</span></span>
           </div>
         </div>
       </div>
       <!-- India -->
-      <div class="bg-bbg-card border border-[#1E2E44] rounded-lg overflow-hidden relative hover:border-[#2a4266] transition">
+      <div class="bg-mmt-card border border-[#1E2E44] rounded-lg overflow-hidden relative hover:border-[#2a4266] transition">
         <div class="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-orange-500 to-red-500"></div>
         <div class="p-4">
           <div class="flex items-start justify-between">
             <div>
-              <div class="text-[10px] font-mono tracking-[0.15em] text-bbg-muted">INDIA NSE/BSE</div>
+              <div class="text-[10px] font-mono tracking-[0.15em] text-mmt-muted">INDIA NSE/BSE</div>
               <div class="text-[11px] font-mono text-orange-400 mt-0.5">NIFTY 50 • SENSEX</div>
             </div>
-            <div class="bg-[#1A2332] border border-[#24344E] rounded px-2 py-1 text-[10px] font-mono text-bbg-green">▲ 1.14%</div>
+            <div class="bg-[#1A2332] border border-[#24344E] rounded px-2 py-1 text-[10px] font-mono text-mmt-green">▲ 1.14%</div>
           </div>
           <div class="mt-3 flex items-end gap-2">
             <div class="text-[22px] font-bold">24,812.45</div>
-            <div class="text-[11px] font-mono text-bbg-green mb-1">NIFTY +0.89%</div>
+            <div class="text-[11px] font-mono text-mmt-green mb-1">NIFTY +0.89%</div>
           </div>
           <div class="mt-3 h-[42px]"><canvas id="sparkIndia" height="42"></canvas></div>
           <div class="mt-3 flex gap-2 text-[11px] font-mono">
-            <span class="flex-1 bg-[#0E141E] border border-[#1E2E44] rounded px-2 py-1.5 flex justify-between"><span class="text-bbg-muted">SENSEX</span><span class="text-bbg-green">81,455</span></span>
-            <span class="flex-1 bg-[#0E141E] border border-[#1E2E44] rounded px-2 py-1.5 flex justify-between"><span class="text-bbg-muted">VIX</span><span class="text-white">13.42</span></span>
+            <span class="flex-1 bg-[#0E141E] border border-[#1E2E44] rounded px-2 py-1.5 flex justify-between"><span class="text-mmt-muted">SENSEX</span><span class="text-mmt-green">81,455</span></span>
+            <span class="flex-1 bg-[#0E141E] border border-[#1E2E44] rounded px-2 py-1.5 flex justify-between"><span class="text-mmt-muted">VIX</span><span class="text-white">13.42</span></span>
           </div>
         </div>
       </div>
@@ -292,34 +292,34 @@ canvas { display: block; }
     <!-- CHART + ORDERBOOK -->
     <div class="px-3 lg:px-4 grid grid-cols-12 gap-3">
       <!-- Chart -->
-      <div class="col-span-12 xl:col-span-8 bg-bbg-panel border border-[#1E2E44] rounded-lg overflow-hidden">
+      <div class="col-span-12 xl:col-span-8 bg-mmt-panel border border-[#1E2E44] rounded-lg overflow-hidden">
         <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-[#1E2E44] bg-[#0C121C]">
           <div class="flex items-center gap-2">
             <div class="flex bg-black border border-[#1E2E44] rounded-full p-1">
-              <button data-tab="crypto" class="tab-btn bg-bbg-orange text-black font-bold text-[11px] px-4 py-1.5 rounded-full">CRYPTO</button>
-              <button data-tab="us" class="tab-btn text-bbg-muted hover:text-white font-semibold text-[11px] px-4 py-1.5 rounded-full">US MARKET</button>
-              <button data-tab="forex" class="tab-btn text-bbg-muted hover:text-white font-semibold text-[11px] px-4 py-1.5 rounded-full">FOREX</button>
-              <button data-tab="india" class="tab-btn text-bbg-muted hover:text-white font-semibold text-[11px] px-4 py-1.5 rounded-full">INDIA</button>
+              <button data-tab="crypto" class="tab-btn bg-mmt-orange text-black font-bold text-[11px] px-4 py-1.5 rounded-full">CRYPTO</button>
+              <button data-tab="us" class="tab-btn text-mmt-muted hover:text-white font-semibold text-[11px] px-4 py-1.5 rounded-full">US MARKET</button>
+              <button data-tab="forex" class="tab-btn text-mmt-muted hover:text-white font-semibold text-[11px] px-4 py-1.5 rounded-full">FOREX</button>
+              <button data-tab="india" class="tab-btn text-mmt-muted hover:text-white font-semibold text-[11px] px-4 py-1.5 rounded-full">INDIA</button>
             </div>
-            <span class="hidden md:flex items-center gap-1.5 text-[11px] font-mono bg-[#111B2B] border border-[#1E2E44] rounded-full px-3 py-1.5"><span class="w-2 h-2 bg-bbg-green rounded-full"></span> <span id="chartSymbol">BTC/USD</span> <span id="chartPrice" class="text-bbg-green font-bold">$68,242.12</span></span>
+            <span class="hidden md:flex items-center gap-1.5 text-[11px] font-mono bg-[#111B2B] border border-[#1E2E44] rounded-full px-3 py-1.5"><span class="w-2 h-2 bg-mmt-green rounded-full"></span> <span id="chartSymbol">BTC/USD</span> <span id="chartPrice" class="text-mmt-green font-bold">$68,242.12</span></span>
           </div>
           <div class="flex items-center gap-2">
             <div class="flex bg-black border border-[#1E2E44] rounded-full p-1 text-[11px] font-mono">
               <button class="tf-btn bg-white text-black font-bold px-3 py-1 rounded-full" data-tf="1D">1D</button>
-              <button class="tf-btn text-bbg-muted px-3 py-1" data-tf="1W">1W</button>
-              <button class="tf-btn text-bbg-muted px-3 py-1" data-tf="1M">1M</button>
-              <button class="tf-btn text-bbg-muted px-3 py-1" data-tf="1Y">1Y</button>
+              <button class="tf-btn text-mmt-muted px-3 py-1" data-tf="1W">1W</button>
+              <button class="tf-btn text-mmt-muted px-3 py-1" data-tf="1M">1M</button>
+              <button class="tf-btn text-mmt-muted px-3 py-1" data-tf="1Y">1Y</button>
             </div>
-            <button class="p-2 bg-[#111B2B] border border-[#1E2E44] rounded hover:border-bbg-orange"><i data-lucide="maximize-2" class="w-4 h-4"></i></button>
+            <button class="p-2 bg-[#111B2B] border border-[#1E2E44] rounded hover:border-mmt-orange"><i data-lucide="maximize-2" class="w-4 h-4"></i></button>
           </div>
         </div>
         <div class="p-3">
           <div class="flex gap-2 mb-2 flex-wrap text-[11px] font-mono">
             <span class="bg-[#111B2B] border border-[#1E2E44] rounded px-2.5 py-1">O <b class="text-white">68,120.00</b></span>
-            <span class="bg-[#111B2B] border border-[#1E2E44] rounded px-2.5 py-1">H <b class="text-bbg-green">68,890.10</b></span>
-            <span class="bg-[#111B2B] border border-[#1E2E44] rounded px-2.5 py-1">L <b class="text-bbg-red">67,980.40</b></span>
-            <span class="bg-bbg-orange text-black font-bold rounded px-2.5 py-1">C <b id="cPrice">68,242.12</b> +2.34%</span>
-            <span class="ml-auto hidden sm:flex items-center gap-2 bg-black border border-[#1E2E44] rounded px-3 py-1"><span class="w-2 h-2 bg-bbg-cyan rounded-full"></span>EMA 50 / 200 <span class="text-bbg-cyan">Bullish Cross</span></span>
+            <span class="bg-[#111B2B] border border-[#1E2E44] rounded px-2.5 py-1">H <b class="text-mmt-green">68,890.10</b></span>
+            <span class="bg-[#111B2B] border border-[#1E2E44] rounded px-2.5 py-1">L <b class="text-mmt-red">67,980.40</b></span>
+            <span class="bg-mmt-orange text-black font-bold rounded px-2.5 py-1">C <b id="cPrice">68,242.12</b> +2.34%</span>
+            <span class="ml-auto hidden sm:flex items-center gap-2 bg-black border border-[#1E2E44] rounded px-3 py-1"><span class="w-2 h-2 bg-mmt-cyan rounded-full"></span>EMA 50 / 200 <span class="text-mmt-cyan">Bullish Cross</span></span>
           </div>
           <div class="bg-[#070B12] border border-[#1E2E44] rounded-lg p-2 grid-terminal relative">
             <canvas id="mainChart" height="280" class="w-full"></canvas>
@@ -327,10 +327,10 @@ canvas { display: block; }
             <div id="chartTooltip" class="absolute hidden bg-black border border-[#1E2E44] rounded px-2 py-1 text-[11px] font-mono pointer-events-none"></div>
           </div>
           <div class="mt-3 flex flex-wrap gap-2 text-[11px] font-mono">
-            <span class="bg-bbg-green text-black font-bold px-3 py-1.5 rounded">BUY 68,242.10</span>
-            <span class="bg-bbg-red text-white font-bold px-3 py-1.5 rounded">SELL 68,241.90</span>
+            <span class="bg-mmt-green text-black font-bold px-3 py-1.5 rounded">BUY 68,242.10</span>
+            <span class="bg-mmt-red text-white font-bold px-3 py-1.5 rounded">SELL 68,241.90</span>
             <span class="bg-[#111B2B] border border-[#1E2E44] px-3 py-1.5 rounded">Spread 0.2 • Depth 42.1 BTC</span>
-            <span class="ml-auto flex items-center gap-2 bg-[#111B2B] border border-[#1E2E44] rounded px-3 py-1.5"><i data-lucide="activity" class="w-3.5 h-3.5 text-bbg-green"></i> RSI 64.2 • MACD Bullish</span>
+            <span class="ml-auto flex items-center gap-2 bg-[#111B2B] border border-[#1E2E44] rounded px-3 py-1.5"><i data-lucide="activity" class="w-3.5 h-3.5 text-mmt-green"></i> RSI 64.2 • MACD Bullish</span>
           </div>
         </div>
       </div>
@@ -338,19 +338,19 @@ canvas { display: block; }
       <!-- Right Panel: Top Movers & Depth -->
       <div class="col-span-12 xl:col-span-4 space-y-3">
         <!-- Top Movers Tabs -->
-        <div class="bg-bbg-panel border border-[#1E2E44] rounded-lg overflow-hidden">
+        <div class="bg-mmt-panel border border-[#1E2E44] rounded-lg overflow-hidden">
           <div class="flex items-center justify-between px-4 py-3 border-b border-[#1E2E44] bg-[#0C121C]">
-            <h3 class="text-[11px] font-mono tracking-widest font-bold flex items-center gap-2"><span class="w-1 h-4 bg-bbg-orange rounded"></span> TOP MOVERS • LIVE</h3>
+            <h3 class="text-[11px] font-mono tracking-widest font-bold flex items-center gap-2"><span class="w-1 h-4 bg-mmt-orange rounded"></span> TOP MOVERS • LIVE</h3>
             <div class="flex bg-black border border-[#1E2E44] rounded-full p-1 text-[10px] font-mono">
               <button class="mover-tab bg-white text-black font-bold px-3 py-1 rounded-full" data-mover="crypto">Crypto</button>
-              <button class="mover-tab text-bbg-muted px-3 py-1" data-mover="us">US</button>
-              <button class="mover-tab text-bbg-muted px-3 py-1" data-mover="india">India</button>
-              <button class="mover-tab text-bbg-muted px-3 py-1" data-mover="forex">Forex</button>
+              <button class="mover-tab text-mmt-muted px-3 py-1" data-mover="us">US</button>
+              <button class="mover-tab text-mmt-muted px-3 py-1" data-mover="india">India</button>
+              <button class="mover-tab text-mmt-muted px-3 py-1" data-mover="forex">Forex</button>
             </div>
           </div>
           <div class="overflow-auto max-h-[340px]">
             <table class="w-full text-[12px] font-mono">
-              <thead class="sticky top-0 bg-[#0C121C] text-[10px] tracking-widest text-bbg-muted border-b border-[#1E2E44]">
+              <thead class="sticky top-0 bg-[#0C121C] text-[10px] tracking-widest text-mmt-muted border-b border-[#1E2E44]">
                 <tr><th class="text-left px-3 py-2 font-semibold">SYMBOL</th><th class="text-right px-3 py-2">PRICE</th><th class="text-right px-3 py-2">24H%</th><th class="text-right px-3 py-2">VOL</th></tr>
               </thead>
               <tbody id="moversBody" class="divide-y divide-[#1E2E44]/50">
@@ -358,24 +358,24 @@ canvas { display: block; }
             </table>
           </div>
           <div class="px-3 py-2 bg-[#0C121C] border-t border-[#1E2E44] flex items-center justify-between text-[11px] font-mono">
-            <span class="text-bbg-muted">Showing <b class="text-white">8</b> of 240 assets</span>
-            <button class="text-bbg-orange font-semibold hover:underline">View All →</button>
+            <span class="text-mmt-muted">Showing <b class="text-white">8</b> of 240 assets</span>
+            <button class="text-mmt-orange font-semibold hover:underline">View All →</button>
           </div>
         </div>
 
         <!-- Market Depth Mini -->
-        <div class="bg-bbg-panel border border-[#1E2E44] rounded-lg overflow-hidden">
+        <div class="bg-mmt-panel border border-[#1E2E44] rounded-lg overflow-hidden">
           <div class="px-4 py-3 border-b border-[#1E2E44] bg-[#0C121C] flex items-center justify-between">
-            <h3 class="text-[11px] font-mono tracking-widest font-bold flex items-center gap-2"><span class="w-1 h-4 bg-bbg-cyan rounded"></span> ORDER BOOK • BTC/USD</h3>
-            <span class="text-[10px] font-mono bg-bbg-green text-black font-bold px-2 py-0.5 rounded">SPREAD 0.02%</span>
+            <h3 class="text-[11px] font-mono tracking-widest font-bold flex items-center gap-2"><span class="w-1 h-4 bg-mmt-cyan rounded"></span> ORDER BOOK • BTC/USD</h3>
+            <span class="text-[10px] font-mono bg-mmt-green text-black font-bold px-2 py-0.5 rounded">SPREAD 0.02%</span>
           </div>
           <div class="grid grid-cols-2 gap-0 text-[11px] font-mono">
             <div class="border-r border-[#1E2E44] p-3">
-              <div class="text-[10px] tracking-widest text-bbg-green font-bold mb-2">BIDS</div>
+              <div class="text-[10px] tracking-widest text-mmt-green font-bold mb-2">BIDS</div>
               <div id="bids" class="space-y-1"></div>
             </div>
             <div class="p-3">
-              <div class="text-[10px] tracking-widest text-bbg-red font-bold mb-2">ASKS</div>
+              <div class="text-[10px] tracking-widest text-mmt-red font-bold mb-2">ASKS</div>
               <div id="asks" class="space-y-1"></div>
             </div>
           </div>
@@ -384,51 +384,51 @@ canvas { display: block; }
     </div>
 
     <!-- AI AGENTS COMMAND CENTER -->
-    <div class="m-3 lg:m-4 bg-bbg-panel border border-[#1E2E44] rounded-lg overflow-hidden">
+    <div class="m-3 lg:m-4 bg-mmt-panel border border-[#1E2E44] rounded-lg overflow-hidden">
       <div class="px-4 py-4 border-b border-[#1E2E44] bg-gradient-to-r from-[#0C121C] to-[#0E141E] flex flex-wrap gap-4 items-center justify-between">
         <div class="flex items-center gap-4">
-          <div class="w-10 h-10 rounded-lg bg-bbg-orange flex items-center justify-center text-black"><i data-lucide="bot" class="w-6 h-6"></i></div>
+          <div class="w-10 h-10 rounded-lg bg-mmt-orange flex items-center justify-center text-black"><i data-lucide="bot" class="w-6 h-6"></i></div>
           <div>
-            <h2 class="text-[14px] font-bold tracking-wide flex items-center gap-2">AI AGENT COMMAND CENTER <span class="bg-bbg-orange text-black text-[10px] font-mono font-bold px-1.5 py-0.5 rounded">550+ ACTIVE</span></h2>
-            <p class="text-[11px] font-mono text-bbg-muted">Real-time autonomous trading agents • Multi-strategy • Self-learning • Risk-managed</p>
+            <h2 class="text-[14px] font-bold tracking-wide flex items-center gap-2">AI AGENT COMMAND CENTER <span class="bg-mmt-orange text-black text-[10px] font-mono font-bold px-1.5 py-0.5 rounded">550+ ACTIVE</span></h2>
+            <p class="text-[11px] font-mono text-mmt-muted">Real-time autonomous trading agents • Multi-strategy • Self-learning • Risk-managed</p>
           </div>
         </div>
         <div class="flex items-center gap-2">
           <div class="hidden md:flex items-center gap-2 bg-black border border-[#1E2E44] rounded-full px-3 py-2 text-[11px] font-mono">
-            <span class="w-2 h-2 bg-bbg-green rounded-full animate-pulse"></span> 543 Active
-            <span class="w-px h-4 bg-[#1E2E44]"></span> <span class="text-bbg-amber">● 31 Training</span>
-            <span class="w-px h-4 bg-[#1E2E44]"></span> <span class="text-bbg-red">● 13 Offline</span>
+            <span class="w-2 h-2 bg-mmt-green rounded-full animate-pulse"></span> 543 Active
+            <span class="w-px h-4 bg-[#1E2E44]"></span> <span class="text-mmt-amber">● 31 Training</span>
+            <span class="w-px h-4 bg-[#1E2E44]"></span> <span class="text-mmt-red">● 13 Offline</span>
           </div>
-          <button class="bg-bbg-orange text-black font-bold text-[11px] px-4 py-2 rounded-full hover:bg-orange-400 transition">Deploy New Agent +</button>
+          <button class="bg-mmt-orange text-black font-bold text-[11px] px-4 py-2 rounded-full hover:bg-orange-400 transition">Deploy New Agent +</button>
         </div>
       </div>
 
       <!-- Stats Row -->
       <div class="grid grid-cols-2 lg:grid-cols-5 gap-3 p-4 bg-[#070B12] border-b border-[#1E2E44]">
-        <div class="bg-bbg-card border border-[#1E2E44] rounded-lg p-3">
-          <div class="text-[10px] font-mono tracking-widest text-bbg-muted">TOTAL AGENTS</div>
-          <div class="text-[22px] font-bold mt-1">587 <span class="text-[11px] font-mono text-bbg-green">▲ +12 today</span></div>
-          <div class="mt-2 h-1 bg-[#1E2E44] rounded-full overflow-hidden"><div class="h-full w-[92%] bg-bbg-orange"></div></div>
+        <div class="bg-mmt-card border border-[#1E2E44] rounded-lg p-3">
+          <div class="text-[10px] font-mono tracking-widest text-mmt-muted">TOTAL AGENTS</div>
+          <div class="text-[22px] font-bold mt-1">587 <span class="text-[11px] font-mono text-mmt-green">▲ +12 today</span></div>
+          <div class="mt-2 h-1 bg-[#1E2E44] rounded-full overflow-hidden"><div class="h-full w-[92%] bg-mmt-orange"></div></div>
         </div>
-        <div class="bg-bbg-card border border-[#1E2E44] rounded-lg p-3">
-          <div class="text-[10px] font-mono tracking-widest text-bbg-muted">AVG WIN RATE</div>
-          <div class="text-[22px] font-bold mt-1">68.4% <span class="text-[11px] font-mono text-bbg-green">▲ 1.2%</span></div>
-          <div class="mt-2 flex gap-1"><span class="flex-1 h-1 bg-bbg-green rounded"></span><span class="flex-1 h-1 bg-bbg-green rounded"></span><span class="flex-1 h-1 bg-bbg-green/60 rounded"></span><span class="flex-1 h-1 bg-[#1E2E44] rounded"></span></div>
+        <div class="bg-mmt-card border border-[#1E2E44] rounded-lg p-3">
+          <div class="text-[10px] font-mono tracking-widest text-mmt-muted">AVG WIN RATE</div>
+          <div class="text-[22px] font-bold mt-1">68.4% <span class="text-[11px] font-mono text-mmt-green">▲ 1.2%</span></div>
+          <div class="mt-2 flex gap-1"><span class="flex-1 h-1 bg-mmt-green rounded"></span><span class="flex-1 h-1 bg-mmt-green rounded"></span><span class="flex-1 h-1 bg-mmt-green/60 rounded"></span><span class="flex-1 h-1 bg-[#1E2E44] rounded"></span></div>
         </div>
-        <div class="bg-bbg-card border border-[#1E2E44] rounded-lg p-3">
-          <div class="text-[10px] font-mono tracking-widest text-bbg-muted">TOTAL PnL (24H)</div>
-          <div class="text-[22px] font-bold text-bbg-green mt-1">+$412.8K</div>
-          <div class="text-[11px] font-mono text-bbg-muted">Sharpe 2.41 • Max DD 3.2%</div>
+        <div class="bg-mmt-card border border-[#1E2E44] rounded-lg p-3">
+          <div class="text-[10px] font-mono tracking-widest text-mmt-muted">TOTAL PnL (24H)</div>
+          <div class="text-[22px] font-bold text-mmt-green mt-1">+$412.8K</div>
+          <div class="text-[11px] font-mono text-mmt-muted">Sharpe 2.41 • Max DD 3.2%</div>
         </div>
-        <div class="bg-bbg-card border border-[#1E2E44] rounded-lg p-3">
-          <div class="text-[10px] font-mono tracking-widest text-bbg-muted">ORDERS / SEC</div>
-          <div class="text-[22px] font-bold mt-1">1,248 <span class="text-[11px] font-mono text-bbg-cyan">LLM routed</span></div>
-          <div class="text-[11px] font-mono text-bbg-muted">Latency p95 6.1ms</div>
+        <div class="bg-mmt-card border border-[#1E2E44] rounded-lg p-3">
+          <div class="text-[10px] font-mono tracking-widest text-mmt-muted">ORDERS / SEC</div>
+          <div class="text-[22px] font-bold mt-1">1,248 <span class="text-[11px] font-mono text-mmt-cyan">LLM routed</span></div>
+          <div class="text-[11px] font-mono text-mmt-muted">Latency p95 6.1ms</div>
         </div>
-        <div class="bg-bbg-card border border-[#1E2E44] rounded-lg p-3 col-span-2 lg:col-span-1">
-          <div class="text-[10px] font-mono tracking-widest text-bbg-muted">RISK STATUS</div>
-          <div class="text-[13px] font-bold mt-1 flex items-center gap-2"><span class="w-2 h-2 bg-bbg-green rounded-full"></span> ALL SYSTEMS NOMINAL</div>
-          <div class="mt-2 text-[11px] font-mono bg-bbg-green/10 border border-bbg-green/20 text-bbg-green rounded px-2 py-1">Auto-hedge: ACTIVE</div>
+        <div class="bg-mmt-card border border-[#1E2E44] rounded-lg p-3 col-span-2 lg:col-span-1">
+          <div class="text-[10px] font-mono tracking-widest text-mmt-muted">RISK STATUS</div>
+          <div class="text-[13px] font-bold mt-1 flex items-center gap-2"><span class="w-2 h-2 bg-mmt-green rounded-full"></span> ALL SYSTEMS NOMINAL</div>
+          <div class="mt-2 text-[11px] font-mono bg-mmt-green/10 border border-mmt-green/20 text-mmt-green rounded px-2 py-1">Auto-hedge: ACTIVE</div>
         </div>
       </div>
 
@@ -436,8 +436,8 @@ canvas { display: block; }
       <div class="p-4">
         <div class="flex flex-wrap gap-2 items-center justify-between">
           <div class="flex flex-wrap gap-2">
-            <button class="agent-filter bg-bbg-orange text-black font-bold text-[11px] px-4 py-2 rounded-full" data-filter="all">All Agents (587)</button>
-            <button class="agent-filter bg-[#111B2B] border border-[#1E2E44] text-white text-[11px] px-4 py-2 rounded-full hover:border-bbg-orange" data-filter="Arbitrage">Arbitrage (94)</button>
+            <button class="agent-filter bg-mmt-orange text-black font-bold text-[11px] px-4 py-2 rounded-full" data-filter="all">All Agents (587)</button>
+            <button class="agent-filter bg-[#111B2B] border border-[#1E2E44] text-white text-[11px] px-4 py-2 rounded-full hover:border-mmt-orange" data-filter="Arbitrage">Arbitrage (94)</button>
             <button class="agent-filter bg-[#111B2B] border border-[#1E2E44] text-white text-[11px] px-4 py-2 rounded-full" data-filter="Quant">Quant Alpha (128)</button>
             <button class="agent-filter bg-[#111B2B] border border-[#1E2E44] text-white text-[11px] px-4 py-2 rounded-full" data-filter="Sentiment">Sentiment (87)</button>
             <button class="agent-filter bg-[#111B2B] border border-[#1E2E44] text-white text-[11px] px-4 py-2 rounded-full" data-filter="Forex">Forex Scalper (112)</button>
@@ -446,8 +446,8 @@ canvas { display: block; }
           </div>
           <div class="flex items-center gap-2">
             <div class="relative">
-              <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-bbg-muted"></i>
-              <input id="agentSearch" placeholder="Search AG-XXXX, strategy..." class="bg-black border border-[#1E2E44] rounded-full pl-9 pr-4 py-2 text-[12px] font-mono w-[240px] focus:border-bbg-orange outline-none">
+              <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-mmt-muted"></i>
+              <input id="agentSearch" placeholder="Search AG-XXXX, strategy..." class="bg-black border border-[#1E2E44] rounded-full pl-9 pr-4 py-2 text-[12px] font-mono w-[240px] focus:border-mmt-orange outline-none">
             </div>
             <select id="agentSort" class="bg-black border border-[#1E2E44] rounded-full px-3 py-2 text-[11px] font-mono">
               <option>Sort: PnL High → Low</option>
@@ -463,7 +463,7 @@ canvas { display: block; }
         </div>
 
         <div class="mt-4 flex items-center justify-between text-[11px] font-mono">
-          <span class="text-bbg-muted">Displaying <b class="text-white" id="agentCountLabel">24</b> agents • <span class="text-bbg-green">Live updating every 1.2s</span></span>
+          <span class="text-mmt-muted">Displaying <b class="text-white" id="agentCountLabel">24</b> agents • <span class="text-mmt-green">Live updating every 1.2s</span></span>
           <div class="flex items-center gap-2">
             <button id="loadMoreAgents" class="bg-white text-black font-bold px-4 py-2 rounded-full hover:bg-slate-200">Load More (563 remaining)</button>
             <button class="bg-[#111B2B] border border-[#1E2E44] px-4 py-2 rounded-full">Export CSV</button>
@@ -474,7 +474,7 @@ canvas { display: block; }
 
     <!-- FOREX + INDIA SECTOR -->
     <div class="px-3 lg:px-4 grid grid-cols-12 gap-3 pb-4">
-      <div class="col-span-12 lg:col-span-5 bg-bbg-panel border border-[#1E2E44] rounded-lg overflow-hidden">
+      <div class="col-span-12 lg:col-span-5 bg-mmt-panel border border-[#1E2E44] rounded-lg overflow-hidden">
         <div class="px-4 py-3 border-b border-[#1E2E44] bg-[#0C121C] flex items-center justify-between">
           <h3 class="text-[11px] font-mono tracking-widest font-bold flex items-center gap-2"><span class="w-1 h-4 bg-emerald-500 rounded"></span> FOREX HEATMAP • G10 + INR</h3>
           <span class="text-[11px] font-mono bg-black border border-[#1E2E44] rounded-full px-3 py-1">DXY 104.12 ▼0.18%</span>
@@ -483,17 +483,17 @@ canvas { display: block; }
           <!-- JS -->
         </div>
         <div class="px-4 py-3 bg-[#0C121C] border-t border-[#1E2E44] flex gap-2 text-[11px] font-mono">
-          <span class="flex items-center gap-1"><span class="w-3 h-3 bg-bbg-green rounded-sm"></span> Bullish</span>
-          <span class="flex items-center gap-1"><span class="w-3 h-3 bg-bbg-red rounded-sm"></span> Bearish</span>
-          <span class="ml-auto text-bbg-muted">Source: LSEG • ECN Aggregated</span>
+          <span class="flex items-center gap-1"><span class="w-3 h-3 bg-mmt-green rounded-sm"></span> Bullish</span>
+          <span class="flex items-center gap-1"><span class="w-3 h-3 bg-mmt-red rounded-sm"></span> Bearish</span>
+          <span class="ml-auto text-mmt-muted">Source: LSEG • ECN Aggregated</span>
         </div>
       </div>
 
-      <div class="col-span-12 lg:col-span-7 bg-bbg-panel border border-[#1E2E44] rounded-lg overflow-hidden">
+      <div class="col-span-12 lg:col-span-7 bg-mmt-panel border border-[#1E2E44] rounded-lg overflow-hidden">
         <div class="px-4 py-3 border-b border-[#1E2E44] bg-[#0C121C] flex items-center justify-between">
           <h3 class="text-[11px] font-mono tracking-widest font-bold flex items-center gap-2"><span class="w-1 h-4 bg-orange-500 rounded"></span> INDIA SECTOR PERFORMANCE • NSE</h3>
           <div class="flex gap-2 text-[11px] font-mono">
-            <span class="bg-bbg-green text-black font-bold px-3 py-1 rounded-full">NIFTY +0.89%</span>
+            <span class="bg-mmt-green text-black font-bold px-3 py-1 rounded-full">NIFTY +0.89%</span>
             <span class="bg-[#111B2B] border border-[#1E2E44] px-3 py-1 rounded-full">Bank Nifty +1.21%</span>
           </div>
         </div>
@@ -503,7 +503,7 @@ canvas { display: block; }
           </div>
           <div class="mt-4 overflow-auto">
             <table class="w-full text-[12px] font-mono">
-              <thead class="text-[10px] tracking-widest text-bbg-muted border-b border-[#1E2E44]">
+              <thead class="text-[10px] tracking-widest text-mmt-muted border-b border-[#1E2E44]">
                 <tr><th class="text-left py-2">TOP INDIA MOVERS</th><th class="text-right">PRICE (₹)</th><th class="text-right">CHG%</th><th class="text-right">AI SIGNAL</th></tr>
               </thead>
               <tbody id="indiaMovers" class="divide-y divide-[#1E2E44]/40">
@@ -515,12 +515,12 @@ canvas { display: block; }
     </div>
 
     <!-- Footer CTA -->
-    <div class="mx-3 lg:mx-4 mb-6 bg-gradient-to-r from-bbg-orange via-amber-500 to-orange-600 rounded-xl p-[1px]">
+    <div class="mx-3 lg:mx-4 mb-6 bg-gradient-to-r from-mmt-orange via-amber-500 to-orange-600 rounded-xl p-[1px]">
       <div class="bg-[#0E141E] rounded-xl px-6 py-6 flex flex-col lg:flex-row items-center justify-between gap-4">
         <div>
-          <div class="text-[12px] font-mono tracking-widest text-bbg-orange font-bold">BLOOMBERG TERMINAL PRO • INSTITUTIONAL GRADE</div>
-          <div class="text-[18px] font-bold mt-1">Trade Crypto, US, Forex & India with <span class="text-bbg-orange">550+ AI Agents</span></div>
-          <div class="text-[12px] font-mono text-bbg-muted mt-1">Co-located execution • 4.2ms latency • SEBI / SEC compliant paper & live trading • 24/7 quant desk</div>
+          <div class="text-[12px] font-mono tracking-widest text-mmt-orange font-bold">MARKET-MIND TERMINAL • RESEARCH PLATFORM</div>
+          <div class="text-[18px] font-bold mt-1">Trade Crypto, US, Forex & India with <span class="text-mmt-orange">550+ AI Agents</span></div>
+          <div class="text-[12px] font-mono text-mmt-muted mt-1">Co-located execution • 4.2ms latency • SEBI / SEC compliant paper & live trading • 24/7 quant desk</div>
         </div>
         <div class="flex gap-3 shrink-0">
           <button class="bg-white text-black font-bold px-6 py-3 rounded-full text-[13px] hover:bg-slate-100 transition">Start Free Trial →</button>
@@ -529,53 +529,53 @@ canvas { display: block; }
       </div>
     </div>
 
-    <div class="px-4 pb-6 text-center text-[11px] font-mono text-bbg-muted">
-      © 2025 Bloomberg Terminal Pro • Market data delayed by 15m unless subscribed • AI agents are algorithmic tools, not financial advice • Risk Disclosure
+    <div class="px-4 pb-6 text-center text-[11px] font-mono text-mmt-muted">
+      © 2026 MARKET-MIND-AI • Demonstration interface with sample data • Research and paper simulation only • No brokerage execution
     </div>
   </main>
 </div>
 
 <!-- Command Palette -->
 <div id="cmdPalette" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-50 p-4">
-  <div class="max-w-[640px] mx-auto mt-[10vh] bg-bbg-panel border border-[#1E2E44] rounded-xl overflow-hidden shadow-2xl">
+  <div class="max-w-[640px] mx-auto mt-[10vh] bg-mmt-panel border border-[#1E2E44] rounded-xl overflow-hidden shadow-2xl">
     <div class="flex items-center gap-3 px-4 py-3 border-b border-[#1E2E44]">
-      <i data-lucide="search" class="w-5 h-5 text-bbg-muted"></i>
-      <input id="cmdInput" placeholder="Type a command or search (e.g., BTC, TCS, Agent)..." class="flex-1 bg-transparent outline-none text-[14px] font-mono placeholder:text-bbg-muted">
+      <i data-lucide="search" class="w-5 h-5 text-mmt-muted"></i>
+      <input id="cmdInput" placeholder="Type a command or search (e.g., BTC, TCS, Agent)..." class="flex-1 bg-transparent outline-none text-[14px] font-mono placeholder:text-mmt-muted">
       <span class="text-[11px] font-mono bg-black border border-[#1E2E44] px-2 py-1 rounded">ESC</span>
     </div>
     <div class="p-2 max-h-[360px] overflow-auto text-[13px] font-mono" id="cmdResults">
-      <div class="px-3 py-2 hover:bg-[#111B2B] rounded cursor-pointer flex justify-between"><span>Go to Crypto Market</span><span class="text-bbg-muted">⌘1</span></div>
-      <div class="px-3 py-2 hover:bg-[#111B2B] rounded cursor-pointer flex justify-between"><span>Deploy Arbitrage Agent</span><span class="text-bbg-orange">New</span></div>
-      <div class="px-3 py-2 hover:bg-[#111B2B] rounded cursor-pointer flex justify-between"><span>Show NIFTY 50 Chart</span><span class="text-bbg-muted">India</span></div>
-      <div class="px-3 py-2 hover:bg-[#111B2B] rounded cursor-pointer flex justify-between"><span>View Forex Heatmap</span><span class="text-bbg-muted">FX</span></div>
+      <div class="px-3 py-2 hover:bg-[#111B2B] rounded cursor-pointer flex justify-between"><span>Go to Crypto Market</span><span class="text-mmt-muted">⌘1</span></div>
+      <div class="px-3 py-2 hover:bg-[#111B2B] rounded cursor-pointer flex justify-between"><span>Deploy Arbitrage Agent</span><span class="text-mmt-orange">New</span></div>
+      <div class="px-3 py-2 hover:bg-[#111B2B] rounded cursor-pointer flex justify-between"><span>Show NIFTY 50 Chart</span><span class="text-mmt-muted">India</span></div>
+      <div class="px-3 py-2 hover:bg-[#111B2B] rounded cursor-pointer flex justify-between"><span>View Forex Heatmap</span><span class="text-mmt-muted">FX</span></div>
     </div>
   </div>
 </div>
 
 <!-- Agent Modal -->
 <div id="agentModal" class="fixed inset-0 bg-black/70 hidden z-50 p-4">
-  <div class="max-w-[520px] mx-auto mt-[8vh] bg-bbg-panel border border-[#1E2E44] rounded-xl overflow-hidden">
+  <div class="max-w-[520px] mx-auto mt-[8vh] bg-mmt-panel border border-[#1E2E44] rounded-xl overflow-hidden">
     <div class="p-5 border-b border-[#1E2E44] bg-[#0C121C] flex items-center justify-between">
-      <h3 class="font-bold flex items-center gap-2"><span class="w-2 h-2 bg-bbg-green rounded-full"></span> <span id="modalAgentId">AG-0421</span> <span class="text-[11px] font-mono bg-bbg-orange text-black px-2 py-0.5 rounded-full">LIVE</span></h3>
+      <h3 class="font-bold flex items-center gap-2"><span class="w-2 h-2 bg-mmt-green rounded-full"></span> <span id="modalAgentId">AG-0421</span> <span class="text-[11px] font-mono bg-mmt-orange text-black px-2 py-0.5 rounded-full">LIVE</span></h3>
       <button onclick="document.getElementById('agentModal').classList.add('hidden')" class="p-2 bg-black border border-[#1E2E44] rounded"><i data-lucide="x" class="w-4 h-4"></i></button>
     </div>
     <div class="p-5 space-y-4 text-[13px] font-mono">
       <div class="grid grid-cols-2 gap-3">
-        <div class="bg-black border border-[#1E2E44] rounded p-3"><div class="text-bbg-muted text-[11px]">STRATEGY</div><div class="font-bold">Quant Alpha v3.2</div></div>
-        <div class="bg-black border border-[#1E2E44] rounded p-3"><div class="text-bbg-muted text-[11px]">WIN RATE</div><div class="font-bold text-bbg-green">71.2% (1,842 trades)</div></div>
-        <div class="bg-black border border-[#1E2E44] rounded p-3"><div class="text-bbg-muted text-[11px]">PnL 24H</div><div class="font-bold text-bbg-green">+$2,842.12</div></div>
-        <div class="bg-black border border-[#1E2E44] rounded p-3"><div class="text-bbg-muted text-[11px]">LATENCY</div><div class="font-bold">3.8ms • colocated</div></div>
+        <div class="bg-black border border-[#1E2E44] rounded p-3"><div class="text-mmt-muted text-[11px]">STRATEGY</div><div class="font-bold">Quant Alpha v3.2</div></div>
+        <div class="bg-black border border-[#1E2E44] rounded p-3"><div class="text-mmt-muted text-[11px]">WIN RATE</div><div class="font-bold text-mmt-green">71.2% (1,842 trades)</div></div>
+        <div class="bg-black border border-[#1E2E44] rounded p-3"><div class="text-mmt-muted text-[11px]">PnL 24H</div><div class="font-bold text-mmt-green">+$2,842.12</div></div>
+        <div class="bg-black border border-[#1E2E44] rounded p-3"><div class="text-mmt-muted text-[11px]">LATENCY</div><div class="font-bold">3.8ms • colocated</div></div>
       </div>
       <div class="bg-[#111B2B] border border-[#1E2E44] rounded p-3">
-        <div class="text-[11px] tracking-widest text-bbg-muted">LIVE LOGS</div>
+        <div class="text-[11px] tracking-widest text-mmt-muted">LIVE LOGS</div>
         <div class="mt-2 space-y-1 text-[11px] leading-relaxed">
-          <div><span class="text-bbg-muted">[19:11:42]</span> <span class="text-bbg-green">BUY</span> BTC/USD 0.42 @ 68,210.12 • Confidence 0.89</div>
-          <div><span class="text-bbg-muted">[19:11:38]</span> Risk check passed • Exposure 12.4%</div>
-          <div><span class="text-bbg-muted">[19:11:31]</span> Sentiment signal: Bullish (Twitter/X + News)</div>
+          <div><span class="text-mmt-muted">[19:11:42]</span> <span class="text-mmt-green">BUY</span> BTC/USD 0.42 @ 68,210.12 • Confidence 0.89</div>
+          <div><span class="text-mmt-muted">[19:11:38]</span> Risk check passed • Exposure 12.4%</div>
+          <div><span class="text-mmt-muted">[19:11:31]</span> Sentiment signal: Bullish (Twitter/X + News)</div>
         </div>
       </div>
       <div class="flex gap-2">
-        <button class="flex-1 bg-bbg-orange text-black font-bold py-2.5 rounded-full">Pause Agent</button>
+        <button class="flex-1 bg-mmt-orange text-black font-bold py-2.5 rounded-full">Pause Agent</button>
         <button class="flex-1 bg-white text-black font-bold py-2.5 rounded-full">View Full Analytics →</button>
       </div>
     </div>
@@ -608,7 +608,7 @@ function renderTicker(){
     <span class="flex items-center gap-2 text-[12px] font-mono">
       <span class="text-white font-bold">${i.s}</span>
       <span class="text-slate-300">${i.p}</span>
-      <span class="${i.up?'text-bbg-green':'text-bbg-red'}">${i.up?'▲':'▼'} ${i.c}</span>
+      <span class="${i.up?'text-mmt-green':'text-mmt-red'}">${i.up?'▲':'▼'} ${i.c}</span>
       <span class="w-px h-4 bg-[#1E2E44] mx-2"></span>
     </span>
   `).join('');
@@ -626,7 +626,7 @@ const watch = [
 document.getElementById('watchlist').innerHTML = watch.map(w=> `
   <div class="flex items-center justify-between bg-[#111B2B] border border-[#1E2E44] rounded px-2.5 py-2">
     <span class="font-semibold text-white">${w.s}</span>
-    <span class="flex items-center gap-2"><span class="text-white">${w.v}</span><span class="${w.up?'text-bbg-green':'text-bbg-red'} text-[11px]">${w.ch}</span></span>
+    <span class="flex items-center gap-2"><span class="text-white">${w.v}</span><span class="${w.up?'text-mmt-green':'text-mmt-red'} text-[11px]">${w.ch}</span></span>
   </div>
 `).join('');
 
@@ -723,8 +723,8 @@ window.addEventListener('resize', drawMain);
 // Tabs
 document.querySelectorAll('.tab-btn').forEach(b=>{
   b.addEventListener('click', ()=>{
-    document.querySelectorAll('.tab-btn').forEach(x=>{x.className='tab-btn text-bbg-muted hover:text-white font-semibold text-[11px] px-4 py-1.5 rounded-full';});
-    b.className='tab-btn bg-bbg-orange text-black font-bold text-[11px] px-4 py-1.5 rounded-full';
+    document.querySelectorAll('.tab-btn').forEach(x=>{x.className='tab-btn text-mmt-muted hover:text-white font-semibold text-[11px] px-4 py-1.5 rounded-full';});
+    b.className='tab-btn bg-mmt-orange text-black font-bold text-[11px] px-4 py-1.5 rounded-full';
     currentTab=b.dataset.tab;
     const map={crypto:{s:'BTC/USD', p:'$68,242.12'}, us:{s:'SPX 5,842.18', p:'+0.92%'}, forex:{s:'EUR/USD 1.0842', p:'-0.12%'}, india:{s:'NIFTY 24,812', p:'+1.14%'}};
     document.getElementById('chartSymbol').textContent=map[currentTab].s;
@@ -734,13 +734,13 @@ document.querySelectorAll('.tab-btn').forEach(b=>{
     // update movers to match
     document.querySelectorAll('.mover-tab').forEach(t=>t.classList.remove('bg-white','text-black'));
     const target = document.querySelector(`.mover-tab[data-mover="${currentTab==='india'?'india':currentTab}"]`);
-    if(target){ document.querySelectorAll('.mover-tab').forEach(t=> t.className='mover-tab text-bbg-muted px-3 py-1'); target.className='mover-tab bg-white text-black font-bold px-3 py-1 rounded-full'; }
+    if(target){ document.querySelectorAll('.mover-tab').forEach(t=> t.className='mover-tab text-mmt-muted px-3 py-1'); target.className='mover-tab bg-white text-black font-bold px-3 py-1 rounded-full'; }
     renderMovers(target? target.dataset.mover : 'crypto');
   });
 });
 document.querySelectorAll('.tf-btn').forEach(b=>{
   b.addEventListener('click', ()=>{
-    document.querySelectorAll('.tf-btn').forEach(x=> x.className='tf-btn text-bbg-muted px-3 py-1');
+    document.querySelectorAll('.tf-btn').forEach(x=> x.className='tf-btn text-mmt-muted px-3 py-1');
     b.className='tf-btn bg-white text-black font-bold px-3 py-1 rounded-full';
     chartData = genData(chartData[chartData.length-1]||68242, Math.random()*0.03+0.01);
     drawMain();
@@ -796,15 +796,15 @@ function renderMovers(key='crypto'){
     <tr class="hover:bg-[#111B2B] cursor-pointer">
       <td class="px-3 py-2.5 font-semibold text-white">${r.s}</td>
       <td class="px-3 py-2.5 text-right text-white">${r.p}</td>
-      <td class="px-3 py-2.5 text-right ${r.up?'text-bbg-green':'text-bbg-red'} font-bold">${r.ch}</td>
-      <td class="px-3 py-2.5 text-right text-bbg-muted">${r.vol}</td>
+      <td class="px-3 py-2.5 text-right ${r.up?'text-mmt-green':'text-mmt-red'} font-bold">${r.ch}</td>
+      <td class="px-3 py-2.5 text-right text-mmt-muted">${r.vol}</td>
     </tr>
   `).join('');
 }
 renderMovers();
 document.querySelectorAll('.mover-tab').forEach(b=>{
   b.addEventListener('click', ()=>{
-    document.querySelectorAll('.mover-tab').forEach(x=> x.className='mover-tab text-bbg-muted px-3 py-1');
+    document.querySelectorAll('.mover-tab').forEach(x=> x.className='mover-tab text-mmt-muted px-3 py-1');
     b.className='mover-tab bg-white text-black font-bold px-3 py-1 rounded-full';
     renderMovers(b.dataset.mover);
   });
@@ -819,8 +819,8 @@ function renderBook(){
     const ap=(68242 + i*1.2 + Math.random()*0.8).toFixed(2);
     const bv=(Math.random()*1.5+0.2).toFixed(2);
     const av=(Math.random()*1.5+0.2).toFixed(2);
-    bidHtml+=`<div class="flex justify-between bg-bbg-green/10 border border-bbg-green/20 rounded px-2 py-1"><span class="text-bbg-green">${bp}</span><span class="text-white">${bv}</span></div>`;
-    askHtml+=`<div class="flex justify-between bg-bbg-red/10 border border-bbg-red/20 rounded px-2 py-1"><span class="text-bbg-red">${ap}</span><span class="text-white">${av}</span></div>`;
+    bidHtml+=`<div class="flex justify-between bg-mmt-green/10 border border-mmt-green/20 rounded px-2 py-1"><span class="text-mmt-green">${bp}</span><span class="text-white">${bv}</span></div>`;
+    askHtml+=`<div class="flex justify-between bg-mmt-red/10 border border-mmt-red/20 rounded px-2 py-1"><span class="text-mmt-red">${ap}</span><span class="text-white">${av}</span></div>`;
   }
   bids.innerHTML=bidHtml; asks.innerHTML=askHtml;
 }
@@ -840,10 +840,10 @@ const forexPairs = [
   {p:'EUR/GBP', v:'0.8532', ch:'+0.12%', up:true},
 ];
 document.getElementById('forexGrid').innerHTML = forexPairs.map(f=> `
-  <div class="rounded-lg border ${f.up?'bg-bbg-green/10 border-bbg-green/30':'bg-bbg-red/10 border-bbg-red/30'} p-3">
+  <div class="rounded-lg border ${f.up?'bg-mmt-green/10 border-mmt-green/30':'bg-mmt-red/10 border-mmt-red/30'} p-3">
     <div class="text-[11px] font-mono font-bold text-white">${f.p}</div>
-    <div class="text-[13px] font-mono font-bold ${f.up?'text-bbg-green':'text-bbg-red'}">${f.v}</div>
-    <div class="text-[11px] font-mono ${f.up?'text-bbg-green':'text-bbg-red'}">${f.ch}</div>
+    <div class="text-[13px] font-mono font-bold ${f.up?'text-mmt-green':'text-mmt-red'}">${f.v}</div>
+    <div class="text-[11px] font-mono ${f.up?'text-mmt-green':'text-mmt-red'}">${f.ch}</div>
   </div>
 `).join('');
 
@@ -858,8 +858,8 @@ const sectors=[
 ];
 document.getElementById('sectorList').innerHTML = sectors.map(s=> `
   <div class="bg-[#0E141E] border border-[#1E2E44] rounded-lg p-3">
-    <div class="flex justify-between text-[11px] font-mono"><span class="font-semibold text-white">${s.n}</span><span class="${s.ch.includes('+')?'text-bbg-green':'text-bbg-red'} font-bold">${s.ch}</span></div>
-    <div class="mt-2 h-1.5 bg-[#1E2E44] rounded-full overflow-hidden"><div class="h-full ${s.ch.includes('+')?'bg-bbg-green':'bg-bbg-red'}" style="width:${s.w}%"></div></div>
+    <div class="flex justify-between text-[11px] font-mono"><span class="font-semibold text-white">${s.n}</span><span class="${s.ch.includes('+')?'text-mmt-green':'text-mmt-red'} font-bold">${s.ch}</span></div>
+    <div class="mt-2 h-1.5 bg-[#1E2E44] rounded-full overflow-hidden"><div class="h-full ${s.ch.includes('+')?'bg-mmt-green':'bg-mmt-red'}" style="width:${s.w}%"></div></div>
   </div>
 `).join('');
 
@@ -874,8 +874,8 @@ document.getElementById('indiaMovers').innerHTML = indiaRows.map(r=> `
   <tr class="hover:bg-[#111B2B]">
     <td class="py-2.5 font-semibold text-white">${r.s}</td>
     <td class="py-2.5 text-right">₹${r.p}</td>
-    <td class="py-2.5 text-right ${r.ch.includes('+')?'text-bbg-green':'text-bbg-red'} font-bold">${r.ch}</td>
-    <td class="py-2.5 text-right"><span class="bg-bbg-green text-black text-[10px] font-bold px-2 py-1 rounded-full">${r.sig}</span></td>
+    <td class="py-2.5 text-right ${r.ch.includes('+')?'text-mmt-green':'text-mmt-red'} font-bold">${r.ch}</td>
+    <td class="py-2.5 text-right"><span class="bg-mmt-green text-black text-[10px] font-bold px-2 py-1 rounded-full">${r.sig}</span></td>
   </tr>
 `).join('');
 
@@ -888,9 +888,9 @@ function randomAgents(count, offset=0){
     const idNum = String(1000+offset+i).padStart(4,'0');
     const typeIdx = Math.floor(Math.random()*6);
     const statusRand = Math.random();
-    let status='Active'; let dot='bg-bbg-green';
-    if(statusRand>0.93) {status='Offline'; dot='bg-bbg-red';}
-    else if(statusRand>0.88) {status='Training'; dot='bg-bbg-amber';}
+    let status='Active'; let dot='bg-mmt-green';
+    if(statusRand>0.93) {status='Offline'; dot='bg-mmt-red';}
+    else if(statusRand>0.88) {status='Training'; dot='bg-mmt-amber';}
     const pnl = (Math.random()*6000-1200).toFixed(2);
     const win = (55+Math.random()*22).toFixed(1);
     const lat = (2+Math.random()*5).toFixed(1);
@@ -916,22 +916,22 @@ function renderAgents(){
   const show = filtered.slice(0, visibleCount);
   document.getElementById('agentCountLabel').textContent = show.length;
   grid.innerHTML = show.map(a=> `
-    <div class="agent-card bg-bbg-card border border-[#1E2E44] rounded-lg p-3 cursor-pointer transition" onclick="openAgent('${a.id}')">
+    <div class="agent-card bg-mmt-card border border-[#1E2E44] rounded-lg p-3 cursor-pointer transition" onclick="openAgent('${a.id}')">
       <div class="flex items-center justify-between">
         <span class="text-[11px] font-mono font-bold text-white flex items-center gap-2"><span class="w-2 h-2 ${a.dot} rounded-full ${a.status==='Active'?'animate-pulse':''}"></span>${a.id}</span>
-        <span class="text-[10px] font-mono px-2 py-0.5 rounded-full border ${a.status==='Active'?'bg-bbg-green/10 border-bbg-green/20 text-bbg-green': a.status==='Training'?'bg-amber-500/10 border-amber-500/20 text-amber-400':'bg-bbg-red/10 border-bbg-red/20 text-bbg-red'}">${a.status}</span>
+        <span class="text-[10px] font-mono px-2 py-0.5 rounded-full border ${a.status==='Active'?'bg-mmt-green/10 border-mmt-green/20 text-mmt-green': a.status==='Training'?'bg-amber-500/10 border-amber-500/20 text-amber-400':'bg-mmt-red/10 border-mmt-red/20 text-mmt-red'}">${a.status}</span>
       </div>
       <div class="mt-2">
-        <div class="text-[12px] font-semibold text-white">${a.label} <span class="text-bbg-muted font-mono text-[11px]">• ${a.type}</span></div>
-        <div class="text-[11px] font-mono text-bbg-muted">${a.strat}</div>
+        <div class="text-[12px] font-semibold text-white">${a.label} <span class="text-mmt-muted font-mono text-[11px]">• ${a.type}</span></div>
+        <div class="text-[11px] font-mono text-mmt-muted">${a.strat}</div>
       </div>
       <div class="mt-3 grid grid-cols-3 gap-2 text-[11px] font-mono">
-        <div class="bg-black border border-[#1E2E44] rounded px-2 py-1.5 text-center"><div class="text-bbg-muted text-[10px]">PnL 24H</div><div class="${parseFloat(a.pnl)>=0?'text-bbg-green':'text-bbg-red'} font-bold">${parseFloat(a.pnl)>=0?'+':''}$${a.pnl}</div></div>
-        <div class="bg-black border border-[#1E2E44] rounded px-2 py-1.5 text-center"><div class="text-bbg-muted text-[10px]">Win</div><div class="text-white font-bold">${a.win}%</div></div>
-        <div class="bg-black border border-[#1E2E44] rounded px-2 py-1.5 text-center"><div class="text-bbg-muted text-[10px]">Lat</div><div class="text-white font-bold">${a.lat}ms</div></div>
+        <div class="bg-black border border-[#1E2E44] rounded px-2 py-1.5 text-center"><div class="text-mmt-muted text-[10px]">PnL 24H</div><div class="${parseFloat(a.pnl)>=0?'text-mmt-green':'text-mmt-red'} font-bold">${parseFloat(a.pnl)>=0?'+':''}$${a.pnl}</div></div>
+        <div class="bg-black border border-[#1E2E44] rounded px-2 py-1.5 text-center"><div class="text-mmt-muted text-[10px]">Win</div><div class="text-white font-bold">${a.win}%</div></div>
+        <div class="bg-black border border-[#1E2E44] rounded px-2 py-1.5 text-center"><div class="text-mmt-muted text-[10px]">Lat</div><div class="text-white font-bold">${a.lat}ms</div></div>
       </div>
       <div class="mt-3 flex gap-1.5">
-        <div class="flex-1 h-1 bg-[#1E2E44] rounded-full overflow-hidden"><div class="h-full bg-bbg-green" style="width:${a.win}%"></div></div>
+        <div class="flex-1 h-1 bg-[#1E2E44] rounded-full overflow-hidden"><div class="h-full bg-mmt-green" style="width:${a.win}%"></div></div>
       </div>
     </div>
   `).join('');
@@ -942,7 +942,7 @@ renderAgents();
 document.querySelectorAll('.agent-filter').forEach(b=>{
   b.addEventListener('click', ()=>{
     document.querySelectorAll('.agent-filter').forEach(x=> x.className='agent-filter bg-[#111B2B] border border-[#1E2E44] text-white text-[11px] px-4 py-2 rounded-full');
-    b.className='agent-filter bg-bbg-orange text-black font-bold text-[11px] px-4 py-2 rounded-full';
+    b.className='agent-filter bg-mmt-orange text-black font-bold text-[11px] px-4 py-2 rounded-full';
     currentFilter=b.dataset.filter;
     visibleCount=24;
     renderAgents();

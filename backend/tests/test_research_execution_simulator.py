@@ -50,6 +50,14 @@ class SimulationLedgerTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "timezone-aware"):
             ledger.transition("o1", OrderState.ACKNOWLEDGED, datetime(2026, 1, 1))
 
+    def test_rejects_out_of_order_event_timestamp(self):
+        ledger = SimulationLedger()
+        ledger.create_order("o1", "k1", 1)
+        ledger.transition("o1", OrderState.ACKNOWLEDGED, NOW)
+        earlier = datetime(2025, 12, 31, tzinfo=timezone.utc)
+        with self.assertRaisesRegex(ValueError, "cannot move backwards"):
+            ledger.transition("o1", OrderState.CANCELLED, earlier)
+
 
 if __name__ == "__main__":
     unittest.main()

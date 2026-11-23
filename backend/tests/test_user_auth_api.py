@@ -46,7 +46,7 @@ class UserAuthApiTests(unittest.TestCase):
             )
             self.assertEqual(throttled.status_code, 429)
             self.assertTrue(throttled.headers.get("Retry-After"))
-        login_guard.reset()
+        login_guard.GUARD.reset()
 
     def test_login_me_and_logout(self):
         with patch.dict(os.environ, self.env, clear=False):

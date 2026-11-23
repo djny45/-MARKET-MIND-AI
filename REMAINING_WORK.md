@@ -84,8 +84,10 @@ example, ADR-0001. No force-push, reset, rebase, merge or discard was performed.
 5. **PR #38 — CLOSED as obsolete**: its lease implementation targeted a removed
    supervisor architecture. The guarantee was ported to `run_supervisor`; full
    multi-supervisor contention tests remain gated by ADR-0001.
-6. **PR #76 — BLOCKED (owner)**: one-line `configure-pages@v6` bump needs the
-   workflow-scope grant, then a normal authorized merge.
+6. **PR #76 — MERGED**: the one-line `actions/configure-pages` 5 → 6 bump
+   landed on `main` as merge commit `af81ad01` after all five CI jobs and the
+   Vercel preview check passed. Merging a workflow PR does not need the
+   `workflow` scope; only *pushing* workflow files does.
 7. **Host operations — PARTIAL**: isolated backup/restore, retention, stale-lock
    and process-kill recovery drills are now executed with evidence. Still NOT
    RUN: cron/systemd install, real S3 upload/restore, Docker volume restore
@@ -104,11 +106,22 @@ All completed work was merged into `main` at
 `32561c1d4bb48e23107d65d6f576c9e148b3176b` via reviewed PR #85 (after PRs
 #82–#84). CI on that exact SHA passed all five jobs
 (<https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45215713118>).
+
+The Docker Compose job in that run built the frontend image with the new
+`nginx-limits.conf`, started the stack, and fetched `/api/ready` through the
+rate-limited perimeter before running `scripts/load_check.py` (120 requests,
+concurrency 8), so the perimeter configuration is exercised in a container even
+though no local `nginx` binary exists.
 The old divergent local `main` (`906b3765`) and all recovery branches remain
 untouched.
 
-1. **Real-browser responsive tests — NOT RUN**: no browser runner is configured;
-   jsdom checks media-query declarations and DOM availability only.
+1. **Real-browser responsive tests — BLOCKED (host libraries)**: Chromium is
+   downloaded and present in `~/.cache/ms-playwright`, but it cannot launch in
+   this container: `libnss3`, `libnspr4`, `libxcomposite1` and `libxdamage1` are
+   missing, there is no root to install them and this image has no apt sources
+   (`apt-get download` resolves nothing). jsdom continues to check media-query
+   declarations and DOM availability only. A host with `npx playwright
+   install-deps` closes this gap.
 
 ## Completion boundary
 

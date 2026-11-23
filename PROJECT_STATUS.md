@@ -52,24 +52,32 @@ Local `main` had diverged (56 local commits, 17 origin commits) and tracked
 
 | Check | Result |
 | --- | --- |
-| Backend suite | PASS — 1063 tests |
+| Backend suite | PASS — 1063 tests; 1078 tests on `feat/dr-and-ingress-verification` (1 skipped: no nginx binary) |
 | Frontend node:test + Vitest | PASS — 10 + 123 tests |
 | Frontend build / audits | PASS |
 | pip-audit / npm audit | PASS — 0 known vulnerabilities |
 | CI-equivalent Trivy scan | PASS — 0 findings at MEDIUM+ |
-| Docker / host drills | BLOCKED locally; operator work |
+| Ingress config assertions | PASS — 12 tests (parse + `nginx -t` when available) |
+| Isolated recovery drills | PASS — backup/restore/parity/retention/stale-lock and `kill -9` requeue |
+| Perimeter in a real container | PASS — CI Docker job fetched `/api/ready` through nginx and ran `load_check.py` |
+| Docker volume / host / S3 drills | BLOCKED locally; operator work |
 | CI for final push | See `FINAL_TEST_RESULTS.md` for the recorded run |
 
 ## Pull requests
 
-Open and triaged: #76 (owner workflow scope), #40 (ported here), #39 (ADR
-ported here), #38 (obsolete design, not ported), #8 (fencing ported here).
-No PR was merged in this audit; dispositions are documented in
-`REMAINING_WORK.md`.
+Open and triaged: none. #76 (dependabot `configure-pages` 6) was merged as
+`af81ad01`; #85 (ingress limits, fail-closed skill cadence, verified recovery
+drills, S3 prerequisite) was merged as `32561c1d`. #40, #39, #38 and #8 were
+closed earlier with dispositions in `REMAINING_WORK.md`. The only remaining
+push is `security/trivy-ci-scope`, which GitHub rejects with "refusing to allow
+an OAuth App to create or update workflow ... without `workflow` scope".
 
 ## Next actions (owner/operator)
 
-1. Grant `workflow` scope, land `security/trivy-ci-scope`, then #76.
-2. TLS ingress, network segmentation, ingress rate limits, independent review.
-3. Host/S3/Docker/process-kill drills on an authorized host.
+1. Grant `workflow` scope (`gh auth refresh -h github.com -s workflow`) and land
+   `security/trivy-ci-scope`; this is the only push still rejected.
+2. TLS ingress, network segmentation, edge verification of the shipped rate
+   limits, independent review.
+3. Host/S3/Docker-volume/process-kill drills on an authorized host, plus
+   `npx playwright install-deps` to unlock real-browser responsive tests.
 4. Decide on ADR-0001 implementation and data-status attestation fix.

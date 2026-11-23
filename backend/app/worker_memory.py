@@ -9,6 +9,7 @@ import sqlite3
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+from . import sqlite_tuning
 
 from .workers import list_workers
 
@@ -20,7 +21,7 @@ _QUALITY = {"verified_by_importer", "partial", "unverified", "synthetic"}
 def _connect():
     path = Path(os.getenv("MARKET_MIND_DB", "./data/market_mind.db"))
     path.parent.mkdir(parents=True, exist_ok=True)
-    db = sqlite3.connect(path, timeout=10)
+    db = sqlite_tuning.connect(path, timeout=10)
     db.row_factory = sqlite3.Row
     db.execute("""
         CREATE TABLE IF NOT EXISTS worker_memory (

@@ -4,6 +4,7 @@ import sqlite3
 from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
+from . import sqlite_tuning
 
 from .market_data import MarketDataBatch
 
@@ -15,7 +16,7 @@ def _database_path() -> Path:
 
 
 def _connect():
-    connection = sqlite3.connect(_database_path(), timeout=10)
+    connection = sqlite_tuning.connect(_database_path(), timeout=10)
     connection.row_factory = sqlite3.Row
     connection.execute("""
         CREATE TABLE IF NOT EXISTS market_bars (

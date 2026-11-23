@@ -14,6 +14,7 @@ import sqlite3
 import time
 from pathlib import Path
 from typing import Any, Mapping
+from . import sqlite_tuning
 
 from .auth_crypto import (
     generate_csrf_token,
@@ -93,7 +94,7 @@ def authenticate(username: str, password: str, environ: Mapping[str, str] | None
 
 def _initialize_identities(path: Path) -> None:
     initialize_auth_store(path)
-    with sqlite3.connect(str(path)) as connection:
+    with sqlite_tuning.connect(str(path)) as connection:
         connection.executescript(_IDENTITY_SCHEMA)
 
 
@@ -111,7 +112,7 @@ def create_user_session(identity: dict[str, str], environ: Mapping[str, str] | N
         idle_ttl_seconds=IDLE_TTL_SECONDS,
         absolute_ttl_seconds=ABSOLUTE_TTL_SECONDS,
     )
-    with sqlite3.connect(str(path)) as connection:
+    with sqlite_tuning.connect(str(path)) as connection:
         connection.execute(
             "INSERT INTO auth_session_identities (session_token_hash, username, role) VALUES (?, ?, ?)",
             (hash_session_token(session_token), identity["username"], identity["role"]),
@@ -132,7 +133,7 @@ def get_user_session(token: str, environ: Mapping[str, str] | None = None) -> di
     session = get_session(path, digest, now=int(time.time()), idle_ttl_seconds=IDLE_TTL_SECONDS)
     if session is None:
         return None
-    with sqlite3.connect(str(path)) as connection:
+    with sqlite_tuning.connect(str(path)) as connection:
         connection.row_factory = sqlite3.Row
         row = connection.execute(
             "SELECT username, role FROM auth_session_identities WHERE session_token_hash = ?",

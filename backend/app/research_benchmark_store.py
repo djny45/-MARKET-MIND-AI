@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Iterator
 
 from app.research_benchmark_record import serialize_benchmark_record
+from . import sqlite_tuning
 
 
 _SCHEMA = """
@@ -28,7 +29,7 @@ class BenchmarkRecordStore:
         # SQLite creates a separate database for every new ":memory:" connection.
         # Keep one connection alive so saves remain visible to later reads.
         self._memory_connection = (
-            sqlite3.connect(":memory:") if self.database_path == ":memory:" else None
+            sqlite_tuning.connect(":memory:") if self.database_path == ":memory:" else None
         )
         self._closed = False
         if self.database_path != ":memory:":
@@ -71,7 +72,7 @@ class BenchmarkRecordStore:
                 connection.rollback()
                 raise
             return
-        connection = sqlite3.connect(self.database_path)
+        connection = sqlite_tuning.connect(self.database_path)
         connection.row_factory = sqlite3.Row
         try:
             yield connection

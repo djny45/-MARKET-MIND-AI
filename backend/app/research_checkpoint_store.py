@@ -10,6 +10,7 @@ import json
 import sqlite3
 from pathlib import Path
 from typing import Any
+from . import sqlite_tuning
 
 
 def _canonical_json(value: Any) -> str:
@@ -30,7 +31,7 @@ class ResearchCheckpointStore:
         if self.database_path != ":memory:":
             Path(self.database_path).parent.mkdir(parents=True, exist_ok=True)
         self._memory_connection = (
-            sqlite3.connect(":memory:", timeout=10)
+            sqlite_tuning.connect(":memory:", timeout=10)
             if self.database_path == ":memory:" else None
         )
         self._closed = False
@@ -73,7 +74,7 @@ class ResearchCheckpointStore:
             db = self._memory_connection
             owns_connection = db is None
             if owns_connection:
-                db = sqlite3.connect(self.database_path, timeout=10)
+                db = sqlite_tuning.connect(self.database_path, timeout=10)
             db.row_factory = sqlite3.Row
             try:
                 yield db

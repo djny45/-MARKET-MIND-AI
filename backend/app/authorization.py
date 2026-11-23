@@ -25,6 +25,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping
 
 from fastapi import HTTPException, Request
+from . import sqlite_tuning
 
 ROLES: tuple[str, ...] = ("viewer", "analyst", "operator", "admin")
 _ROLE_LEVELS: dict[str, int] = {role: level for level, role in enumerate(ROLES)}
@@ -144,7 +145,7 @@ class OwnershipRegistry:
     @staticmethod
     def _database() -> sqlite3.Connection:
         path = os.getenv("MARKET_MIND_DB", "./data/market_mind.db")
-        connection = sqlite3.connect(path, timeout=5)
+        connection = sqlite_tuning.connect(path, timeout=5)
         connection.execute(
             "CREATE TABLE IF NOT EXISTS resource_ownership ("
             "resource_type TEXT NOT NULL, resource_id TEXT NOT NULL, "

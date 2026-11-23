@@ -10,6 +10,8 @@ import re
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
+
+from . import sqlite_tuning
 from typing import Any, Iterator
 
 
@@ -47,9 +49,8 @@ def _positive_int(value: int, label: str) -> int:
 def _connect(database_path: str | Path) -> sqlite3.Connection:
     if not isinstance(database_path, (str, Path)) or not str(database_path).strip():
         raise ValueError("database_path must be a non-empty path")
-    connection = sqlite3.connect(str(database_path), timeout=5)
+    connection = sqlite_tuning.connect(str(database_path), timeout=5, busy_timeout_ms=5000)
     connection.row_factory = sqlite3.Row
-    connection.execute("PRAGMA busy_timeout = 5000")
     return connection
 
 

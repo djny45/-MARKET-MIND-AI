@@ -318,8 +318,9 @@ class DrLock:
         self.state_dir = Path(state_dir)
         self.path = self.state_dir / f"{name}{LOCK_SUFFIX}"
 
-    def _read_pid(self) -> int | None:
-        payload = read_json(self.path)
+    def _read_pid(self, path: Path | None = None) -> int | None:
+        """Read the PID from a specific lock file (defaults to this lock)."""
+        payload = read_json(self.path if path is None else path)
         if not payload:
             return None
         pid = payload.get("pid")
@@ -367,7 +368,7 @@ class DrLock:
             return 0
         stale = 0
         for path in self.state_dir.glob(f"*{LOCK_SUFFIX}"):
-            pid = self._read_pid()
+            pid = self._read_pid(path)
             if pid is None or not self._pid_alive(pid):
                 path.unlink()
                 stale += 1

@@ -13,7 +13,8 @@
     "test:ui": "vitest run",
     "test:ui:watch": "vitest",
     "test:all": "npm test && npm run test:ui",
-    "typecheck:test": "tsc -p tsconfig.test.json --noEmit"
+    "typecheck:test": "tsc -p tsconfig.test.json --noEmit",
+    "test:e2e": "npm run build && playwright test"
   },
   "dependencies": {
     "@xyflow/react": "^13.0.2",
@@ -23,6 +24,7 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.1",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.3",

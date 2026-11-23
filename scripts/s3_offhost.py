@@ -22,8 +22,8 @@ import hmac
 import json
 import os
 import sys
-import urllib.request
 from datetime import datetime, timezone
+from http.client import HTTPConnection, HTTPSConnection
 from urllib.parse import urlparse
 from pathlib import Path
 
@@ -82,11 +82,17 @@ def _authorization(method: str, host: str, path: str, payload: bytes, settings: 
 
 def _request(method: str, url: str, payload: bytes, settings: dict, host: str, path: str):
     headers = _authorization(method, host, path, payload, settings)
-    request = urllib.request.Request(url, data=payload or None, method=method)
-    for name, value in headers.items():
-        request.add_header(name, value)
-    with urllib.request.urlopen(request, timeout=30) as response:
+    parsed = urlparse(url)
+    if parsed.scheme == "https":
+        connection = HTTPSConnection(parsed.hostname, parsed.port or 443, timeout=30)
+    else:
+        connection = HTTPConnection(parsed.hostname, parsed.port or 80, timeout=30)
+    try:
+        connection.request(method, path, body=payload or None, headers=headers)
+        response = connection.getresponse()
         return response.status, response.read()
+    finally:
+        connection.close()
 
 
 def main(argv: list[str] | None = None) -> int:

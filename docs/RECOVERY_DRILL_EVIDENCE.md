@@ -53,8 +53,25 @@ supports `describe-config`, `upload`, `download` and `--dry-run`, and never
 prints secrets. Tests: `backend/tests/test_s3_offhost.py` — fail-closed missing
 credentials and secret-free output (2 tests PASS).
 
-**Not performed:** real S3 upload or restore. No endpoint, credentials or
-bucket exist in this environment; no credential was invented.
+Local S3-compatible drill executed 2026-11-23 16:59–17:01 UTC:
+
+```
+moto_server -H 127.0.0.1 -p 5000
+MARKET_MIND_S3_ENDPOINT=http://127.0.0.1:5000 ... python3 scripts/s3_offhost.py describe-config
+python3 scripts/s3_offhost.py upload --file <fixture> --key market-mind/backups/parity-test.txt
+python3 scripts/s3_offhost.py download --file <restored> --key market-mind/backups/parity-test.txt
+sha256sum <fixture> <restored>
+```
+
+Result: both requests HTTP 200, SHA-256 digests identical
+(`0a383c91…48171a`). A real bug was found and fixed during this drill:
+`urllib.request` PUT bodies were dropped by the S3-compatible endpoint, so the
+adapter now uses stdlib `http.client` with explicit body and Content-Length.
+Tests `backend/tests/test_s3_offhost.py` (2) pass.
+
+**Not performed:** real cloud S3 upload or restore. No real endpoint, credentials
+or bucket exist here; no credential was invented. moto is a compatibility check,
+not proof of a cloud restore.
 
 ## 4. Not performed (external)
 

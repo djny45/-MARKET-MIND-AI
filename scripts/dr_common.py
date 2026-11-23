@@ -11,6 +11,7 @@ import hashlib
 import json
 import os
 import shlex
+import socket
 import sqlite3
 import subprocess
 import sys
@@ -312,11 +313,27 @@ def send_alert(event: str, status: str, detail: dict | None = None,
 
 
 class DrLock:
-    """Inter-process lock for DR state directories with stale-PID recovery."""
+    """Inter-process lock for DR state directories with stale-PID recovery.
 
-    def __init__(self, state_dir: Path, name: str = "backup"):
+    A PID alone is not a safe identity: after a crash or host reboot the PID can
+    be recycled by an unrelated process, which would make the lock look held
+    forever and silently stop every scheduled backup. A lock is therefore stale
+    when its PID is dead, when the live PID is not the process that wrote the
+    lock (start time mismatch), or when the lock is older than its ceiling.
+    """
+
+    # Ceiling for a lock a live process claims to hold. A backup that needs
+    # longer than this is stuck, not busy.
+    DEFAULT_MAX_AGE_SECONDS = 24 * 60 * 60
+
+    def __init__(self, state_dir: Path, name: str = "backup",
+                 max_age_seconds: int | None = None):
         self.state_dir = Path(state_dir)
         self.path = self.state_dir / f"{name}{LOCK_SUFFIX}"
+        if max_age_seconds is None:
+            max_age_seconds = env_int("MARKET_MIND_DR_LOCK_MAX_AGE",
+                                      self.DEFAULT_MAX_AGE_SECONDS, minimum=60)
+        self.max_age_seconds = max_age_seconds
 
     def _read_pid(self, path: Path | None = None) -> int | None:
         """Read the PID from a specific lock file (defaults to this lock)."""
@@ -338,21 +355,74 @@ class DrLock:
             return False
         return True
 
+    @staticmethod
+    def _pid_start(pid: int) -> str | None:
+        """Process start time in clock ticks: a stable identity for a PID.
+
+        A PID can be recycled, but a (pid, starttime) pair cannot be reused while
+        the original process lives, so comparing it detects a recycled PID.
+        Returns None when it cannot be read (non-Linux, permissions).
+        """
+        try:
+            stat = Path(f"/proc/{pid}/stat").read_text(encoding="utf-8", errors="replace")
+        except (FileNotFoundError, ProcessLookupError, PermissionError, OSError):
+            return None
+        # Fields after the (possibly space-containing) comm field: state is field
+        # 3, so starttime is the 20th field after the closing parenthesis.
+        tail = stat.rsplit(")", 1)
+        if len(tail) != 2:
+            return None
+        fields = tail[1].split()
+        return fields[19] if len(fields) > 19 else None
+
+    def _age_exceeded(self, payload: dict) -> bool:
+        created = str(payload.get("created_at") or "").strip()
+        if not created:
+            return False
+        try:
+            stamp = datetime.fromisoformat(created.replace("Z", "+00:00"))
+        except ValueError:
+            return False
+        if stamp.tzinfo is None:
+            stamp = stamp.replace(tzinfo=timezone.utc)
+        return (datetime.now(timezone.utc) - stamp).total_seconds() > self.max_age_seconds
+
+    def _is_stale(self, path: Path) -> tuple[bool, int | None, str]:
+        payload = read_json(path) or {}
+        pid = payload.get("pid")
+        if not isinstance(pid, int) or isinstance(pid, bool):
+            return True, None, "lock_missing_pid"
+        if not self._pid_alive(pid):
+            return True, pid, "pid_not_running"
+        recorded_start = payload.get("pid_start")
+        current_start = self._pid_start(pid)
+        if recorded_start is not None and current_start is not None:
+            if str(recorded_start) != str(current_start):
+                return True, pid, "pid_reused_by_other_process"
+        # Identity confirmed or unverifiable: the age ceiling is the backstop.
+        if self._age_exceeded(payload):
+            return True, pid, "lock_age_exceeded"
+        return False, pid, "held"
+
     def acquire(self) -> dict:
         self.state_dir.mkdir(parents=True, exist_ok=True)
         if self.path.exists():
-            pid = self._read_pid()
-            if pid is not None and self._pid_alive(pid):
+            stale, pid, reason = self._is_stale(self.path)
+            if not stale:
                 raise DrLocked(f"dr_lock_held_by_pid_{pid}")
             self.path.unlink()
-            return {"status": "acquired_after_stale_lock_recovery", "stale_pid": pid}
+            return {"status": "acquired_after_stale_lock_recovery",
+                    "stale_pid": pid, "stale_reason": reason}
         try:
             descriptor = os.open(self.path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
         except FileExistsError as exc:
             raise DrLocked("dr_lock_race") from exc
         with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
             handle.write(json.dumps({
-                "pid": os.getpid(), "created_at": iso_now(),
+                "pid": os.getpid(),
+                "pid_start": self._pid_start(os.getpid()),
+                "host": socket.gethostname(),
+                "created_at": iso_now(),
             }, sort_keys=True) + "\n")
         return {"status": "acquired"}
 
@@ -363,13 +433,13 @@ class DrLock:
             pass
 
     def stale_count(self) -> int:
-        """Count dead-PID locks without touching live ones (restart recovery)."""
+        """Remove dead, recycled or expired locks; never a live DR process."""
         if not self.state_dir.is_dir():
             return 0
         stale = 0
         for path in self.state_dir.glob(f"*{LOCK_SUFFIX}"):
-            pid = self._read_pid(path)
-            if pid is None or not self._pid_alive(pid):
+            is_stale, _pid, _reason = self._is_stale(path)
+            if is_stale:
                 path.unlink()
                 stale += 1
         return stale

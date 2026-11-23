@@ -336,6 +336,17 @@
 @media(max-width:1000px){.learning-stats{grid-template-columns:repeat(2,minmax(120px,1fr))}.learning-columns{grid-template-columns:1fr}.learning-heading{flex-direction:column}}
 
 .side-tabs button.locked{opacity:.45;cursor:not-allowed;text-decoration:line-through}
+/* 21 navigation tabs must wrap inside the sidebar instead of overflowing
+   into the main panel (which would intercept pointer events). */
+.side-tabs{flex-wrap:wrap;overflow-y:auto;max-height:260px;align-content:flex-start}
+.side-tabs button{flex:0 0 50%;width:50%}
+/* Real mobile support: do not force a desktop minimum width. */
+body{min-width:0}
+@media(max-width:650px){
+ .topbar{height:auto;min-height:56px;flex-wrap:wrap;gap:8px;padding:10px}
+ .top-right{gap:8px;flex-wrap:wrap}
+ .toolbar{padding:8px}
+}
 .access-denied{background:#2a1717;border:1px solid #6b2b2b;color:#f3b4b4;padding:8px 14px;font-size:11px}
 
 /* Per-user session UI */

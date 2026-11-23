@@ -717,7 +717,10 @@ class AgentSupervisorPollingContractTests(unittest.TestCase):
 
         recover.assert_called_once_with()
         self.assertEqual(dispatch.call_count, 2)
-        dispatch.assert_any_call(limit=12, max_concurrency=3)
+        for call in dispatch.call_args_list:
+            self.assertEqual(call.kwargs["limit"], 12)
+            self.assertEqual(call.kwargs["max_concurrency"], 3)
+            self.assertIsNotNone(call.kwargs["supervisor_lease_token"])
         self.assertEqual(result["cycles"], 2)
         self.assertEqual(result["recovery"]["requeued_interrupted_count"], 2)
         self.assertEqual(result["dispatch_results"][0]["dispatched"], 2)
@@ -829,6 +832,10 @@ class AgentSupervisorPollingContractTests(unittest.TestCase):
         ) as dispatch, patch(
             "app.analytical_agent_tasks._write_supervisor_heartbeat",
             side_effect=lambda state, *args, **kwargs: heartbeat_states.append(state),
+        ), patch(
+            "app.analytical_agent_tasks._renew_supervisor_lease", return_value=True
+        ), patch(
+            "app.analytical_agent_tasks._supervisor_lease_is_valid", return_value=True
         ):
             result = run_supervisor(
                 stop_event, poll_interval_seconds=0.001, max_cycles=None,

@@ -39,7 +39,7 @@ lockfile with `npm ci`.
 | 16 | DR scheduler checks | `python3 scripts/backup_scheduler.py config`, `cron-line`, `systemd` | **PASS — values/strings only, no secrets printed, nothing installed** |
 | 17 | Docker Compose config / container build | `docker compose config`, `docker build` | **BLOCKED — `docker` binary absent; CI authoritative** |
 | 18 | Expanded Trivy CI job | `.github/workflows/quality.yml` on `security/trivy-ci-scope` (`0c89aa68`) | **NOT PUSHED — owner OAuth `workflow` scope required** |
-| 19 | CI run for final commit | GitHub Actions | **NOT YET RUN — branch not pushed at time of reporting** |
+| 19 | CI run for code commit `a0183e314552afdfdf842fbaaa7030a088dc4d60` | [run 45177448956](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45177448956) | **PASS — all five jobs**: Backend, Frontend, Dependency audit, Trivy filesystem scan, Docker Compose integration |
 
 ## Honest notes
 
@@ -54,4 +54,8 @@ lockfile with `npm ci`.
 - Host cron/systemd installation, real S3 upload, Docker volume restore,
   process-kill drill, TLS scanning and independent security testing were
   **not** performed. They remain operator-only and are documented as such.
+- An earlier CI run (`45177307171`, commit `2bae059a`) was cancelled by the
+  workflow's `cancel-in-progress` setting when a documentation commit was
+  pushed. The "Start optional n8n service" step was marked *cancelled*, not
+  failed; the authoritative run is `45177448956`.
 - No public-deployment readiness or 100% completion is claimed.

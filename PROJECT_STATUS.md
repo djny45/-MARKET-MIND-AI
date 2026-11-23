@@ -5,9 +5,9 @@ Last reviewed: 2026-11-23 on branch `feat/complete-mission`, based on
 
 ## Current state
 
-- Audit branch head: `2bae059a` (see `git log -1 --format=%H` locally for the
-  authoritative value after additional commits). Final commit SHA and CI run
-  URL are recorded in `FINAL_TEST_RESULTS.md`.
+- Audited code commit: `a0183e314552afdfdf842fbaaa7030a088dc4d60`. CI for that
+  commit: <https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45177448956>
+  (all five jobs PASS). Any later docs-only commit is recorded in git history.
 - Product boundary: **research-only market intelligence**. Broker execution,
   wallet private keys, transaction signing, live order routing and market
   making are disabled by design; health reports `broker_execution: false`.

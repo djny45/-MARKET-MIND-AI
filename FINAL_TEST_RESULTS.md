@@ -12,7 +12,9 @@ lockfile with `npm ci`.
 | # | Check | Command | Result |
 | --- | --- | --- | --- |
 | 1 | Baseline full suite (before changes) | `PYTHONPATH=.:./backend python -m unittest discover -s backend/tests -q` | **PASS — 1043 tests, OK (116.7s)** on the venv; an earlier run with the system interpreter failed 56 import errors because `fastapi`/`pydantic` were absent (environment issue, not a code defect) |
-| 2 | Final full suite after all security/supervisor fixes | `PYTHONPATH=.:./backend /tmp/opencode/backend-venv/bin/python -m unittest discover -s backend/tests -q` | **PASS — 1058 tests, OK (103.8s)** |
+| 2 | Final full suite after durable ownership and worker metadata | `PYTHONPATH=.:./backend /tmp/opencode/backend-venv/bin/python -m unittest discover -s backend/tests -q` | **PASS — 1062 tests, OK (119.7s)** |
+| 2c | Durable ownership / bearer downgrade / unknown-ref denial | `PYTHONPATH=.:./backend .../python -m unittest backend.tests.test_authorization -q` | **PASS — 15 tests, OK** |
+| 2d | Worker metadata validation | `PYTHONPATH=.:./backend .../python -m unittest backend.tests.test_worker_registry -q` | **PASS — 24 tests, OK** |
 | 2a | Supervisor lease regressions | `PYTHONPATH=.:./backend .../python -m unittest backend.tests.test_agent_supervisor -q` | **PASS — 19 tests, OK** |
 | 2b | Authorization / user auth / env / session / limiter / audit / market-data / task suites | focused `unittest` runs on the 11 touched modules | **PASS** (all green; 2 initially failing polling-contract mocks were corrected, not weakened) |
 | 3 | DR regression | `PYTHONPATH=.:./backend .../python -m unittest backend.tests.test_recovery_drills -q` | **PASS — 14 tests, OK** (includes new stale-lock test) |

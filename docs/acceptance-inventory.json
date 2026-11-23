@@ -18,8 +18,8 @@
   },
   "acceptance_matrix": [
     {"feature":"Per-user authentication","implementation":"backend/app/user_auth.py; /api/auth/login|logout|me","missing":"none in-scope","tests":"test_user_auth.py, test_user_auth_api.py","status":"verified"},
-    {"feature":"Four-role authorization","implementation":"backend/app/authorization.py; SENSITIVE_ROUTE_POLICY","missing":"shared-bearer mode grants admin implicitly","tests":"test_authorization.py","status":"partial"},
-    {"feature":"Resource ownership","implementation":"authorization.OwnershipRegistry (in-memory)","missing":"durable SQLite ownership; unknown refs deny","tests":"test_authorization.py","status":"partial"},
+    {"feature":"Four-role authorization","implementation":"backend/app/authorization.py; SENSITIVE_ROUTE_POLICY; bearer downgrade to viewer","missing":"none in-scope","tests":"test_authorization.py (SharedBearerPrivilegeTests)","status":"verified"},
+    {"feature":"Resource ownership","implementation":"SQLite-backed resource_ownership table; unknown refs denied","missing":"none in-scope","tests":"test_authorization.py (DurableOwnershipTests)","status":"verified"},
     {"feature":"Session CSRF/rotation/expiry","implementation":"user_auth.py, auth_session_store.py, user_session_middleware.py","missing":"none in-scope","tests":"test_user_auth.py, test_authorization.py","status":"verified"},
     {"feature":"Strict environment validation","implementation":"backend/app/env_validation.py; origin_required()","missing":"none in-scope","tests":"test_env_validation.py","status":"verified"},
     {"feature":"Trusted proxy and rate limiting","implementation":"rate_limit.py, distributed_rate_limit.py","missing":"ingress limits are operator work","tests":"test_rate_limit.py, test_distributed_rate_limit.py","status":"verified"},
@@ -42,6 +42,35 @@
     {"feature":"Container/runtime integration","implementation":"docker-compose.yml, Dockerfiles, health checks","missing":"no local docker; CI authoritative","tests":"GitHub Actions Docker Compose job","status":"verified"},
     {"feature":"Imported execution code inert","implementation":"third_party excluded; no brokerage paths","missing":"none in-scope","tests":"test_skill_integrity.py, test_mcp_server.py","status":"verified"}
   ],
+  "frontend_module_inventory": {
+    "implemented_tabs": ["OVERVIEW","WORKFLOW","AGENT_NETWORK","AGENT_POSITIONS","LEARNING","WORKERS","RUNS","SCREENER","COVERAGE","NEWS","RESEARCH","VALIDATION","WATCHLIST"],
+    "implemented_inside_tabs": {
+      "Market overview dashboard": "OVERVIEW",
+      "Global market search": "header instrument search",
+      "Market-data overview": "OVERVIEW + WATCHLIST coverage",
+      "Multi-timeframe chart workspace": "PriceChart + RESEARCH",
+      "Technical-indicator panels": "RESEARCH",
+      "Candlestick pattern analysis": "RESEARCH",
+      "Strategy research workspace": "RESEARCH",
+      "Backtesting interface": "RESEARCH offline benchmark",
+      "News and research feed": "NEWS",
+      "Agent registry": "WORKERS",
+      "Agent activity dashboard": "AGENT_NETWORK",
+      "Agent memory and learning inspection": "LEARNING",
+      "Task and workflow monitor": "RUNS",
+      "Data validation": "VALIDATION"
+    },
+    "not_implemented_as_separate_modules": [
+      "Portfolio research and performance analytics",
+      "Risk analytics",
+      "System health dashboard (API health indicators only)",
+      "Provider health panel (API endpoint only)",
+      "Audit and security events panel (API endpoint only)",
+      "Backup and recovery status panel",
+      "Settings and configuration panel (read-only CONFIG dialog only)"
+    ],
+    "note": "These are tracked as private-platform scope gaps, not claimed as complete."
+  },
   "external_blockers": [
     "GitHub OAuth workflow scope for .github/workflows changes and PR #76",
     "TLS ingress, network segmentation, ingress rate limits, independent penetration test",

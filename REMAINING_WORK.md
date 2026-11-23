@@ -54,11 +54,10 @@ example, ADR-0001. No force-push, reset, rebase, merge or discard was performed.
    Pushing `.github/workflows/*` requires the owner to run
    `gh auth refresh -h github.com -s workflow` and approve the device code.
    The main audit branch is intentionally left pushable without workflow edits.
-3. **Remaining server-side gaps — PARTIAL**: role and ownership enforcement
-   remains conditional on `MARKET_MIND_USER_AUTH`; a shared bearer-token-only
-   deployment still grants every holder admin routes. `OwnershipRegistry` is
-   in-memory and unregistered refs are globally visible. These require an auth
-   model redesign and a durable ownership store, not a one-line change.
+3. **Resolved: shared bearer and ownership.** Bearer-only callers are downgraded
+   to viewer for sensitive routes; ownership is SQLite-durable and unknown
+   resource references are denied. Local mode with both auth flags off remains
+   intentionally open for research; operator deployments must enable auth.
 4. **Market-data labelling — RESOLVED at the API boundary**: live/delayed claims
    now require an operator-attested source; no provider is configured and
    `no_live_provider_configured` is reported. Cryptographic provider attestation

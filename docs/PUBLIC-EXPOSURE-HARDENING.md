@@ -105,9 +105,15 @@ deployment:
    environment or an instance role, never from the hook command line.
 4. Example hook (illustrative, not executed here):
    `aws s3 cp {backup} s3://market-mind-research/backups/{name} --sse AES256`
-5. Verify a restore from the object store into a clean directory and record the
-   SHA-256 sidecar comparison. This is operator work and is **not** validated
-   in this container.
+5. A stdlib-only prerequisite is available: `scripts/s3_offhost.py` with
+   `describe-config`, `upload`, `download` and `--dry-run`. It reads credentials
+   ONLY from `MARKET_MIND_S3_ENDPOINT`, `MARKET_MIND_S3_BUCKET`,
+   `MARKET_MIND_S3_REGION`, `MARKET_MIND_S3_ACCESS_KEY` and
+   `MARKET_MIND_S3_SECRET_KEY`, and never prints them. Validate with
+   `python3 scripts/s3_offhost.py describe-config` and a `--dry-run` upload.
+6. Verify a real restore from the object store into a clean directory and record
+   the SHA-256 sidecar comparison. This is operator work and is **not** validated
+   in this container; no credentials or endpoint exist here.
 
 ## 7. Production process-kill recovery drill (procedure, NOT executed)
 

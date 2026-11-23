@@ -19,7 +19,7 @@ Compose data sources, validation steps and specialist analytical workers into wo
 [![esbuild](https://img.shields.io/badge/esbuild-0.28-FF9935?logo=esbuild)](frontend/scripts/build.mjs)
 [![F283 CLI](https://img.shields.io/badge/OpenCode-2.4-38bdf8?logo=opencode)](docs/AI-HARNESS-COMPATIBILITY.md)
 [![Storage](https://img.shields.io/badge/Storage-SQLite-2938e8?logo=sqlite)](backend/app/market_store.py)
-[![Tests](https://img.shields.io/badge/Tests-1100%2B-38bdf8?style=flat-square)](docs/FINAL_TEST_RESULTS.md)
+[![Tests](https://img.shields.io/badge/Tests-1100%2B-38bdf8?style=flat-square)](FINAL_TEST_RESULTS.md)
 [![Research only](https://img.shields.io/badge/broker__execution-false-orange.svg)](docs/PUBLIC-EXPOSURE-HARDENING.md)
 [![Stars](https://img.shields.io/github/stars/djny45/-MARKET-MIND-AI?style=flat&logo=github&label=stars)](https://github.com/djny45/-MARKET-MIND-AI/stargazers)
 [![Last commit](https://img.shields.io/github/last-commit/djny45/-MARKET-MIND-AI?label=last%20commit)](https://github.com/djny45/-MARKET-MIND-AI/commits/main)

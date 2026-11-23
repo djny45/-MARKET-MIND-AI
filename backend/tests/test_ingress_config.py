@@ -71,6 +71,15 @@ class IngressRateLimitTests(unittest.TestCase):
         self.assertIsNotNone(health)
         self.assertNotIn("limit_req", health.group(1))
 
+    def test_backend_probes_are_exempt_from_perimeter_limits(self):
+        for probe in ("/api/ready", "/api/health"):
+            block = re.search(
+                r"location = " + re.escape(probe) + r" \{(.*?)\n    \}", self.server, re.S
+            )
+            self.assertIsNotNone(block, f"{probe} exact location missing")
+            self.assertNotIn("limit_req", block.group(1))
+            self.assertIn(f"proxy_pass http://backend:8000{probe}", block.group(1))
+
     def test_container_copies_limits_before_default_server(self):
         dockerfile = (FRONTEND / "Dockerfile").read_text(encoding="utf-8")
         self.assertIn("COPY nginx-limits.conf /etc/nginx/conf.d/00-ingress-limits.conf", dockerfile)

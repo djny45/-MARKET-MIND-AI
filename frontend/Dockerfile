@@ -11,6 +11,7 @@ FROM nginxinc/nginx-unprivileged:stable-alpine
 # Explicit non-root UID (the base image already uses 101). Declared so
 # container scanners do not flag a missing USER instruction.
 USER 101
+COPY nginx-limits.conf /etc/nginx/conf.d/00-ingress-limits.conf
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /src/dist /usr/share/nginx/html
 EXPOSE 8080

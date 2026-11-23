@@ -48,6 +48,21 @@ example, ADR-0001. No force-push, reset, rebase, merge or discard was performed.
 - PR dispositions recorded on GitHub: #8, #39, #40 closed as ported; #38 closed
   as obsolete architecture; #76 left open with an owner-action comment.
 
+## Newly executed recovery evidence (2026-11-23)
+
+- Real isolated backup → checksum → clean restore → integrity/row-count parity,
+  retention pruning and stale-lock recovery drill: PASS. Transcript and commands:
+  `docs/RECOVERY_DRILL_EVIDENCE.md` §1.
+- Real process-kill (`kill -9`) recovery drill in an isolated DB: PASS — the
+  killed executor's `running` task was requeued exactly once without dispatch.
+  Evidence: `docs/RECOVERY_DRILL_EVIDENCE.md` §2.
+- Added stdlib S3-compatible upload/download prerequisite
+  (`scripts/s3_offhost.py`) with env-only credentials, dry-run and secret-free
+  output; tests PASS. No real S3 target was configured or tested.
+- Ingress perimeter limits (nginx `limit_req`, `limit_conn`, CSP, 429) were
+  preserved from in-progress work and validated by 11 config tests (1 nginx-binary
+  test correctly skipped).
+
 ## Still blocked or intentionally excluded
 
 1. **Public exposure — BLOCKED (external)**: TLS issuance/scan, network
@@ -71,10 +86,11 @@ example, ADR-0001. No force-push, reset, rebase, merge or discard was performed.
    multi-supervisor contention tests remain gated by ADR-0001.
 6. **PR #76 — BLOCKED (owner)**: one-line `configure-pages@v6` bump needs the
    workflow-scope grant, then a normal authorized merge.
-7. **Host operations — NOT RUN**: cron/systemd install, real S3 target, Docker
-   volume restore (`docker` absent), real migration runner, host restart and
-   process-kill drill. See `docs/BACKUP_RECOVERY_DRILL.md` and
-   `docs/PUBLIC-EXPOSURE-HARDENING.md`.
+7. **Host operations — PARTIAL**: isolated backup/restore, retention, stale-lock
+   and process-kill recovery drills are now executed with evidence. Still NOT
+   RUN: cron/systemd install, real S3 upload/restore, Docker volume restore
+   (`docker` absent), host service restart and real migration runner. See
+   `docs/RECOVERY_DRILL_EVIDENCE.md` and `docs/PUBLIC-EXPOSURE-HARDENING.md`.
 8. **Multi-host execution — NOT IMPLEMENTED (intentional)**: SQLite single-host
    queue with one supervisor; `distributed_queue.py` is a contract only.
 9. **Licensed live data — NOT CONFIGURED (intentional)**: licensing gate

@@ -19,6 +19,9 @@ AUDIT_PATH = Path(os.getenv("MARKET_MIND_DB", "./data/market_mind.db")).with_nam
     "skill_cadence_audit.jsonl"
 )
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+SKILLS_ROOT = REPO_ROOT / ".agents" / "skills"
+
 SENSITIVE_KEYWORDS = frozenset({"execute", "subprocess", "os.system", "wget", "curl", "shell", "browser_use", "playwright", "web3", "eth", "wallet"})
 
 
@@ -36,8 +39,9 @@ class SkillCandidate:
 
 
 class SkillCadenceEngine:
-    def __init__(self, audit_path: Path | None = None):
+    def __init__(self, audit_path: Path | None = None, skills_root: Path | None = None):
         self.audit_path = Path(audit_path) if audit_path else AUDIT_PATH
+        self.skills_root = Path(skills_root) if skills_root else SKILLS_ROOT
         self._catalog_audit = audit_catalog()
         self._reference_audit = audit_reference_skills()
         self._promotion = PromotionEngine(self._catalog_audit, self._reference_audit)
@@ -109,7 +113,14 @@ class SkillCadenceEngine:
         catalog_ids = set(self._catalog_audit["ids"])
         catalog_pack_names = {skill_id for skill_id in catalog_ids if skill_id.startswith("mm-skill-")}
         catalog_pack_names.add("market-mind-300-research-skills")
-        for name, skill_file in self._skill_files():
+        skill_files = self._skill_files()
+        if not skill_files:
+            return {
+                "issues": [{"skill": "<none>", "issue": "no_skill_files_scanned"}],
+                "scanned": 0,
+                "passed": False,
+            }
+        for name, skill_file in skill_files:
             meta = frontmatter(skill_file.read_text(encoding="utf-8", errors="replace"))
             if name in catalog_ids or name in catalog_pack_names or name.startswith("mm-skill-"):
                 # Catalog-backed files are validated by the catalog audit.
@@ -118,7 +129,7 @@ class SkillCadenceEngine:
                 issues.append({"skill": name, "issue": "missing_name"})
             if not meta.get("description"):
                 issues.append({"skill": name, "issue": "missing_description"})
-        return {"issues": issues, "passed": not issues}
+        return {"issues": issues, "scanned": len(skill_files), "passed": not issues}
 
     def compatibility_testing(self) -> dict:
         from .skill_catalog import load_skill
@@ -133,9 +144,20 @@ class SkillCadenceEngine:
         return {"failures": failures, "passed": not failures, "tested": len(self._catalog_audit["ids"])}
 
     def security_checks(self) -> dict:
-        """Flag executable/sensitive capabilities in imported text for human review."""
+        """Flag executable/sensitive capabilities in imported text for human review.
+
+        Fails closed: when no skill files can be scanned the check reports a
+        finding instead of silently passing.
+        """
         findings: list[dict] = []
-        for name, skill_file in self._skill_files():
+        skill_files = self._skill_files()
+        if not skill_files:
+            return {
+                "findings": [{"skill": "<none>", "keyword": "no_skill_files_scanned"}],
+                "scanned": 0,
+                "passed": False,
+            }
+        for name, skill_file in skill_files:
             try:
                 text = skill_file.read_text(encoding="utf-8", errors="replace").lower()
             except OSError:
@@ -143,7 +165,7 @@ class SkillCadenceEngine:
             for keyword in SENSITIVE_KEYWORDS:
                 if keyword.lower() in text:
                     findings.append({"skill": name, "keyword": keyword})
-        return {"findings": findings, "passed": not findings}
+        return {"findings": findings, "scanned": len(skill_files), "passed": not findings}
 
     def quality_scores(self) -> dict[str, float]:
         scores = {score.skill_id: score.base_score for score in self._promotion.score_all()}
@@ -183,7 +205,6 @@ class SkillCadenceEngine:
             handle.write(json.dumps({"event": event, "record": record}, sort_keys=True) + "\n")
 
     def _skill_files(self):
-        from pathlib import Path as P
-        root = P(".agents") / "skills"
-        files = list(root.rglob("SKILL.md")) if root.is_dir() else []
+        root = Path(self.skills_root)
+        files = sorted(root.rglob("SKILL.md")) if root.is_dir() else []
         return [(p.parent.name, p) for p in files]

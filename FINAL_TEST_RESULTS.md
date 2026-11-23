@@ -12,7 +12,10 @@ lockfile with `npm ci`.
 | # | Check | Command | Result |
 | --- | --- | --- | --- |
 | 1 | Baseline full suite (before changes) | `PYTHONPATH=.:./backend python -m unittest discover -s backend/tests -q` | **PASS — 1043 tests, OK (116.7s)** on the venv; an earlier run with the system interpreter failed 56 import errors because `fastapi`/`pydantic` were absent (environment issue, not a code defect) |
-| 2 | Final full suite after operations modules and backup endpoint | `PYTHONPATH=.:./backend /tmp/opencode/backend-venv/bin/python -m unittest discover -s backend/tests -q` | **PASS — 1063 tests, OK (117.5s)** |
+| 2 | Full suite after ingress/skill-cadence hardening and S3 prerequisite | `PYTHONPATH=.:./backend /tmp/opencode/backend-venv/bin/python -m unittest discover -s backend/tests -q` | **PASS — 1078 tests, OK (156.2s), 1 skipped (nginx binary absent — not counted as passed)** |
+| 2e | S3 prerequisite tests | `PYTHONPATH=.:./backend .../python -m unittest backend.tests.test_s3_offhost -q` | **PASS — 2 tests, OK** |
+| 2f | Ingress/skill-cadence tests | `PYTHONPATH=.:./backend .../python -m unittest backend.tests.test_ingress_config backend.tests.test_skill_cadence -q` | **PASS — 22 tests, OK (1 skipped: nginx binary absent)** |
+| 2g | Real isolated recovery drills | `/tmp/opencode/run_dr_final.sh`, `/tmp/opencode/run_process_kill_drill.sh` | **PASS** — backup/checksum/restore/parity/retention/stale-lock and `kill -9` requeue; evidence in `docs/RECOVERY_DRILL_EVIDENCE.md` |
 | 2c | Durable ownership / bearer downgrade / unknown-ref denial | `PYTHONPATH=.:./backend .../python -m unittest backend.tests.test_authorization -q` | **PASS — 15 tests, OK** |
 | 2d | Worker metadata validation | `PYTHONPATH=.:./backend .../python -m unittest backend.tests.test_worker_registry -q` | **PASS — 24 tests, OK** |
 | 2a | Supervisor lease regressions | `PYTHONPATH=.:./backend .../python -m unittest backend.tests.test_agent_supervisor -q` | **PASS — 19 tests, OK** |

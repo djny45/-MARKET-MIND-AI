@@ -9,7 +9,7 @@
 | CI on that exact SHA | https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45207137712 — all 5 jobs PASS |
 | Previous integrations | PR #83 `46f67732` (run 45197484726), PR #82 `e8d9f328` (run 45184633962) — both all-PASS |
 | Previous integration | PR #82, `e8d9f328`, run 45184633962 — all 5 jobs PASS |
-| Backend | 1063 tests OK (`unittest discover -s backend/tests -q`) |
+| Backend | 1078 tests OK, 1 skipped (`unittest discover -s backend/tests -q`) |
 | Frontend | 10 node:test + 123 Vitest; 20 UI test files |
 | Frontend typecheck/build | clean; esbuild bundle produced |
 | Browser tests | 0 (no browser runner configured) — jsdom component tests cover responsive DOM declarations |
@@ -23,7 +23,7 @@
 
 **A. APPLICATION FEATURE COMPLETE — YES.** All 26 requested frontend modules are implemented or covered inside existing tabs and connected to real backend services. The seven formerly missing modules now have dedicated panels: portfolio analytics, risk analytics, system health, provider health, audit/security events, backup status (`GET /api/backup/status`) and settings. They enforce loading, empty, error and role-denied states; no fabricated market values are displayed.
 
-**B. PRIVATE RESEARCH PLATFORM TEST READY — NOT YET.** Backend and frontend suites, typechecks, build, audits, Trivy local scan and Docker Compose CI pass on the integrated SHA. Remaining gates: real-browser responsive tests (0), expanded Trivy CI workflow scope (owner `workflow` permission), and real host/S3/process-kill recovery drills.
+**B. PRIVATE RESEARCH PLATFORM TEST READY — NOT YET.** Backend and frontend suites, typechecks, build, audits, Trivy local scan and Docker Compose CI pass. Isolated backup/restore, checksum, parity, retention, stale-lock and real `kill -9` process-kill recovery drills now pass (`docs/RECOVERY_DRILL_EVIDENCE.md`). Remaining gates: real-browser responsive tests (0), expanded Trivy CI workflow scope (owner `workflow` permission), and Docker-volume restore / host restart / real S3 restore (no Docker, host access or credentials). Private-platform verification remains **7/10**, not 10/10.
 
 **C. PUBLIC DEPLOYMENT READY — NO.** Requires TLS, network segmentation, ingress security, independent penetration testing, formal review and production recovery evidence. None are verified here.
 

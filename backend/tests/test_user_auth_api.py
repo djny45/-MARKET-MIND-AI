@@ -29,6 +29,22 @@ class UserAuthApiTests(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
+    def test_login_throttles_after_failures_and_returns_429(self):
+        from app import login_guard
+        login_guard.GUARD.reset()
+        with patch.dict(os.environ, self.env, clear=False):
+            for _ in range(5):
+                response = self.client.post(
+                    "/api/auth/login", json={"username": "viewer", "password": "definitely-wrong"}
+                )
+                self.assertEqual(response.status_code, 401)
+            throttled = self.client.post(
+                "/api/auth/login", json={"username": "viewer", "password": "definitely-wrong"}
+            )
+            self.assertEqual(throttled.status_code, 429)
+            self.assertTrue(throttled.headers.get("Retry-After"))
+        login_guard.GUARD.reset()
+
     def test_login_me_and_logout(self):
         with patch.dict(os.environ, self.env, clear=False):
             response = self.client.post(

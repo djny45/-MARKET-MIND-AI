@@ -29,7 +29,7 @@ EVENT_TYPES = frozenset(
         "startup",
     }
 )
-OUTCOMES = frozenset({"success", "denied", "failure", "info"})
+OUTCOMES = frozenset({"success", "denied", "failure", "info", "throttled"})
 REDACTED = "[REDACTED]"
 _SECRET_KEY = re.compile(
     r"(password|passwd|secret|token|api[_-]?key|authorization|cookie|csrf|credential|private[_-]?key)",

@@ -17,6 +17,7 @@ from typing import Any, Mapping
 from . import sqlite_tuning
 
 from .auth_crypto import (
+    equalise_verification_timing,
     generate_csrf_token,
     generate_session_token,
     hash_csrf_token,
@@ -84,8 +85,12 @@ def load_users(environ: Mapping[str, str] | None = None) -> dict[str, dict[str, 
 
 
 def authenticate(username: str, password: str, environ: Mapping[str, str] | None = None) -> dict[str, str] | None:
+    """Verify credentials, spending the same effort whether or not the account exists."""
     user = load_users(environ).get(username)
     if not user or not isinstance(password, str):
+        # An unknown account must not answer measurably faster than a wrong
+        # password, or a caller can enumerate valid usernames by timing.
+        equalise_verification_timing(password)
         return None
     if not verify_password(password, user["password_hash"]):
         return None

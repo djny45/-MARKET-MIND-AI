@@ -96,3 +96,25 @@ databases under `/tmp/opencode/`; no production database was modified.
 - **C. Public deployment readiness: NOT READY (0/6 external gates)** — TLS,
   network segmentation, ingress hardening, external pentest and formal review are
   unverified. No public exposure is authorized.
+
+## Off-host backup objectives
+
+Current verified state (not operator-agreed targets):
+
+- **Encryption in transit**: the S3 adapter uses HTTPS-capable endpoints and SigV4
+  signing; the local drill used plain HTTP against a loopback moto service only.
+  Server-side/at-rest encryption is **not configured or verified**.
+- **Retention**: `backup_orchestrator.py prune` supports age (`--retention-days`)
+  and count (`--retention-count`) policies; the executed drill retained the 2
+  newest of 4 copies and removed orphan sidecars. No production policy is set.
+- **Integrity**: every backup carries a `.sha256` sidecar; restore verifies the
+  checksum and compares database fingerprints before accepting the result.
+- **Recovery point objective (RPO)**: not defined by the operator. The measured
+  drill cadence is one verified backup per orchestrator run; continuous/WAL
+  archiving is not configured, so the practical RPO is the last completed backup.
+- **Recovery time objective (RTO)**: not defined by the operator. Measured local
+  drill times were ~1 s for backup + restore + parity on a small isolated DB and
+  ~3 s for process-kill requeue; these are not production-scale estimates.
+- **Operator actions**: agree RPO/RTO, enable at-rest encryption, schedule the
+  backup orchestrator, configure real `MARKET_MIND_S3_*` credentials and perform
+  a real cloud restore drill before relying on off-host recovery.

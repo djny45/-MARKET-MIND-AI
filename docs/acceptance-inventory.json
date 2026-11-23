@@ -1,0 +1,51 @@
+{
+  "generated_at": "2026-11-23",
+  "source": "origin/main b770a51cb1bc8ee3639996a9efebceb4ae477ef9",
+  "counts": {
+    "api_routes": 147,
+    "backend_modules": 118,
+    "backend_test_modules": 155,
+    "frontend_ui_test_files": 19,
+    "analytical_worker_configs": 550,
+    "auth_routes": 6,
+    "ownership_claim_sites": 8
+  },
+  "status_legend": {
+    "verified": "implemented and covered by an executed test",
+    "partial": "implemented but with a documented gap",
+    "missing": "not implemented",
+    "blocked": "requires owner/operator/external action"
+  },
+  "acceptance_matrix": [
+    {"feature":"Per-user authentication","implementation":"backend/app/user_auth.py; /api/auth/login|logout|me","missing":"none in-scope","tests":"test_user_auth.py, test_user_auth_api.py","status":"verified"},
+    {"feature":"Four-role authorization","implementation":"backend/app/authorization.py; SENSITIVE_ROUTE_POLICY","missing":"shared-bearer mode grants admin implicitly","tests":"test_authorization.py","status":"partial"},
+    {"feature":"Resource ownership","implementation":"authorization.OwnershipRegistry (in-memory)","missing":"durable SQLite ownership; unknown refs deny","tests":"test_authorization.py","status":"partial"},
+    {"feature":"Session CSRF/rotation/expiry","implementation":"user_auth.py, auth_session_store.py, user_session_middleware.py","missing":"none in-scope","tests":"test_user_auth.py, test_authorization.py","status":"verified"},
+    {"feature":"Strict environment validation","implementation":"backend/app/env_validation.py; origin_required()","missing":"none in-scope","tests":"test_env_validation.py","status":"verified"},
+    {"feature":"Trusted proxy and rate limiting","implementation":"rate_limit.py, distributed_rate_limit.py","missing":"ingress limits are operator work","tests":"test_rate_limit.py, test_distributed_rate_limit.py","status":"verified"},
+    {"feature":"Audit events and redaction","implementation":"backend/app/audit_events.py","missing":"none in-scope","tests":"test_audit_events.py","status":"verified"},
+    {"feature":"Frontend auth UI","implementation":"frontend/src/AuthPanel.tsx","missing":"none in-scope","tests":"tests/ui/auth-panel.test.tsx","status":"verified"},
+    {"feature":"Role-aware navigation/access denied","implementation":"App.tsx sideTabs/selectTab","missing":"none in-scope","tests":"app.general-fixes.test.tsx","status":"verified"},
+    {"feature":"Observation screener","implementation":"frontend/src/CoverageTools.tsx","missing":"none in-scope","tests":"coverage-tools.test.tsx","status":"verified"},
+    {"feature":"Coverage heatmap","implementation":"frontend/src/CoverageTools.tsx","missing":"none in-scope","tests":"coverage-tools.test.tsx","status":"verified"},
+    {"feature":"Help dialog/news errors/watchlist states","implementation":"App.tsx","missing":"none in-scope","tests":"app.general-fixes.test.tsx, app.news.test.tsx","status":"verified"},
+    {"feature":"Responsive browser verification","implementation":"CSS media queries + jsdom DOM checks","missing":"real browser runner","tests":"responsive-layout.test.tsx","status":"blocked"},
+    {"feature":"550 worker registry","implementation":"backend/app/workers.py; worker_registry.py","missing":"none in-scope; shared-core templates not independent models","tests":"test_worker_registry.py, test_worker_skills.py","status":"verified"},
+    {"feature":"Skill allowlist and integrity","implementation":"skill_catalog.py, skill_integrity.py","missing":"none in-scope","tests":"test_skill_catalog.py, test_skill_integrity.py","status":"verified"},
+    {"feature":"Worker memory isolation","implementation":"backend/app/worker_memory.py","missing":"per-user ownership is separate and in-memory","tests":"test_worker_memory.py","status":"partial"},
+    {"feature":"Task ownership fencing","implementation":"analytical_agent_tasks.py execution_token CAS; PR #8 port","missing":"none in-scope","tests":"test_analytical_agent_tasks.py, test_agent_supervisor.py","status":"verified"},
+    {"feature":"Supervisor lease-loss handling","implementation":"heartbeat lease columns, CAS renewal, dispatch revalidation","missing":"two-process contention test (ADR-0001)","tests":"test_agent_supervisor.py (3 lease tests)","status":"verified"},
+    {"feature":"Market-data provenance/freshness","implementation":"market_data.py, provider_health.py, data_licensing_gate.py","missing":"licensed live provider; cryptographic attestation","tests":"test_market_data.py, test_market_data_store_api.py, test_provider_health.py","status":"partial"},
+    {"feature":"Historical research/backtesting","implementation":"backend research modules + CLI","missing":"none in-scope","tests":"test_historical_research.py","status":"verified"},
+    {"feature":"Backup/restore and DR scripts","implementation":"scripts/backup_orchestrator.py, restore_orchestrator.py, migration_rollback.py","missing":"S3 adapter, Docker volume restore, host drills","tests":"test_recovery_drills.py, test_backup_database.py","status":"partial"},
+    {"feature":"Trivy CI full scope","implementation":"local scan vuln,misconfig,secret MEDIUM+; workflow patch on security/trivy-ci-scope","missing":"owner workflow scope to land workflow change","tests":"test_ci_workflow_config.py (isolated branch)","status":"blocked"},
+    {"feature":"Container/runtime integration","implementation":"docker-compose.yml, Dockerfiles, health checks","missing":"no local docker; CI authoritative","tests":"GitHub Actions Docker Compose job","status":"verified"},
+    {"feature":"Imported execution code inert","implementation":"third_party excluded; no brokerage paths","missing":"none in-scope","tests":"test_skill_integrity.py, test_mcp_server.py","status":"verified"}
+  ],
+  "external_blockers": [
+    "GitHub OAuth workflow scope for .github/workflows changes and PR #76",
+    "TLS ingress, network segmentation, ingress rate limits, independent penetration test",
+    "Real S3 credentials, Docker host and host init/process-kill drills",
+    "Licensed live market-data provider and legal/licensing review"
+  ]
+}

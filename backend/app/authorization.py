@@ -16,7 +16,9 @@ authentication is enabled. The primitives themselves always fail closed.
 """
 from __future__ import annotations
 
+import os
 import re
+import sqlite3
 import threading
 from contextvars import ContextVar
 from dataclasses import dataclass
@@ -139,6 +141,17 @@ class OwnershipRegistry:
         self._owners: dict[tuple[str, str], str] = {}
         self._lock = threading.RLock()
 
+    @staticmethod
+    def _database() -> sqlite3.Connection:
+        path = os.getenv("MARKET_MIND_DB", "./data/market_mind.db")
+        connection = sqlite3.connect(path, timeout=5)
+        connection.execute(
+            "CREATE TABLE IF NOT EXISTS resource_ownership ("
+            "resource_type TEXT NOT NULL, resource_id TEXT NOT NULL, "
+            "owner TEXT NOT NULL, PRIMARY KEY(resource_type, resource_id))"
+        )
+        return connection
+
     def record(
         self,
         resource_type: str,
@@ -150,34 +163,65 @@ class OwnershipRegistry:
         ref = ResourceRef(resource_type, resource_id)
         if not isinstance(owner, str) or not owner.strip():
             raise ValueError("owner must be a non-empty string")
+        owner = owner.strip()
         with self._lock:
             key = ref.key
             if overwrite or key not in self._owners:
-                self._owners[key] = owner.strip()
+                self._owners[key] = owner
+            with self._database() as db:
+                if overwrite:
+                    db.execute(
+                        "INSERT INTO resource_ownership (resource_type,resource_id,owner) "
+                        "VALUES (?,?,?) ON CONFLICT(resource_type,resource_id) "
+                        "DO UPDATE SET owner=excluded.owner",
+                        (ref.resource_type, ref.resource_id, owner),
+                    )
+                else:
+                    db.execute(
+                        "INSERT OR IGNORE INTO resource_ownership "
+                        "(resource_type,resource_id,owner) VALUES (?,?,?)",
+                        (ref.resource_type, ref.resource_id, owner),
+                    )
 
     def owner_of(self, resource_type: str, resource_id: str) -> str | None:
         ref = ResourceRef(resource_type, resource_id)
         with self._lock:
-            return self._owners.get(ref.key)
+            with self._database() as db:
+                row = db.execute(
+                    "SELECT owner FROM resource_ownership WHERE resource_type=? AND resource_id=?",
+                    (ref.resource_type, ref.resource_id),
+                ).fetchone()
+            if row is not None:
+                self._owners[ref.key] = row[0]
+                return row[0]
+            self._owners.pop(ref.key, None)
+            return None
 
     def is_owner(
         self, actor: Mapping[str, Any] | None, resource_type: str, resource_id: str
     ) -> bool:
         owner = self.owner_of(resource_type, resource_id)
         if owner is None:
-            # Unregistered resources are treated as global and restricted by
-            # role only (see ``authorize``).
-            return True
+            # Unregistered resources are not globally owned; deny access.
+            return False
         return bool(actor) and hmac_compare(owner, actor_owner(actor))
 
     def forget(self, resource_type: str, resource_id: str) -> bool:
         ref = ResourceRef(resource_type, resource_id)
         with self._lock:
-            return self._owners.pop(ref.key, None) is not None
+            existed = self._owners.pop(ref.key, None) is not None
+            with self._database() as db:
+                cursor = db.execute(
+                    "DELETE FROM resource_ownership WHERE resource_type=? AND resource_id=?",
+                    (ref.resource_type, ref.resource_id),
+                )
+            return existed or cursor.rowcount > 0
 
     def clear(self) -> None:
         with self._lock:
             self._owners.clear()
+            with self._database() as db:
+                db.execute("DELETE FROM resource_ownership")
 
 
 def hmac_compare(left: str, right: str) -> bool:
@@ -260,9 +304,10 @@ def authorize(
         if not isinstance(resource, ResourceRef):
             return AuthorizationDecision(False, "invalid_resource", minimum)
         owner = store.owner_of(resource.resource_type, resource.resource_id)
-        if owner is not None:
-            if not is_admin(actor) and not hmac_compare(owner, actor_owner(actor)):
-                return AuthorizationDecision(False, "not_resource_owner", minimum)
+        if owner is None:
+            return AuthorizationDecision(False, "unregistered_resource", minimum)
+        if not is_admin(actor) and not hmac_compare(owner, actor_owner(actor)):
+            return AuthorizationDecision(False, "not_resource_owner", minimum)
     # ``action`` is intentionally not used for additional grants; it is part of
     # the decision record so the audit layer can describe what was attempted.
     return AuthorizationDecision(True, "allowed", minimum)

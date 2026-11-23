@@ -1,6 +1,7 @@
 """Opt-in per-user session enforcement and browser-hardening middleware."""
 from __future__ import annotations
 
+import os
 from http.cookies import SimpleCookie
 from typing import Any
 from urllib.parse import urlparse
@@ -130,6 +131,27 @@ class UserSessionAuthMiddleware:
             return
 
         _strip_untrusted_forwarded_headers(scope)
+        if not enabled() and os.getenv("API_AUTH_REQUIRED", "false").strip().lower() in {
+            "1", "true", "yes", "on"
+        }:
+            # Shared deployment bearer: authenticated but never administrative.
+            # Per-user roles require MARKET_MIND_USER_AUTH; a bearer holder is
+            # explicitly downgraded to viewer for sensitive-route policy checks.
+            path = scope.get("path", "")
+            policy = required_role_for_path(path, scope.get("method", "GET").upper())
+            if policy is not None:
+                decision = authorize(
+                    {"username": "api-client", "role": "viewer"}, policy[0]
+                )
+                if not decision.allowed:
+                    audit_log.record("authorization", None, path, "bearer_policy", "denied")
+                    response = JSONResponse(
+                        {"detail": f"Authorization denied: {decision.reason}"}, status_code=403
+                    )
+                    await response(scope, receive, send)
+                    return
+            await self.app(scope, receive, send)
+            return
         if (
             not enabled()
             or not scope.get("path", "").startswith("/api/")

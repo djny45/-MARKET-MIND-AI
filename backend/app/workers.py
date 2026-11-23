@@ -60,6 +60,35 @@ def list_workers():
             "memory_namespace": f"workers/worker_{i+1:03d}",
             "skill_refs": SKILL_BY_DEPARTMENT.get(department, []) + pack_skill_refs,
             "status": "template",
+            "category": department,
+            "description": (
+                f"{specialty.replace('_', ' ').title()} analytical worker template "
+                "using the shared central intelligence core; not an independent model."
+            ),
+            "skills": SKILL_BY_DEPARTMENT.get(department, []) + pack_skill_refs,
+            "input_schema": {
+                "type": "object",
+                "properties": {"brief": {"type": "string"}, "data": {"type": "object"}},
+                "required": ["brief"],
+            },
+            "output_schema": {
+                "type": "object",
+                "properties": {"status": {"type": "string"}, "result": {"type": "object"}},
+                "required": ["status"],
+            },
+            "permission_profile": {
+                "broker_execution": False,
+                "tool_execution": False,
+                "network_access": "allowlisted_read_only",
+            },
+            "task_status": "template",
+            # Runtime history is intentionally empty: templates have not executed
+            # independently, and no performance numbers are fabricated.
+            "execution_history": [],
+            "error_history": [],
+            "resource_limits": {"max_concurrent_tasks": 1, "max_input_bytes": 2_000_000},
+            "performance_metrics": {"independently_measured": False},
+            "version": "1.0.0",
             "note": "AI analytical worker template; execution requires an implemented, validated handler in the shared central intelligence runtime."
         })
     return workers

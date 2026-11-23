@@ -93,6 +93,66 @@ class AuthorizationPrimitivesTests(unittest.TestCase):
         self.assertIsNone(required_role_for_path("/api/audit/events"))
 
 
+class DurableOwnershipTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.env = patch.dict(
+            "os.environ", {"MARKET_MIND_DB": str(Path(self.tmp.name) / "ownership.db")}
+        )
+        self.env.start()
+        ownership_registry.clear()
+
+    def tearDown(self):
+        ownership_registry.clear()
+        self.env.stop()
+        self.tmp.cleanup()
+
+    def test_ownership_survives_a_new_registry_instance(self):
+        from app.authorization import OwnershipRegistry
+        ownership_registry.record("layout", "durable-1", "alice")
+        restarted = OwnershipRegistry()
+        self.assertEqual(restarted.owner_of("layout", "durable-1"), "alice")
+        self.assertTrue(
+            restarted.is_owner({"username": "alice", "role": "viewer"}, "layout", "durable-1")
+        )
+        self.assertFalse(
+            restarted.is_owner({"username": "bob", "role": "viewer"}, "layout", "durable-1")
+        )
+
+    def test_unregistered_resource_is_not_globally_owned(self):
+        decision = authorize(
+            {"username": "alice", "role": "viewer"}, "viewer",
+            resource=ResourceRef("layout", "never-claimed"),
+        )
+        self.assertFalse(decision.allowed)
+        self.assertEqual(decision.reason, "unregistered_resource")
+
+
+class SharedBearerPrivilegeTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.env = patch.dict("os.environ", {
+            "MARKET_MIND_DB": str(Path(self.tmp.name) / "bearer.db"),
+            "MARKET_MIND_USER_AUTH": "false",
+            "API_AUTH_REQUIRED": "true",
+            "API_AUTH_TOKEN": "t" * 48,
+        })
+        self.env.start()
+
+    def tearDown(self):
+        self.env.stop()
+        self.tmp.cleanup()
+
+    def test_bearer_holder_is_not_administrator(self):
+        client = TestClient(app)
+        headers = {"Authorization": "Bearer " + "t" * 48}
+        self.assertEqual(client.get("/api/admin/users", headers=headers).status_code, 403)
+        self.assertEqual(
+            client.get("/api/security/audit-events", headers=headers).status_code, 403
+        )
+        self.assertEqual(client.get("/api/health").status_code, 200)
+
+
 class AuthorizationApiTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()

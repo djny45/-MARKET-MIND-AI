@@ -5,8 +5,9 @@
 | Item | Value |
 | --- | --- |
 | Repository | https://github.com/djny45/-MARKET-MIND-AI |
-| Integrated code commit on `main` | `92337e774bfca471008157ec89a11c3a7cdd9cb4` (merge of PR #87) |
-| CI on that exact SHA | https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45225328838 — all 5 jobs PASS |
+| Integrated code commit on `main` | `2cdb73c60aef20b867ee2bb563728714b9571133` (merge of PR #89: security-gap closures, WAL-sidecar leak fix) |
+| CI on that exact SHA | https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45234033798 — all 5 jobs PASS |
+| Prior integrations | PR #87 `92337e77` run 45225328838; PR #88 `dad80256`; PR #85–86; PR #83, #84 |
 | Browser CI job | staged locally on `security/ci-expansion`, pending owner `workflow` scope |
 | Recovery evidence | `docs/RECOVERY_DRILL_EVIDENCE.md` — real isolated backup/checksum/restore/parity/retention/stale-lock and `kill -9` drills PASS |
 | Previous integrations | PR #83 `46f67732` (run 45197484726), PR #82 `e8d9f328` (run 45184633962) — both all-PASS |

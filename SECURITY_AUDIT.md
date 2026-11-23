@@ -65,9 +65,9 @@ material only and was not executed.
 
 ## Outstanding external work
 
-These findings were verified on integrated `main` at the then-HEAD,
-`32561c1d4bb48e23107d65d6f576c9e148b3176b`; a newer WAL perf merge
-(`dad80256be51fcd85418b33c4b11b66bcd59fbc0`) now includes it after merge of PR #88.
+These findings were verified on integrated `main` `2cdb73c60aef20b867ee2bb563728714b9571133`
+(merge of PR #89; WAL perf merge PR #88 at `dad80256` is upstream). HTTP-level
+session-expiry and untrusted-XFF-stripping regressions were added in PR #89.
 TLS ingress, network segmentation, ingress rate limits, independent penetration
 testing and formal security review are operator/external responsibilities.
 See `docs/PUBLIC-EXPOSURE-HARDENING.md` for the required configuration and

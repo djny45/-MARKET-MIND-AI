@@ -103,9 +103,9 @@ example, ADR-0001. No force-push, reset, rebase, merge or discard was performed.
 ## Integration state
 
 All completed work was merged into `main` at
-`92337e774bfca471008157ec89a11c3a7cdd9cb4` via reviewed PR #87 (after PRs
-#82–#86). CI on that exact SHA passed all five jobs
-(<https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45225328838>).
+`2cdb73c60aef20b867ee2bb563728714b9571133` via reviewed PR #89 (after PRs
+#82–#88). CI on that exact SHA passed all five jobs
+(<https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45234033798>).
 
 The Docker Compose job in that run built the frontend image with the new
 `nginx-limits.conf`, started the stack, and fetched `/api/ready` through the

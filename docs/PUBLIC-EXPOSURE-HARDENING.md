@@ -55,14 +55,26 @@ clients to share one rate-limit bucket.
 ## 4. Ingress-level rate limits
 
 The application has an in-process limiter with a Redis-capable fallback, but
-that is defence in depth, not a perimeter control. Configure ingress limits,
-for example:
+that is defence in depth, not a perimeter control. Configure ingress limits.
 
-- `/api/`: 30 requests/minute per IP, burst 20, HTTP 429 on excess.
-- Static routes: 120 requests/minute per IP, burst 40.
+**Shipped defaults now implement this** in `frontend/nginx-limits.conf`
+(zones, 429 status, `server_tokens off`) and `frontend/nginx.conf`
+(per-location limits, connection cap, proxy headers, security headers
+including CSP). Both files are copied into the container image
+(`/etc/nginx/conf.d/00-ingress-limits.conf` before `default.conf`) and are
+asserted by `backend/tests/test_ingress_config.py`, which also runs `nginx -t`
+when an nginx binary is available. Keep these values unless observed traffic
+justifies a change:
+
+- `/api/`: 30 requests/minute per IP (`rate=30r/m`), burst 20, HTTP 429.
+- Static routes: 120 requests/minute per IP (`rate=120r/m`), burst 40, HTTP 429.
+- Concurrent connections per IP: 20 (`limit_conn`).
+- `/healthz` is intentionally not rate limited.
 - Tighten login/token endpoints further if per-user authentication is enabled.
 
-Monitor 429 rates and adjust from observed traffic. Do not disable the
+A local `nginx -t` against these files was NOT executed in this environment
+(no nginx binary); the parsing tests and the CI Docker job are the executable
+checks. Monitor 429 rates and adjust from observed traffic. Do not disable the
 application limiter because ingress limits exist.
 
 ## 5. Secure deployment configuration example

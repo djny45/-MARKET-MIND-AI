@@ -1,5 +1,13 @@
 # Recovery drill evidence — executed 2026-11-23
 
+Re-verified independently at 2026-11-23T16:09Z from the same scripts
+(`/tmp/opencode/run_dr_final.sh`, `/tmp/opencode/run_process_kill_drill.sh`):
+backup restored with `comparison.status=matched`, `integrity=ok` on both
+source and restored databases, equal table counts, retention prune kept the
+newest 2 of 4 copies, one stale `restore.lock` removed, and the killed worker's
+task was requeued (`requeued_interrupted_count=1`, `still_running_count=0`).
+Fresh transcripts: `/tmp/drill-verify.log`, `/tmp/drill-kill-verify.log`.
+
 Research-only platform. No live trading, wallet keys, signing or order routing
 was enabled. All drills ran in isolated temporary directories, never against a
 production database.

@@ -13,6 +13,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Iterable
 
+from .audit_jsonl import append_record, read_records
 from .research_backtest_harness import BacktestConfig
 
 LOG_PATH = Path(os.getenv("MARKET_MIND_DB", "./data/market_mind.db")).with_name(
@@ -144,24 +145,18 @@ class ShadowSessionEngine:
         return metrics
 
     def _persist(self, order: ShadowOrder) -> None:
-        self.log_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(self.log_path, "a", encoding="utf-8") as handle:
-            handle.write(json.dumps(order.as_record(), sort_keys=True) + "\n")
+        append_record(self.log_path, order.as_record())
 
 
 def replay_audit_log(path: Path) -> list[dict]:
-    """Read the append-only shadow audit log; it is data, never an order sink."""
+    """Read the append-only shadow audit log; it is data, never an order sink.
+
+    Rotated archives are included so metrics do not drop when a log rotates.
+    """
     if not path.is_file():
         return []
-    records: list[dict] = []
-    with open(path, encoding="utf-8") as handle:
-        for line in handle:
-            line = line.strip()
-            if line:
-                record = json.loads(line)
-                if record.get("mode") == "shadow_log_only":
-                    records.append(record)
-    return records
+    return [record for record in read_records(path)
+            if record.get("mode") == "shadow_log_only"]
 
 
 def make_backtest_config() -> BacktestConfig:

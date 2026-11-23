@@ -732,18 +732,20 @@ def market_data_lineage(symbol: str, interval: str = "1h", limit: int = 5000):
 
 @app.get("/api/ready")
 def readiness():
- """Report whether required local storage is reachable and initialized."""
+ """Report whether required local storage is reachable, writable and not full."""
  database = market_store.database_readiness()
- ready = database["status"] == "ready"
+ storage = market_store.storage_headroom()
+ ready = database["status"] == "ready" and storage["status"] != "critical"
+ checks = {"database": database, "storage": storage}
  result = {
   "status": "ready" if ready else "not_ready",
   "service": "market-mind-ai",
-  "checks": {"database": database},
+  "checks": checks,
   "execution": {"paper_trading": False, "broker_execution": False},
  }
  if not ready:
   raise HTTPException(status_code=503, detail={
-   "status": "not_ready", "checks": {"database": database},
+   "status": "not_ready", "checks": checks,
   })
  return result
 

@@ -14,6 +14,7 @@ from datetime import date
 from pathlib import Path
 from typing import Iterable
 
+from .audit_jsonl import append_record
 from .research_shadow_session import ShadowSessionEngine, make_backtest_config
 
 DEMOTION_THRESHOLD_CYCLES = 10
@@ -232,8 +233,7 @@ class ShadowTracker:
             "reason": reason,
             "persisted_id": self._audit_counter,
         }
-        with open(self.audit_path, "a", encoding="utf-8") as handle:
-            handle.write(json.dumps(record, sort_keys=True) + "\n")
+        append_record(self.audit_path, record)
 
 
 def read_tracker_audit(path: Path) -> list[dict]:

@@ -29,10 +29,10 @@ class UserAuthApiTests(unittest.TestCase):
 
     def tearDown(self):
         self.tmp.cleanup()
-        login_guard.reset()
+        login_guard.GUARD.reset()
 
     def test_login_throttles_after_failures_and_returns_429(self):
-        login_guard.reset()
+        login_guard.GUARD.reset()
         with patch.dict(os.environ, self.env, clear=False):
             for _ in range(5):
                 response = self.client.post(

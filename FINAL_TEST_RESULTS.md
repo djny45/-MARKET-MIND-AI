@@ -12,7 +12,9 @@ lockfile with `npm ci`.
 | # | Check | Command | Result |
 | --- | --- | --- | --- |
 | 1 | Baseline full suite (before changes) | `PYTHONPATH=.:./backend python -m unittest discover -s backend/tests -q` | **PASS — 1043 tests, OK (116.7s)** on the venv; an earlier run with the system interpreter failed 56 import errors because `fastapi`/`pydantic` were absent (environment issue, not a code defect) |
-| 2 | Final full suite | `PYTHONPATH=.:./backend /tmp/opencode/backend-venv/bin/python -m unittest discover -s backend/tests -q` | **PASS — 1045 tests, OK (100.0s)** |
+| 2 | Final full suite after all security/supervisor fixes | `PYTHONPATH=.:./backend /tmp/opencode/backend-venv/bin/python -m unittest discover -s backend/tests -q` | **PASS — 1058 tests, OK (103.8s)** |
+| 2a | Supervisor lease regressions | `PYTHONPATH=.:./backend .../python -m unittest backend.tests.test_agent_supervisor -q` | **PASS — 19 tests, OK** |
+| 2b | Authorization / user auth / env / session / limiter / audit / market-data / task suites | focused `unittest` runs on the 11 touched modules | **PASS** (all green; 2 initially failing polling-contract mocks were corrected, not weakened) |
 | 3 | DR regression | `PYTHONPATH=.:./backend .../python -m unittest backend.tests.test_recovery_drills -q` | **PASS — 14 tests, OK** (includes new stale-lock test) |
 | 4 | Task-ownership regression | `PYTHONPATH=.:./backend .../python -m unittest backend.tests.test_analytical_agent_tasks -q` | **PASS — 43 tests, OK** (includes ported PR #8 test) |
 | 5 | CI config guard (on `security/trivy-ci-scope`) | `PYTHONPATH=.:./backend .../python -m unittest backend.tests.test_ci_workflow_config -v` | **PASS — 6 tests, OK** |
@@ -39,7 +41,8 @@ lockfile with `npm ci`.
 | 16 | DR scheduler checks | `python3 scripts/backup_scheduler.py config`, `cron-line`, `systemd` | **PASS — values/strings only, no secrets printed, nothing installed** |
 | 17 | Docker Compose config / container build | `docker compose config`, `docker build` | **BLOCKED — `docker` binary absent; CI authoritative** |
 | 18 | Expanded Trivy CI job | `.github/workflows/quality.yml` on `security/trivy-ci-scope` (`0c89aa68`) | **NOT PUSHED — owner OAuth `workflow` scope required** |
-| 19 | CI run for code commit `a0183e314552afdfdf842fbaaa7030a088dc4d60` | [run 45177448956](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45177448956) | **PASS — all five jobs**: Backend, Frontend, Dependency audit, Trivy filesystem scan, Docker Compose integration |
+| 19 | CI run for the earlier code commit `a0183e31` | [run 45177448956](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45177448956) | **PASS — all five jobs** (superseded by newer code, see below) |
+| 20 | CI run for the security/supervisor code on `feat/complete-mission` and final `main` | *recorded after push/merge* | pending at time of this edit |
 
 ## Honest notes
 

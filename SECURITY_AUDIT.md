@@ -32,23 +32,24 @@ material only and was not executed.
 2. **Unregistered resources are globally visible.** `OwnershipRegistry.is_owner`
    returns true for unknown refs; the registry is in-memory only and does not
    survive restart or multiple workers.
-3. **Unprotected write routes.** `required_role_for_path()` returns no minimum
-   role for several mutating routes (instrument-master identifiers,
-   market-data store/import-csv, workflows/execute). Any valid session may write.
-4. **Origin defence off by default.** `MARKET_MIND_REQUIRE_ORIGIN` is not
-   required even in strict mode; default mitigation is SameSite cookies only.
-5. **Stale roles in live sessions.** Roles are read from the identity table at
-   session creation, not re-read from `MARKET_MIND_USERS` on each request.
-6. **Proxy/limiter mismatch.** The in-process limiter uses the raw client
-   address, ignoring trusted-proxy configuration, so all clients behind a proxy
-   share one bucket. The Redis limiter does not recover after an exception.
-7. **Data labelling trust.** `POST /api/market-data/store` accepts a
-   caller-supplied `status`/`source` with no cross-check; synthetic data could
-   be labelled live. No provider is configured; the API reports
-   `no_live_provider_configured`.
-8. **Redaction limitation.** Audit redaction targets secret-like keys and
-   bearer patterns; a token embedded under a benign key in a text field may be
-   logged (truncated at 300 chars).
+3. **Resolved: unprotected write routes.** `SENSITIVE_ROUTE_POLICY` now requires
+   `analyst` for instrument-identifier updates, market-data store/import and
+   workflow execution. Regression tests cover viewer denial and analyst access.
+4. **Resolved: Origin defence.** Strict/production mode now requires
+   `MARKET_MIND_REQUIRE_ORIGIN=true`; startup fails closed otherwise. Writes
+   without an allowed Origin/Referer are rejected with 403.
+5. **Resolved: stale roles.** Session validation re-reads the role from
+   `MARKET_MIND_USERS`; demotions take effect immediately and removed users are
+   treated as revoked.
+6. **Resolved: proxy/limiter mismatch.** The in-process limiter now uses the
+   same trusted-proxy-aware client key as the Redis limiter, and the Redis
+   backend retries after a bounded cooldown instead of degrading permanently.
+7. **Resolved: data labelling trust.** `/api/market-data/store` rejects
+   live/delayed claims unless the source is in `MARKET_MIND_ATTESTED_DATA_SOURCES`.
+   CSV imports remain server-labelled historical and fixtures synthetic.
+8. **Resolved: redaction under benign keys.** Audit events now redact
+   token-shaped values (43-char base64url and JWT patterns) anywhere in text,
+   while preserving legitimate 64-char research hashes.
 9. **Trivy CI scope.** The local scan covers `vuln,misconfig,secret` at
    MEDIUM/HIGH/CRITICAL and is clean; CI still scans `vuln,secret` at
    HIGH/CRITICAL. Expanded job is on `security/trivy-ci-scope` pending owner

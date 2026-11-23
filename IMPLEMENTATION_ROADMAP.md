@@ -15,10 +15,13 @@ tracked files versus 910 on origin. Entire local line preserved in
 
 Four-role authorization, ownership registry, audit events, strict env gate,
 session/CSRF rotation, proxy-header stripping and Redis-capable rate limiting
-exist and are tested. In this audit: fixed DR stale-lock handling (with
-regression test) and ported PR #8 ownership fencing for research side effects
-(with regression test). Remaining server-side gaps are recorded in
-`SECURITY_AUDIT.md`; public exposure remains BLOCKED.
+exist and are tested. In this audit: fixed DR stale-lock handling, ported PR #8
+ownership fencing, then closed write-route roles, strict Origin, stale roles,
+trusted-proxy limiting, Redis recovery, market-data attestation and audit
+redaction, each with regression tests. PR #38's lease-loss guarantee was ported
+to the current supervisor. Remaining architectural gaps (shared bearer role
+separation, durable ownership store) are in `SECURITY_AUDIT.md`; public exposure
+remains BLOCKED.
 
 ## Stage 2 — Frontend — DONE for the requested gaps
 
@@ -48,9 +51,9 @@ clean after excluding local-only `third_party/` and `.venvs/`. Expanded CI job
 
 ## Stage 5 — PR reconciliation — DONE with dispositions
 
-#8 ported (ownership fencing + test), #39 ported (ADR + roadmap milestone),
-#40 ported (screener/heatmap). #38 not ported (obsolete supervisor lease
-architecture); #76 blocked on owner workflow scope. See REMAINING_WORK.md.
+#8, #39 and #40 closed on GitHub as ported; #38 closed as obsolete architecture
+with its guarantee reimplemented in the current supervisor; #76 remains open
+with a documented owner workflow-scope action. No PR was merged unreviewed.
 
 ## Stage 6 — Market data and queue scope — DONE (design boundary kept)
 

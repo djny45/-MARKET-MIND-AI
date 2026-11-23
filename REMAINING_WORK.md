@@ -32,6 +32,17 @@ example, ADR-0001. No force-push, reset, rebase, merge or discard was performed.
   and watchlist busy/error states.
 - Ported PR #39 ADR and PR #40 screener/heatmap functionality.
 - Added `docs/PUBLIC-EXPOSURE-HARDENING.md` and a TLS ingress example.
+- Closed server-side gaps: analyst minimum role on four write routes, strict-mode
+  Origin enforcement, live role re-read with removed-user revocation,
+  trusted-proxy-aware in-process limiter, Redis recovery after cooldown,
+  server-attested market-data status/source, and token redaction under benign
+  keys. All have regression tests.
+- Ported PR #38's lease-loss guarantee to the current `run_supervisor` loop:
+  CAS lease renewal and dispatch revalidation, with three regression tests.
+  SQLite remains single-host; no broker was introduced.
+- Added explicit access-denied state for role-gated frontend navigation.
+- PR dispositions recorded on GitHub: #8, #39, #40 closed as ported; #38 closed
+  as obsolete architecture; #76 left open with an owner-action comment.
 
 ## Still blocked or intentionally excluded
 
@@ -43,19 +54,18 @@ example, ADR-0001. No force-push, reset, rebase, merge or discard was performed.
    Pushing `.github/workflows/*` requires the owner to run
    `gh auth refresh -h github.com -s workflow` and approve the device code.
    The main audit branch is intentionally left pushable without workflow edits.
-3. **Remaining server-side security gaps — PARTIAL / documented**: all
-   authorization and per-user role enforcement is conditional on
-   `MARKET_MIND_USER_AUTH`; with only the shared bearer token every holder
-   reaches admin routes. Unregistered resources are globally visible, several
-   write routes have no minimum role, Origin checks are off by default, roles
-   in live sessions are not re-read from configuration, and the in-process
-   limiter ignores trusted-proxy settings. See `SECURITY_AUDIT.md`.
-4. **Market-data labelling — PARTIAL**: `/api/market-data/store` accepts a
-   caller-declared `status`/`source`; a synthetic batch could be labelled live.
-   No provider is configured; `no_live_provider_configured` is reported.
-5. **PR #38 — NOT PORTED**: its lease implementation depends on an obsolete
-   supervisor architecture. Port to the current `run_supervisor` loop with
-   fresh tests if supervisor leadership is approved as new work (ADR-0001).
+3. **Remaining server-side gaps — PARTIAL**: role and ownership enforcement
+   remains conditional on `MARKET_MIND_USER_AUTH`; a shared bearer-token-only
+   deployment still grants every holder admin routes. `OwnershipRegistry` is
+   in-memory and unregistered refs are globally visible. These require an auth
+   model redesign and a durable ownership store, not a one-line change.
+4. **Market-data labelling — RESOLVED at the API boundary**: live/delayed claims
+   now require an operator-attested source; no provider is configured and
+   `no_live_provider_configured` is reported. Cryptographic provider attestation
+   remains out of scope until a real licensed provider is added.
+5. **PR #38 — CLOSED as obsolete**: its lease implementation targeted a removed
+   supervisor architecture. The guarantee was ported to `run_supervisor`; full
+   multi-supervisor contention tests remain gated by ADR-0001.
 6. **PR #76 — BLOCKED (owner)**: one-line `configure-pages@v6` bump needs the
    workflow-scope grant, then a normal authorized merge.
 7. **Host operations — NOT RUN**: cron/systemd install, real S3 target, Docker

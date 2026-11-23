@@ -3,13 +3,15 @@ import json, os, sqlite3, uuid
 from pathlib import Path
 from datetime import datetime, timezone
 
+from . import sqlite_tuning
+
 def _db_path():
     path=Path(os.getenv("MARKET_MIND_DB","./data/market_mind.db"))
     path.parent.mkdir(parents=True,exist_ok=True)
     return path
 
 def _connect():
-    con=sqlite3.connect(_db_path(),timeout=10)
+    con=sqlite_tuning.connect(_db_path(),timeout=10)
     con.row_factory=sqlite3.Row
     con.execute("""CREATE TABLE IF NOT EXISTS workflows (
       id TEXT PRIMARY KEY, title TEXT NOT NULL, description TEXT NOT NULL DEFAULT '',

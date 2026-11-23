@@ -11,6 +11,7 @@ import sqlite3
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+from . import sqlite_tuning
 
 MARKET_GROUPS = ("india", "us", "crypto", "forex")
 _ID = re.compile(r"^[A-Za-z0-9._:-]{1,96}$")
@@ -21,7 +22,7 @@ _TOPICS = {"macro", "correlation", "volatility", "liquidity", "breadth",
 def _connect():
     path = Path(os.getenv("MARKET_MIND_DB", "./data/market_mind.db"))
     path.parent.mkdir(parents=True, exist_ok=True)
-    db = sqlite3.connect(path, timeout=10)
+    db = sqlite_tuning.connect(path, timeout=10)
     db.row_factory = sqlite3.Row
     db.execute("""
         CREATE TABLE IF NOT EXISTS agent_messages (

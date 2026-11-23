@@ -14,6 +14,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from . import sqlite_tuning
 
 from .n8n_workflow_validation import validate_n8n_workflow
 
@@ -24,7 +25,7 @@ VALID_REVIEW_DECISIONS = {"approve", "reject"}
 def _connect():
     path = Path(os.getenv("MARKET_MIND_DB", "./data/market_mind.db"))
     path.parent.mkdir(parents=True, exist_ok=True)
-    db = sqlite3.connect(path, timeout=10)
+    db = sqlite_tuning.connect(path, timeout=10)
     db.row_factory = sqlite3.Row
     db.execute("""CREATE TABLE IF NOT EXISTS n8n_workflow_drafts (
         draft_id TEXT PRIMARY KEY,

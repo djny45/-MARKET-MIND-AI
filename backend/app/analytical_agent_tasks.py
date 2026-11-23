@@ -13,6 +13,7 @@ import uuid
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from . import sqlite_tuning
 
 from .analytical_agent_runtime import brain_config
 from .intelligence_core import synthesize_research
@@ -32,7 +33,7 @@ def _connect():
     """
     path = Path(os.getenv("MARKET_MIND_DB", "./data/market_mind.db"))
     path.parent.mkdir(parents=True, exist_ok=True)
-    db = sqlite3.connect(path, timeout=10)
+    db = sqlite_tuning.connect(path, timeout=10)
     db.row_factory = sqlite3.Row
     try:
         db.execute("""CREATE TABLE IF NOT EXISTS analytical_agent_tasks (

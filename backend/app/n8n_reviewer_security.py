@@ -20,6 +20,7 @@ from typing import Any
 import httpx
 from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from . import sqlite_tuning
 
 REVIEWER_BEARER = HTTPBearer(auto_error=False, scheme_name="MarketMindReviewerToken")
 ALLOWED_ROLES = {"reviewer", "importer"}
@@ -67,7 +68,7 @@ def require_role(principal: ReviewerPrincipal, role: str) -> ReviewerPrincipal:
 def _connect() -> sqlite3.Connection:
     path = Path(os.getenv("MARKET_MIND_DB", "./data/market_mind.db"))
     path.parent.mkdir(parents=True, exist_ok=True)
-    db = sqlite3.connect(path, timeout=10)
+    db = sqlite_tuning.connect(path, timeout=10)
     db.row_factory = sqlite3.Row
     db.execute("""CREATE TABLE IF NOT EXISTS n8n_workflow_drafts (
         draft_id TEXT PRIMARY KEY, agent_id TEXT NOT NULL, title TEXT NOT NULL,

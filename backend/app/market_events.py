@@ -12,6 +12,7 @@ import re
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
+from . import sqlite_tuning
 
 EVENT_TYPES = {"trade", "quote", "order_book_snapshot", "open_interest", "funding", "fx_rate"}
 STATUSES = {"historical", "delayed", "end_of_day", "reference", "synthetic"}
@@ -21,7 +22,7 @@ _ID = re.compile(r"^[A-Za-z0-9._:/-]{1,128}$")
 def _connect():
     path = Path(os.getenv("MARKET_MIND_DB", "./data/market_mind.db"))
     path.parent.mkdir(parents=True, exist_ok=True)
-    connection = sqlite3.connect(path, timeout=10)
+    connection = sqlite_tuning.connect(path, timeout=10)
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA foreign_keys=ON")
     connection.execute("""

@@ -14,6 +14,7 @@ from typing import Any
 from app.research_benchmark import BASELINE_METRICS
 from app.research_benchmark_record import RECORD_SCHEMA_VERSION
 from app.research_benchmark_store import BenchmarkRecordStore
+from . import sqlite_tuning
 
 
 _SCHEMA = """
@@ -147,7 +148,7 @@ class PromotionReviewStore:
             connection.execute(_SCHEMA)
 
     def _connect(self) -> sqlite3.Connection:
-        connection = sqlite3.connect(self.database_path)
+        connection = sqlite_tuning.connect(self.database_path)
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA foreign_keys = ON")
         return connection

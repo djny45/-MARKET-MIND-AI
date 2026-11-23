@@ -7,6 +7,7 @@ import os
 import re
 import sqlite3
 from pathlib import Path
+from . import sqlite_tuning
 
 from .instruments import INSTRUMENTS
 
@@ -17,7 +18,7 @@ _GROUPS = {"india", "us", "crypto", "forex"}
 def _connect():
     path = Path(os.getenv("MARKET_MIND_DB", "./data/market_mind.db"))
     path.parent.mkdir(parents=True, exist_ok=True)
-    connection = sqlite3.connect(path, timeout=10)
+    connection = sqlite_tuning.connect(path, timeout=10)
     connection.row_factory = sqlite3.Row
     connection.execute("""
         CREATE TABLE IF NOT EXISTS instrument_master (

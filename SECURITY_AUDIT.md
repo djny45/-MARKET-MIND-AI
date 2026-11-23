@@ -59,6 +59,8 @@ material only and was not executed.
 
 ## Outstanding external work
 
+These findings were verified on integrated `main`
+`e8d9f3284de182549d72079101ac67a0bef582c0` (CI run 45184633962, all jobs PASS).
 TLS ingress, network segmentation, ingress rate limits, independent penetration
 testing and formal security review are operator/external responsibilities.
 See `docs/PUBLIC-EXPOSURE-HARDENING.md` for the required configuration and

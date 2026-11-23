@@ -71,9 +71,11 @@ opportunities, not silent defects. `compileall` clean.
 
 ## Stage 8 — Documentation — DONE
 
-All eight mandated reports rewritten against current code and recorded
-commands; stale claims (untracked lockfile, missing USER 101, absent ADR
-branch) corrected.
+All mandated reports rewritten against current code and recorded commands;
+stale claims (untracked lockfile, missing USER 101, absent ADR branch)
+corrected. Final integration: PR #82 merged into `main` at `e8d9f328`, CI
+run 45184633962 all five jobs PASS. Remaining items are external/operator
+blockers, not undocumented code defects.
 
 ## Remaining execution order (owner/operator)
 

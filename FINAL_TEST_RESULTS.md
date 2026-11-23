@@ -42,7 +42,9 @@ lockfile with `npm ci`.
 | 17 | Docker Compose config / container build | `docker compose config`, `docker build` | **BLOCKED — `docker` binary absent; CI authoritative** |
 | 18 | Expanded Trivy CI job | `.github/workflows/quality.yml` on `security/trivy-ci-scope` (`0c89aa68`) | **NOT PUSHED — owner OAuth `workflow` scope required** |
 | 19 | CI run for the earlier code commit `a0183e31` | [run 45177448956](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45177448956) | **PASS — all five jobs** (superseded by newer code, see below) |
-| 20 | CI run for the security/supervisor code on `feat/complete-mission` and final `main` | *recorded after push/merge* | pending at time of this edit |
+| 20 | CI on feature commit `9f86b601` (push + PR run) | [run 45183636264](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45183636264), [run 45184225251](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45184225251) | **PASS — all five jobs** on both runs |
+| 21 | CI on merged `main` commit `e8d9f3284de182549d72079101ac67a0bef582c0` | [run 45184633962](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45184633962) | **PASS — all five jobs**: Backend, Frontend, Dependency audit, Trivy filesystem scan, Docker Compose integration |
+| 22 | Independent re-verification on `integration/main-verified` at `e8d9f328` | backend `unittest discover`, frontend `npm test` + Vitest, typechecks, `npm run build`, `pip-audit`, `npm audit`, Trivy | **PASS — 1058 backend; 10 node:test; 117 Vitest; typechecks/build clean; 0 advisories; 0 Trivy findings at MEDIUM+** |
 
 ## Honest notes
 

@@ -79,8 +79,18 @@ example, ADR-0001. No force-push, reset, rebase, merge or discard was performed.
 10. **Imported execution code — INTENTIONALLY INERT**: AutoHedge, FinceptTerminal
     and Freqtrade remain reference-only; no wallet keys, signing or order routing.
 
+## Integration state
+
+All completed work was merged into `main` at
+`e8d9f3284de182549d72079101ac67a0bef582c0` via reviewed PR #82. CI on that exact
+SHA passed all five jobs (<https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45184633962>).
+The old divergent local `main` (`906b3765`) and all recovery branches remain
+untouched.
+
 ## Completion boundary
 
-No public deployment is authorized. Completion is not claimed while TLS,
-network segmentation, ingress controls, independent security testing and the
-expanded CI workflow remain unverified.
+No public deployment is authorized. **100% is not claimed**: TLS, network
+segmentation, ingress controls, independent security testing, the expanded Trivy
+CI job (owner workflow scope), real S3/Docker/host drills, cryptographic data
+provider attestation and durable cross-worker ownership remain unverified or
+externally blocked, with exact owner actions documented above.

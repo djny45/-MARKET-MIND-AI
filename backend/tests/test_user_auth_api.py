@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
+from app import login_guard
 from app.auth_crypto import hash_password
 from app.main import app
 
@@ -28,6 +29,24 @@ class UserAuthApiTests(unittest.TestCase):
 
     def tearDown(self):
         self.tmp.cleanup()
+        login_guard.reset()
+
+    def test_login_throttles_after_failures_and_returns_429(self):
+        login_guard.reset()
+        with patch.dict(os.environ, self.env, clear=False):
+            for _ in range(5):
+                response = self.client.post(
+                    "/api/auth/login",
+                    json={"username": "viewer", "password": "definitely-wrong"},
+                )
+                self.assertEqual(response.status_code, 401)
+            throttled = self.client.post(
+                "/api/auth/login",
+                json={"username": "viewer", "password": "definitely-wrong"},
+            )
+            self.assertEqual(throttled.status_code, 429)
+            self.assertTrue(throttled.headers.get("Retry-After"))
+        login_guard.reset()
 
     def test_login_me_and_logout(self):
         with patch.dict(os.environ, self.env, clear=False):

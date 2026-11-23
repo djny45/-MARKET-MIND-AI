@@ -5,8 +5,9 @@
 | Item | Value |
 | --- | --- |
 | Repository | https://github.com/djny45/-MARKET-MIND-AI |
-| Integrated code commit on `main` | `46f67732d518b0afa105f37109412e3608c5495c` (merge of PR #83) |
-| CI on that exact SHA | https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45197484726 — all 5 jobs PASS |
+| Integrated code commit on `main` | `7f99013955a5e60dbe6f1ee292ad0d2d722fd122` (merge of PR #84) |
+| CI on that exact SHA | https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45207137712 — all 5 jobs PASS |
+| Previous integrations | PR #83 `46f67732` (run 45197484726), PR #82 `e8d9f328` (run 45184633962) — both all-PASS |
 | Previous integration | PR #82, `e8d9f328`, run 45184633962 — all 5 jobs PASS |
 | Backend | 1063 tests OK (`unittest discover -s backend/tests -q`) |
 | Frontend | 10 node:test + 123 Vitest; 20 UI test files |

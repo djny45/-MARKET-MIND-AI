@@ -6,10 +6,10 @@ Last reviewed: 2026-11-23 on branch `feat/complete-mission`, based on
 ## Current state
 
 - Integrated code commit on `main`:
-  `46f67732d518b0afa105f37109412e3608c5495c` (merge of PR #83). CI for that
-  exact SHA: <https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45197484726>
-  — all five jobs PASS. PRs #82 and #83 were reviewed, CI-green and merged by
-  authorized operations; no unreviewed PR was merged. See
+  `7f99013955a5e60dbe6f1ee292ad0d2d722fd122` (merge of PR #84). CI for that
+  exact SHA: <https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45207137712>
+  — all five jobs PASS. PRs #82, #83 and #84 were reviewed, CI-green and merged
+  by authorized operations; no unreviewed PR was merged. See
   `docs/FINAL_ACCEPTANCE_REPORT.md` for the three separate acceptance statuses.
 - Product boundary: **research-only market intelligence**. Broker execution,
   wallet private keys, transaction signing, live order routing and market

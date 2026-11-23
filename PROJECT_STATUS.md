@@ -6,12 +6,13 @@ Last reviewed: 2026-11-23 on branch `feat/complete-mission`, based on
 ## Current state
 
 - Integrated code commit on `main`:
-  `32561c1d4bb48e23107d65d6f576c9e148b3176b` (merge of PR #85). CI for that
-  exact SHA: <https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45215713118>
-  — all five jobs PASS. PRs #82–#85 were reviewed, CI-green and merged by
-  authorized operations; no unreviewed PR was merged. Isolated recovery drills
-  are recorded in `docs/RECOVERY_DRILL_EVIDENCE.md`. See
-  `docs/FINAL_ACCEPTANCE_REPORT.md` for the three separate acceptance statuses.
+  `92337e774bfca471008157ec89a11c3a7cdd9cb4` (merge of PR #87). CI for that
+  exact SHA: <https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45225328838>
+  — all five jobs PASS. PRs #82–#87 were reviewed, CI-green and merged by
+  authorized operations; no unreviewed PR was merged. Nine real browser tests
+  and the S3-compatible drill are recorded in `docs/FINAL_ACCEPTANCE_REPORT.md`
+  and `docs/RECOVERY_DRILL_EVIDENCE.md`. See `docs/FINAL_ACCEPTANCE_REPORT.md`
+  for the three separate acceptance statuses.
 - Product boundary: **research-only market intelligence**. Broker execution,
   wallet private keys, transaction signing, live order routing and market
   making are disabled by design; health reports `broker_execution: false`.

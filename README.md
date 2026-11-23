@@ -13,6 +13,13 @@ Compose data sources, validation steps and specialist analytical workers into wo
 [![Node 22](https://img.shields.io/badge/Node-22-5fa04e.svg?logo=nodedotjs&logoColor=white)](frontend/package.json)
 [![React 18](https://img.shields.io/badge/React-18-61dafb.svg?logo=react&logoColor=black)](frontend/package.json)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg?logo=fastapi&logoColor=white)](backend/requirements.txt)
+[![Vitest](https://img.shields.io/badge/Vitest-5-%2364e4a9?logo=vitest)](frontend/package.json)
+[![Playwright](https://img.shields.io/badge/Playwright-1-2E7F4F?logo=playwright)](frontend/playwright.config.ts)
+[![Trivy](https://img.shields.io/badge/Trivy-0.76-37b945?logo=aquasecurity)](docs/TRIVY_CI_AUDIT.md)
+[![esbuild](https://img.shields.io/badge/esbuild-0.28-FF9935?logo=esbuild)](frontend/scripts/build.mjs)
+[![F283 CLI](https://img.shields.io/badge/OpenCode-2.4-38bdf8?logo=opencode)](docs/AI-HARNESS-COMPATIBILITY.md)
+[![Storage](https://img.shields.io/badge/Storage-SQLite-2938e8?logo=sqlite)](backend/app/market_store.py)
+[![Tests](https://img.shields.io/badge/Tests-1100%2B-38bdf8?style=flat-square)](docs/FINAL_TEST_RESULTS.md)
 [![Research only](https://img.shields.io/badge/broker__execution-false-orange.svg)](docs/PUBLIC-EXPOSURE-HARDENING.md)
 [![Stars](https://img.shields.io/github/stars/djny45/-MARKET-MIND-AI?style=flat&logo=github&label=stars)](https://github.com/djny45/-MARKET-MIND-AI/stargazers)
 [![Last commit](https://img.shields.io/github/last-commit/djny45/-MARKET-MIND-AI?label=last%20commit)](https://github.com/djny45/-MARKET-MIND-AI/commits/main)
@@ -23,6 +30,14 @@ Compose data sources, validation steps and specialist analytical workers into wo
 
 > [!IMPORTANT]
 > **Research-only by design.** There is no broker execution, no wallet keys, no transaction signing, no order routing and no market making. `broker_execution: false` is enforced in code and CI, not merely promised in prose.
+
+### Trending (2025–2026)
+
+- **Agent Directory** — 550 worker profiles (20 departments × 28 specialties) backed by **one shared central intelligence core**; we do not claim 550 independent AI models.
+- **Research Playbooks** — 300+ composable skills (OpenBB adapters, PyneCore cross-checks, Vibe Trading, ta-lib, etc.) under `.agents/skills/`, loadable by agents with permission contracts and no execution side effects.
+- **Security pipeline by default** — resource-level authorization, ownership fencing on task side effects, session/CSRF rotation, trusted-proxy rate limiting, fail-closed strict environments, audit events with token redaction, Trivy (vuln+misconfig+secret at MEDIUM+). All green and regression-tested.
+- **Operability** — backup/restore with SHA-256 sidecars, retention, crash-recovery drills, incident alerting, WAL hygiene, and a 6-job CI pipeline (backend, frontend, Playwright, Trivy, Compose, dependabots).
+- **Deployable in 2026 shapes** — production Docker Compose with read-only backend, GitHub Pages + read-only API, or any private self-hosted host with TLS/segmentation.
 
 ---
 

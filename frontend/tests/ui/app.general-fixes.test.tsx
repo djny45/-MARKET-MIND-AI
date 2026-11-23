@@ -30,15 +30,18 @@ describe('App general UI fixes', () => {
     expect(screen.getByRole('button', { name: 'REFRESH WATCHLIST' })).toBeEnabled()
   })
 
-  it('hides privileged navigation for a viewer', async () => {
-    setupApp({ 'GET /api/auth/me': () => json({ enabled: true, user: { username: 'v', role: 'viewer' } }) })
-    await waitFor(() => expect(screen.queryByRole('button', { name: 'RUNS' })).not.toBeInTheDocument())
-    expect(screen.getByRole('button', { name: 'OVERVIEW' })).toBeInTheDocument()
+  it('marks privileged navigation locked and explains denial for a viewer', async () => {
+    const { user } = setupApp({ 'GET /api/auth/me': () => json({ enabled: true, user: { username: 'v', role: 'viewer' } }) })
+    const runs = await screen.findByRole('button', { name: 'RUNS' })
+    await waitFor(() => expect(runs).toHaveAttribute('aria-disabled', 'true'))
+    await user.click(runs)
+    expect(await screen.findByRole('alert')).toHaveTextContent(/requires ANALYST role or higher/)
+    expect(screen.getByRole('button', { name: 'OVERVIEW' })).toHaveAttribute('aria-disabled', 'false')
   })
 
-  it('shows privileged navigation for an operator', async () => {
+  it('enables privileged navigation for an operator', async () => {
     setupApp({ 'GET /api/auth/me': () => json({ enabled: true, user: { username: 'o', role: 'operator' } }) })
-    expect(await screen.findByRole('button', { name: 'RUNS' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'RUNS' })).toHaveAttribute('aria-disabled', 'false')
   })
 
   it('exposes the stored-observation screener and heatmap tabs', async () => {

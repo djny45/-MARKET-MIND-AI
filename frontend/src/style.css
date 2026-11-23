@@ -335,6 +335,9 @@
 .learning-note{display:block;margin-top:8px}
 @media(max-width:1000px){.learning-stats{grid-template-columns:repeat(2,minmax(120px,1fr))}.learning-columns{grid-template-columns:1fr}.learning-heading{flex-direction:column}}
 
+.side-tabs button.locked{opacity:.45;cursor:not-allowed;text-decoration:line-through}
+.access-denied{background:#2a1717;border:1px solid #6b2b2b;color:#f3b4b4;padding:8px 14px;font-size:11px}
+
 /* Per-user session UI */
 .auth-panel{margin-top:16px;border-top:1px solid #26364b;padding-top:12px;display:grid;gap:8px;font-size:11px}
 .auth-heading{display:flex;align-items:center;gap:6px;color:#cfd6df}

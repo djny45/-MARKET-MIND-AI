@@ -360,6 +360,11 @@
 .heatmap-legend{display:flex;flex-wrap:wrap;gap:8px;align-items:center;color:#8d95a0;font-size:10px}
 .heat-legend-item{padding:2px 8px;border:1px solid #26364b}
 
+/* Operations panels */
+.ops-panel{display:grid;gap:10px;max-width:760px;font-size:11px}
+.ops-form{display:grid;gap:6px;max-width:420px}.ops-form input{width:100%}
+.ops-panel .aligned-row{padding:8px;border:1px solid #26364b;border-radius:6px}
+
 /* Help dialog */
 .dialog-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:100;padding:16px}
 .help-dialog{background:#0f141b;border:1px solid #26364b;border-radius:10px;padding:20px;max-width:620px;width:100%;color:#dce0e5;font-size:12px;display:grid;gap:12px}

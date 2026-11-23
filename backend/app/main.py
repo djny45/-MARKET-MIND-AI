@@ -69,6 +69,7 @@ from .instrument_master import search_instrument_master, sync_reference_catalogu
 from .pipeline import system_capabilities
 from .news import ingest_news
 from . import social_sources
+from pathlib import Path
 from urllib.parse import urlparse
 from . import indicators
 from .volume_indicators import calculate_volume_indicators
@@ -551,6 +552,27 @@ def admin_list_users(_principal: Any = Depends(require_user_role("admin"))):
 def system_configuration(_principal: Any = Depends(require_user_role("admin"))):
  """Return non-secret security configuration for administrative review."""
  return validate_environment()
+
+
+@app.get("/api/backup/status")
+def backup_status(_principal: Any = Depends(require_user_role("admin"))):
+  """Report non-secret backup inventory; no restore or secret values are exposed."""
+  directory = Path(os.getenv("MARKET_MIND_BACKUP_DIR", "./data/backups"))
+  backups = []
+  if directory.is_dir():
+   for path in sorted(directory.glob("*.db"))[:50]:
+    backups.append({
+     "name": path.name,
+     "bytes": path.stat().st_size,
+     "sha256_sidecar": path.with_suffix(path.suffix + ".sha256").is_file(),
+     "manifest": path.with_suffix(path.suffix + ".json").is_file(),
+    })
+  return {
+   "status": "ok", "directory": str(directory),
+   "backup_count": len(list(directory.glob("*.db"))) if directory.is_dir() else 0,
+   "backups": backups,
+   "note": "Inventory only; integrity verification requires the local recovery scripts.",
+  }
 
 
 @app.get("/api/health")

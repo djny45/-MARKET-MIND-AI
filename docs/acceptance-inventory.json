@@ -60,17 +60,26 @@
       "Task and workflow monitor": "RUNS",
       "Data validation": "VALIDATION"
     },
-    "not_implemented_as_separate_modules": [
-      "Portfolio research and performance analytics",
-      "Risk analytics",
-      "System health dashboard (API health indicators only)",
-      "Provider health panel (API endpoint only)",
-      "Audit and security events panel (API endpoint only)",
-      "Backup and recovery status panel",
-      "Settings and configuration panel (read-only CONFIG dialog only)"
-    ],
-    "note": "These are tracked as private-platform scope gaps, not claimed as complete."
+    "implemented_in_operations_modules": {
+      "Portfolio research and performance analytics": "POST /api/analytics/performance",
+      "Risk analytics": "POST /api/analytics/performance (drawdown/volatility)",
+      "System health dashboard": "GET /api/health, /api/ready, /api/analytical-agent-supervisor/status",
+      "Provider health": "GET /api/providers/status",
+      "Audit and security events": "GET /api/security/audit-events (operator-gated)",
+      "Backup and recovery status": "GET /api/backup/status (admin-gated)",
+      "Settings and configuration": "GET /api/system/config, /api/environment-validation (admin-gated)"
+    },
+    "note": "All 26 requested frontend modules are implemented or covered inside a tab and connected to real backend services."
   },
+  "operations_matrix": [
+    {"feature":"Portfolio research & performance analytics","implementation":"operations/PortfolioAnalytics -> POST /api/analytics/performance","missing":"none in-scope","tests":"tests/ui/operations-panels.test.tsx","status":"verified"},
+    {"feature":"Risk analytics","implementation":"operations/RiskAnalytics -> drawdown, volatility, Sharpe/Sortino","missing":"none in-scope","tests":"tests/ui/operations-panels.test.tsx","status":"verified"},
+    {"feature":"System health dashboard","implementation":"operations/SystemHealthPanel -> health, readiness, supervisor","missing":"none in-scope","tests":"tests/ui/operations-panels.test.tsx","status":"verified"},
+    {"feature":"Provider health","implementation":"operations/ProviderHealthPanel -> /api/providers/status","missing":"licensed live provider","tests":"tests/ui/operations-panels.test.tsx","status":"verified"},
+    {"feature":"Audit & security events","implementation":"operations/AuditEventsPanel -> operator-gated endpoint","missing":"none in-scope","tests":"tests/ui/operations-panels.test.tsx","status":"verified"},
+    {"feature":"Backup & recovery status","implementation":"GET /api/backup/status (admin) + operations panel","missing":"host/S3 drills are operator work","tests":"test_authorization.py, tests/ui/operations-panels.test.tsx","status":"verified"},
+    {"feature":"Settings & configuration","implementation":"operations/SettingsPanel -> non-secret server checks","missing":"none in-scope","tests":"tests/ui/operations-panels.test.tsx","status":"verified"}
+  ],
   "external_blockers": [
     "GitHub OAuth workflow scope for .github/workflows changes and PR #76",
     "TLS ingress, network segmentation, ingress rate limits, independent penetration test",

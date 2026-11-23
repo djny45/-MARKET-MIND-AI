@@ -10,6 +10,7 @@ import AgentPositionMonitor from './AgentPositionMonitor'
 import LearningLab from './LearningLab'
 import AuthPanel, { type Identity } from './AuthPanel'
 import CoverageTools from './CoverageTools'
+import { PortfolioAnalytics, RiskAnalytics, SystemHealthPanel, ProviderHealthPanel, AuditEventsPanel, BackupStatusPanel, SettingsPanel } from './OperationsPanels'
 import { formatSymbol } from './utils/market.mjs'
 
 const API = (import.meta.env.VITE_API_URL ?? 'http://localhost:8000').replace(/\/$/, '')
@@ -332,7 +333,7 @@ export default function App() {
  }
  const filteredWorkers = useMemo(()=>workers.filter(w=>`${w.name} ${w.department} ${w.specialty}`.toLowerCase().includes(search.toLowerCase())).slice(0,80),[workers,search])
  const roleRank = identity ? ({viewer:0,analyst:1,operator:2,admin:3} as Record<string,number>)[identity.role] ?? -1 : -1
- const restrictedTabs: Record<string,string> = {AGENT_POSITIONS:'operator',RUNS:'analyst',VALIDATION:'analyst'}
+ const restrictedTabs: Record<string,string> = {AGENT_POSITIONS:'operator',RUNS:'analyst',VALIDATION:'analyst',AUDIT:'operator',BACKUP:'admin',SETTINGS:'admin'}
  const canSee = (tab:string) => !identity || roleRank >= (({viewer:0,analyst:1,operator:2,admin:3} as Record<string,number>)[restrictedTabs[tab]] ?? 0)
  const allTabs: {id:string;label:string;icon:typeof Activity;action?:()=>void}[] = [
   {id:'OVERVIEW',label:'OVERVIEW',icon:Activity},
@@ -348,8 +349,22 @@ export default function App() {
   {id:'RESEARCH',label:'RESEARCH',icon:Activity},
   {id:'VALIDATION',label:'DATA VALIDATION',icon:ShieldCheck},
   {id:'WATCHLIST',label:'WATCHLIST',icon:Star},
+  {id:'PORTFOLIO',label:'PORTFOLIO',icon:Activity},
+  {id:'RISK',label:'RISK',icon:ShieldCheck},
+  {id:'HEALTH',label:'SYSTEM HEALTH',icon:Activity},
+  {id:'PROVIDERS',label:'PROVIDERS',icon:Database},
+  {id:'AUDIT',label:'AUDIT',icon:ShieldCheck},
+  {id:'BACKUP',label:'BACKUP',icon:Database},
+  {id:'SETTINGS',label:'SETTINGS',icon:SlidersHorizontal},
  ]
  const sideTabs = allTabs
+ const opsPanel = activeTab==='PORTFOLIO'?<PortfolioAnalytics api={API}/>
+  :activeTab==='RISK'?<RiskAnalytics api={API}/>
+  :activeTab==='HEALTH'?<SystemHealthPanel api={API}/>
+  :activeTab==='PROVIDERS'?<ProviderHealthPanel api={API}/>
+  :activeTab==='AUDIT'?<AuditEventsPanel api={API}/>
+  :activeTab==='BACKUP'?<BackupStatusPanel api={API}/>
+  :activeTab==='SETTINGS'?<SettingsPanel api={API}/>:null
  const selectTab = (id:string) => {
   if (!canSee(id)) {
    setAccessDenied(`${id.replace(/_/g,' ')} requires ${String(restrictedTabs[id]||'operator').toUpperCase()} role or higher. This action was denied by the server-side access policy.`)
@@ -565,7 +580,10 @@ export default function App() {
    <div className="sidebar-bottom"><ShieldCheck size={15}/><span>Governed research environment<small>Data provenance · audit trail</small></span></div>
    <AuthPanel api={API} onIdentity={setIdentity}/>
   </aside>
-  {activeTab==='SCREENER'||activeTab==='COVERAGE'?<section className="overview-area">
+  {opsPanel?<section className="overview-area">
+    <div className="overview-heading"><div><span className="eyebrow">MARKET-MIND-AI / OPERATIONS</span><h1>{activeTab.replace(/_/g,' ')}</h1><p>Live backend status. No synthetic or fabricated values are presented as market data.</p></div></div>
+    <div className="coverage-main">{opsPanel}</div>
+   </section>:activeTab==='SCREENER'||activeTab==='COVERAGE'?<section className="overview-area">
     <div className="overview-heading"><div><span className="eyebrow">MARKET-MIND-AI / STORED OBSERVATIONS</span><h1>{activeTab==='SCREENER'?'Observation screener':'Coverage heatmap'}</h1><p>Filter and visualise stored research observations. Historical only — no live market data, price performance or liquidity implication.</p></div><button className="soft-btn" onClick={loadMarketOverview} disabled={overviewBusy}>{overviewBusy?'LOADING…':'REFRESH COVERAGE'}</button></div>
     <div className="coverage-main"><CoverageTools view={activeTab==='SCREENER'?'screener':'heatmap'} coverage={marketOverview?.coverage||[]} loading={overviewBusy} error={overviewError} onLoad={loadMarketOverview} dataNote={marketOverview?.data_note}/></div>
    </section>:activeTab==='VALIDATION'?<section className="overview-area">

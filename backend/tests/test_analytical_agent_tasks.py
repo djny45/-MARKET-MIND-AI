@@ -115,6 +115,44 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
         self.assertEqual(evaluation["metrics"]["claim_reference_coverage"], 0.5)
         self.assertEqual(evaluation["metrics"]["known_source_reference_coverage"], 0.5)
 
+    def test_stale_executor_cannot_persist_quality_or_learning_side_effects(self):
+        """Ported from PR #8: ownership fencing must cover all research side effects."""
+        import sqlite3
+        from app.analytical_agent_tasks import (
+            enqueue_research_task, execute_queued_research_task, get_task_quality_evaluation,
+        )
+        queued = enqueue_research_task(
+            "worker_014",
+            "Evaluate supplied claims after ownership changes",
+            {
+                "draft": "Draft includes limitations and unknowns.",
+                "claims": [{"text": "Claim with source", "source_refs": ["source-1"]}],
+                "source_registry": [{"source_id": "source-1"}],
+            },
+        )
+
+        def reclaim_during_synthesis(_payload):
+            with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+                db.execute(
+                    "UPDATE analytical_agent_tasks SET status='queued',execution_token=NULL "
+                    "WHERE task_id=?", (queued["task_id"],),
+                )
+                db.execute(
+                    "UPDATE analytical_agent_tasks SET status='running',execution_token=? "
+                    "WHERE task_id=?", ("replacement-owner-token", queued["task_id"]),
+                )
+            return {"status": "completed", "summary": "Evaluated draft."}
+
+        with patch("app.analytical_agent_tasks.synthesize_research", side_effect=reclaim_during_synthesis), \
+             patch("app.analytical_agent_tasks._persist_research_learning_candidate") as persist_memory:
+            self.assertFalse(execute_queued_research_task(queued["task_id"]))
+            persist_memory.assert_not_called()
+
+        self.assertEqual(get_research_task(queued["task_id"])["status"], "running")
+        evaluation = get_task_quality_evaluation(queued["task_id"])
+        self.assertEqual(evaluation["status"], "not_evaluated")
+        self.assertIsNone(evaluation["evaluation"])
+
     def test_task_audit_events_record_queue_claim_and_completion(self):
         from app.analytical_agent_tasks import (
             enqueue_research_task, execute_queued_research_task, list_task_audit_events,
@@ -679,7 +717,10 @@ class AgentSupervisorPollingContractTests(unittest.TestCase):
 
         recover.assert_called_once_with()
         self.assertEqual(dispatch.call_count, 2)
-        dispatch.assert_any_call(limit=12, max_concurrency=3)
+        for call in dispatch.call_args_list:
+            self.assertEqual(call.kwargs["limit"], 12)
+            self.assertEqual(call.kwargs["max_concurrency"], 3)
+            self.assertIsNotNone(call.kwargs["supervisor_lease_token"])
         self.assertEqual(result["cycles"], 2)
         self.assertEqual(result["recovery"]["requeued_interrupted_count"], 2)
         self.assertEqual(result["dispatch_results"][0]["dispatched"], 2)
@@ -791,6 +832,10 @@ class AgentSupervisorPollingContractTests(unittest.TestCase):
         ) as dispatch, patch(
             "app.analytical_agent_tasks._write_supervisor_heartbeat",
             side_effect=lambda state, *args, **kwargs: heartbeat_states.append(state),
+        ), patch(
+            "app.analytical_agent_tasks._renew_supervisor_lease", return_value=True
+        ), patch(
+            "app.analytical_agent_tasks._supervisor_lease_is_valid", return_value=True
         ):
             result = run_supervisor(
                 stop_event, poll_interval_seconds=0.001, max_cycles=None,

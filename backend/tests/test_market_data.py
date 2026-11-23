@@ -8,7 +8,26 @@ from app.market_data import (
     MarketDataBatch,
     OHLCVBar,
     SyntheticFixtureAdapter,
+    status_allowed_for_source,
 )
+
+
+class DataStatusAttestationTests(unittest.TestCase):
+    def test_live_claims_require_attested_source(self):
+        self.assertFalse(status_allowed_for_source(DataStatus.LIVE, "customer-csv"))
+        self.assertTrue(
+            status_allowed_for_source(
+                DataStatus.LIVE, "licensed-vendor",
+                attested_sources=frozenset({"licensed-vendor"}),
+            )
+        )
+        self.assertFalse(status_allowed_for_source(DataStatus.LIVE, ""))
+
+    def test_historical_and_synthetic_labels_are_bounded(self):
+        self.assertTrue(status_allowed_for_source(DataStatus.HISTORICAL, "manual-review"))
+        self.assertTrue(status_allowed_for_source(DataStatus.SYNTHETIC, "synthetic-fixture"))
+        self.assertTrue(status_allowed_for_source(DataStatus.SYNTHETIC, "manual-review"))
+        self.assertFalse(status_allowed_for_source(DataStatus.LIVE, "synthetic-fixture"))
 
 
 class MarketDataContractTests(unittest.TestCase):

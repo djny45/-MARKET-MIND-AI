@@ -36,7 +36,21 @@ _SECRET_KEY = re.compile(
     re.IGNORECASE,
 )
 _BEARER = re.compile(r"(?i)\bbearer\s+[A-Za-z0-9._~+/=-]{8,}")
+# Session tokens are 43-char base64url values; JWT-shaped values are also
+# credentials. Match whole tokens so legitimate 64-char research hashes stay
+# visible in audit evidence.
+_HIGH_ENTROPY_TOKEN = re.compile(
+    r"(?<![A-Za-z0-9_-])(?:[A-Za-z0-9_-]{43}"
+    r"|eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,})"
+    r"(?![A-Za-z0-9_-])"
+)
 _MAX_TEXT = 300
+
+
+def _redact_text(text: str) -> str:
+    """Remove bearer credentials and token-shaped values from free text."""
+    text = _BEARER.sub(f"Bearer {REDACTED}", text)
+    return _HIGH_ENTROPY_TOKEN.sub(REDACTED, text)
 
 
 def redact(value: Any, *, _depth: int = 0) -> Any:
@@ -55,8 +69,7 @@ def redact(value: Any, *, _depth: int = 0) -> Any:
     if isinstance(value, (list, tuple, set)):
         return [redact(item, _depth=_depth + 1) for item in value]
     if isinstance(value, str):
-        cleaned = _BEARER.sub(f"Bearer {REDACTED}", value)
-        return cleaned[:_MAX_TEXT]
+        return _redact_text(value)[:_MAX_TEXT]
     if isinstance(value, (int, float, bool)) or value is None:
         return value
     return REDACTED
@@ -96,7 +109,7 @@ class AuditEventAggregator:
             text = str({k: v for k, v in value.items() if not _SECRET_KEY.search(str(k))})
         else:
             text = str(value)
-        text = _BEARER.sub(f"Bearer {REDACTED}", text)
+        text = _redact_text(text)
         if len(text) > _MAX_TEXT:
             text = text[:_MAX_TEXT] + "..."
         del label

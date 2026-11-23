@@ -96,6 +96,23 @@ class DistributedLimiterTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(limiter.check("client-a").allowed)
         self.assertEqual(len(fake.calls), 1)  # no repeated failing calls
 
+    async def test_redis_recovers_after_cooldown(self):
+        fake = FakeRedis(error=ConnectionError("redis down"))
+        limiter = DistributedRateLimiter(client=fake, limit=5)
+        clock = [100.0]
+        limiter._now = lambda: clock[0]
+        limiter.check("client-a")
+        self.assertEqual(limiter.backend, "in-process")
+        self.assertEqual(len(fake.calls), 1)
+        clock[0] += 2.0
+        limiter.check("client-a")  # still inside cooldown: no probe
+        self.assertEqual(len(fake.calls), 1)
+        fake.error = None
+        clock[0] += 4.0
+        self.assertTrue(limiter.check("client-a").allowed)
+        self.assertEqual(len(fake.calls), 2)
+        self.assertEqual(limiter.backend, "redis")
+
     async def test_invalid_configuration_is_rejected(self):
         with self.assertRaises(ValueError):
             DistributedRateLimiter(limit=-1)

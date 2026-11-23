@@ -68,6 +68,23 @@ class AuditEventTests(unittest.TestCase):
         self.assertEqual(event.metadata["nested"][0]["safe"], "ok")
         self.assertEqual(event.metadata["authorization"], REDACTED)
 
+    def test_tokens_under_benign_keys_are_redacted(self):
+        import secrets
+        token = secrets.token_urlsafe(32)
+        self.assertEqual(len(token), 43)
+        event = self.log.record(
+            "authentication",
+            {"username": "alice", "role": "admin"},
+            "layout-1",
+            f"note={token}",
+            "success",
+            metadata={"note": f"supplied {token} for review", "safe": "abc123"},
+        )
+        rendered = str(event)
+        self.assertNotIn(token, rendered)
+        self.assertIn(REDACTED, rendered)
+        self.assertEqual(event.metadata["safe"], "abc123")
+
     def test_redact_handles_non_string_values(self):
         result = redact({"count": 3, "flag": True, "nothing": None, "secret": "x"})
         self.assertEqual(result["count"], 3)

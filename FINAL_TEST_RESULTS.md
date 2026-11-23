@@ -1,59 +1,64 @@
-# FINAL TEST RESULTS — executed 2026-11-22
+# FINAL TEST RESULTS — executed 2026-11-23
 
-All results below were produced by commands run in this workspace after the
-final integration of all workstreams. Nothing is inferred from older reports.
+All results below were produced by commands run in this workspace on branch
+`feat/complete-mission`, based on `origin/main` commit
+`308e1ff066b700cfad9f8c1a408e2563ef2e0582`. Nothing is inferred from older
+reports. Python tests used a clean venv at `/tmp/opencode/backend-venv` with
+`backend/requirements.txt` installed; frontend tests installed from the tracked
+lockfile with `npm ci`.
 
 ## Backend
 
 | # | Check | Command | Result |
 | --- | --- | --- | --- |
-| 1 | Full backend suite | `PYTHONPATH=.:./backend python -m unittest discover -s backend/tests -q` | **PASS — 1043 tests, OK (119.2s)** |
-| 2 | Focused security suite | `PYTHONPATH=.:./backend python -m unittest backend.tests.test_authorization backend.tests.test_audit_events backend.tests.test_distributed_rate_limit backend.tests.test_env_validation -q` | **PASS — 35 tests, OK** |
-| 3 | Backup/DR suites | `PYTHONPATH=.:./backend python -m unittest backend.tests.test_backup_database backend.tests.test_recovery_drills -q` | **PASS — 19 tests, OK** |
-| 4 | Provider health | `PYTHONPATH=.:./backend python -m unittest tests.test_provider_health -v` | **PASS — 8 tests, OK** |
-| 5 | Compile check | `python -m compileall -q backend/app scripts` | **PASS** |
-| 6 | Harness adapters | `python scripts/check_harness_adapters.py` | **PASS — 12 files, 3 MCP configs** |
-| 7 | Python dependency audit | `pip-audit -r backend/requirements.txt` | **PASS — No known vulnerabilities found** |
-| 8 | Strict startup gate smoke | `APP_ENV=production` with short auth token | **PASS — startup fails with secret-free error** |
+| 1 | Baseline full suite (before changes) | `PYTHONPATH=.:./backend python -m unittest discover -s backend/tests -q` | **PASS — 1043 tests, OK (116.7s)** on the venv; an earlier run with the system interpreter failed 56 import errors because `fastapi`/`pydantic` were absent (environment issue, not a code defect) |
+| 2 | Final full suite after all security/supervisor fixes | `PYTHONPATH=.:./backend /tmp/opencode/backend-venv/bin/python -m unittest discover -s backend/tests -q` | **PASS — 1058 tests, OK (103.8s)** |
+| 2a | Supervisor lease regressions | `PYTHONPATH=.:./backend .../python -m unittest backend.tests.test_agent_supervisor -q` | **PASS — 19 tests, OK** |
+| 2b | Authorization / user auth / env / session / limiter / audit / market-data / task suites | focused `unittest` runs on the 11 touched modules | **PASS** (all green; 2 initially failing polling-contract mocks were corrected, not weakened) |
+| 3 | DR regression | `PYTHONPATH=.:./backend .../python -m unittest backend.tests.test_recovery_drills -q` | **PASS — 14 tests, OK** (includes new stale-lock test) |
+| 4 | Task-ownership regression | `PYTHONPATH=.:./backend .../python -m unittest backend.tests.test_analytical_agent_tasks -q` | **PASS — 43 tests, OK** (includes ported PR #8 test) |
+| 5 | CI config guard (on `security/trivy-ci-scope`) | `PYTHONPATH=.:./backend .../python -m unittest backend.tests.test_ci_workflow_config -v` | **PASS — 6 tests, OK** |
+| 6 | Compile check | `/tmp/opencode/backend-venv/bin/python -m compileall -q backend/app scripts` | **PASS** |
+| 7 | Python dependency audit | `/tmp/opencode/audit-venv/bin/pip-audit -r backend/requirements.txt --progress-spinner off` | **PASS — No known vulnerabilities found** |
 
 ## Frontend
 
 | # | Check | Command | Result |
 | --- | --- | --- | --- |
-| 9 | Original node:test suite | `cd frontend && npm test` | **PASS — 10/10** |
-| 10 | React component/DOM/API suite | `npx -y node@22 ./node_modules/vitest/vitest.mjs run` (Vitest 5.1.1; CI uses Node 22) | **PASS — 16 files, 99/99** |
-| 11 | Combined frontend suite | 10 node:test + 99 Vitest tests | **PASS — 109 tests total** |
-| 12 | Production build | `cd frontend && npm run build` | **PASS — tsc + esbuild bundle created** |
+| 8 | Original node:test suite | `cd frontend && npm test` | **PASS — 10/10** |
+| 9 | React component/DOM/API suite | `cd frontend && npx -y node@22 ./node_modules/vitest/vitest.mjs run` | **PASS — 19 files, 117/117** (was 16 files, 99/99) |
+| 10 | Test typecheck | `npx -y node@22 ./node_modules/typescript/bin/tsc -p tsconfig.test.json --noEmit` | **PASS** |
+| 11 | App typecheck | `./node_modules/.bin/tsc -p tsconfig.json --noEmit` | **PASS** |
+| 12 | Production build | `cd frontend && npm run build` | **PASS — tsc + esbuild bundle** |
 | 13 | Production dependency audit | `cd frontend && npm audit --omit=dev --audit-level=high` | **PASS — 0 vulnerabilities** |
-| 14 | Test typecheck | `cd frontend && npm run typecheck:test` | **PASS** |
 
 ## Infrastructure / security
 
 | # | Check | Command | Result |
 | --- | --- | --- | --- |
-| 15 | Trivy filesystem scan | `trivy fs --scanners vuln,misconfig,secret --severity MEDIUM,HIGH,CRITICAL .` (Trivy 0.76.2) | **PASS — 0 vulnerabilities, 0 misconfigurations, 0 secrets** |
-| 16 | Backup/restore drill | `scripts/backup_orchestrator.py` → `scripts/restore_orchestrator.py` into a clean temp target | **PASS — verified backup, sha256 sidecars, parity, `restored_and_verified`** |
-| 17 | Retention / off-host hook / resume / locks | drill runner in `docs/BACKUP_RECOVERY_DRILL.md` | **PASS** |
-| 18 | Migration rollback / restart recovery | `scripts/migration_rollback.py`, `scripts/service_restart_recovery.py` | **PASS (local drill)** |
-| 19 | Trivy in GitHub Actions | `.github/workflows/quality.yml` Trivy job | **PASS on prior `main` runs; not updated with misconfig/MEDIUM scope — see BLOCKED** |
-| 20 | Docker Compose config / container build | `docker compose config`, `docker build` | **BLOCKED — `docker` binary absent in this container; CI is authoritative** |
-| 21 | Host-level cron/systemd install, real S3 target, process-kill drill | operator host actions | **NOT RUN — no host/init access or credentials** |
-| 22 | CI run after first push | [run 45057550963](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45057550963) | Backend, Frontend, Docker Compose and Trivy **PASS**; Dependency audit **FAIL** — Vitest 2.1.9 dev-dependency advisories (`tinypool` critical). Fixed by upgrading Vitest 5.1.1 + Vite 6.4.6 + `@types/node` 22, not by weakening the audit gate. |
-| 23 | **CI run after final push** (`4abfa3da`) | [run 45057999583](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45057999583) | **PASS — all five jobs**: Backend, Frontend, Dependency audit, Trivy filesystem scan, Docker Compose integration. |
+| 14 | Trivy config scan | `TRIVY_CACHE_DIR=... trivy config .` | LOCAL TREE ONLY: DS-0002 HIGH in git-excluded `third_party/freqtrade/docker/Dockerfile.plot`; DS-0026 LOW in Dockerfiles. Neither is in a clean CI checkout. |
+| 15 | CI-equivalent Trivy fs scan | `trivy fs --scanners vuln,misconfig,secret --severity MEDIUM,HIGH,CRITICAL --skip-dirs third_party --skip-dirs .venvs .` | **PASS — 0 vulns, 0 misconfigs, 0 secrets** |
+| 16 | DR scheduler checks | `python3 scripts/backup_scheduler.py config`, `cron-line`, `systemd` | **PASS — values/strings only, no secrets printed, nothing installed** |
+| 17 | Docker Compose config / container build | `docker compose config`, `docker build` | **BLOCKED — `docker` binary absent; CI authoritative** |
+| 18 | Expanded Trivy CI job | `.github/workflows/quality.yml` on `security/trivy-ci-scope` (`0c89aa68`) | **NOT PUSHED — owner OAuth `workflow` scope required** |
+| 19 | CI run for the earlier code commit `a0183e31` | [run 45177448956](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45177448956) | **PASS — all five jobs** (superseded by newer code, see below) |
+| 20 | CI run for the security/supervisor code on `feat/complete-mission` and final `main` | *recorded after push/merge* | pending at time of this edit |
 
 ## Honest notes
 
-- Backend count grew from the historical 987 → 1043 as the new security, DR and
-  provider-health tests were added. No tests were skipped or marked xfail by
-  these changes.
-- Frontend UI tests cover real components only. There is no authentication UI,
-  screener or heatmap component on `main`; corresponding requested tests cannot
-  target real code and are recorded as coverage gaps in
-  `docs/FRONTEND_TESTING.md` and `frontend/tests/ui/coverage-gaps.test.ts`.
-- `jsdom` cannot evaluate CSS media queries; responsive coverage asserts DOM
-  availability and media-query declarations, not computed layout in a browser.
-- The first backup drill attempt failed on a fixture bug, was corrected, and
-  was re-run from an empty directory; both logs are preserved in
-  `docs/BACKUP_RECOVERY_DRILL.md`.
-- Trivy's earlier HIGH `DS-0002` finding was resolved by adding explicit
-  `USER 101` to `frontend/Dockerfile`; the post-fix scan is clean.
+- The two additional backend tests are the DR stale-lock regression and the
+  ported PR #8 ownership-fencing regression. No existing test was removed or
+  weakened; the news non-2xx gap test was replaced with a real assertion and
+  the coverage-gaps guards were updated to reflect implemented features.
+- Frontend tests now target real authentication, screener and heatmap code;
+  the previous "features absent" guards were replaced, not deleted silently.
+- `jsdom` cannot evaluate CSS media queries; responsive tests assert media-query
+  declarations and DOM availability, not computed layout.
+- Host cron/systemd installation, real S3 upload, Docker volume restore,
+  process-kill drill, TLS scanning and independent security testing were
+  **not** performed. They remain operator-only and are documented as such.
+- An earlier CI run (`45177307171`, commit `2bae059a`) was cancelled by the
+  workflow's `cancel-in-progress` setting when a documentation commit was
+  pushed. The "Start optional n8n service" step was marked *cancelled*, not
+  failed; the authoritative run is `45177448956`.
+- No public-deployment readiness or 100% completion is claimed.

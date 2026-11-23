@@ -85,6 +85,10 @@ class AuthorizationPrimitivesTests(unittest.TestCase):
         self.assertEqual(
             required_role_for_path("/api/workers/w/memory/m/review", "POST")[0], "operator"
         )
+        self.assertEqual(required_role_for_path("/api/instrument-master/identifiers")[0], "analyst")
+        self.assertEqual(required_role_for_path("/api/market-data/store")[0], "analyst")
+        self.assertEqual(required_role_for_path("/api/market-data/import-csv")[0], "analyst")
+        self.assertEqual(required_role_for_path("/api/workflows/execute")[0], "analyst")
         self.assertIsNone(required_role_for_path("/api/markets"))
         self.assertIsNone(required_role_for_path("/api/audit/events"))
 
@@ -136,6 +140,23 @@ class AuthorizationApiTests(unittest.TestCase):
         admin, _ = self._login("admin")
         self.assertEqual(admin.get("/api/admin/users").status_code, 200)
         self.assertEqual(admin.get("/api/environment-validation").status_code, 200)
+
+    def test_viewer_cannot_store_market_data_and_analyst_can(self):
+        payload = {
+            "symbol": "AAPL", "interval": "1d", "status": "historical",
+            "source": "manual-review", "retrieved_at": "2026-01-01T00:00:00Z",
+            "bars": [],
+        }
+        viewer, csrf = self._login("viewer")
+        denied = viewer.post(
+            "/api/market-data/store", headers={"X-CSRF-Token": csrf}, json=payload
+        )
+        self.assertEqual(denied.status_code, 403)
+        analyst, analyst_csrf = self._login("alice")
+        allowed = analyst.post(
+            "/api/market-data/store", headers={"X-CSRF-Token": analyst_csrf}, json=payload
+        )
+        self.assertNotEqual(allowed.status_code, 403)
 
     def test_cross_user_layout_access_is_denied(self):
         alice, csrf = self._login("alice")

@@ -11,7 +11,7 @@ from app.user_session_middleware import UserSessionAuthMiddleware
 
 
 class UserSessionAuthMiddlewareTests(unittest.IsolatedAsyncioTestCase):
-    async def _call(self, path="/api/workers", method="GET", cookies="", csrf=""):
+    async def _call(self, path="/api/workers", method="GET", cookies="", csrf="", origin=""):
         captured = {"status": None}
 
         async def app(scope, receive, send):
@@ -30,6 +30,8 @@ class UserSessionAuthMiddlewareTests(unittest.IsolatedAsyncioTestCase):
             headers.append((b"cookie", cookies.encode()))
         if csrf:
             headers.append((b"x-csrf-token", csrf.encode()))
+        if origin:
+            headers.append((b"origin", origin.encode()))
         scope = {
             "type": "http", "asgi": {"version": "3.0"}, "http_version": "1.1",
             "method": method, "scheme": "http", "path": path, "raw_path": path.encode(),
@@ -77,6 +79,21 @@ class UserSessionAuthMiddlewareTests(unittest.IsolatedAsyncioTestCase):
             )
             self.assertEqual(
                 await self._call(method="POST", cookies=self.cookies, csrf=self.session["csrf_token"]),
+                204,
+            )
+
+    async def test_strict_mode_requires_origin_on_writes(self):
+        env = dict(self.env, ENV_VALIDATION_STRICT="1", FRONTEND_ORIGINS="https://app.example")
+        with patch.dict(os.environ, env, clear=False):
+            self.assertEqual(
+                await self._call(method="POST", cookies=self.cookies, csrf=self.session["csrf_token"]),
+                403,
+            )
+            self.assertEqual(
+                await self._call(
+                    method="POST", cookies=self.cookies,
+                    csrf=self.session["csrf_token"], origin="https://app.example",
+                ),
                 204,
             )
 

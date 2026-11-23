@@ -1,7 +1,6 @@
 """Opt-in per-user session enforcement and browser-hardening middleware."""
 from __future__ import annotations
 
-import os
 from http.cookies import SimpleCookie
 from typing import Any
 from urllib.parse import urlparse
@@ -21,7 +20,7 @@ from .authorization import (
 from .env_validation import (
     allowed_origins,
     cookie_settings,
-    truthy,
+    origin_required,
     trusted_proxy_settings,
 )
 from .user_auth import (
@@ -182,7 +181,7 @@ class UserSessionAuthMiddleware:
                 )
                 await response(scope, receive, send)
                 return
-            if truthy(os.getenv("MARKET_MIND_REQUIRE_ORIGIN", "")) and not _origin_allowed(scope):
+            if origin_required() and not _origin_allowed(scope):
                 audit_log.record("csrf", actor, path, "origin_check", "denied")
                 response = JSONResponse(
                     {"detail": "Request origin is not allowed."}, status_code=403

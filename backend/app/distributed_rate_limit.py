@@ -87,6 +87,8 @@ class DistributedRateLimiter:
         self._local = _LocalWindow(window_seconds)
         self._client: Any | None = None
         self._redis_disabled = False
+        self._redis_retry_after = 0.0
+        self._redis_cooldown_seconds = 5.0
         self._now = time.monotonic
 
         if client is not None:
@@ -126,23 +128,32 @@ class DistributedRateLimiter:
             key = "unknown"
 
         redis_key = f"mm:rl:{self.window_seconds}:{key}"
-        if self._client is not None and not self._redis_disabled:
+        now = self._now()
+        if self._client is not None and (
+            not self._redis_disabled or now >= self._redis_retry_after
+        ):
             try:
                 current = int(
                     self._client.eval(INCREMENT_AND_EXPIRE_LUA, 1, redis_key, self.window_seconds)
                 )
+            except Exception:
+                # Degrade to the local limiter, but retry Redis after a short
+                # cooldown instead of permanently abandoning a recovered host.
+                self._redis_disabled = True
+                self._redis_retry_after = now + self._redis_cooldown_seconds
+            else:
+                self._redis_disabled = False
+                self._redis_retry_after = 0.0
                 if current > self.limit:
                     return RateLimitResult(False, "redis", 0, self.window_seconds)
                 return RateLimitResult(True, "redis", self.limit - current, 0)
-            except Exception:
-                # Degrade once and keep using the local limiter for this process.
-                self._redis_disabled = True
-        return self._local.check(key, self.limit, self._now())
+        return self._local.check(key, self.limit, now)
 
     def reset(self) -> None:
         """Clear local state (and, when safe, the known Redis keys)."""
         self._local.reset()
         self._redis_disabled = False
+        self._redis_retry_after = 0.0
 
 
 def client_key(

@@ -83,6 +83,7 @@ const defaultRoutes: Record<string, RouteHandler> = {
   }),
   'GET /api/research/timeline': () => json({ events: [] }),
   'GET /api/news': () => json({ items: [] }),
+  'GET /api/auth/me': () => json({ enabled: false, user: null }),
   'GET /api/agent-network/activity': () => json({ task_count: 0, status_counts: {}, latest_by_agent: {}, note: 'fixture' }),
   'GET /api/analytical-agents/learning-overview': () => json({
     agent_count: 0, agents: [], agents_with_feedback: 0, total_feedback_records: 0,

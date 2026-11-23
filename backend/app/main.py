@@ -5,7 +5,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from .api_auth import ResearchAPIAuthMiddleware
 from .rate_limit import RateLimitMiddleware
 from .distributed_rate_limit import DistributedRateLimitMiddleware
-from .env_validation import enforce_environment, validate_environment
+from .env_validation import (
+    attested_data_sources, enforce_environment, validate_environment,
+)
 from .audit_events import audit_log, record_authorization_decision
 from .authorization import (
     actor_owner,
@@ -73,7 +75,9 @@ from .volume_indicators import calculate_volume_indicators
 from .liquidity_indicators import calculate_volume_profile
 from .performance import performance_metrics
 from . import workspace
-from .market_data import SyntheticFixtureAdapter, MarketDataBatch
+from .market_data import (
+    SyntheticFixtureAdapter, MarketDataBatch, status_allowed_for_source,
+)
 from .yahoo_finance_adapter import YahooFinanceAdapter
 from .market_data_validation import validate_market_data_payload
 from . import market_store
@@ -2250,7 +2254,13 @@ def historical_market_event_quality(
 
 @app.post("/api/market-data/store")
 def store_market_data(batch: MarketDataBatch):
- """Persist normalized observations while retaining source and status metadata."""
+ """Persist normalized observations with server-attested status labels."""
+ if not status_allowed_for_source(
+  batch.status, batch.source, attested_sources=attested_data_sources()
+ ):
+  raise HTTPException(
+   status_code=400, detail="status/source combination is not attested by this server"
+  )
  return market_store.store_batch(batch)
 
 @app.post("/api/market-data/import-csv")

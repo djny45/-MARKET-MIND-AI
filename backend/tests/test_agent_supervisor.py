@@ -8,6 +8,9 @@ from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import patch
 
 from app.analytical_agent_tasks import (
+    _renew_supervisor_lease,
+    _supervisor_lease_is_valid,
+    _write_supervisor_heartbeat,
     agent_supervisor_status,
     agent_task_performance,
     classify_research_task_failure,
@@ -71,6 +74,67 @@ class AgentSupervisorTests(unittest.TestCase):
         status = agent_supervisor_status()
         self.assertEqual(status["supervisor_health"], "stale")
         self.assertGreater(status["supervisor_heartbeat"]["heartbeat_age_seconds"], 15)
+
+    def test_lease_ownership_is_fenced_against_a_second_supervisor(self):
+        import sqlite3
+        from datetime import datetime, timedelta, timezone
+        instance = f"pid-{os.getpid()}"
+        expiry = (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat()
+        _write_supervisor_heartbeat(
+            "running", 1.0, 10, 2, lease_token="token-A", expires_at=expiry
+        )
+        self.assertTrue(_supervisor_lease_is_valid(instance, "token-A"))
+        self.assertFalse(_supervisor_lease_is_valid(instance, "token-B"))
+        with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+            db.execute(
+                "UPDATE analytical_agent_supervisor_heartbeat "
+                "SET instance_id='other', supervisor_lease_token='token-B' WHERE singleton_id=1"
+            )
+        self.assertFalse(_supervisor_lease_is_valid(instance, "token-A"))
+        self.assertFalse(_renew_supervisor_lease(instance, "token-A", 60))
+
+    def test_dispatch_aborts_when_lease_is_lost_between_selection_and_dispatch(self):
+        import sqlite3
+        import app.analytical_agent_tasks as tasks
+        from datetime import datetime, timedelta, timezone
+        enqueue_research_task("worker_001", "lease loss sample")
+        instance = f"pid-{os.getpid()}"
+        expiry = (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat()
+        _write_supervisor_heartbeat(
+            "running", 1.0, 10, 2, lease_token="token-A", expires_at=expiry
+        )
+        original = tasks._record_event
+
+        def hijack(db, *args, **kwargs):
+            db.execute(
+                "UPDATE analytical_agent_supervisor_heartbeat "
+                "SET instance_id='other', supervisor_lease_token='token-B' WHERE singleton_id=1"
+            )
+            return original(db, *args, **kwargs)
+
+        with patch("app.analytical_agent_tasks._record_event", side_effect=hijack):
+            result = dispatch_queued_research_tasks(
+                limit=5, max_concurrency=1,
+                supervisor_instance_id=instance, supervisor_lease_token="token-A",
+            )
+        self.assertEqual(result["status"], "lease_lost")
+        self.assertEqual(result["dispatched"], 0)
+        with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+            remaining = db.execute(
+                "SELECT COUNT(*) FROM analytical_agent_tasks WHERE status='queued'"
+            ).fetchone()[0]
+        self.assertEqual(remaining, 1)
+
+    def test_run_supervisor_stops_before_dispatch_when_renewal_fails(self):
+        import threading
+        with patch("app.analytical_agent_tasks._renew_supervisor_lease", return_value=False), \
+             patch("app.analytical_agent_tasks.dispatch_queued_research_tasks") as dispatch:
+            result = run_supervisor(
+                threading.Event(), poll_interval_seconds=0.01,
+                batch_size=1, max_concurrency=1, max_cycles=1,
+            )
+        self.assertEqual(result["status"], "lease_lost")
+        dispatch.assert_not_called()
 
     def test_dispatch_executes_bounded_queue_snapshot(self):
         queued = enqueue_research_task("worker_001", "dispatch sample")

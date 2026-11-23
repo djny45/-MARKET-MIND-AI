@@ -17,6 +17,25 @@ class DataStatus(str, Enum):
     SYNTHETIC = "synthetic"
 
 
+def status_allowed_for_source(
+    status: DataStatus, source: str, *, attested_sources: frozenset[str] = frozenset()
+) -> bool:
+    """Bind caller-supplied status labels to server-configured provenance.
+
+    Live/delayed claims require an operator-attested source. Synthetic data
+    must use the reserved synthetic fixture source. Historical and synthetic
+    labels may be supplied by a researcher with an arbitrary source name.
+    """
+    normalized = source.strip().lower() if isinstance(source, str) else ""
+    if not normalized:
+        return False
+    if status in (DataStatus.LIVE, DataStatus.DELAYED):
+        return normalized in attested_sources
+    if normalized == "synthetic-fixture":
+        return status is DataStatus.SYNTHETIC
+    return status in (DataStatus.HISTORICAL, DataStatus.SYNTHETIC)
+
+
 class OHLCVBar(BaseModel):
     model_config = ConfigDict(extra="forbid")
     timestamp: datetime

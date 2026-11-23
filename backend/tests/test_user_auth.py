@@ -58,6 +58,22 @@ class UserAuthTests(unittest.TestCase):
         self.assertTrue(user_auth.revoke_user_session(session["session_token"], self.env))
         self.assertIsNone(user_auth.get_user_session(session["session_token"], self.env))
 
+    def test_live_session_role_reflects_config_demotion_and_removal(self):
+        session = user_auth.create_user_session({"username": "admin", "role": "admin"}, self.env)
+        demoted = dict(self.env, MARKET_MIND_USERS=json.dumps([{
+            "username": "admin", "password_hash": self.password_hash, "role": "viewer"
+        }]))
+        loaded = user_auth.get_user_session(session["session_token"], demoted)
+        self.assertEqual(loaded["role"], "viewer")
+        removed = dict(self.env, MARKET_MIND_USERS=json.dumps([{
+            "username": "other", "password_hash": self.password_hash, "role": "admin"
+        }]))
+        self.assertIsNone(user_auth.get_user_session(session["session_token"], removed))
+        # No configured users at all: keep the stored role as a safe fallback.
+        fallback_env = {k: v for k, v in self.env.items() if k != "MARKET_MIND_USERS"}
+        fallback = user_auth.get_user_session(session["session_token"], fallback_env)
+        self.assertEqual(fallback["role"], "admin")
+
     def test_role_hierarchy(self):
         self.assertTrue(user_auth.role_allows("admin", "operator"))
         self.assertTrue(user_auth.role_allows("operator", "operator"))

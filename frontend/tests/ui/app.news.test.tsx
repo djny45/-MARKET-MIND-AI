@@ -44,11 +44,11 @@ describe('App / news intelligence', () => {
     expect(await screen.findByText('network refused')).toBeInTheDocument()
   })
 
-  it('DOCUMENTED GAP: a non-2xx news response with a detail field does not surface an error', async () => {
+  it('surfaces the detail from a non-2xx news response', async () => {
     const { user } = setupApp({ 'GET /api/news': () => json({ detail: 'news offline' }, 503) })
     await clickTab(user, 'NEWS')
     await user.click(screen.getByRole('button', { name: 'FETCH OFFICIAL NEWS' }))
-    expect(await screen.findByRole('button', { name: 'FETCH OFFICIAL NEWS' })).toBeEnabled()
-    expect(screen.queryByText('news offline')).not.toBeInTheDocument()
+    expect(await screen.findByRole('alert')).toHaveTextContent('news offline')
+    expect(screen.getByRole('button', { name: 'FETCH OFFICIAL NEWS' })).toBeEnabled()
   })
 })

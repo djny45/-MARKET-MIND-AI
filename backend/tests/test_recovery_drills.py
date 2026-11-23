@@ -7,6 +7,7 @@ import http.server
 import json
 import os
 import sqlite3
+import subprocess
 import sys
 import tempfile
 import threading
@@ -253,6 +254,23 @@ class RecoveryDrillTests(unittest.TestCase):
         )
         self.assertEqual(dr_common.DrLock(state, "backup").stale_count(), 1)
         self.assertFalse((state / "restore.lock").exists())
+
+    def test_stale_count_reads_each_lock_not_only_self(self):
+        """A live lock of another DR process must never be deleted as stale."""
+        state = self.root / "state"
+        state.mkdir()
+        dead_pid = int(subprocess.check_output(
+            [sys.executable, "-c", "import os; print(os.getpid())"]
+        ).strip())
+        dr_common.atomic_write_json(
+            state / "backup.lock", {"pid": os.getpid(), "created_at": dr_common.iso_now()}
+        )
+        dr_common.atomic_write_json(
+            state / "restore.lock", {"pid": dead_pid, "created_at": dr_common.iso_now()}
+        )
+        self.assertEqual(dr_common.DrLock(state, "verify").stale_count(), 1)
+        self.assertTrue((state / "backup.lock").exists(), "live lock was wrongly removed")
+        self.assertFalse((state / "restore.lock").exists(), "dead lock was not removed")
 
     def test_migration_rollback_restores_pre_migration_state(self):
         target = make_database(self.root / "market.db")

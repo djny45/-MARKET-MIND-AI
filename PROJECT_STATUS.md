@@ -1,73 +1,72 @@
-# PROJECT STATUS — verified 2026-11-22
+# PROJECT STATUS — verified 2026-11-23
 
-Last reviewed: 2026-11-22 (fresh inspection of `main`, not older reports)
+Last reviewed: 2026-11-23 on branch `feat/complete-mission`, based on
+`origin/main` `308e1ff066b700cfad9f8c1a408e2563ef2e0582`.
 
 ## Current state
 
-- Verified code commit: `4abfa3dab9a34a5d7830122fda7440ae31a9b9f4`; latest
-  docs-only commit: `1bab48a69d802372f022f90101a6e9b4b4c4d6e8` on `main`.
+- Audited code commit: `a0183e314552afdfdf842fbaaa7030a088dc4d60`. CI for that
+  commit: <https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45177448956>
+  (all five jobs PASS). Any later docs-only commit is recorded in git history.
 - Product boundary: **research-only market intelligence**. Broker execution,
   wallet private keys, transaction signing, live order routing and market
-  making are disabled by design. Health reports `broker_execution: false`.
-- Verified completion: **≈88% of in-scope engineering work**. See
-  `FINAL_COMPLETION_REPORT.md` for the breakdown and explicit exclusions.
+  making are disabled by design; health reports `broker_execution: false`.
+- Completion is **not** claimed: public exposure gates, expanded CI workflow,
+  host drills and independent security review are unverified.
+
+## Audit and recovery
+
+Local `main` had diverged (56 local commits, 17 origin commits) and tracked
+8,789 files including generated artifacts. It is preserved intact at
+`recovery/local-main-56-commits` (`906b3765`) with source patches in
+`/tmp/opencode/`. No force-push, reset, rebase, merge or discard occurred.
 
 ## Security
 
-- Per-user sessions (scrypt, HttpOnly cookies, hashed CSRF, idle/absolute
-  expiry, four roles) plus a deployment-wide bearer token.
-- Resource-level authorization with deny-by-default sensitive-route policy and
-  ownership checks; admin/operator gates; audit-event aggregation.
-- Strict startup environment validation (`APP_ENV=production` or
-  `ENV_VALIDATION_STRICT=1`); secure cookies, no CORS wildcards, no secret
-  logging.
-- Session fixation prevention, CSRF rotation, hardened headers, untrusted
-  proxy-header stripping, Redis-capable distributed rate limiting with
-  in-process fallback.
-- Public exposure remains blocked pending TLS ingress, network segmentation,
-  independent review and CI scan-scope update (OAuth `workflow` scope).
-  Details: `SECURITY_AUDIT.md`, `docs/SECURITY_IMPLEMENTATION.md`.
+- Four-role per-user sessions, deployment bearer auth, deny-by-default
+  sensitive-route policy, ownership checks, audit events, strict startup env
+  gate, session fixation/CSRF rotation, header hardening, proxy-header
+  stripping and Redis-capable rate limiting are implemented and tested.
+- New in this audit: DR stale-lock fix and PR #8 ownership fencing of research
+  side effects, both with regression tests.
+- Write-route roles, strict Origin enforcement, live role re-read, trusted-proxy
+  limiting, Redis recovery, market-data status attestation and token redaction
+  were fixed with regression tests. Remaining gaps are architectural: role
+  separation under a shared bearer token and a durable ownership store. See
+  `SECURITY_AUDIT.md`.
+- Public exposure BLOCKED pending TLS, segmentation, ingress controls and
+  independent review. Runbook: `docs/PUBLIC-EXPOSURE-HARDENING.md`.
 
 ## Architecture
 
-- Durable **single-host** SQLite task queue with supervisor dispatch/recovery.
-  Multi-host execution is intentionally not implemented; see ADR-001 in
-  `docs/ARCHITECTURE_DECISIONS.md`.
-- Market data is provenance-tagged (live/delayed/historical/synthetic), with
-  licensing gate and local freshness/health reporting. No licensed provider is
-  activated. ADR-002.
-- Imported execution repositories are inert reference copies. ADR-003.
-- Frontend remains React 18 + TypeScript + esbuild; no Vite. ADR-004.
+- Single-host SQLite queue with one supervisor. ADR-0001 (ported from PR #39)
+  is design-only; PR #38's obsolete lease code was not ported.
+- Market data provenance-tagged; no licensed live provider configured.
+- Imported execution code inert. Single shared intelligence core, not 550
+  independent models.
 
-## Verification (final)
+## Verification
 
 | Check | Result |
 | --- | --- |
-| Backend suite (`unittest discover -s backend/tests`) | PASS — 1043 tests |
-| Frontend (`npm test` + `npm run test:ui`) | PASS — 10 + 99 tests |
-| Frontend production build | PASS |
+| Backend suite | PASS — 1045 tests |
+| Frontend node:test + Vitest | PASS — 10 + 117 tests |
+| Frontend build / audits | PASS |
 | pip-audit / npm audit | PASS — 0 known vulnerabilities |
-| Trivy `fs --scanners vuln,misconfig,secret --severity MEDIUM,HIGH,CRITICAL` | PASS — 0 findings |
-| Backup/restore, retention, rollback, restart drills | PASS — local evidence |
-| Docker Compose config/build | BLOCKED locally (docker absent); CI authoritative |
-| CI for final push | [run 45057999583](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45057999583) — PASS, all 5 jobs |
-
-Full commands and evidence: `FINAL_TEST_RESULTS.md`.
+| CI-equivalent Trivy scan | PASS — 0 findings at MEDIUM+ |
+| Docker / host drills | BLOCKED locally; operator work |
+| CI for final push | See `FINAL_TEST_RESULTS.md` for the recorded run |
 
 ## Pull requests
 
-Merged after review/CI: #5, #6, #7, #9, #75.
-Closed with evidence: #1, #4, #11, #27, #31, #35, #37, #45, #77.
-Open and triaged: #76 (workflow scope), #40 (screener/heatmap re-port),
-#39 (queue ADR partly superseded), #38 (lease redesign), #8 (ownership fencing
-rebase). No unreviewed code was merged.
+Open and triaged: #76 (owner workflow scope), #40 (ported here), #39 (ADR
+ported here), #38 (obsolete design, not ported), #8 (fencing ported here).
+No PR was merged in this audit; dispositions are documented in
+`REMAINING_WORK.md`.
 
-## Next actions (owner)
+## Next actions (owner/operator)
 
-1. Grant `workflow` scope, merge #76, widen Trivy CI scope.
-2. TLS ingress, network segmentation, independent security review.
-3. Docker/host drills on an authorized host if required.
-4. Fresh PRs for #40/#38 only if those features are approved scope.
-
-No outdated completion percentages, commit SHAs or PR counts are retained in
-this document.
+1. Grant `workflow` scope, land `security/trivy-ci-scope`, then #76.
+2. TLS ingress, network segmentation, ingress rate limits, independent review.
+3. Host/S3/Docker/process-kill drills on an authorized host.
+4. Decide on ADR-0001 implementation and data-status attestation fix.

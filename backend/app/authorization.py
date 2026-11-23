@@ -45,6 +45,18 @@ SENSITIVE_ROUTE_POLICY: tuple[tuple[re.Pattern[str], str, str], ...] = (
         "operator",
         "memory_review",
     ),
+    (
+        re.compile(r"^/api/instrument-master/identifiers/?$"),
+        "analyst",
+        "instrument_identifiers",
+    ),
+    (re.compile(r"^/api/market-data/store/?$"), "analyst", "market_data_store"),
+    (
+        re.compile(r"^/api/market-data/import-csv/?$"),
+        "analyst",
+        "market_data_import",
+    ),
+    (re.compile(r"^/api/workflows/execute/?$"), "analyst", "workflow_execution"),
 )
 
 

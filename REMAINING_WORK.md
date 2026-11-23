@@ -1,70 +1,86 @@
-# REMAINING WORK — evidence-based (2026-11-22)
+# REMAINING WORK — evidence-based (2026-11-23)
 
-This file records work that is **not** complete, with evidence. Nothing here is
-claimed as delivered.
+This repository-level audit started from `origin/main` commit
+`308e1ff066b700cfad9f8c1a408e2563ef2e0582` on branch `feat/complete-mission`.
+Nothing here is claimed as delivered without a recorded command/result.
 
-## 1. Public exposure gates — BLOCKED (external)
-TLS ingress, network segmentation, independent penetration test and formal
-security review are operator/external responsibilities. Server-side authz,
-session/CSRF hardening, strict env validation, audit aggregation, headers and
-distributed rate limiting are implemented (see `SECURITY_AUDIT.md`). No public
-deployment is authorized.
+## Recovered local work
 
-## 2. Trivy CI scope — BLOCKED (OAuth permission)
-Local Trivy 0.76.2 `fs --scanners vuln,misconfig,secret --severity MEDIUM,HIGH,CRITICAL .`
-is clean. The CI job in `.github/workflows/quality.yml` still uses
-`scanners: vuln,secret` and `severity: HIGH,CRITICAL`; adding misconfiguration
-and MEDIUM findings requires a workflow change. `gh pr merge 76` failed with
-`refusing to allow an OAuth App to create or update workflow ... without workflow scope`.
-Remedy: owner runs `gh auth refresh -h github.com -s workflow` and completes
-the device-code approval, then merge #76 and update the Trivy step.
+Local `main` (`906b3765e3af03a866f8dd84daa7edf74f71fbc3`) had diverged: 56
+commits not on `origin/main`, 17 commits on origin not on local. Local `main`
+also had **no `.gitignore`** and tracked 8,789 files, including 7,569
+`node_modules` paths, 5,855 `frontend/dist` paths and 298 `.pyc` files.
+`origin/main` tracks 910 files with generated paths ignored.
 
-## 3. Multi-host task execution — NOT IMPLEMENTED (intentional)
-`docker-compose.yml` runs one backend + one supervisor on one SQLite volume;
-`QueueCapabilities().multi_host_supported == False`. `backend/app/distributed_queue.py`
-is a contract only. No broker, no multi-host integration test, no claim of
-multi-host support. See `docs/ARCHITECTURE_DECISIONS.md` ADR-001.
+The entire local line is preserved without rewriting history at
+`recovery/local-main-56-commits`. Text patches of unique source/doc files are
+at `/tmp/opencode/recovery-added-source.patch` and
+`/tmp/opencode/recovery-modified-source.patch` (data binaries/logs excluded).
+Useful unique work already ported to this branch: `AuthPanel.tsx`, TLS ingress
+example, ADR-0001. No force-push, reset, rebase, merge or discard was performed.
 
-## 4. Licensed live/delayed market data — NOT CONFIGURED (intentional)
-`DataLicensingGate` blocks unauthorized sources; providers remain pending
-manual license review. `provider_health.py` reports freshness/health without
-external calls. No statement about current market prices is permitted. ADR-002.
+## Completed in this audit
 
-## 5. Frontend coverage gaps — PARTIAL
-109 frontend tests pass (10 node:test, 99 Vitest/jsdom). There is **no**
-authentication UI, screener or heatmap component on `main`, so those requested
-tests cannot target real code (`docs/FRONTEND_TESTING.md`,
-`frontend/tests/ui/coverage-gaps.test.ts`). The Help (`?`) button in `App.tsx`
-still has no handler; `loadNews` ignores `response.ok`; watchlist refresh has
-no busy state; computed responsive layout needs a real browser. See the same
-document for the full list.
+- Fixed `DrLock.stale_count()` reading only its own lock file; added a
+  regression test that keeps live locks of other DR processes intact.
+- Ported PR #8 ownership fencing: quality evaluation is now written inside the
+  fenced completion transaction and learning memory only after a successful
+  fenced finalization. Added the stale-executor regression test.
+- Added a frontend authentication UI (login/logout, session status, expired
+  state, role-aware navigation, accessible errors), an observation screener,
+  a coverage heatmap, a working Help dialog, `loadNews` HTTP failure handling
+  and watchlist busy/error states.
+- Ported PR #39 ADR and PR #40 screener/heatmap functionality.
+- Added `docs/PUBLIC-EXPOSURE-HARDENING.md` and a TLS ingress example.
+- Closed server-side gaps: analyst minimum role on four write routes, strict-mode
+  Origin enforcement, live role re-read with removed-user revocation,
+  trusted-proxy-aware in-process limiter, Redis recovery after cooldown,
+  server-attested market-data status/source, and token redaction under benign
+  keys. All have regression tests.
+- Ported PR #38's lease-loss guarantee to the current `run_supervisor` loop:
+  CAS lease renewal and dispatch revalidation, with three regression tests.
+  SQLite remains single-host; no broker was introduced.
+- Added explicit access-denied state for role-gated frontend navigation.
+- PR dispositions recorded on GitHub: #8, #39, #40 closed as ported; #38 closed
+  as obsolete architecture; #76 left open with an owner-action comment.
 
-## 6. Host-specific operations — PARTIAL
-Executed locally with evidence in `docs/BACKUP_RECOVERY_DRILL.md`: verified
-backup/restore, retention, off-host hook, resume, stale-lock recovery,
-migration rollback, restart recovery, webhook alerting. Not run: cron/systemd
-installation, Docker volume restore (`docker` absent), real S3 target,
-production process-kill drill.
+## Still blocked or intentionally excluded
 
-## 7. Pull requests — mostly reconciled
-Merged after CI verification: #5, #6, #7, #9, #75. Closed with evidence:
-#1, #4, #11, #27, #31, #35, #37, #45, #77.
-Still open: #76 (workflow-scope blocked), #40 (screener/heatmap re-port needed),
-#39 (durable-queue ADR partly superseded), #38 (lease-loss redesign needed),
-#8 (ownership fencing needs narrow rebase). None were merged unreviewed.
+1. **Public exposure — BLOCKED (external)**: TLS issuance/scan, network
+   segmentation, ingress controls, independent penetration test and formal
+   security review are operator/external work. No public deployment authorized.
+2. **Trivy CI scope — BLOCKED (OAuth permission)**: the expanded job is
+   committed only on local branch `security/trivy-ci-scope` (`0c89aa68`).
+   Pushing `.github/workflows/*` requires the owner to run
+   `gh auth refresh -h github.com -s workflow` and approve the device code.
+   The main audit branch is intentionally left pushable without workflow edits.
+3. **Remaining server-side gaps — PARTIAL**: role and ownership enforcement
+   remains conditional on `MARKET_MIND_USER_AUTH`; a shared bearer-token-only
+   deployment still grants every holder admin routes. `OwnershipRegistry` is
+   in-memory and unregistered refs are globally visible. These require an auth
+   model redesign and a durable ownership store, not a one-line change.
+4. **Market-data labelling — RESOLVED at the API boundary**: live/delayed claims
+   now require an operator-attested source; no provider is configured and
+   `no_live_provider_configured` is reported. Cryptographic provider attestation
+   remains out of scope until a real licensed provider is added.
+5. **PR #38 — CLOSED as obsolete**: its lease implementation targeted a removed
+   supervisor architecture. The guarantee was ported to `run_supervisor`; full
+   multi-supervisor contention tests remain gated by ADR-0001.
+6. **PR #76 — BLOCKED (owner)**: one-line `configure-pages@v6` bump needs the
+   workflow-scope grant, then a normal authorized merge.
+7. **Host operations — NOT RUN**: cron/systemd install, real S3 target, Docker
+   volume restore (`docker` absent), real migration runner, host restart and
+   process-kill drill. See `docs/BACKUP_RECOVERY_DRILL.md` and
+   `docs/PUBLIC-EXPOSURE-HARDENING.md`.
+8. **Multi-host execution — NOT IMPLEMENTED (intentional)**: SQLite single-host
+   queue with one supervisor; `distributed_queue.py` is a contract only.
+9. **Licensed live data — NOT CONFIGURED (intentional)**: licensing gate
+   remains; no current-market-price claims are permitted.
+10. **Imported execution code — INTENTIONALLY INERT**: AutoHedge, FinceptTerminal
+    and Freqtrade remain reference-only; no wallet keys, signing or order routing.
 
-## 8. CI for the final commits — PASS
-[run 45057999583](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45057999583)
-passed all five jobs on the final commit `4abfa3da`. Docker Compose validation
-is CI-authoritative because `docker` is absent locally. The only CI failure
-encountered during this mission (Vitest 2.x advisories) was fixed by a real
-dependency upgrade, not by weakening the audit gate.
+## Completion boundary
 
-## 9. Imported execution code — INTENTIONALLY INERT
-AutoHedge signing/order modules, FinceptTerminal and Freqtrade live-bot code
-remain reference-only; never imported, built or executed. Camofox browser is
-localhost-only with no credentials. ADR-003.
-
-## 10. Explicitly excluded from scope
-Live brokerage execution, autonomous live trading, wallet private keys,
-transaction signing, live order routing and market-making execution.
+No public deployment is authorized. Completion is not claimed while TLS,
+network segmentation, ingress controls, independent security testing and the
+expanded CI workflow remain unverified.

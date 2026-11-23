@@ -5,6 +5,7 @@ from app.env_validation import (
     cookie_settings,
     enforce_environment,
     is_strict,
+    origin_required,
     trusted_proxy_settings,
     validate_environment,
 )
@@ -47,6 +48,9 @@ class EnvironmentValidationTests(unittest.TestCase):
         self.assertFalse(is_strict({"APP_ENV": "development"}))
         self.assertTrue(is_strict({"ENV_VALIDATION_STRICT": "1"}))
         self.assertTrue(is_strict({"APP_ENV": "production"}))
+        self.assertFalse(origin_required({}))
+        self.assertTrue(origin_required({"MARKET_MIND_REQUIRE_ORIGIN": "true"}))
+        self.assertTrue(origin_required({"APP_ENV": "production"}))
         self.assertEqual(enforce_environment({})["issues"], [])
 
     def test_strict_mode_fails_closed_on_weak_auth(self):
@@ -83,6 +87,7 @@ class EnvironmentValidationTests(unittest.TestCase):
             "FRONTEND_ORIGINS": "https://example.com",
             "MARKET_MIND_SECURE_COOKIES": "true",
             "MARKET_MIND_COOKIE_SAMESITE": "strict",
+            "MARKET_MIND_REQUIRE_ORIGIN": "true",
         }
         result = enforce_environment(env)
         self.assertTrue(result["ok"])

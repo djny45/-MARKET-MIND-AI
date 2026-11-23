@@ -33,6 +33,23 @@ def is_strict(environ: Mapping[str, str] | None = None) -> bool:
     ).strip().lower() == "production"
 
 
+def attested_data_sources(environ: Mapping[str, str] | None = None) -> frozenset[str]:
+    """Sources explicitly cleared by the operator to claim live/delayed data."""
+    env = dict(os.environ if environ is None else environ)
+    raw = env.get("MARKET_MIND_ATTESTED_DATA_SOURCES", "")
+    return frozenset(
+        value.strip().lower()
+        for value in raw.split(",")
+        if value.strip()
+    )
+
+
+def origin_required(environ: Mapping[str, str] | None = None) -> bool:
+    """Origin/Referer validation is mandatory in strict/production mode."""
+    env = dict(os.environ if environ is None else environ)
+    return truthy(env.get("MARKET_MIND_REQUIRE_ORIGIN", "")) or is_strict(env)
+
+
 def allowed_origins(environ: Mapping[str, str] | None = None) -> list[str]:
     env = dict(os.environ if environ is None else environ)
     return [
@@ -107,6 +124,8 @@ def validate_environment(environ: Mapping[str, str] | None = None) -> dict[str, 
             issues.append("MARKET_MIND_SECURE_COOKIES must be true in production/strict mode")
         if cookies["samesite"] not in {"strict", "lax"}:
             issues.append("MARKET_MIND_COOKIE_SAMESITE must be strict or lax in production/strict mode")
+        if not origin_required(env):
+            issues.append("MARKET_MIND_REQUIRE_ORIGIN must be true in production/strict mode")
 
     recovery = env.get("MARKET_MIND_STARTUP_RECOVERY", "true").strip().lower()
     if recovery not in {"true", "false", "1", "0", "yes", "no", "on", "off"}:
@@ -144,6 +163,7 @@ def validate_environment(environ: Mapping[str, str] | None = None) -> dict[str, 
             "cookie_samesite": cookies["samesite"],
             "trusted_proxy_count": proxy["count"],
             "trusted_proxy_header": proxy["header"],
+            "origin_required": origin_required(env),
         },
         "secret_values_exposed": False,
     }
@@ -159,10 +179,12 @@ def enforce_environment(environ: Mapping[str, str] | None = None) -> dict[str, A
 
 __all__ = [
     "EnvironmentValidationError",
+    "attested_data_sources",
     "allowed_origins",
     "cookie_settings",
     "enforce_environment",
     "is_strict",
+    "origin_required",
     "trusted_proxy_settings",
     "truthy",
     "validate_environment",

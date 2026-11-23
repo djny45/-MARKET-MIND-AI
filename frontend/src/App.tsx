@@ -352,7 +352,7 @@ export default function App() {
  const sideTabs = allTabs
  const selectTab = (id:string) => {
   if (!canSee(id)) {
-   setAccessDenied(`${id.replaceAll('_',' ')} requires ${String(restrictedTabs[id]||'operator').toUpperCase()} role or higher. This action was denied by the server-side access policy.`)
+   setAccessDenied(`${id.replace(/_/g,' ')} requires ${String(restrictedTabs[id]||'operator').toUpperCase()} role or higher. This action was denied by the server-side access policy.`)
    return
   }
   setAccessDenied('')

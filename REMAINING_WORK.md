@@ -81,10 +81,16 @@ example, ADR-0001. No force-push, reset, rebase, merge or discard was performed.
 ## Integration state
 
 All completed work was merged into `main` at
-`e8d9f3284de182549d72079101ac67a0bef582c0` via reviewed PR #82. CI on that exact
-SHA passed all five jobs (<https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45184633962>).
+`46f67732d518b0afa105f37109412e3608c5495c` via reviewed PR #83 (after PR #82).
+CI on that exact SHA passed all five jobs
+(<https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45197484726>).
 The old divergent local `main` (`906b3765`) and all recovery branches remain
 untouched.
+
+1. **Seven frontend modules not implemented as separate panels**: portfolio
+   research/performance analytics, risk analytics, system health, provider
+   health, audit/security events, backup/recovery status and settings. See
+   `docs/acceptance-inventory.json`.
 
 ## Completion boundary
 

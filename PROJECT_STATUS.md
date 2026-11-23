@@ -6,10 +6,11 @@ Last reviewed: 2026-11-23 on branch `feat/complete-mission`, based on
 ## Current state
 
 - Integrated code commit on `main`:
-  `e8d9f3284de182549d72079101ac67a0bef582c0` (merge of PR #82). CI for that
-  exact SHA: <https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45184633962>
-  — all five jobs PASS. PR #82 was reviewed, CI-green and merged by authorized
-  operation; no unreviewed PR was merged.
+  `46f67732d518b0afa105f37109412e3608c5495c` (merge of PR #83). CI for that
+  exact SHA: <https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45197484726>
+  — all five jobs PASS. PRs #82 and #83 were reviewed, CI-green and merged by
+  authorized operations; no unreviewed PR was merged. See
+  `docs/FINAL_ACCEPTANCE_REPORT.md` for the three separate acceptance statuses.
 - Product boundary: **research-only market intelligence**. Broker execution,
   wallet private keys, transaction signing, live order routing and market
   making are disabled by design; health reports `broker_execution: false`.
@@ -50,7 +51,7 @@ Local `main` had diverged (56 local commits, 17 origin commits) and tracked
 
 | Check | Result |
 | --- | --- |
-| Backend suite | PASS — 1058 tests |
+| Backend suite | PASS — 1062 tests |
 | Frontend node:test + Vitest | PASS — 10 + 117 tests |
 | Frontend build / audits | PASS |
 | pip-audit / npm audit | PASS — 0 known vulnerabilities |

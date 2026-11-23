@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from app.auth_crypto import hash_password
+from app.auth_crypto import hash_password, hash_session_token
 from app import user_auth
 from app.user_session_middleware import UserSessionAuthMiddleware
 
@@ -96,6 +96,31 @@ class UserSessionAuthMiddlewareTests(unittest.IsolatedAsyncioTestCase):
                 ),
                 204,
             )
+
+    async def test_untrusted_forwarded_headers_are_stripped_by_default(self):
+        from backend.app.user_session_middleware import _FORWARDED_HEADERS, _strip_untrusted_forwarded_headers
+        for name in _FORWARDED_HEADERS:
+            scope = {
+                "headers": [(b"x-forwarded-for", b"10.9.8.7"), (name, b"custom")],
+                "client": ("127.0.0.1", 1234),
+            }
+            _strip_untrusted_forwarded_headers(scope)
+            remaining = [n for n, _ in scope["headers"]]
+            self.assertNotIn(name, remaining)
+        with patch.dict(os.environ, {"MARKET_MIND_TRUSTED_PROXY_COUNT": "2"}):
+            scope = {"headers": [(b"x-forwarded-for", b"10.9.8.7")], "client": ("127.0.0.1", 1234)}
+            _strip_untrusted_forwarded_headers(scope)
+            self.assertTrue(any(n == b"x-forwarded-for" for n, _ in scope["headers"]))
+
+    async def test_expired_session_is_rejected_at_http_layer(self):
+        import sqlite3
+        with sqlite3.connect(self.env["MARKET_MIND_DB"]) as db:
+            db.execute(
+                "UPDATE auth_sessions SET idle_expires_at=? WHERE session_token_hash=?",
+                (0, hash_session_token(self.session["session_token"])),
+            )
+        with patch.dict(os.environ, self.env, clear=False):
+            self.assertEqual(await self._call(cookies=self.cookies), 401)
 
     async def test_health_and_login_are_exempt(self):
         with patch.dict(os.environ, self.env, clear=False):

@@ -56,11 +56,18 @@ material only and was not executed.
    workflow scope. See `docs/TRIVY_CI_AUDIT.md`.
 10. **Frontend security UI.** Authentication screens now exist, but server-side
     authz remains authoritative and role-gated UI is advisory only.
+11. **Resolved: HTTP-level session-expiry enforcement.** When a session
+    reaches its idle expiry, `UserSessionAuthMiddleware` now rejects the
+    request with 401; regression test: `test_expired_session_is_rejected_at_http_layer`.
+12. **Resolved: untrusted forwarded-header stripping.** With
+    `MARKET_MIND_TRUSTED_PROXY_COUNT=0` the middleware strips `X-Forwarded-*`
+    headers; regression test: `test_untrusted_forwarded_headers_are_stripped_by_default`.
 
 ## Outstanding external work
 
-These findings were verified on integrated `main`
-`e8d9f3284de182549d72079101ac67a0bef582c0` (CI run 45184633962, all jobs PASS).
+These findings were verified on integrated `main` at the then-HEAD,
+`32561c1d4bb48e23107d65d6f576c9e148b3176b`; a newer WAL perf merge
+(`dad80256be51fcd85418b33c4b11b66bcd59fbc0`) now includes it after merge of PR #88.
 TLS ingress, network segmentation, ingress rate limits, independent penetration
 testing and formal security review are operator/external responsibilities.
 See `docs/PUBLIC-EXPOSURE-HARDENING.md` for the required configuration and

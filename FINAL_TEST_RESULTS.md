@@ -50,7 +50,8 @@ lockfile with `npm ci`.
 | 20 | CI on feature commit `9f86b601` (push + PR run) | [run 45183636264](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45183636264), [run 45184225251](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45184225251) | **PASS — all five jobs** on both runs |
 | 21 | CI on merged `main` commit `e8d9f3284de182549d72079101ac67a0bef582c0` | [run 45184633962](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45184633962) | **PASS — all five jobs** |
 | 21a | CI on merged `main` commit `46f67732d518b0afa105f37109412e3608c5495c` (PR #83) | [run 45197484726](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45197484726) | **PASS — all five jobs** |
-| 21b | CI on final merged `main` commit `7f99013955a5e60dbe6f1ee292ad0d2d722fd122` (PR #84) | [run 45207137712](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45207137712) | **PASS — all five jobs**: Backend, Frontend, Dependency audit, Trivy filesystem scan, Docker Compose integration |
+| 21b | CI on merged `main` commit `7f99013955a5e60dbe6f1ee292ad0d2d722fd122` (PR #84) | [run 45207137712](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45207137712) | **PASS — all five jobs** |
+| 21c | CI on final merged `main` commit `32561c1d4bb48e23107d65d6f576c9e148b3176b` (PR #85) | [run 45215713118](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45215713118) | **PASS — all five jobs**: Backend, Frontend, Dependency audit, Trivy filesystem scan, Docker Compose integration |
 | 22 | Independent re-verification on `integration/main-verified` at `e8d9f328` | backend `unittest discover`, frontend `npm test` + Vitest, typechecks, `npm run build`, `pip-audit`, `npm audit`, Trivy | **PASS — 1058 backend; 10 node:test; 117 Vitest; typechecks/build clean; 0 advisories; 0 Trivy findings at MEDIUM+** |
 
 ## Honest notes

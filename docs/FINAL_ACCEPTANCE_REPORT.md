@@ -5,8 +5,9 @@
 | Item | Value |
 | --- | --- |
 | Repository | https://github.com/djny45/-MARKET-MIND-AI |
-| Integrated code commit on `main` | `7f99013955a5e60dbe6f1ee292ad0d2d722fd122` (merge of PR #84) |
-| CI on that exact SHA | https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45207137712 — all 5 jobs PASS |
+| Integrated code commit on `main` | `32561c1d4bb48e23107d65d6f576c9e148b3176b` (merge of PR #85) |
+| CI on that exact SHA | https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45215713118 — all 5 jobs PASS |
+| Recovery evidence | `docs/RECOVERY_DRILL_EVIDENCE.md` — real isolated backup/checksum/restore/parity/retention/stale-lock and `kill -9` drills PASS |
 | Previous integrations | PR #83 `46f67732` (run 45197484726), PR #82 `e8d9f328` (run 45184633962) — both all-PASS |
 | Previous integration | PR #82, `e8d9f328`, run 45184633962 — all 5 jobs PASS |
 | Backend | 1078 tests OK, 1 skipped (`unittest discover -s backend/tests -q`) |

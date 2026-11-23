@@ -101,9 +101,9 @@ example, ADR-0001. No force-push, reset, rebase, merge or discard was performed.
 ## Integration state
 
 All completed work was merged into `main` at
-`7f99013955a5e60dbe6f1ee292ad0d2d722fd122` via reviewed PR #84 (after PRs
-#82 and #83). CI on that exact SHA passed all five jobs
-(<https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45207137712>).
+`32561c1d4bb48e23107d65d6f576c9e148b3176b` via reviewed PR #85 (after PRs
+#82–#84). CI on that exact SHA passed all five jobs
+(<https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45215713118>).
 The old divergent local `main` (`906b3765`) and all recovery branches remain
 untouched.
 

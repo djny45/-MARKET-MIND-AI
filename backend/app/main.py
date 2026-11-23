@@ -470,7 +470,7 @@ def visible_resource_ids(resource_type: str, resource_ids: list[str]) -> list[st
  owner = actor_owner(current_actor())
  return [
   item for item in resource_ids
-  if ownership_registry.owner_of(resource_type, str(item)) in (None, owner)
+  if ownership_registry.owner_of(resource_type, str(item)) == owner
  ]
 
 

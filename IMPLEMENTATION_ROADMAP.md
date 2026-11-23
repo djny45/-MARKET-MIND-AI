@@ -19,9 +19,9 @@ exist and are tested. In this audit: fixed DR stale-lock handling, ported PR #8
 ownership fencing, then closed write-route roles, strict Origin, stale roles,
 trusted-proxy limiting, Redis recovery, market-data attestation and audit
 redaction, each with regression tests. PR #38's lease-loss guarantee was ported
-to the current supervisor. Remaining architectural gaps (shared bearer role
-separation, durable ownership store) are in `SECURITY_AUDIT.md`; public exposure
-remains BLOCKED.
+to the current supervisor. Shared-bearer privilege escalation, durable SQLite
+ownership and deny-unknown resources were then closed with regression tests.
+Public exposure remains BLOCKED on operator/external controls.
 
 ## Stage 2 — Frontend — DONE for the requested gaps
 

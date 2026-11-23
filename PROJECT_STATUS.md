@@ -32,10 +32,9 @@ Local `main` had diverged (56 local commits, 17 origin commits) and tracked
 - New in this audit: DR stale-lock fix and PR #8 ownership fencing of research
   side effects, both with regression tests.
 - Write-route roles, strict Origin enforcement, live role re-read, trusted-proxy
-  limiting, Redis recovery, market-data status attestation and token redaction
-  were fixed with regression tests. Remaining gaps are architectural: role
-  separation under a shared bearer token and a durable ownership store. See
-  `SECURITY_AUDIT.md`.
+  limiting, Redis recovery, market-data status attestation, token redaction,
+  shared-bearer viewer downgrade and SQLite-durable ownership with deny-unknown
+  resources were fixed with regression tests. See `SECURITY_AUDIT.md`.
 - Public exposure BLOCKED pending TLS, segmentation, ingress controls and
   independent review. Runbook: `docs/PUBLIC-EXPOSURE-HARDENING.md`.
 

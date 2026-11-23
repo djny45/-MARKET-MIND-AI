@@ -23,6 +23,28 @@ class WorkerRegistryTests(unittest.TestCase):
         self.assertEqual(sum(result["skill_reference_counts_by_department"].values()),
                          result["total_skill_reference_count"])
 
+    def test_every_worker_has_validated_template_metadata(self):
+        from app.workers import list_workers
+        required = (
+            "id", "name", "category", "description", "skills", "input_schema",
+            "output_schema", "permission_profile", "memory_namespace", "task_status",
+            "execution_history", "error_history", "resource_limits",
+            "performance_metrics", "version",
+        )
+        workers = list_workers()
+        self.assertEqual(len(workers), 550)
+        self.assertEqual(len({w["id"] for w in workers}), 550)
+        for worker in workers:
+            for field in required:
+                self.assertIn(field, worker, f"{worker['id']} missing {field}")
+            self.assertEqual(worker["model"], "shared_central_intelligence")
+            self.assertFalse(worker["permission_profile"]["broker_execution"])
+            self.assertEqual(worker["execution_history"], [])
+            self.assertEqual(worker["error_history"], [])
+            self.assertFalse(worker["performance_metrics"]["independently_measured"])
+            self.assertIsInstance(worker["input_schema"]["properties"], dict)
+            self.assertIsInstance(worker["output_schema"]["properties"], dict)
+
     def test_registry_manifest_is_versioned_and_hashed(self):
         manifest = registry_manifest()
         self.assertEqual(manifest["registry_version"], REGISTRY_VERSION)

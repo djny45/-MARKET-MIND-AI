@@ -23,15 +23,15 @@ material only and was not executed.
 
 ## Verified gaps (do not claim public readiness)
 
-1. **Authorization is conditional.** `user_auth.enabled()` gates the role and
-   ownership dependencies. With only `API_AUTH_REQUIRED` + shared bearer token,
-   any token holder reaches `/api/admin/users`, `/api/system/config` and
-   `/api/environment-validation`. `docker-compose.yml` sets neither auth flag
-   nor strict env mode. Role separation requires `MARKET_MIND_USER_AUTH=true`
-   and configured users.
-2. **Unregistered resources are globally visible.** `OwnershipRegistry.is_owner`
-   returns true for unknown refs; the registry is in-memory only and does not
-   survive restart or multiple workers.
+1. **Resolved: shared bearer privilege escalation.** When
+   `API_AUTH_REQUIRED=true` without per-user auth, a bearer holder is
+   explicitly downgraded to `viewer` for sensitive-route checks and receives
+   403 on admin/operator routes. Regression test: `SharedBearerPrivilegeTests`.
+2. **Resolved: ownership durability and unknown refs.** `OwnershipRegistry` now
+   persists to SQLite (`resource_ownership`), unknown references are denied via
+   `unregistered_resource`, and `visible_resource_ids` excludes unclaimed IDs.
+   Regression tests: `DurableOwnershipTests`. Local development with both auth
+   modes disabled remains open by design.
 3. **Resolved: unprotected write routes.** `SENSITIVE_ROUTE_POLICY` now requires
    `analyst` for instrument-identifier updates, market-data store/import and
    workflow execution. Regression tests cover viewer denial and analyst access.

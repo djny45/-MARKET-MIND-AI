@@ -1,3 +1,4 @@
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -79,6 +80,34 @@ class SkillCadenceEngineTests(unittest.TestCase):
         history = self.engine.version_history()
         self.assertTrue(history)
         self.assertIn("autohedge-agent-analysis", history)
+
+    def test_skill_scan_is_independent_of_working_directory(self):
+        from app.skill_cadence import SkillCadenceEngine
+
+        original = os.getcwd()
+        with tempfile.TemporaryDirectory() as tmp:
+            os.chdir(tmp)
+            try:
+                result = SkillCadenceEngine(audit_path=Path(tmp) / "cadence.jsonl").security_checks()
+            finally:
+                os.chdir(original)
+        self.assertGreaterEqual(result["scanned"], 1)
+        self.assertTrue(result["findings"])
+
+    def test_security_checks_fail_closed_without_skill_files(self):
+        from app.skill_cadence import SkillCadenceEngine
+
+        with tempfile.TemporaryDirectory() as tmp:
+            empty = Path(tmp) / "skills"
+            empty.mkdir()
+            engine = SkillCadenceEngine(audit_path=Path(tmp) / "cadence.jsonl", skills_root=empty)
+            security = engine.security_checks()
+            metadata = engine.metadata_validation()
+        self.assertFalse(security["passed"])
+        self.assertEqual(security["scanned"], 0)
+        self.assertEqual(security["findings"][0]["keyword"], "no_skill_files_scanned")
+        self.assertFalse(metadata["passed"])
+        self.assertEqual(metadata["issues"][0]["issue"], "no_skill_files_scanned")
 
 
 if __name__ == "__main__":

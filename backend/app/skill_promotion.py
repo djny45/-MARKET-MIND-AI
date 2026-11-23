@@ -13,6 +13,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Mapping
 
+from .audit_jsonl import append_record, read_records
 from .skill_integrity import audit_catalog, audit_reference_skills
 
 PROMOTION_AUDIT_LOG = Path(os.getenv("MARKET_MIND_DB", "./data/market_mind.db")).with_name(
@@ -214,14 +215,11 @@ class PromotionEngine:
         return self._promotion_events
 
     def _persist(self, proposal: PromotionProposal, event: str) -> None:
-        self._audit_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(self._audit_path, "a", encoding="utf-8") as handle:
-            record = {
-                "event": event,
-                "timestamp": _timestamp(),
-                "proposal": proposal.to_record(),
-            }
-            handle.write(json.dumps(record, sort_keys=True) + "\n")
+        append_record(self._audit_path, {
+            "event": event,
+            "timestamp": _timestamp(),
+            "proposal": proposal.to_record(),
+        })
 
 
 def _timestamp() -> str:
@@ -230,14 +228,10 @@ def _timestamp() -> str:
 
 
 def read_promotion_audit(path: Path) -> list[dict]:
+    """Read promotion events, including rotated archives, oldest first."""
     if not path.is_file():
         return []
-    records = []
-    with open(path, encoding="utf-8") as handle:
-        for line in handle:
-            if line.strip():
-                records.append(json.loads(line))
-    return records
+    return read_records(path)
 
 
 def get_skill_version(skill_id: str, catalog_ids: set[str] | None = None) -> str:

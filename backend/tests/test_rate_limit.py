@@ -6,7 +6,7 @@ from app.rate_limit import RateLimitMiddleware
 
 
 class RateLimitMiddlewareTests(unittest.IsolatedAsyncioTestCase):
-    async def _call(self, middleware, path="/api/private"):
+    async def _call(self, middleware, path="/api/private", headers=()):
         captured = {"status": None}
 
         async def app(scope, receive, send):
@@ -23,12 +23,23 @@ class RateLimitMiddlewareTests(unittest.IsolatedAsyncioTestCase):
         scope = {
             "type": "http", "asgi": {"version": "3.0"}, "http_version": "1.1",
             "method": "GET", "scheme": "http", "path": path, "raw_path": path.encode(),
-            "query_string": b"", "headers": [], "server": ("test", 80),
+            "query_string": b"", "headers": list(headers), "server": ("test", 80),
             "client": ("127.0.0.1", 1234),
         }
         middleware.app = app
         await middleware(scope, receive, send)
         return captured["status"]
+
+    async def test_trusted_proxy_forwarded_for_creates_distinct_buckets(self):
+        middleware = RateLimitMiddleware(None)
+        env = {
+            "API_RATE_LIMIT_PER_MINUTE": "1",
+            "MARKET_MIND_TRUSTED_PROXY_COUNT": "1",
+        }
+        with patch.dict(os.environ, env):
+            self.assertEqual(await self._call(middleware, headers=[(b"x-forwarded-for", b"10.0.0.1")]), 204)
+            self.assertEqual(await self._call(middleware, headers=[(b"x-forwarded-for", b"10.0.0.2")]), 204)
+            self.assertEqual(await self._call(middleware, headers=[(b"x-forwarded-for", b"10.0.0.1")]), 429)
 
     async def test_disabled_by_default(self):
         middleware = RateLimitMiddleware(None)

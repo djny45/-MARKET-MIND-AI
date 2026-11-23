@@ -13,6 +13,9 @@ from typing import Any
 
 from starlette.responses import JSONResponse
 
+from .distributed_rate_limit import client_key
+from .env_validation import trusted_proxy_settings
+
 EXEMPT_PATHS = frozenset({"/api/health", "/api/ready"})
 MAX_TRACKED_CLIENTS = 4_096
 
@@ -35,10 +38,10 @@ class RateLimitMiddleware:
 
     @staticmethod
     def _client(scope: dict[str, Any]) -> str:
-        client = scope.get("client")
-        if client and isinstance(client, (tuple, list)) and client:
-            return str(client[0])
-        return "unknown"
+        proxy = trusted_proxy_settings()
+        return client_key(
+            scope, trusted_proxies=proxy["count"], header=proxy["header"]
+        )
 
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":

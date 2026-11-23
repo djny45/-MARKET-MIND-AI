@@ -140,9 +140,18 @@ def get_user_session(token: str, environ: Mapping[str, str] | None = None) -> di
         ).fetchone()
     if row is None:
         return None
+    configured_users = load_users(environ)
+    configured = configured_users.get(row["username"])
+    if configured_users and configured is None:
+        # An operator removed this user from configuration: treat the session
+        # as revoked rather than honouring a stale identity.
+        return None
+    # Re-read the role on every validation so a demotion takes effect without
+    # waiting for the session to expire. An absent/unparseable user list keeps
+    # the stored role as a safe fallback for existing sessions.
     return {
         "username": row["username"],
-        "role": row["role"],
+        "role": configured["role"] if configured else row["role"],
         "csrf_token_hash": session["csrf_token_hash"],
         "absolute_expires_at": session["absolute_expires_at"],
     }

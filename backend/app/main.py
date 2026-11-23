@@ -4,9 +4,11 @@ from fastapi.security import HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 from .api_auth import ResearchAPIAuthMiddleware
 from .rate_limit import RateLimitMiddleware
-from .distributed_rate_limit import DistributedRateLimitMiddleware
+from .distributed_rate_limit import DistributedRateLimitMiddleware, client_key
+from . import login_guard
 from .env_validation import (
-    attested_data_sources, enforce_environment, validate_environment,
+    attested_data_sources, enforce_environment, trusted_proxy_settings,
+    validate_environment,
 )
 from .audit_events import audit_log, record_authorization_decision
 from .authorization import (
@@ -475,6 +477,20 @@ def visible_resource_ids(resource_type: str, resource_ids: list[str]) -> list[st
  ]
 
 
+def client_ip(request: Request) -> str:
+ """Resolve the caller address, honouring forwarded headers only from proxies."""
+ proxy = trusted_proxy_settings()
+ count = int(proxy.get("count", 0) or 0)
+ direct = request.client.host if request.client else "unknown"
+ if count <= 0:
+  return direct
+ forwarded = request.headers.get(proxy.get("header", "x-forwarded-for"), "")
+ candidates = [part.strip() for part in forwarded.split(",") if part.strip()]
+ if len(candidates) >= count:
+  return candidates[-count]
+ return direct
+
+
 @app.post("/api/auth/login")
 async def login(request: Request):
  """Create a per-user session; raw tokens are returned once and never logged."""
@@ -486,10 +502,25 @@ async def login(request: Request):
   raise HTTPException(status_code=400, detail="Invalid JSON body") from exc
  if not isinstance(body, dict):
   raise HTTPException(status_code=400, detail="Invalid login body")
- identity = user_auth.authenticate(str(body.get("username", "")), str(body.get("password", "")))
+ username = str(body.get("username", ""))
+ client = client_ip(request)
+ allowed, retry_after = login_guard.check_login(username, client)
+ if not allowed:
+  audit_log.record("authentication", None, "/api/auth/login", "login", "throttled",
+                   metadata={"retry_after_seconds": retry_after})
+  raise HTTPException(
+   status_code=429,
+   detail="Too many failed login attempts; retry later",
+   headers={"Retry-After": str(retry_after)},
+  )
+ identity = user_auth.authenticate(username, str(body.get("password", "")))
  if identity is None:
-  audit_log.record("authentication", None, "/api/auth/login", "login", "denied")
+  outcome = login_guard.record_login_failure(username, client)
+  audit_log.record("authentication", None, "/api/auth/login", "login", "denied",
+                   metadata={"failures": outcome["failures"],
+                             "locked_for_seconds": outcome["locked_for"]})
   raise HTTPException(status_code=401, detail="Invalid credentials")
+ login_guard.record_login_success(username, client)
  # Session fixation prevention: discard any pre-authentication session token
  # presented by the browser before issuing a fresh one.
  previous = request.cookies.get(user_auth.SESSION_COOKIE, "")

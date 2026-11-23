@@ -17,6 +17,13 @@ _PASSWORD_SCHEME = "scrypt"
 _SCRYPT_N = 1 << 14
 _SCRYPT_R = 8
 _SCRYPT_P = 1
+# A fixed, valid hash verified when an account does not exist. A miss then costs
+# the same scrypt work as a wrong password, so response time cannot be used to
+# discover which usernames exist. The plaintext is public and meaningless.
+_TIMING_EQUALISER_HASH = (
+    "scrypt$16384$8$1$OdvzmDZZztuXPveVUd1k_Q$"
+    "YJ8sf9jEH2DbjH8qGmDIkrbXkqtDZD3rxwW2LcALJXslAt8DBfBuxeGchZ62M97kJy2l4SsGMO6fdLNzlgbBmw"
+)
 _PASSWORD_SALT_BYTES = 16
 _PASSWORD_DK_BYTES = 64
 _MAX_PASSWORD_BYTES = 1024
@@ -105,6 +112,17 @@ def verify_password(password: str, encoded_hash: str) -> bool:
         return hmac.compare_digest(actual, expected)
     except (UnicodeError, ValueError, TypeError):
         return False
+
+
+def equalise_verification_timing(password: str) -> None:
+    """Spend the same scrypt work as a real verification, then discard it.
+
+    Call this whenever a login cannot be checked (unknown account, malformed
+    stored hash) so an attacker cannot enumerate valid usernames by timing.
+    """
+    if not isinstance(password, str):
+        return
+    verify_password(password, _TIMING_EQUALISER_HASH)
 
 
 def generate_session_token() -> str:

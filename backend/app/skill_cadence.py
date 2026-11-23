@@ -12,6 +12,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
+from .audit_jsonl import append_record
 from .skill_integrity import audit_catalog, audit_reference_skills, frontmatter
 from .skill_promotion import PromotionEngine, compatibility_report
 
@@ -201,8 +202,7 @@ class SkillCadenceEngine:
     def _persist(self, event: str, record: dict) -> None:
         self.audit_path.parent.mkdir(parents=True, exist_ok=True)
         self._events.append({"event": event, "record": record})
-        with open(self.audit_path, "a", encoding="utf-8") as handle:
-            handle.write(json.dumps({"event": event, "record": record}, sort_keys=True) + "\n")
+        append_record(self.audit_path, {"event": event, "record": record})
 
     def _skill_files(self):
         root = Path(self.skills_root)

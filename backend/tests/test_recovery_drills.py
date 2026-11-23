@@ -314,6 +314,59 @@ class RecoveryDrillTests(unittest.TestCase):
         self.assertTrue((state / "backup.lock").exists(), "live lock was wrongly removed")
         self.assertFalse((state / "restore.lock").exists(), "dead lock was not removed")
 
+    def test_lock_recovers_when_the_pid_was_recycled(self):
+        """A crashed holder's PID reused by an unrelated process must not block DR forever."""
+        state = self.root / "state"
+        state.mkdir()
+        # PID 1 always exists, but its start time cannot match this lock.
+        dr_common.atomic_write_json(
+            state / "backup.lock",
+            {"pid": 1, "pid_start": "1", "created_at": dr_common.iso_now()},
+        )
+        result = dr_common.DrLock(state, "backup").acquire()
+        self.assertEqual(result["status"], "acquired_after_stale_lock_recovery")
+        self.assertEqual(result["stale_reason"], "pid_reused_by_other_process")
+        self.assertEqual(result["stale_pid"], 1)
+
+    def test_lock_records_an_identity_that_survives_pid_reuse(self):
+        state = self.root / "state"
+        state.mkdir()
+        live = dr_common.DrLock(state, "backup")
+        live.acquire()
+        try:
+            payload = json.loads((state / "backup.lock").read_text(encoding="utf-8"))
+            self.assertEqual(payload["pid"], os.getpid())
+            self.assertIsNotNone(payload.get("pid_start"))
+            self.assertTrue(payload.get("host"))
+            with self.assertRaisesRegex(dr_common.DrLocked, "dr_lock_held"):
+                dr_common.DrLock(state, "backup").acquire()
+            self.assertEqual(dr_common.DrLock(state, "backup").stale_count(), 0)
+        finally:
+            live.release()
+
+    def test_lock_expires_after_the_max_age_ceiling(self):
+        state = self.root / "state"
+        state.mkdir()
+        dr_common.atomic_write_json(
+            state / "backup.lock",
+            {"pid": os.getpid(),
+             "pid_start": dr_common.DrLock._pid_start(os.getpid()),
+             "created_at": "2020-01-01T00:00:00Z"},
+        )
+        result = dr_common.DrLock(state, "backup", max_age_seconds=60).acquire()
+        self.assertEqual(result["stale_reason"], "lock_age_exceeded")
+
+    def test_legacy_lock_without_identity_is_not_reclaimed_while_its_pid_lives(self):
+        """Old lock files carry no start time: prefer a blocked backup to two at once."""
+        state = self.root / "state"
+        state.mkdir()
+        dr_common.atomic_write_json(
+            state / "backup.lock",
+            {"pid": os.getpid(), "created_at": dr_common.iso_now()},
+        )
+        with self.assertRaisesRegex(dr_common.DrLocked, "dr_lock_held"):
+            dr_common.DrLock(state, "backup").acquire()
+
     def test_migration_rollback_restores_pre_migration_state(self):
         target = make_database(self.root / "market.db")
         with sqlite3.connect(target) as connection:

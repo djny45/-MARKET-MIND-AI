@@ -1,4 +1,5 @@
 import hashlib
+import os
 import sqlite3
 import tempfile
 import unittest
@@ -8,6 +9,7 @@ from app.auth_session_store import (
     create_session,
     get_session,
     initialize_auth_store,
+    maybe_purge_expired_sessions,
     purge_expired_sessions,
     revoke_session,
 )
@@ -153,6 +155,40 @@ class AuthSessionStoreTests(unittest.TestCase):
         )
         revoke_session(self.database_path, second_hash, now=1050)
         self.assertEqual(purge_expired_sessions(self.database_path, now=1100), 2)
+
+    def test_login_purges_expired_sessions_opportunistically(self):
+        """Nothing scheduled the existing purge helper, so sessions accumulated forever."""
+        previous = os.environ.get("MARKET_MIND_SESSION_PURGE_INTERVAL")
+        os.environ["MARKET_MIND_SESSION_PURGE_INTERVAL"] = "0"
+        try:
+            create_session(self.database_path, digest("stale"), self.csrf_hash,
+                           now=10, idle_ttl_seconds=1, absolute_ttl_seconds=2)
+            create_session(self.database_path, digest("fresh"), self.csrf_hash,
+                           now=10_000, idle_ttl_seconds=100, absolute_ttl_seconds=1_000)
+        finally:
+            if previous is None:
+                os.environ.pop("MARKET_MIND_SESSION_PURGE_INTERVAL", None)
+            else:
+                os.environ["MARKET_MIND_SESSION_PURGE_INTERVAL"] = previous
+        with sqlite3.connect(self.database_path) as connection:
+            remaining = {row[0] for row in
+                         connection.execute("SELECT session_token_hash FROM auth_sessions")}
+        self.assertEqual(remaining, {digest("fresh")})
+
+    def test_purge_is_throttled_between_logins(self):
+        previous = os.environ.get("MARKET_MIND_SESSION_PURGE_INTERVAL")
+        os.environ["MARKET_MIND_SESSION_PURGE_INTERVAL"] = "3600"
+        try:
+            create_session(self.database_path, self.session_hash, self.csrf_hash,
+                           now=1_000, idle_ttl_seconds=1, absolute_ttl_seconds=2)
+            self.assertEqual(maybe_purge_expired_sessions(self.database_path, now=1_100), 0)
+            self.assertGreaterEqual(
+                maybe_purge_expired_sessions(self.database_path, now=1_000 + 3_601), 1)
+        finally:
+            if previous is None:
+                os.environ.pop("MARKET_MIND_SESSION_PURGE_INTERVAL", None)
+            else:
+                os.environ["MARKET_MIND_SESSION_PURGE_INTERVAL"] = previous
 
     def test_rejects_empty_database_path(self):
         with self.assertRaises(ValueError):

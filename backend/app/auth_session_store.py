@@ -6,6 +6,7 @@ protect FastAPI routes; those controls belong to the integration layer.
 """
 from __future__ import annotations
 
+import os
 import re
 import sqlite3
 from contextlib import contextmanager
@@ -94,7 +95,12 @@ def create_session(
     idle_ttl_seconds: int,
     absolute_ttl_seconds: int,
 ) -> dict[str, int]:
-    """Persist only token digests and return the session expiry metadata."""
+    """Persist only token digests and return the session expiry metadata.
+
+    Expired rows are swept opportunistically here (at most once per
+    ``MARKET_MIND_SESSION_PURGE_INTERVAL`` seconds, default 3600) so the session
+    table cannot grow forever on a host where no cron job exists.
+    """
     _validate_digest(session_token_hash, "session_token_hash")
     _validate_digest(csrf_token_hash, "csrf_token_hash")
     if isinstance(now, bool) or not isinstance(now, int) or now < 0:
@@ -123,12 +129,46 @@ def create_session(
                 absolute_expires_at,
             ),
         )
+    try:
+        maybe_purge_expired_sessions(database_path, now=now)
+    except (sqlite3.Error, OSError):
+        # Housekeeping must never turn a successful login into an error.
+        pass
     return {
         "created_at": now,
         "last_seen_at": now,
         "idle_expires_at": idle_expires_at,
         "absolute_expires_at": absolute_expires_at,
     }
+
+
+_PURGE_INTERVAL_DEFAULT = 3600
+_last_purge: dict[str, int] = {}
+
+
+def _purge_interval_seconds() -> int:
+    raw = os.getenv("MARKET_MIND_SESSION_PURGE_INTERVAL", "").strip()
+    if not raw:
+        return _PURGE_INTERVAL_DEFAULT
+    try:
+        value = int(raw)
+    except ValueError:
+        return _PURGE_INTERVAL_DEFAULT
+    return value if value >= 0 else _PURGE_INTERVAL_DEFAULT
+
+
+def maybe_purge_expired_sessions(database_path: str | Path, *, now: int) -> int:
+    """Purge expired sessions at most once per interval; returns rows removed.
+
+    Commit-time housekeeping keeps a live deployment bounded without requiring a
+    scheduler, while still being cheap enough for the login path.
+    """
+    key = str(database_path)
+    interval = _purge_interval_seconds()
+    if now - _last_purge.get(key, 0) < interval:
+        return 0
+    _last_purge[key] = now
+    return purge_expired_sessions(database_path, now=now)
 
 
 def get_session(

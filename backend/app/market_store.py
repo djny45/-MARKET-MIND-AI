@@ -1,5 +1,6 @@
 """SQLite storage for normalized market bars with provenance metadata."""
 import os
+import shutil
 import sqlite3
 from contextlib import closing
 from datetime import datetime, timezone
@@ -159,8 +160,37 @@ def get_bars(symbol: str, interval: str, limit: int = 500) -> dict:
 
 
 
+def _disk_min_free_bytes() -> int:
+    raw = os.getenv("MARKET_MIND_DISK_MIN_FREE_MB", "").strip()
+    try:
+        megabytes = int(raw) if raw else 512
+    except ValueError:
+        megabytes = 512
+    return max(1, megabytes) * 1024 * 1024
+
+
+def storage_headroom() -> dict:
+    """Report free space on the database volume without revealing its path.
+
+    Readiness has to be able to say "this host is running out of disk": a full
+    volume fails every write while a read-only probe still looks healthy.
+    """
+    try:
+        usage = shutil.disk_usage(_database_path().parent)
+    except OSError as exc:
+        return {"status": "unknown", "error": type(exc).__name__}
+    threshold = _disk_min_free_bytes()
+    if usage.free < threshold // 4:
+        status = "critical"
+    elif usage.free < threshold:
+        status = "low"
+    else:
+        status = "ok"
+    return {"status": status, "free_bytes": usage.free, "threshold_bytes": threshold}
+
+
 def database_readiness() -> dict:
-    """Check SQLite connectivity and schema availability without exposing its path."""
+    """Check SQLite connectivity, schema availability and write ability."""
     try:
         with closing(_connect()) as connection:
             with connection:
@@ -171,9 +201,18 @@ def database_readiness() -> dict:
                 schema_version = connection.execute(
                     "SELECT COALESCE(MAX(version), 0) FROM schema_migrations"
                 ).fetchone()[0]
+            # A read-only mount or a full volume still answers SELECTs, so probe
+            # the write lock too: it is what ingestion and auth actually need.
+            writable = True
+            try:
+                connection.execute("BEGIN IMMEDIATE")
+                connection.execute("ROLLBACK")
+            except sqlite3.Error:
+                writable = False
         return {
-            "status": "ready" if table else "not_ready",
+            "status": "ready" if table and writable else "not_ready",
             "reachable": True,
+            "writable": writable,
             "market_bars_schema": bool(table),
             "schema_version": schema_version,
         }
@@ -181,6 +220,7 @@ def database_readiness() -> dict:
         return {
             "status": "not_ready",
             "reachable": False,
+            "writable": False,
             "market_bars_schema": False,
             "error": type(exc).__name__,
         }

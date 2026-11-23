@@ -11,7 +11,7 @@ import os
 import sqlite3
 import uuid
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from .analytical_agent_runtime import brain_config
@@ -70,6 +70,22 @@ def _connect():
             max_concurrency INTEGER NOT NULL,
             last_error_type TEXT
         )""")
+        # Backward-compatible lease columns for supervisor ownership checks.
+        heartbeat_columns = {
+            row["name"] for row in db.execute(
+                "PRAGMA table_info(analytical_agent_supervisor_heartbeat)"
+            ).fetchall()
+        }
+        if "supervisor_lease_token" not in heartbeat_columns:
+            db.execute(
+                "ALTER TABLE analytical_agent_supervisor_heartbeat "
+                "ADD COLUMN supervisor_lease_token TEXT"
+            )
+        if "expires_at" not in heartbeat_columns:
+            db.execute(
+                "ALTER TABLE analytical_agent_supervisor_heartbeat "
+                "ADD COLUMN expires_at TEXT"
+            )
         db.execute("CREATE INDEX IF NOT EXISTS idx_agent_task_events_task_time ON analytical_agent_task_events(task_id,event_id)")
         db.execute("""CREATE TABLE IF NOT EXISTS research_quality_evaluations (
             evaluation_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -918,16 +934,19 @@ def agent_supervisor_recommendations(agent_id: str | None = None, limit: int = 5
 
 def _write_supervisor_heartbeat(state: str, poll_interval_seconds: float,
                                 batch_size: int, max_concurrency: int,
-                                last_error_type: str | None = None) -> None:
-    """Persist a privacy-safe heartbeat for the dedicated supervisor process."""
+                                last_error_type: str | None = None,
+                                *, lease_token: str | None = None,
+                                expires_at: str | None = None) -> None:
+    """Persist a privacy-safe heartbeat and optional lease ownership token."""
     now = datetime.now(timezone.utc).isoformat()
     instance_id = f"pid-{os.getpid()}"
     with _connect() as db:
         db.execute(
             """INSERT INTO analytical_agent_supervisor_heartbeat
                (singleton_id,instance_id,process_id,state,heartbeat_at,
-                poll_interval_seconds,batch_size,max_concurrency,last_error_type)
-               VALUES (1,?,?,?,?,?,?,?,?)
+                poll_interval_seconds,batch_size,max_concurrency,last_error_type,
+                supervisor_lease_token,expires_at)
+               VALUES (1,?,?,?,?,?,?,?,?,?,?)
                ON CONFLICT(singleton_id) DO UPDATE SET
                  instance_id=excluded.instance_id,
                  process_id=excluded.process_id,
@@ -936,10 +955,46 @@ def _write_supervisor_heartbeat(state: str, poll_interval_seconds: float,
                  poll_interval_seconds=excluded.poll_interval_seconds,
                  batch_size=excluded.batch_size,
                  max_concurrency=excluded.max_concurrency,
-                 last_error_type=excluded.last_error_type""",
+                 last_error_type=excluded.last_error_type,
+                 supervisor_lease_token=excluded.supervisor_lease_token,
+                 expires_at=excluded.expires_at""",
             (instance_id, os.getpid(), state, now, float(poll_interval_seconds),
-             batch_size, max_concurrency, last_error_type),
+             batch_size, max_concurrency, last_error_type, lease_token, expires_at),
         )
+
+
+def _supervisor_lease_is_valid(instance_id: str, token: str, now: datetime | None = None) -> bool:
+    """Return True only while this process still owns an unexpired lease."""
+    now = now or datetime.now(timezone.utc)
+    with _connect() as db:
+        row = db.execute(
+            "SELECT instance_id,state,supervisor_lease_token,expires_at "
+            "FROM analytical_agent_supervisor_heartbeat WHERE singleton_id=1"
+        ).fetchone()
+    if row is None or row["instance_id"] != instance_id or row["supervisor_lease_token"] != token:
+        return False
+    if row["state"] != "running" or not row["expires_at"]:
+        return False
+    try:
+        return datetime.fromisoformat(row["expires_at"]) > now
+    except (TypeError, ValueError):
+        return False
+
+
+def _renew_supervisor_lease(instance_id: str, token: str, lease_seconds: float) -> bool:
+    """Compare-and-swap renewal: only the current owner may extend its lease."""
+    expires_at = (
+        datetime.now(timezone.utc) + timedelta(seconds=lease_seconds)
+    ).isoformat()
+    with _connect() as db:
+        cursor = db.execute(
+            "UPDATE analytical_agent_supervisor_heartbeat "
+            "SET heartbeat_at=?, expires_at=? "
+            "WHERE singleton_id=1 AND instance_id=? AND supervisor_lease_token=? "
+            "AND state='running'",
+            (datetime.now(timezone.utc).isoformat(), expires_at, instance_id, token),
+        )
+        return cursor.rowcount == 1
 
 
 def agent_supervisor_status() -> dict:
@@ -996,10 +1051,20 @@ def agent_supervisor_status() -> dict:
     }
 
 
-def dispatch_queued_research_tasks(limit: int = 50, max_concurrency: int = 4) -> dict:
-    """Dispatch a bounded snapshot of queued tasks concurrently on this process."""
+def dispatch_queued_research_tasks(
+    limit: int = 50, max_concurrency: int = 4,
+    supervisor_instance_id: str | None = None,
+    supervisor_lease_token: str | None = None,
+) -> dict:
+    """Dispatch a bounded snapshot of queued tasks concurrently on this process.
+
+    Optional supervisor credentials revalidate lease ownership between task
+    selection and submission, so a demoted supervisor cannot claim new work.
+    """
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
+    if (supervisor_instance_id is None) != (supervisor_lease_token is None):
+        raise ValueError("supervisor_instance_id and supervisor_lease_token must be both set or both omitted")
     if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 550:
         raise ValueError("limit must be an integer between 1 and 550")
     if isinstance(max_concurrency, bool) or not isinstance(max_concurrency, int) or not 1 <= max_concurrency <= 16:
@@ -1024,6 +1089,13 @@ def dispatch_queued_research_tasks(limit: int = 50, max_concurrency: int = 4) ->
                 _record_event(db, task_id, task["worker_id"], "task_dispatch_selected",
                               from_status="queued", to_status="queued", occurred_at=selected_at,
                               detail={"dispatch_id": dispatch_id, "max_concurrency": max_concurrency})
+    if supervisor_instance_id is not None and not _supervisor_lease_is_valid(
+        supervisor_instance_id, supervisor_lease_token
+    ):
+        return {
+            "selected": len(task_ids), "dispatched": 0, "status": "lease_lost",
+            "task_ids": [], "max_concurrency": max_concurrency,
+        }
     completed = []
     dispatch_errors = []
     with ThreadPoolExecutor(max_workers=min(max_concurrency, len(task_ids)),
@@ -1093,26 +1165,45 @@ def run_supervisor(
     ):
         raise ValueError("max_cycles must be a positive integer or None")
 
-    _write_supervisor_heartbeat("starting", poll_interval_seconds, batch_size, max_concurrency)
+    lease_token = str(uuid.uuid4())
+    instance_id = f"pid-{os.getpid()}"
+    lease_seconds = max(30.0, float(poll_interval_seconds) * 6)
+    def heartbeat(state, error=None):
+        expiry = (datetime.now(timezone.utc) + timedelta(seconds=lease_seconds)).isoformat()
+        _write_supervisor_heartbeat(
+            state, poll_interval_seconds, batch_size, max_concurrency, error,
+            lease_token=lease_token, expires_at=expiry,
+        )
+    heartbeat("starting")
     try:
         recovery = recover_interrupted_research_tasks()
     except Exception as exc:
-        _write_supervisor_heartbeat("failed", poll_interval_seconds, batch_size,
-                                    max_concurrency, type(exc).__name__)
+        heartbeat("failed", type(exc).__name__)
         return {
             "status": "recovery_failed",
             "error_type": type(exc).__name__,
             "cycles": 0,
             "dispatch_results": [],
         }
-    _write_supervisor_heartbeat("running", poll_interval_seconds, batch_size, max_concurrency)
+    heartbeat("running")
 
     dispatch_results = []
     cycles = 0
     while not stop_event.is_set() and (max_cycles is None or cycles < max_cycles):
+        if not _renew_supervisor_lease(instance_id, lease_token, lease_seconds) or \
+                not _supervisor_lease_is_valid(instance_id, lease_token):
+            heartbeat("stopped")
+            return {
+                "status": "lease_lost",
+                "reason": "supervisor_lease_lost_before_dispatch",
+                "cycles": cycles,
+                "dispatch_results": dispatch_results,
+            }
         try:
             result = dispatch_queued_research_tasks(
-                limit=batch_size, max_concurrency=max_concurrency
+                limit=batch_size, max_concurrency=max_concurrency,
+                supervisor_instance_id=instance_id,
+                supervisor_lease_token=lease_token,
             )
             dispatch_results.append(result)
         except Exception as exc:
@@ -1122,14 +1213,12 @@ def run_supervisor(
                 "error_type": type(exc).__name__,
             })
         cycles += 1
-        _write_supervisor_heartbeat("running", poll_interval_seconds, batch_size,
-                                    max_concurrency,
-                                    "DispatchError" if dispatch_results[-1].get("status") == "error" else None)
+        heartbeat("running", "DispatchError" if dispatch_results[-1].get("status") == "error" else None)
         if max_cycles is not None and cycles >= max_cycles:
             break
         stop_event.wait(float(poll_interval_seconds))
 
-    _write_supervisor_heartbeat("stopped", poll_interval_seconds, batch_size, max_concurrency)
+    heartbeat("stopped")
     return {
         "status": "stopped" if stop_event.is_set() else "cycle_limit_reached",
         "recovery": recovery,

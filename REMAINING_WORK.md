@@ -130,3 +130,77 @@ segmentation, ingress controls, independent security testing, the expanded Trivy
 CI job (owner workflow scope), real S3/Docker/host drills, cryptographic data
 provider attestation and durable cross-worker ownership remain unverified or
 externally blocked, with exact owner actions documented above.
+
+---
+
+## Re-audit 2026-11-23 (current state — appended, historical results above unchanged)
+
+Tested commit: `ecca456eacd8358f7cae9aa97ef5788759100d0d` (= `origin/main`, clean tree).
+Environment: Linux container, Python 3.11.6, Node 22.23.5 via nvm, uid 1000 with
+`no_new_privileges` (no sudo), `docker`/`docker compose` binaries absent, no
+`systemctl`/`crontab`, no `MARKET_MIND_S3_*` variables set (presence checked only;
+no values printed). Research-only boundary unchanged and verified.
+
+### Status-document reconciliation
+
+The previous report published **8/10 (80%)** for private verification while
+listing **three** remaining infrastructure gates, and in the same document also
+published **7/10 (70%)**. That checklist is defective: it bundled the three
+infrastructure drills into two items and counted the local moto S3 compatibility
+check as if it were a real cloud restore. The original 8/10 result is preserved
+above; the corrected, non-overlapping matrix below keeps the denominator at 10
+and counts only PASS as complete.
+
+### Verification matrix (corrected — 10 unique gates)
+
+Check|Required evidence|Status|Evidence location|Blocker
+---|---|---|---|---
+Backend tests + Python compilation | 1122 tests OK (1 skipped), compileall exit 0 | PASS | `/tmp/opencode/audit2-backend.log`; compile exit captured in audit transcript | none
+Frontend tests + production build/typecheck | 10 node:test, 123 Vitest, tsc + esbuild build OK | PASS | `/tmp/opencode/audit2-node.log`, `audit2-vitest.log`, `audit2-build.log`, `audit2-typecheck.log` | none
+Real-browser responsive tests | 9/9 desktop/tablet/mobile locally and in CI | PASS | `/tmp/opencode/audit2-browser.log`; CI run 45252956328 | none
+Dependency and vulnerability audits | pip-audit and npm audit 0 advisories; Trivy `vuln,misconfig,secret` MEDIUM+ filesystem and config scan in CI | PASS | `/tmp/opencode/audit2-pip-audit.log`, `audit2-npm-audit.json`, `audit2-trivy-fs.log`; CI run 45252956328 (PR #92 merged) | none
+Recovery drills (database + process kill) | backup/SHA-256/clean restore/matched parity, retention 2/4, stale lock removed; kill -9 requeued 1 task with 0 still running | PASS | `/tmp/opencode/audit2-dr.log`, `/tmp/opencode/audit2-kill.log`; 63 targeted tests in audit transcript | none
+Migration rollback and live readiness probes | armed→rolled_back with sha256 match; `/api/health` 200, `/api/ready` 200 with writable DB and storage ok | PASS | `/tmp/opencode/audit2-migration`; live probe transcript in audit log | none
+Docker Compose integration and health | Compose job builds stack and probes `/api/ready` in CI | PASS | CI run 45255622609 on final merged commit | none
+Docker named-volume backup/restore | isolated volume backup, checksum, restore into separate volume, data integrity | BLOCKED | no evidence — not executed | `docker` and `docker compose` binaries absent on this host; requires a Docker-capable private host and operator authorization
+Real cloud S3 restore | real endpoint upload/download, SHA-256 parity, restore into isolated location, DB integrity | BLOCKED | local moto compatibility drill only (`/tmp/opencode/audit2-s3` parity PASS) | no `MARKET_MIND_S3_*` endpoint, bucket or credentials set; requires operator-provided authorized target
+Host systemd/cron restart recovery | inspect service/timer config, controlled restart, verify health, integrity and task recovery | BLOCKED | no evidence — not executed | uid 1000 with `no_new_privileges`, no sudo, no `systemctl`/`crontab`; requires operator host access and explicit authorization
+
+Corrected private-verification score: **7/10 PASS (70%)** — 7 PASS, 0 FAIL, 3 BLOCKED.
+The local moto S3 drill is a prerequisite, not a real infrastructure drill; the
+migration rollback and readiness/headroom probes are local evidence and are not
+substituted for host-level gates.
+
+### Commands and outcomes (all executed on `ecca456e`)
+
+- `python -m compileall -q backend/app scripts` → exit 0.
+- `PYTHONPATH=.:./backend /tmp/opencode/backend-venv/bin/python -m unittest discover -s backend/tests -q` → 1122 OK, 1 skipped, exit 0.
+- `npm test` → 10/10; `npm run test:ui` → 123/123; `npm run build` and `npm run typecheck:test` → exit 0 (Node 22.23.5).
+- `LD_LIBRARY_PATH=/tmp/opencode/browser-root/usr/lib/x86_64-linux-gnu npx playwright test` → 9 passed, exit 0 (library-only workaround; no host init changes).
+- `pip-audit -r backend/requirements.txt` → no known vulnerabilities; `npm audit --omit=dev` → 0 vulnerabilities.
+- `trivy fs --scanners vuln,misconfig,secret --severity MEDIUM,HIGH,CRITICAL --skip-dirs third_party --skip-dirs .venvs .` → exit 0, 0 findings.
+- Targeted `unittest` across backup/WAL hygiene, recovery drills, session middleware, authorization, service status, CI workflow config and S3 adapter → 63 OK.
+- `run_dr_final.sh` → status matched, integrity ok, parity match, retention kept 2, stale lock removed (exit 0).
+- `run_process_kill_drill.sh` → requeued 1, still_running 0 (exit 0).
+- `migration_rollback.py prepare → rollback → status` → status rolled_back, sha256 match, post-rollback integrity ok.
+- Local moto S3 upload/download → HTTP 200/200, SHA-256 + byte parity, `credentials_exposed=false` (simulation only).
+- Live `/api/health` and `/api/ready` → 200/200; ready reports `writable: true` and storage `ok`; bounded load probe 60 requests, error rate 0, p95 8.89 ms.
+- `docker compose config` → NOT RUN (binary absent). CI Compose job is PASS (local execution not claimed).
+
+Local `trivy config .` additionally reports DS-0002 (HIGH) and DS-0026 (LOW)
+inside untracked, git-excluded `third_party/` reference trees. These are not in a
+clean CI checkout, do not affect the scanned tree, and are deliberately left
+untouched as inert reference material.
+
+### Remaining public deployment requirements
+
+Public deployment remains **NOT READY (0/6)**: TLS issuance and scan, network
+segmentation, ingress hardening, independent penetration testing, formal security
+review, and production-scale recovery evidence. All are external operator work;
+no public ingress was enabled by this audit.
+
+### Completion scores (this audit)
+
+- Application features: **26/26 (100%)** — `docs/acceptance-inventory.json` module inventory; full local suites pass.
+- Private research-platform verification: **7/10 (70%)** — corrected matrix above; three infrastructure gates BLOCKED.
+- Public deployment readiness: **0/6 (0%)** — no independent external evidence exists.

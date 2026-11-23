@@ -51,8 +51,8 @@ Local `main` had diverged (56 local commits, 17 origin commits) and tracked
 
 | Check | Result |
 | --- | --- |
-| Backend suite | PASS — 1062 tests |
-| Frontend node:test + Vitest | PASS — 10 + 117 tests |
+| Backend suite | PASS — 1063 tests |
+| Frontend node:test + Vitest | PASS — 10 + 123 tests |
 | Frontend build / audits | PASS |
 | pip-audit / npm audit | PASS — 0 known vulnerabilities |
 | CI-equivalent Trivy scan | PASS — 0 findings at MEDIUM+ |

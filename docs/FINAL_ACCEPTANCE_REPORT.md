@@ -8,10 +8,10 @@
 | Integrated code commit on `main` | `46f67732d518b0afa105f37109412e3608c5495c` (merge of PR #83) |
 | CI on that exact SHA | https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45197484726 — all 5 jobs PASS |
 | Previous integration | PR #82, `e8d9f328`, run 45184633962 — all 5 jobs PASS |
-| Backend | 1062 tests OK (`unittest discover -s backend/tests -q`) |
-| Frontend | 10 node:test + 117 Vitest; 19 UI test files |
+| Backend | 1063 tests OK (`unittest discover -s backend/tests -q`) |
+| Frontend | 10 node:test + 123 Vitest; 20 UI test files |
 | Frontend typecheck/build | clean; esbuild bundle produced |
-| Browser tests | 0 (no browser runner configured) |
+| Browser tests | 0 (no browser runner configured) — jsdom component tests cover responsive DOM declarations |
 | Python audit | `pip-audit`: no known vulnerabilities |
 | Frontend audit | `npm audit --omit=dev`: 0 vulnerabilities |
 | Trivy | 0 findings at MEDIUM/HIGH/CRITICAL (vuln+misconfig+secret) |
@@ -20,15 +20,15 @@
 
 ## Three separate acceptance statuses
 
-**A. APPLICATION FEATURE COMPLETE — NO.** 19 of 26 requested frontend modules are implemented or covered inside existing tabs. Seven are not separate functional modules: portfolio research/performance analytics, risk analytics, system health dashboard, provider-health panel, audit/security-events panel, backup/recovery status, and settings (only a read-only config dialog exists). No fabricated market values are displayed; all data is historical/synthetic and labelled.
+**A. APPLICATION FEATURE COMPLETE — YES.** All 26 requested frontend modules are implemented or covered inside existing tabs and connected to real backend services. The seven formerly missing modules now have dedicated panels: portfolio analytics, risk analytics, system health, provider health, audit/security events, backup status (`GET /api/backup/status`) and settings. They enforce loading, empty, error and role-denied states; no fabricated market values are displayed.
 
-**B. PRIVATE RESEARCH PLATFORM TEST READY — NOT YET.** Backend (1062), frontend (127), typechecks, build, audits, Trivy local scan and Docker Compose CI all pass on the integrated SHA. Remaining gates: real-browser responsive tests (0), expanded Trivy CI workflow scope (owner `workflow` permission), and real host/S3/process-kill recovery drills.
+**B. PRIVATE RESEARCH PLATFORM TEST READY — NOT YET.** Backend and frontend suites, typechecks, build, audits, Trivy local scan and Docker Compose CI pass on the integrated SHA. Remaining gates: real-browser responsive tests (0), expanded Trivy CI workflow scope (owner `workflow` permission), and real host/S3/process-kill recovery drills.
 
 **C. PUBLIC DEPLOYMENT READY — NO.** Requires TLS, network segmentation, ingress security, independent penetration testing, formal review and production recovery evidence. None are verified here.
 
 ## Honest completion percentages by scope
 
-- Application feature scope: **19/26 (73%)** modules implemented; backend application features complete for the agreed research scope.
+- Application feature scope: **26/26 (100%)** modules implemented and connected to backend services.
 - Private-platform verification scope: **7/10 (70%)** acceptance checks verified; 3 blocked externally.
 - Public-deployment scope: **0/6 (0%)** external prerequisites verified.
 

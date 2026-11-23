@@ -201,6 +201,15 @@ class AuthorizationApiTests(unittest.TestCase):
         self.assertEqual(admin.get("/api/admin/users").status_code, 200)
         self.assertEqual(admin.get("/api/environment-validation").status_code, 200)
 
+    def test_backup_status_is_admin_only(self):
+        viewer, csrf = self._login("viewer")
+        self.assertEqual(viewer.get("/api/backup/status").status_code, 403)
+        admin, _ = self._login("admin")
+        response = admin.get("/api/backup/status")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("backup_count", response.json())
+        self.assertNotIn("MARKET_MIND_DB", response.text)
+
     def test_viewer_cannot_store_market_data_and_analyst_can(self):
         payload = {
             "symbol": "AAPL", "interval": "1d", "status": "historical",

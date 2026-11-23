@@ -41,6 +41,10 @@ example, ADR-0001. No force-push, reset, rebase, merge or discard was performed.
   CAS lease renewal and dispatch revalidation, with three regression tests.
   SQLite remains single-host; no broker was introduced.
 - Added explicit access-denied state for role-gated frontend navigation.
+- Implemented the seven previously missing frontend modules (portfolio analytics,
+  risk analytics, system health, provider health, audit events, backup status
+  and settings), each connected to a real backend endpoint with role gating and
+  loading/error states. Added `GET /api/backup/status` (admin-only) and 6 UI tests.
 - PR dispositions recorded on GitHub: #8, #39, #40 closed as ported; #38 closed
   as obsolete architecture; #76 left open with an owner-action comment.
 
@@ -87,10 +91,8 @@ CI on that exact SHA passed all five jobs
 The old divergent local `main` (`906b3765`) and all recovery branches remain
 untouched.
 
-1. **Seven frontend modules not implemented as separate panels**: portfolio
-   research/performance analytics, risk analytics, system health, provider
-   health, audit/security events, backup/recovery status and settings. See
-   `docs/acceptance-inventory.json`.
+1. **Real-browser responsive tests — NOT RUN**: no browser runner is configured;
+   jsdom checks media-query declarations and DOM availability only.
 
 ## Completion boundary
 

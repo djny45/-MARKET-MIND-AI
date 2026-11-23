@@ -84,8 +84,9 @@ example, ADR-0001. No force-push, reset, rebase, merge or discard was performed.
 5. **PR #38 — CLOSED as obsolete**: its lease implementation targeted a removed
    supervisor architecture. The guarantee was ported to `run_supervisor`; full
    multi-supervisor contention tests remain gated by ADR-0001.
-6. **PR #76 — BLOCKED (owner)**: one-line `configure-pages@v6` bump needs the
-   workflow-scope grant, then a normal authorized merge.
+6. **PR #76 — MERGED**: `actions/configure-pages` 5 → 6 landed on `main` as
+   `af81ad01` after all five CI jobs and the Vercel preview check passed. The
+   one-line workflow bump needed no `workflow` scope to merge.
 7. **Host operations — PARTIAL**: isolated backup/restore, retention, stale-lock
    and process-kill recovery drills are now executed with evidence. Still NOT
    RUN: cron/systemd install, real S3 upload/restore, Docker volume restore
@@ -97,6 +98,20 @@ example, ADR-0001. No force-push, reset, rebase, merge or discard was performed.
    remains; no current-market-price claims are permitted.
 10. **Imported execution code — INTENTIONALLY INERT**: AutoHedge, FinceptTerminal
     and Freqtrade remain reference-only; no wallet keys, signing or order routing.
+
+## Completed in this pass
+
+- Ingress perimeter limits are shipped and asserted: `frontend/nginx-limits.conf`,
+  `frontend/nginx.conf`, `Dockerfile`, `backend/tests/test_ingress_config.py`
+  (12 tests, `nginx -t` when a binary exists).
+- `SkillCadenceEngine` no longer fails open: the skill scan is repository-root
+  anchored and reports `no_skill_files_scanned` instead of passing when nothing
+  was scanned (3 regression tests).
+- Recovery drills executed and independently re-verified; evidence in
+  `docs/RECOVERY_DRILL_EVIDENCE.md` and PR #85.
+- `scripts/s3_offhost.py` stdlib SigV4 prerequisite with 2 secret-hygiene tests;
+  **no real S3 transfer** performed.
+- PR #76 merged to `main` (`af81ad01`).
 
 ## Integration state
 

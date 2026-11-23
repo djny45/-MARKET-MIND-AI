@@ -52,6 +52,10 @@ Local `main` had diverged (56 local commits, 17 origin commits) and tracked
 | Check | Result |
 | --- | --- |
 | Backend suite | PASS — 1063 tests |
+| Backend suite re-run on `feat/dr-and-ingress-verification` | PASS — 1078 tests, 1 skipped (no nginx binary) |
+| Ingress config assertions | PASS — 12 tests (`nginx -t` when available) |
+| Local DR + process-kill drills | PASS — reproducible, `docs/RECOVERY_DRILL_EVIDENCE.md` |
+| `pip-audit` / Trivy fs re-run | PASS — 0 known vulnerabilities, 0 findings at MEDIUM+ |
 | Frontend node:test + Vitest | PASS — 10 + 123 tests |
 | Frontend build / audits | PASS |
 | pip-audit / npm audit | PASS — 0 known vulnerabilities |
@@ -61,14 +65,16 @@ Local `main` had diverged (56 local commits, 17 origin commits) and tracked
 
 ## Pull requests
 
-Open and triaged: #76 (owner workflow scope), #40 (ported here), #39 (ADR
-ported here), #38 (obsolete design, not ported), #8 (fencing ported here).
-No PR was merged in this audit; dispositions are documented in
+Open and triaged: #85 (ingress limits, fail-closed skill cadence, verified DR
+drills, S3 prerequisite) is open with CI running. #76 (dependabot
+`configure-pages` 6) was merged to `main` as `af81ad01` after all five CI jobs
+passed. #40, #39, #38 and #8 were closed earlier with dispositions in
 `REMAINING_WORK.md`.
 
 ## Next actions (owner/operator)
 
-1. Grant `workflow` scope, land `security/trivy-ci-scope`, then #76.
+1. Grant `workflow` scope and land `security/trivy-ci-scope` (the only push
+   still rejected: the token may merge workflow PRs but not push workflow files).
 2. TLS ingress, network segmentation, ingress rate limits, independent review.
 3. Host/S3/Docker/process-kill drills on an authorized host.
 4. Decide on ADR-0001 implementation and data-status attestation fix.

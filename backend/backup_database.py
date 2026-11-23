@@ -15,6 +15,39 @@ def _readonly_database_uri(path: Path) -> str:
     return path.resolve().as_uri() + "?mode=ro"
 
 
+SIDECAR_SUFFIXES = ("-wal", "-shm", "-journal")
+
+
+def _remove_sidecars(path: Path) -> None:
+    """Remove SQLite WAL/journal sidecars that belong to ``path``.
+
+    ``Connection.backup`` from a WAL source switches the destination to WAL
+    mode, so the copy leaves ``-wal``/``-shm`` files behind. The artifact must
+    be a single self-contained file: they would otherwise accumulate in the
+    backup directory on every run and never be pruned.
+    """
+    for suffix in SIDECAR_SUFFIXES:
+        sidecar = Path(str(path) + suffix)
+        try:
+            sidecar.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
+def _close_quietly(connection: sqlite3.Connection | None) -> None:
+    """Close a connection so SQLite checkpoints and drops its WAL files."""
+    if connection is None:
+        return
+    try:
+        connection.execute("PRAGMA journal_mode=DELETE")
+    except sqlite3.Error:
+        pass
+    try:
+        connection.close()
+    except sqlite3.Error:
+        pass
+
+
 def _integrity(path: Path) -> tuple[bool, str]:
     try:
         with sqlite3.connect(_readonly_database_uri(path), uri=True) as connection:
@@ -53,9 +86,17 @@ def create_backup(source: Path, destination: Path, overwrite: bool = False) -> d
             dir=destination.parent, delete=False,
         ) as temporary:
             temporary_path = Path(temporary.name)
-        with sqlite3.connect(_readonly_database_uri(source), uri=True) as source_db:
-            with sqlite3.connect(temporary_path) as backup_db:
-                source_db.backup(backup_db)
+        source_db = None
+        backup_db = None
+        try:
+            source_db = sqlite3.connect(_readonly_database_uri(source), uri=True)
+            backup_db = sqlite3.connect(temporary_path)
+            source_db.backup(backup_db)
+        finally:
+            # Closing checkpoints the copy's WAL back into the database file so
+            # the artifact is a single file rather than a file plus sidecars.
+            _close_quietly(backup_db)
+            _close_quietly(source_db)
         backup_ok, backup_status = _integrity(temporary_path)
         if not backup_ok:
             raise ValueError("backup_integrity_failed:" + backup_status)
@@ -63,6 +104,7 @@ def create_backup(source: Path, destination: Path, overwrite: bool = False) -> d
             raise FileExistsError("destination_exists_use_overwrite")
         os.replace(temporary_path, destination)
         temporary_path = None
+        _remove_sidecars(destination)
         digest = hashlib.sha256(destination.read_bytes()).hexdigest()
         return {
             "status": "verified",
@@ -76,6 +118,8 @@ def create_backup(source: Path, destination: Path, overwrite: bool = False) -> d
     finally:
         if temporary_path and temporary_path.exists():
             temporary_path.unlink()
+        if temporary_path:
+            _remove_sidecars(temporary_path)
 
 
 def main(argv=None):

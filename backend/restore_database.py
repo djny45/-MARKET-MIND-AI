@@ -15,6 +15,32 @@ def _readonly_database_uri(path: Path) -> str:
     return path.resolve().as_uri() + "?mode=ro"
 
 
+SIDECAR_SUFFIXES = ("-wal", "-shm", "-journal")
+
+
+def _remove_sidecars(path: Path) -> None:
+    """Remove SQLite WAL/journal sidecars that belong to ``path``."""
+    for suffix in SIDECAR_SUFFIXES:
+        try:
+            Path(str(path) + suffix).unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
+def _close_quietly(connection: sqlite3.Connection | None) -> None:
+    """Close a connection so SQLite checkpoints and drops its WAL files."""
+    if connection is None:
+        return
+    try:
+        connection.execute("PRAGMA journal_mode=DELETE")
+    except sqlite3.Error:
+        pass
+    try:
+        connection.close()
+    except sqlite3.Error:
+        pass
+
+
 def _integrity(path: Path) -> tuple[bool, str]:
     try:
         with sqlite3.connect(_readonly_database_uri(path), uri=True) as connection:
@@ -54,9 +80,19 @@ def restore_backup(backup: Path, destination: Path, overwrite: bool = False) -> 
             dir=destination.parent, delete=False,
         ) as temporary:
             temporary_path = Path(temporary.name)
-        with sqlite3.connect(_readonly_database_uri(backup), uri=True) as source_db:
-            with sqlite3.connect(temporary_path) as target_db:
-                source_db.backup(target_db)
+        temporary_path = Path(temporary.name)
+        source_db = None
+        target_db = None
+        try:
+            source_db = sqlite3.connect(_readonly_database_uri(backup), uri=True)
+            target_db = sqlite3.connect(temporary_path)
+            source_db.backup(target_db)
+        finally:
+            # Closing checkpoints the copy's WAL into the file itself, and the
+            # sidecars are removed so the restored database is a single file
+            # with no stale WAL that could be replayed next to it.
+            _close_quietly(target_db)
+            _close_quietly(source_db)
         restored_ok, restored_status = _integrity(temporary_path)
         if not restored_ok:
             raise ValueError("restored_database_integrity_failed:" + restored_status)
@@ -64,6 +100,7 @@ def restore_backup(backup: Path, destination: Path, overwrite: bool = False) -> 
             raise FileExistsError("destination_exists_use_overwrite")
         os.replace(temporary_path, destination)
         temporary_path = None
+        _remove_sidecars(destination)
         digest = hashlib.sha256(destination.read_bytes()).hexdigest()
         return {
             "status": "restored_and_verified",
@@ -77,6 +114,8 @@ def restore_backup(backup: Path, destination: Path, overwrite: bool = False) -> 
     finally:
         if temporary_path and temporary_path.exists():
             temporary_path.unlink()
+        if temporary_path:
+            _remove_sidecars(temporary_path)
 
 
 def main(argv=None):

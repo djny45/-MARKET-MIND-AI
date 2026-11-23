@@ -194,6 +194,48 @@ class RecoveryDrillTests(unittest.TestCase):
         self.assertFalse((destination / "market_mind-20260101T000000Z.db.sha256").exists())
         self.assertFalse((destination / "market_mind-20260101T000000Z.db.json").exists())
 
+    def test_retention_sweeps_orphan_wal_and_temp_files(self):
+        destination = self.root / "backups"
+        destination.mkdir()
+        kept = destination / "market_mind-20260104T000000Z.db"
+        kept.write_bytes(b"sqlite placeholder")
+        kept.with_name(kept.name + ".sha256").write_text("x")
+        orphans = [
+            kept.with_name(kept.name + "-wal"),
+            kept.with_name(kept.name + "-shm"),
+            kept.with_name(kept.name + ".abc123.tmp-shm"),
+            kept.with_name(kept.name + ".abc123.tmp-wal"),
+            kept.with_name(kept.name + ".abc123.restore.tmp"),
+        ]
+        for orphan in orphans:
+            orphan.write_bytes(b"junk")
+        result = apply_retention(BackupConfig(backup_args(
+            source=self.root / "market.db", destination_dir=destination,
+            state_dir=self.root / "state", retention_days=0, retention_count=1,
+        )))
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual(result["orphans_removed"], sorted(orphan.name for orphan in orphans))
+        self.assertTrue(kept.exists())
+        self.assertTrue(kept.with_name(kept.name + ".sha256").exists())
+        for orphan in orphans:
+            self.assertFalse(orphan.exists(), orphan.name)
+
+    def test_retention_dry_run_reports_orphans_without_deleting(self):
+        destination = self.root / "backups"
+        destination.mkdir()
+        kept = destination / "market_mind-20260104T000000Z.db"
+        kept.write_bytes(b"sqlite placeholder")
+        orphan = kept.with_name(kept.name + "-wal")
+        orphan.write_bytes(b"junk")
+        result = apply_retention(BackupConfig(backup_args(
+            source=self.root / "market.db", destination_dir=destination,
+            state_dir=self.root / "state", retention_days=0, retention_count=1,
+            dry_run=True,
+        )))
+        self.assertEqual(result["status"], "dry_run")
+        self.assertEqual(result["orphans_removed"], [orphan.name])
+        self.assertTrue(orphan.exists())
+
     def test_offhost_upload_hook_receives_backup_and_sha256(self):
         marker_script = self.root / "upload_hook.py"
         marker_script.write_text(

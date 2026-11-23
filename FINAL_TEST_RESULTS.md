@@ -31,7 +31,8 @@ lockfile with `npm ci`.
 | # | Check | Command | Result |
 | --- | --- | --- | --- |
 | 8 | Original node:test suite | `cd frontend && npm test` | **PASS — 10/10** |
-| 9 | React component/DOM/API suite | `cd frontend && npx -y node@22 ./node_modules/vitest/vitest.mjs run` | **PASS — 19 files, 117/117** (was 16 files, 99/99) |
+| 9 | React component/DOM/API suite | `cd frontend && npx -y node@22 ./node_modules/vitest/vitest.mjs run` | **PASS — 20 files, 123/123** |
+| 9a | Real browser responsive/e2e suite | `cd frontend && npm run build && LD_LIBRARY_PATH=/tmp/opencode/browser-root/usr/lib/x86_64-linux-gnu npx playwright test` | **PASS — 9/9** across desktop, tablet and mobile Chromium |
 | 10 | Test typecheck | `npx -y node@22 ./node_modules/typescript/bin/tsc -p tsconfig.test.json --noEmit` | **PASS** |
 | 11 | App typecheck | `./node_modules/.bin/tsc -p tsconfig.json --noEmit` | **PASS** |
 | 12 | Production build | `cd frontend && npm run build` | **PASS — tsc + esbuild bundle** |

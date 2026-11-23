@@ -29,7 +29,7 @@
     {"feature":"Observation screener","implementation":"frontend/src/CoverageTools.tsx","missing":"none in-scope","tests":"coverage-tools.test.tsx","status":"verified"},
     {"feature":"Coverage heatmap","implementation":"frontend/src/CoverageTools.tsx","missing":"none in-scope","tests":"coverage-tools.test.tsx","status":"verified"},
     {"feature":"Help dialog/news errors/watchlist states","implementation":"App.tsx","missing":"none in-scope","tests":"app.general-fixes.test.tsx, app.news.test.tsx","status":"verified"},
-    {"feature":"Responsive browser verification","implementation":"CSS media queries + jsdom DOM checks","missing":"real browser runner","tests":"responsive-layout.test.tsx","status":"blocked"},
+    {"feature":"Responsive browser verification","implementation":"Playwright chromium desktop/tablet/mobile projects; wrapped side-tabs and mobile header fixes","missing":"CI job blocked by owner workflow scope","tests":"tests/e2e/responsive.spec.ts (9 pass locally)","status":"verified"},
     {"feature":"550 worker registry","implementation":"backend/app/workers.py; worker_registry.py","missing":"none in-scope; shared-core templates not independent models","tests":"test_worker_registry.py, test_worker_skills.py","status":"verified"},
     {"feature":"Skill allowlist and integrity","implementation":"skill_catalog.py, skill_integrity.py","missing":"none in-scope","tests":"test_skill_catalog.py, test_skill_integrity.py","status":"verified"},
     {"feature":"Worker memory isolation","implementation":"backend/app/worker_memory.py","missing":"per-user ownership is separate and in-memory","tests":"test_worker_memory.py","status":"partial"},

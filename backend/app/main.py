@@ -506,8 +506,9 @@ async def login(request: Request):
  client = client_ip(request)
  allowed, retry_after = login_guard.check_login(username, client)
  if not allowed:
-  audit_log.record("authentication", None, "/api/auth/login", "login", "throttled",
-                   metadata={"retry_after_seconds": retry_after})
+  audit_log.record("authentication", None, "/api/auth/login", "login", "denied",
+                   metadata={"retry_after_seconds": retry_after,
+                             "reason": "login_throttled"})
   raise HTTPException(
    status_code=429,
    detail="Too many failed login attempts; retry later",

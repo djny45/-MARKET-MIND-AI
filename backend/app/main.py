@@ -588,23 +588,51 @@ def system_configuration(_principal: Any = Depends(require_user_role("admin"))):
 
 @app.get("/api/backup/status")
 def backup_status(_principal: Any = Depends(require_user_role("admin"))):
-  """Report non-secret backup inventory; no restore or secret values are exposed."""
+  """Report non-secret backup inventory plus staleness; no secret values."""
   directory = Path(os.getenv("MARKET_MIND_BACKUP_DIR", "./data/backups"))
   backups = []
+  newest_mtime = None
   if directory.is_dir():
    for path in sorted(directory.glob("*.db"))[:50]:
+    stat = path.stat()
+    newest_mtime = stat.st_mtime if newest_mtime is None else max(newest_mtime, stat.st_mtime)
     backups.append({
      "name": path.name,
-     "bytes": path.stat().st_size,
+     "bytes": stat.st_size,
      "sha256_sidecar": path.with_suffix(path.suffix + ".sha256").is_file(),
      "manifest": path.with_suffix(path.suffix + ".json").is_file(),
     })
+  total = len(list(directory.glob("*.db"))) if directory.is_dir() else 0
+  # A backup that silently stops is the failure an operator learns about last,
+  # so age is reported explicitly instead of a constant "ok".
+  max_age = _backup_max_age_seconds()
+  if newest_mtime is None:
+   age = None
+   freshness = "never_run"
+  else:
+   age = max(0, int(datetime.now(timezone.utc).timestamp() - newest_mtime))
+   freshness = "ok" if age <= max_age else "stale"
+  status = "ok" if freshness == "ok" else ("stale" if freshness == "stale" else "missing")
   return {
-   "status": "ok", "directory": str(directory),
-   "backup_count": len(list(directory.glob("*.db"))) if directory.is_dir() else 0,
+   "status": status, "directory": str(directory),
+   "backup_count": total,
    "backups": backups,
+   "freshness": {
+    "state": freshness,
+    "newest_age_seconds": age,
+    "max_age_seconds": max_age,
+   },
    "note": "Inventory only; integrity verification requires the local recovery scripts.",
   }
+
+
+def _backup_max_age_seconds() -> int:
+  raw = os.getenv("MARKET_MIND_BACKUP_MAX_AGE_SECONDS", "").strip()
+  try:
+   value = int(raw) if raw else 90000
+  except ValueError:
+   value = 90000
+  return value if value > 0 else 90000
 
 
 @app.get("/api/health")

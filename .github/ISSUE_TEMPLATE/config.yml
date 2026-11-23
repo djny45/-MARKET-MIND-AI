@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/djny45/-MARKET-MIND-AI/security/advisories/new
+    about: Report security issues privately. Never open a public issue for them.
+  - name: Question or discussion
+    url: https://github.com/djny45/-MARKET-MIND-AI/discussions
+    about: Ask about usage, architecture or research methods.

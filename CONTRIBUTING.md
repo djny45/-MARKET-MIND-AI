@@ -2,6 +2,9 @@
 
 Thank you for helping improve MARKET-MIND-AI.
 
+By participating you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).
+Security issues go through [SECURITY.md](SECURITY.md), never a public issue.
+
 ## Before opening a pull request
 - Open an issue for substantial features or architectural changes.
 - Keep changes focused and document the reason for the change.

@@ -1,0 +1,51 @@
+name: Feature request
+description: Propose a capability, research method or workflow improvement
+title: "feat: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This project is research-only. Requests that add broker execution, wallet
+        keys, order routing or market making will be declined by design.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the research question or operator pain, not the implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed approach
+      description: How would it fit the existing node/workflow model?
+    validations:
+      required: false
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope
+      options:
+        - Research method / indicator
+        - Worker or workflow
+        - Data source or provenance
+        - Terminal UI
+        - Operations / observability
+        - Documentation
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: How would we verify it works?
+      description: Tests, benchmarks, determinism checks or a reference dataset.
+    validations:
+      required: true
+  - type: checkboxes
+    id: boundary
+    attributes:
+      label: Boundary check
+      options:
+        - label: This does not introduce live trading, signing or order routing
+          required: true

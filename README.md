@@ -1,32 +1,169 @@
 <div align="center">
 
-<img src="docs/assets/market-mind-terminal.svg" alt="MARKET-MIND-AI visual terminal concept preview" width="100%"/>
+<img src="docs/assets/readme-hero.jpg" alt="MARKET-MIND-AI — node-based multi-asset research terminal" width="100%" />
 
-# MARKET-MIND-AI
+<h1>MARKET-MIND-AI</h1>
 
-### Open-source • Node-based • Multi-asset market intelligence
+**Node-based, multi-asset market research terminal.**
+Compose data sources, validation steps and specialist analytical workers into workflows whose numbers you can audit.
 
-A visual research environment where specialist analytical workers connect as reusable nodes, execute directed workflows, and produce traceable research outputs.
+[![CI](https://github.com/djny45/-MARKET-MIND-AI/actions/workflows/quality.yml/badge.svg?branch=main)](https://github.com/djny45/-MARKET-MIND-AI/actions/workflows/quality.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-3b82f6.svg)](LICENSE)
+[![Python 3.12](https://img.shields.io/badge/Python-3.12-3776ab.svg?logo=python&logoColor=white)](backend/requirements.txt)
+[![Node 22](https://img.shields.io/badge/Node-22-5fa04e.svg?logo=nodedotjs&logoColor=white)](frontend/package.json)
+[![React 18](https://img.shields.io/badge/React-18-61dafb.svg?logo=react&logoColor=black)](frontend/package.json)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg?logo=fastapi&logoColor=white)](backend/requirements.txt)
+[![Research only](https://img.shields.io/badge/broker__execution-false-orange.svg)](docs/PUBLIC-EXPOSURE-HARDENING.md)
+[![Stars](https://img.shields.io/github/stars/djny45/-MARKET-MIND-AI?style=flat&logo=github&label=stars)](https://github.com/djny45/-MARKET-MIND-AI/stargazers)
+[![Last commit](https://img.shields.io/github/last-commit/djny45/-MARKET-MIND-AI?label=last%20commit)](https://github.com/djny45/-MARKET-MIND-AI/commits/main)
 
-[Four-Market Architecture](docs/FOUR-MARKET-PLATFORM.md) · [Architecture](docs/ARCHITECTURE.md) · [Workflow Guide](docs/WORKFLOW-GUIDE.md) · [Market Coverage](docs/MARKET-COVERAGE.md) · [Roadmap](docs/ROADMAP.md) · [Performance](docs/PERFORMANCE.md) · [Operability Hardening](docs/OPERABILITY-HARDENING.md) · [Development Guide](docs/DEVELOPMENT.md) · [MCP & AI Harness Setup](docs/AI-HARNESS-COMPATIBILITY.md) · [Private Deployment](docs/PRODUCTION-DEPLOYMENT.md) · [FreeLLMAPI Setup](docs/FREELLMAPI-INTEGRATION.md) · [Open-Source Research Skill](.agents/skills/quant-research-evaluation/SKILL.md) · [PyneCore indicator cross-check](docs/PYNECORE-RESEARCH.md) · [300 Research Skills](.agents/skills/market-mind-300-research-skills/SKILL.md)
+[Quickstart](#quickstart) · [Architecture](#architecture-at-a-glance) · [Docs map](#docs-map) · [Status](#status-honest) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
 
 </div>
 
+> [!IMPORTANT]
+> **Research-only by design.** There is no broker execution, no wallet keys, no transaction signing, no order routing and no market making. `broker_execution: false` is enforced in code and CI, not merely promised in prose.
+
 ---
 
-## Deployment policy: Vercel-free
-For a GitHub Pages frontend-only deployment, see [Vercel-free GitHub Pages guide](docs/GITHUB-PAGES-DEPLOYMENT.md). Pages does not host the FastAPI backend or SQLite; the backend must remain separately hosted and secured.
+## Why this repo exists
 
+Most "AI trading" repositories are a prompt around a price chart. This one is built the other way round: **the numbers come from tested code, and the language models are only allowed to route, explain and summarise.** Every published figure carries provenance, a quality state and a method version, so a reviewer can reproduce it instead of trusting it.
 
-MARKET-MIND-AI does not require or target Vercel. For a complete frontend + FastAPI stack, use the repository's private Docker deployment guide: [Private Docker deployment](docs/PRODUCTION-DEPLOYMENT.md). The supported baseline is self-hosted Docker Compose (or a manually managed host with equivalent network and security controls). GitHub Pages can serve static frontend assets only; it cannot host the FastAPI service or SQLite database. Keep the API private behind authentication and TLS before enabling remote access. Do not commit secrets or expose the research API publicly.
+| Typical trading repo | MARKET-MIND-AI |
+| --- | --- |
+| LLM invents signals from a chart | Deterministic indicators and backtests; LLMs route and explain only |
+| "Backtest results" with no provenance | Timestamped observations, source lineage, quality gates, method versions |
+| Silent failures | Fail-closed config validation, readiness that checks write ability and disk headroom, backup staleness reporting |
+| Execution risk | Execution boundary enforced by schema, tests and CI (`broker_execution: false`) |
 
-## Verified status (2026-11-22)
+## Architecture at a glance
 
-Research-only platform. Latest verification: **1043 backend tests**, **109 frontend tests** (10 node:test + 99 Vitest/jsdom), production build, `pip-audit` and `npm audit` clean, Trivy filesystem scan clean at MEDIUM/HIGH/CRITICAL. Resource-level authorization, strict production environment gating, audit aggregation and distributed rate limiting are implemented and tested. Backup/restore, migration rollback and restart-recovery drills were executed locally with recorded evidence.
+```mermaid
+flowchart LR
+    subgraph Client
+        UI["React terminal<br/>node graph editor"]
+    end
+    subgraph Edge
+        NGX["nginx ingress<br/>rate limits · CSP · 429"]
+    end
+    subgraph Core["FastAPI service"]
+        API["REST API<br/>role-gated"]
+        WF["Workflow engine<br/>directed research graphs"]
+        WORK["550 specialist workers<br/>validated contracts"]
+        AUD["Audit + provenance<br/>append-only, rotated"]
+    end
+    subgraph Storage
+        DB[("SQLite<br/>WAL mode")]
+        BK["Backup / restore<br/>SHA-256 verified"]
+    end
+    UI --> NGX --> API
+    API --> WF --> WORK
+    API --> AUD
+    API --> DB
+    DB --> BK
+```
 
-Details, exact commands, evidence and remaining blockers: [FINAL_COMPLETION_REPORT.md](FINAL_COMPLETION_REPORT.md) · [FINAL_TEST_RESULTS.md](FINAL_TEST_RESULTS.md) · [SECURITY_AUDIT.md](SECURITY_AUDIT.md) · [REMAINING_WORK.md](REMAINING_WORK.md) · [PROJECT_STATUS.md](PROJECT_STATUS.md).
+- **One intelligence core, many workers.** Workers are analytical modules with validated input/output contracts, not hundreds of separate models.
+- **SQLite in WAL mode** with `synchronous=NORMAL`, busy timeouts and a measured 8x p95 latency improvement ([docs/PERFORMANCE.md](docs/PERFORMANCE.md)).
+- **Evidence-first**: audit events, quality evaluations and shadow ledgers are append-only records with rotation and retention.
 
-This build remains suitable for **private, operator-managed deployment only**. Public exposure still requires TLS ingress, network segmentation and an independent security review. No live brokerage execution, wallet keys, transaction signing or live order routing exists.
+## Inside the terminal
+
+<table>
+<tr>
+<td width="50%"><img src="docs/assets/research-pipeline.svg" alt="End-to-end research pipeline" /><br/><sub><b>Research pipeline</b> — ingestion, validation, analysis, review</sub></td>
+<td width="50%"><img src="docs/assets/worker-network.svg" alt="Specialist worker network" /><br/><sub><b>Worker network</b> — 550 validated specialist workers</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/assets/low-latency-model.svg" alt="Low-latency engineering model" /><br/><sub><b>Latency model</b> — measured, not assumed</sub></td>
+<td width="50%"><img src="docs/assets/market-mind-terminal.svg" alt="Terminal concept preview" /><br/><sub><b>Terminal concept</b> — visual direction</sub></td>
+</tr>
+</table>
+
+<sub>Diagrams and concept art illustrate the architecture and intended terminal direction; they are not screenshots of live market data.</sub>
+
+## Quickstart
+
+```bash
+git clone https://github.com/djny45/-MARKET-MIND-AI.git
+cd ./-MARKET-MIND-AI
+docker compose up --build
+```
+
+| Surface | URL |
+| --- | --- |
+| Research terminal | http://localhost:5173 |
+| API docs (OpenAPI) | http://localhost:8000/docs |
+| Readiness (database + disk) | http://localhost:8000/api/ready |
+
+No Docker? Run the backend and frontend directly:
+
+```bash
+# backend
+python -m venv .venvs/backend && .venvs/backend/bin/pip install -r backend/requirements.txt
+PYTHONPATH=backend .venvs/backend/bin/uvicorn app.main:app --reload
+
+# frontend
+cd frontend && npm ci && npm run dev
+```
+
+Full local setup, environment variables and known limits live in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
+
+## Status (honest)
+
+This repository documents what is **verified** and what is **blocked**, because an over-claiming research tool is a liability.
+
+| Area | State |
+| --- | --- |
+| Backend test suite | 1,100+ tests passing, 1 skipped (no nginx binary in the container) |
+| Frontend | 123 Vitest tests, 20 UI files, typecheck and production build clean |
+| Real-browser tests | 9 Playwright checks (desktop/tablet/mobile) in CI |
+| Security scans | `pip-audit`, `npm audit --omit=dev`, Trivy fs/config: clean at MEDIUM+ |
+| Recovery drills | Backup/restore parity, SHA-256 verification, retention, stale-lock and `kill -9` recovery executed with recorded evidence |
+| Acceptance matrix | 28/31 items verified; 3 blocked externally ([docs/acceptance-inventory.json](docs/acceptance-inventory.json)) |
+| Public deployment | **Not authorized.** TLS, segmentation, independent pen test are operator work |
+
+Exact commands, transcripts and blockers: [PROJECT_STATUS.md](PROJECT_STATUS.md) · [REMAINING_WORK.md](REMAINING_WORK.md) · [docs/RECOVERY_DRILL_EVIDENCE.md](docs/RECOVERY_DRILL_EVIDENCE.md) · [docs/OPERABILITY-HARDENING.md](docs/OPERABILITY-HARDENING.md).
+
+## Docs map
+
+| If you want to… | Read |
+| --- | --- |
+| Understand the system | [ARCHITECTURE.md](docs/ARCHITECTURE.md) · [FINAL_ARCHITECTURE.md](FINAL_ARCHITECTURE.md) · [decisions](docs/ARCHITECTURE_DECISIONS.md) |
+| Build a workflow | [WORKFLOW-GUIDE.md](docs/WORKFLOW-GUIDE.md) · [FOUR-MARKET-PLATFORM.md](docs/FOUR-MARKET-PLATFORM.md) |
+| Run it yourself | [DEVELOPMENT.md](docs/DEVELOPMENT.md) · [PRODUCTION-DEPLOYMENT.md](docs/PRODUCTION-DEPLOYMENT.md) |
+| Trust the numbers | [ALGORITHMS.md](docs/ALGORITHMS.md) · [PERFORMANCE.md](docs/PERFORMANCE.md) · [MARKET_DATA_LICENSING.md](docs/MARKET_DATA_LICENSING.md) |
+| Operate it | [BACKUP_RECOVERY_DRILL.md](docs/BACKUP_RECOVERY_DRILL.md) · [RECOVERY_DRILL_EVIDENCE.md](docs/RECOVERY_DRILL_EVIDENCE.md) · [OPERABILITY-HARDENING.md](docs/OPERABILITY-HARDENING.md) |
+| Review security | [SECURITY.md](SECURITY.md) · [SECURITY_AUDIT.md](SECURITY_AUDIT.md) · [PUBLIC-EXPOSURE-HARDENING.md](docs/PUBLIC-EXPOSURE-HARDENING.md) |
+| Connect an AI harness | [AI-HARNESS-COMPATIBILITY.md](docs/AI-HARNESS-COMPATIBILITY.md) · [FREELLMAPI-INTEGRATION.md](docs/FREELLMAPI-INTEGRATION.md) |
+| Browse research skills | [.agents/skills](.agents/skills) · [quant-research-evaluation](.agents/skills/quant-research-evaluation/SKILL.md) |
+
+## Built with
+
+Open-source tools doing real work here — nothing in this list is decorative:
+
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![SQLite](https://img.shields.io/badge/SQLite_WAL-003b57?logo=sqlite&logoColor=white)](docs/PERFORMANCE.md)
+[![React](https://img.shields.io/badge/React-61dafb?logo=react&logoColor=black)](https://react.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![Vite](https://img.shields.io/badge/Vite-646cff?logo=vite&logoColor=white)](https://vite.dev)
+[![Vitest](https://img.shields.io/badge/Vitest-6da13f?logo=vitest&logoColor=white)](https://vitest.dev)
+[![Playwright](https://img.shields.io/badge/Playwright-2ead33?logo=playwright&logoColor=white)](https://playwright.dev)
+[![nginx](https://img.shields.io/badge/nginx-009639?logo=nginx&logoColor=white)](frontend/nginx.conf)
+[![Docker](https://img.shields.io/badge/Docker-2496ed?logo=docker&logoColor=white)](docker-compose.yml)
+[![Trivy](https://img.shields.io/badge/Trivy-1904da?logo=aquasecurity&logoColor=white)](https://trivy.dev)
+[![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-2088ff?logo=githubactions&logoColor=white)](.github/workflows/quality.yml)
+
+## Contributing
+
+Contributions are welcome — especially tests, provenance improvements and documentation corrections. Start with [CONTRIBUTING.md](CONTRIBUTING.md), then open an issue using one of the templates. Security reports go through [SECURITY.md](SECURITY.md), never a public issue.
+
+If this project is useful to you, a star helps others find it.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
 
 ## Overview
 
@@ -403,11 +540,13 @@ The utility validates source and backup integrity and refuses to overwrite an ex
 
 ## Latest verified CI run
 
-The GitHub Actions quality workflow completed successfully for commit `f7642cd1ce83b4c91ef19c26fdfa59733944fdaf` (3 November 2026):
+The GitHub Actions quality workflow completes successfully on every push to `main` at `HEAD = 1cea2cb2a5f66784e9ecaddf8ca6c254ca9d248e` (all five jobs PASS; latest run: https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45240410861):
 
 - Backend: passed.
 - Frontend: passed.
-- Container build and smoke test: passed.
+- Dependency audit: passed.
+- Docker Compose integration: passed.
+- Trivy filesystem security scan: passed.
 - Dependency audit: passed.
 
 [View the successful GitHub Actions run](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/41621173501).

@@ -213,14 +213,42 @@ def apply_retention(config: BackupConfig, *, keep_backup: Path | None = None) ->
             except FileNotFoundError:
                 pass
         pruned.append(backup.name)
+    orphans = _sweep_orphans(config)
     return {
         "status": "dry_run" if config.dry_run else "completed",
         "candidates": len(backups),
         "retained": len(backups) - len(pruned),
         "pruned": pruned,
+        "orphans_removed": orphans,
         "retention_days": config.retention_days,
         "retention_count": config.retention_count,
     }
+
+
+def _sweep_orphans(config: BackupConfig) -> list[str]:
+    """Remove SQLite sidecars and temp files left by earlier backup/restore runs.
+
+    WAL sidecars are never part of a managed backup: the artifact is a single
+    ``.db`` file plus its ``.sha256``/``.json`` sidecars. Temp files such as
+    ``<backup>.abc123.tmp-shm`` are leftovers from the copy step and would
+    otherwise accumulate forever, because retention only prunes ``*.db``.
+    """
+    patterns = ("*.db-wal", "*.db-shm", "*.db-journal", "*.tmp-wal",
+                "*.tmp-shm", "*.tmp-journal", "*.tmp", "*.restore.tmp")
+    removed = []
+    for pattern in patterns:
+        for path in config.destination_dir.glob(pattern):
+            if not path.is_file():
+                continue
+            if config.dry_run:
+                removed.append(path.name)
+                continue
+            try:
+                path.unlink()
+                removed.append(path.name)
+            except OSError:
+                continue
+    return sorted(removed)
 
 
 def _finalize(config: BackupConfig, journal: dict, backup: Path,

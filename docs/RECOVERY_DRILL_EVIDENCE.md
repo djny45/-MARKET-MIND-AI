@@ -73,7 +73,27 @@ Tests `backend/tests/test_s3_offhost.py` (2) pass.
 or bucket exist here; no credential was invented. moto is a compatibility check,
 not proof of a cloud restore.
 
-## 4. Not performed (external)
+## 4. S3-compatible preflight (moto, local S3 endpoint) — executed 2026-11-23 17:5x UTC
+
+```
+moto_server -H 127.0.0.1 -p 5000
+curl -X PUT http://127.0.0.1:5000/research-backups                    # 200
+MARKET_MIND_S3_ENDPOINT=http://127.0.0.1:5000 \
+MARKET_MIND_S3_BUCKET=research-backups MARKET_MIND_S3_REGION=us-east-1 \
+MARKET_MIND_S3_ACCESS_KEY=testing MARKET_MIND_S3_SECRET_KEY=testing \
+python3 scripts/s3_offhost.py upload --file s3-fixture2.txt --key market-mind/backups/preflight.txt
+# {"action":"upload","status":200,"credentials_exposed":false}
+python3 scripts/s3_offhost.py download --file s3-restored3.txt --key market-mind/backups/preflight.txt
+# {"action":"download","status":200,"credentials_exposed":false}
+sha256sum s3-fixture2.txt s3-restored3.txt
+3f2ab1551332d7a6e4cd104836397e35e1183eb00f9bd7dbb3236cea35133bd0  s3-fixture2.txt
+3f2ab1551332d7a6e4cd104836397e35e1183eb00f9bd7dbb3236cea35133bd0  s3-restored3.txt
+```
+
+Checksum parity PASS against a real HTTP S3 endpoint (SigV4). No credentials were
+committed, logged, or exposed; values were passed only via environment.
+
+## 5. Not performed (external)
 
 - Docker named-volume restore — `docker` binary absent.
 - Host service restart / cron/systemd installation — no host init access.

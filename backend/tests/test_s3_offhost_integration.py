@@ -6,10 +6,12 @@ It does NOT claim that a real S3 bucket, credentials or a cloud restore exist.
 """
 from __future__ import annotations
 
+import argparse
 import hashlib
 import hmac
 import json
 import os
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -17,9 +19,14 @@ import threading
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts" / "s3_offhost.py"
+sys.path.insert(0, str(ROOT / "scripts"))
+
+from backup_orchestrator import BackupConfig, run_backup  # noqa: E402
+from dr_common import database_fingerprint  # noqa: E402
 BUCKET = "research-backups"
 REGION = "us-east-1"
 ACCESS_KEY = "DUMMYACCESSKEY"
@@ -160,6 +167,52 @@ class S3OffhostIntegrationTests(unittest.TestCase):
                            "--key", "market-mind/backups/missing.db")
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(destination.read_bytes(), original)
+
+    def test_backup_orchestrator_can_upload_and_restore_through_fake_s3(self):
+        """Mock-based integration: verifies the hook/CLI contract, not a cloud restore."""
+        source = self.root / "source.db"
+        with sqlite3.connect(source) as connection:
+            connection.execute(
+                "CREATE TABLE market_bars (symbol TEXT, interval TEXT, timestamp TEXT, "
+                "open REAL, high REAL, low REAL, close REAL, volume REAL, status TEXT, "
+                "source TEXT, retrieved_at TEXT)"
+            )
+            connection.execute(
+                "CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT)"
+            )
+            connection.execute("INSERT INTO schema_migrations VALUES (1, '2026-01-01')")
+        hook = self.root / "s3_upload_hook.py"
+        hook.write_text(
+            "import os, subprocess, sys\n"
+            f"raise SystemExit(subprocess.run([sys.executable, {str(SCRIPT)!r}, 'upload', "
+            "'--file', sys.argv[1], '--key', 'market-mind/backups/orchestrator.db'], "
+            "env=os.environ.copy()).returncode)\n",
+            encoding="utf-8",
+        )
+        key = "market-mind/backups/orchestrator.db"
+        args = argparse.Namespace(
+            source=source, destination_dir=self.root / "backups",
+            state_dir=self.root / "state", retention_days=30, retention_count=None,
+            upload_command=f"{sys.executable} {hook} {{backup}}", backup=None,
+            dry_run=False, alert_on_success=False,
+        )
+        with patch.dict(os.environ, dict(self.env, **{
+            "MARKET_MIND_INCIDENT_WEBHOOK_URL": "",
+            "MARKET_MIND_DR_ALERT_ON_SUCCESS": "false",
+            "MARKET_MIND_BACKUP_KEEP": "",
+        })):
+            result = run_backup(BackupConfig(args))
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual(result["upload"]["status"], "uploaded")
+        backup = Path(result["backup"])
+        stored = _FakeS3Handler.objects[f"/{BUCKET}/{key}"]
+        self.assertEqual(hashlib.sha256(stored).hexdigest(), hashlib.sha256(backup.read_bytes()).hexdigest())
+
+        destination = self.root / "from-s3.db"
+        downloaded = self._run("download", "--file", str(destination), "--key", key)
+        self.assertEqual(downloaded.returncode, 0, downloaded.stderr)
+        self.assertEqual(database_fingerprint(destination), database_fingerprint(source))
+        self.assertNotIn(SECRET_KEY, json.dumps(result) + downloaded.stdout + downloaded.stderr)
 
 
 if __name__ == "__main__":

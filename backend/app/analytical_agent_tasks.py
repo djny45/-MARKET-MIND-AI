@@ -1180,16 +1180,27 @@ def dispatch_queued_research_tasks(
     completed = []
     dispatch_errors = []
     lease_lost_during_dispatch = False
+    renewal_error_type = None
     stop_renewal = threading.Event()
     renewal_thread = None
     if supervisor_instance_id is not None and lease_seconds is not None:
         def renew_loop():
-            nonlocal lease_lost_during_dispatch
+            nonlocal lease_lost_during_dispatch, renewal_error_type
             interval = max(0.25, float(lease_seconds) / 3.0)
             while not stop_renewal.wait(interval):
-                if not _renew_supervisor_lease(
-                    supervisor_instance_id, supervisor_lease_token, lease_seconds
-                ):
+                try:
+                    renewed = _renew_supervisor_lease(
+                        supervisor_instance_id, supervisor_lease_token, lease_seconds
+                    )
+                except Exception as exc:
+                    # A transient store error must not silently end renewal: keep
+                    # trying until the deadline, and surface the error type so a
+                    # lapsed lease is never mistaken for a healthy dispatch.
+                    renewal_error_type = type(exc).__name__
+                    continue
+                if not renewed:
+                    # Another owner holds the lease, or ours already expired: stop
+                    # renewing and report that leadership was lost.
                     lease_lost_during_dispatch = True
                     return
         renewal_thread = threading.Thread(
@@ -1234,6 +1245,7 @@ def dispatch_queued_research_tasks(
         "dispatch_error_count": len(dispatch_errors),
         "dispatch_errors": dispatch_errors,
         "lease_lost_during_dispatch": lease_lost_during_dispatch,
+        "lease_renewal_error_type": renewal_error_type,
         "dispatch_mode": "bounded_sqlite_queue_snapshot",
         "note": "Tasks are persisted in the shared SQLite queue; this bounded dispatch runs in the supervisor process. The queue is single-host, not a distributed broker.",
     }

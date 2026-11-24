@@ -1,0 +1,51 @@
+{
+  "acceptance_id": "ACC-029",
+  "artifacts": {
+    "backup-manifest.json": {
+      "path": "backup-manifest.json",
+      "sha256": ""
+    },
+    "describe-config.json": {
+      "path": "describe-config.json",
+      "sha256": ""
+    },
+    "download-result.json": {
+      "path": "download-result.json",
+      "sha256": ""
+    },
+    "recovery-report.json": {
+      "path": "recovery-report.json",
+      "sha256": ""
+    },
+    "restore-report.json": {
+      "path": "restore-report.json",
+      "sha256": ""
+    },
+    "sha256-parity.txt": {
+      "path": "sha256-parity.txt",
+      "sha256": ""
+    },
+    "upload-result.json": {
+      "path": "upload-result.json",
+      "sha256": ""
+    }
+  },
+  "bundle_id": "EXT-01-<unique-id>",
+  "check_id": "EXT-01",
+  "checks": {
+    "database_integrity_ok": false,
+    "isolated_target_only": false,
+    "no_secrets_in_output": false,
+    "restore_comparison_matched": false,
+    "sha256_parity": false
+  },
+  "environment": "",
+  "executed_at": "",
+  "external_approval": "not_claimed",
+  "generated_at": "2026-11-24T18:53:13.146964Z",
+  "notes": "Complete this bundle only from a real authorized drill; never from mock evidence.",
+  "operator_identity": "",
+  "outcome": "pending",
+  "owner_identity": "",
+  "procedure": "docs/S3-VERIFICATION-PACKAGE.md"
+}

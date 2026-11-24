@@ -1,0 +1,52 @@
+{
+  "acceptance_id": "ACC-031",
+  "artifacts": {
+    "findings.json": {
+      "path": "findings.json",
+      "sha256": ""
+    },
+    "rules-of-engagement.txt": {
+      "path": "rules-of-engagement.txt",
+      "sha256": ""
+    },
+    "scanner-output.txt": {
+      "path": "scanner-output.txt",
+      "sha256": ""
+    },
+    "scope.txt": {
+      "path": "scope.txt",
+      "sha256": ""
+    },
+    "sign-off.txt": {
+      "path": "sign-off.txt",
+      "sha256": ""
+    },
+    "signed-report.pdf": {
+      "path": "signed-report.pdf",
+      "sha256": ""
+    },
+    "tls-scan.txt": {
+      "path": "tls-scan.txt",
+      "sha256": ""
+    }
+  },
+  "bundle_id": "EXT-03-<unique-id>",
+  "check_id": "EXT-03",
+  "checks": {
+    "independent_reviewer": false,
+    "medium_findings_accepted": false,
+    "no_open_critical_or_high": false,
+    "remediations_retested": false,
+    "scope_fully_executed": false,
+    "signed_go_decision": false
+  },
+  "environment": "",
+  "executed_at": "",
+  "external_approval": "not_claimed",
+  "generated_at": "2026-11-24T18:53:13.283808Z",
+  "notes": "Complete this bundle only from a real authorized drill; never from mock evidence.",
+  "operator_identity": "",
+  "outcome": "pending",
+  "owner_identity": "",
+  "procedure": "docs/SECURITY-REVIEW-PACKAGE.md"
+}

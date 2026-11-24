@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shlex
 import socket
 import sqlite3
@@ -34,6 +35,33 @@ _ALERT_KEYS = frozenset({
     "event", "error_type", "phase", "backup", "destination", "reason",
     "bytes", "sha256", "status", "elapsed_seconds", "retained", "pruned",
 })
+
+_SENSITIVE_ENV = re.compile(
+    r"(?i)(secret|token|password|passwd|api[_-]?key|access[_-]?key|"
+    r"credential|private[_-]?key|authorization|cookie|csrf)"
+)
+_SECRET_ASSIGNMENT = re.compile(
+    r"(?i)\b(password|passwd|secret|token|api[_-]?key|access[_-]?key|"
+    r"credential|private[_-]?key|authorization|cookie|csrf)\b\s*[:=]\s*"
+    r"[\"']?([^\s\"',;}\]]+)[\"']?"
+)
+
+
+def redact_secrets(text: str) -> str:
+    """Redact secret-looking assignments and live secret env values.
+
+    Operator-supplied upload hooks and exception strings can print credentials
+    even though the DR tools never ask for them. Scrub both generic ``key=value``
+    forms and values of sensitive environment variables before any text is
+    stored in a manifest, returned to a caller or sent to a webhook.
+    """
+    if not text:
+        return text
+    result = _SECRET_ASSIGNMENT.sub(lambda match: f"{match.group(1)}=[REDACTED]", str(text))
+    for name, value in os.environ.items():
+        if value and len(value) >= 6 and _SENSITIVE_ENV.search(name):
+            result = result.replace(value, "[REDACTED]")
+    return result
 
 
 class DrError(RuntimeError):
@@ -259,8 +287,8 @@ def run_upload_command(command: str, *, backup: Path, sha256: str,
         "status": "uploaded" if completed.returncode == 0 else "failed",
         "returncode": completed.returncode,
         "error_type": "UploadCommandFailed" if completed.returncode else None,
-        "stdout": completed.stdout.strip()[-2000:],
-        "stderr": completed.stderr.strip()[-2000:],
+        "stdout": redact_secrets(completed.stdout.strip()[-2000:]),
+        "stderr": redact_secrets(completed.stderr.strip()[-2000:]),
     }
 
 
@@ -274,7 +302,7 @@ def _sanitize_alert_detail(detail: dict | None) -> dict:
         elif isinstance(value, int):
             clean[key] = value
         else:
-            clean[key] = str(value)[:512]
+            clean[key] = redact_secrets(str(value))[:512]
     return clean
 
 

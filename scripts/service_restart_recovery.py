@@ -23,7 +23,7 @@ from pathlib import Path
 
 from dr_common import (
     REPO_ROOT, DrError, DrLock, atomic_write_json, env_int, iso_now, positive_int,
-    readonly_uri, send_alert, utcstamp,
+    readonly_uri, redact_secrets, send_alert, utcstamp,
 )
 
 
@@ -109,7 +109,9 @@ def requeue_interrupted_tasks(config: RecoveryConfig) -> dict:
                 return {"status": "ok", "recovery": payload}
             break
     raise DrError(
-        "task_recovery_failed:" + (completed.stderr.strip()[-300:] or str(completed.returncode))
+        "task_recovery_failed:" + redact_secrets(
+            completed.stderr.strip()[-300:] or str(completed.returncode)
+        )
     )
 
 

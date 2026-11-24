@@ -14,6 +14,8 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 RUN pip install --no-cache-dir --upgrade pip==26.2.0 \
     && pip install --no-cache-dir -r requirements.txt \
+    && pip install --no-cache-dir --upgrade \
+        certifi==2026.10.18 msgpack==1.2.3 setuptools==83.0.0 urllib3==2.8.0 \
     && useradd --create-home --uid 10001 appuser \
     && mkdir -p /data \
     && chown -R appuser:appuser /app /data

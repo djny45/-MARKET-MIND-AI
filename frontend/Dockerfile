@@ -7,7 +7,7 @@ ARG VITE_API_URL=
 ENV VITE_API_URL=${VITE_API_URL}
 RUN npm run build
 
-FROM nginxinc/nginx-unprivileged:stable-alpine
+FROM nginxinc/nginx-unprivileged:1.31.7-alpine3.24-slim
 # The base image runs as UID 101, so package upgrades need a temporary root
 # step. The container scan remains fail-closed for anything Alpine has not fixed.
 USER root

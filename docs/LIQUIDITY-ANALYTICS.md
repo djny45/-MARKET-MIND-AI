@@ -2,31 +2,25 @@
 
 This project uses liquidity-related data for historical, descriptive research only. These modules do not produce trading instructions, order requests, or broker actions.
 
-## Imported open-source research library
+## Research library status (corrected 2026-11-24)
 
-Vendored source: `third_party/srl-python-indicators/`
+An earlier version of this document claimed that `third_party/srl-python-indicators/`
+had been vendored with seven indicator modules. **That directory does not exist in
+this repository** and no such modules are imported. The claim is retracted rather
+than treated as delivered work. The current `third_party/` tree contains only
+inert reference copies of Camofox Browser, FinceptTerminal and Freqtrade.
 
-- Upstream: https://github.com/srlcarlg/srl-python-indicators
-- License: Apache-2.0 (upstream LICENSE is included)
-- Upstream branch copied: `master`
-- Scope copied: Python indicator modules and their `models_utils` support files, README, and license.
-- Excluded: upstream market-data Parquet files, notebooks, generated plots, and test datasets.
-- The code is vendored for inspection and future isolated integration; it is not imported by the API at startup.
-
-Included research modules:
-- `volume_profile.py`: volume-at-price distributions, profile segments and profile modes.
-- `tpo_profile.py`: time-price opportunity profiles.
-- `multi_vwap.py`: daily, weekly, monthly and anchored VWAP calculations with bands.
-- `order_flow_ticks.py`: tick-level buy/sell and delta/footprint-style aggregation.
-- `order_flow_aggregated.py`: aggregated order-flow and profile analysis.
-- `weis_wyckoff_system.py`: descriptive volume/price-structure analysis.
-- `custom_mas.py` and `models_utils/`: supporting calculations and data structures.
+The implemented liquidity analytics are native and deterministic:
+`backend/app/liquidity_indicators.py` exposes the volume profile endpoint below,
+and the core indicator endpoint covers the listed volume indicators.
 
 ## Liquidity analytics inventory
 
-The API now exposes `POST /api/indicators/liquidity-profile` for an OHLCV-based approximate volume profile. Request fields are `high`, `low`, `close`, `volume`, optional `bins` (2–500, default 48), and `value_area_pct` (1–100, default 70). The response includes the volume-at-price histogram, POC, value-area high/low, local high/low volume nodes, and explicit approximation metadata. It does not claim to be a true trade-level profile. Regression tests cover normal, flat-price, and invalid-input cases.\n\nThe existing core volume-indicator endpoint already covers OBV, ADL, Chaikin Oscillator, CMF, MFI, Force Index, Ease of Movement, VPT, NVI, PVI, VWAP, relative volume, volume oscillator, volume ROC and volume SMA.
+The API now exposes `POST /api/indicators/liquidity-profile` for an OHLCV-based approximate volume profile. Request fields are `high`, `low`, `close`, `volume`, optional `bins` (2–500, default 48), and `value_area_pct` (1–100, default 70). The response includes the volume-at-price histogram, POC, value-area high/low, local high/low volume nodes, and explicit approximation metadata. It does not claim to be a true trade-level profile. Regression tests cover normal, flat-price, and invalid-input cases.
 
-The vendored library adds profile and tick-based research methods. The broader liquidity data model should distinguish the following input classes:
+The existing core volume-indicator endpoint already covers OBV, ADL, Chaikin Oscillator, CMF, MFI, Force Index, Ease of Movement, VPT, NVI, PVI, VWAP, relative volume, volume oscillator, volume ROC and volume SMA.
+
+The implemented volume-profile endpoint provides an OHLCV approximation only; tick-level order-flow modules are **not** implemented. The broader liquidity data model should distinguish the following input classes:
 
 | Input data | Historical measurements supported |
 |---|---|
@@ -47,7 +41,7 @@ Important limitations:
 
 ## Candidate open-source references reviewed
 
-- https://github.com/srlcarlg/srl-python-indicators — Apache-2.0; vendored source described above.
+- https://github.com/srlcarlg/srl-python-indicators — Apache-2.0; reviewed but **not** vendored (no source tree in this repository).
 - https://github.com/bfolkens/py-market-profile — Market Profile implementation; license metadata needs additional verification before copying or redistributing.
 - https://github.com/flowdrivenml/market-data-stream-processor — interesting cross-venue order-book/trade/OI/funding/liquidation research prototype; no clear license was verified, so it was not copied.
 - https://github.com/AbhayAbm/Limit-order-book — educational order-book simulator; excluded because it includes order matching and order-entry GUI, which are outside this project's scope.

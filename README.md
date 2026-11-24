@@ -33,8 +33,8 @@ Compose data sources, validation steps and specialist analytical workers into wo
 
 ### Trending (2025–2026)
 
-- **Agent Directory** — 550 worker profiles (20 departments × 28 specialties) backed by **one shared central intelligence core**; we do not claim 550 independent AI models.
-- **Research Playbooks** — 300+ composable skills (OpenBB adapters, PyneCore cross-checks, Vibe Trading, ta-lib, etc.) under `.agents/skills/`, loadable by agents with permission contracts and no execution side effects.
+- **Agent Directory** — 550 worker profiles spanning **20 departments and 28 specialties** (a partial grid, not a full 560-cell cross-product), backed by **one shared central intelligence core**; we do not claim 550 independent AI models.
+- **Research Playbooks** — 325 allowlisted research playbooks (300 advisory sections in one catalog file plus 25 standalone `SKILL.md` files) under `.agents/skills/`, loadable by ID with no execution side effects. A further 89 Vibe Trading skills are vendored as **unregistered reference material**. OpenBB and TA-Lib are not included; PyneCore is an optional local runtime, not a skill catalog entry.
 - **Security pipeline by default** — resource-level authorization, ownership fencing on task side effects, session/CSRF rotation, trusted-proxy rate limiting, fail-closed strict environments, audit events with token redaction, Trivy (vuln+misconfig+secret at MEDIUM+). All green and regression-tested.
 - **Operability** — backup/restore with SHA-256 sidecars, retention, crash-recovery drills, incident alerting, WAL hygiene, and a 6-job CI pipeline (backend, frontend, Playwright, Trivy, Compose, dependabots).
 - **Deployable in 2026 shapes** — production Docker Compose with read-only backend, GitHub Pages + read-only API, or any private self-hosted host with TLS/segmentation.
@@ -309,13 +309,14 @@ Specialist modules exchange deterministic records; per-agent brain-context and l
 | 550 AI analytical worker profiles / 20 departments | Shared central intelligence; supported workflow nodes are routed to deterministic handlers; profiles are not 550 separate models or active runtime processes |
 | Cross-market research agent message bus | Added; deterministic shared mesh across India, US, crypto and forex; no model inference or live feeds |
 | Shared-core specialist worker routing | Added; workflow nodes map to validated worker profiles and deterministic handlers, with assignment metadata and runtime capability endpoint; no LLM inference or autonomous learning |
-| 550+ analytical agent brain contexts | Added distinct worker-specific role prompts, specialization, memory namespaces and brain-context hashes; agents share the configured inference provider rather than running 550 separate models |
+| 550 analytical agent brain contexts | Added distinct worker-specific role prompts, specialization, memory namespaces and brain-context hashes (one per profile); agents share the configured inference provider rather than running 550 separate models |
 | Agent learning lifecycle | Added worker-scoped evaluated-feedback records and update proposals; proposals require review, tests and rollback planning; no automatic model-weight training or auto-application |
 | Agent cloud workspace | Not yet implemented; persistent local SQLite memory exists, but cloud-hosted autonomous agents, scheduler and remote workspaces remain future work |
 | Worker-scoped evidence memory | Added; append-only SQLite notes per registered worker with source references, quality labels, bounded JSON validation and read filters; not autonomous learning or executable instructions |
 | Versioned specialist-worker contracts | Added v1.0.0 input/output shape contracts and evidence requirements for all 10 workflow node types; execution validates contract shapes before and after deterministic handlers |
 | Versioned 550-worker registry | Added registry v1.0.0, SHA-256 profile manifest, department counts, and deterministic integrity evaluation endpoint; profiles remain templates coordinated by one core |
-| Central research orchestrator | Added shared-core workflow coordination, worker-level result aggregation, contract-version references, a consolidated report and optional shared-core synthesis over the deterministic report; disabled by default, no market-data fetching or broker execution |\n| Shared intelligence-core provider boundary | Added optional loopback-only Ollama synthesis configuration, disabled by default, connected to the research orchestrator, with bounded input, timeout, explicit provider failure states and a status endpoint; numerical outputs remain deterministic and authoritative |
+| Central research orchestrator | Added shared-core workflow coordination, worker-level result aggregation, contract-version references, a consolidated report and optional shared-core synthesis over the deterministic report; disabled by default, no market-data fetching or broker execution |
+| Shared intelligence-core provider boundary | Added optional loopback-only Ollama synthesis configuration, disabled by default, connected to the research orchestrator, with bounded input, timeout, explicit provider failure states and a status endpoint; numerical outputs remain deterministic and authoritative |
 | Docker Compose development setup | Added |
 | CI quality workflow | Added; run status visible in GitHub Actions |
 | Market taxonomy and searchable instrument reference directory | Added |
@@ -325,14 +326,20 @@ Specialist modules exchange deterministic records; per-agent brain-context and l
 | Normalized OHLCV contract, timezone validation, provider adapter protocol and synthetic fixture | Added |
 | SQLite market-bar history with idempotent upserts and provenance retention | Added |
 | User-defined educational setup geometry and risk/reward calculator | Added; no signal generation or execution |
-| Deterministic descriptive chart report over stored OHLCV | Added; SMA, RSI, MACD, Bollinger, ATR, recent range references, rule-based candle labels and confirmed swing points |\n| Integrated deep research and OHLCV quality diagnostics | Added; per-timeframe chart research, duplicate/order/OHLC/volume checks, source/status counts and explicit diagnostic limitations |\n| Advanced market diagnostics | Added; relative volume, per-observation return volatility, descriptive volatility bands and historical close-to-close drawdown |\n| Cross-asset historical correlation | Added; Pearson correlation of timestamp-aligned close-to-close returns, paired sample counts and null handling for insufficient/constant series |\n| Historical price-level clusters | Added; repeated confirmed swing highs/lows grouped by configurable percentage tolerance and minimum touch count |\n| Historical market breadth | Added; timestamp-aligned advancing/declining/unchanged counts, percentages, net advances and symbol coverage |\n| Consolidated research dashboard | Added; timeframe summaries, data-quality counts, price-cluster counts, optional correlation and latest breadth summary |
+| Deterministic descriptive chart report over stored OHLCV | Added; SMA, RSI, MACD, Bollinger, ATR, recent range references, rule-based candle labels and confirmed swing points |
+| Integrated deep research and OHLCV quality diagnostics | Added; per-timeframe chart research, duplicate/order/OHLC/volume checks, source/status counts and explicit diagnostic limitations |
+| Advanced market diagnostics | Added; relative volume, per-observation return volatility, descriptive volatility bands and historical close-to-close drawdown |
+| Cross-asset historical correlation | Added; Pearson correlation of timestamp-aligned close-to-close returns, paired sample counts and null handling for insufficient/constant series |
+| Historical price-level clusters | Added; repeated confirmed swing highs/lows grouped by configurable percentage tolerance and minimum touch count |
+| Historical market breadth | Added; timestamp-aligned advancing/declining/unchanged counts, percentages, net advances and symbol coverage |
+| Consolidated research dashboard | Added; timeframe summaries, data-quality counts, price-cluster counts, optional correlation and latest breadth summary |
 | Interactive sample-series chart using Lightweight Charts | Added |
 | Workflow diagrams and graph usage guide | Added |
 | Unit tests for branching DAG execution and cycle rejection | Added |
 
 ## Shared agent skill playbooks
 
-Ten upstream day-trader skill definitions are vendored under [`.agents/skills/day-trader-skill/`](.agents/skills/day-trader-skill/README.md). The 550+ AI analytical worker profiles carry department-based `skill_refs` so the orchestration layer can select relevant research guidance without injecting every playbook into every task. These are intended to be 550+ specialist **AI analytical agents** coordinated by one shared central intelligence core—not merely generic worker slots. Each agent has a distinct role, brain/context hash, scoped memory namespace, and task interface. Important current implementation boundary: the registry still stores agent profiles and the runtime exposes bounded task execution; it does **not** yet mean 550 independently running, continuously autonomous agent loops or 550 separate foundation models. Supported workflow node types now route through a validated specialist registry to existing deterministic Python handlers. LLM inference is disabled by default; optional local Ollama synthesis is restricted to summarizing supplied research and never changes deterministic calculations. Autonomous learning and brokerage execution remain disabled. Worker memory is an append-only evidence-note store; it does not train models, treat stored text as instructions, or independently verify claims. Skill references do not execute scripts or grant permissions. The broker/order-execution skill is excluded; the application remains research-only with no brokerage routing.
+Ten upstream day-trader skill definitions are vendored under [`.agents/skills/day-trader-skill/`](.agents/skills/day-trader-skill/README.md). The 550 AI analytical worker profiles carry department-based `skill_refs` so the orchestration layer can select relevant research guidance without injecting every playbook into every task. These are intended to be 550 specialist **AI analytical agents** coordinated by one shared central intelligence core—not merely generic worker slots. Each agent has a distinct role, brain/context hash, scoped memory namespace, and task interface. Important current implementation boundary: the registry still stores agent profiles and the runtime exposes bounded task execution; it does **not** yet mean 550 independently running, continuously autonomous agent loops or 550 separate foundation models. Supported workflow node types now route through a validated specialist registry to existing deterministic Python handlers. LLM inference is disabled by default; optional shared-core synthesis (Mercury by default, Ollama as an optional backend) is restricted to summarizing supplied research and never changes deterministic calculations. Autonomous learning and brokerage execution remain disabled. Worker memory is an append-only evidence-note store; it does not train models, treat stored text as instructions, or independently verify claims. Skill references do not execute scripts or grant permissions. The broker/order-execution skill is excluded; the application remains research-only with no brokerage routing.
 
 ## Visual workflow model
 
@@ -393,7 +400,8 @@ For manual setup, see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 | Method | Endpoint | Purpose |
 |---|---|---|
 | GET | `/api/health` | Service health and execution boundary |
-| GET | `/api/worker-runtime` | Specialist worker routing coverage and explicit inference/execution capability status |\n| GET | `/api/intelligence-core` | Shared-core provider configuration status; no model is loaded or contacted |
+| GET | `/api/worker-runtime` | Specialist worker routing coverage and explicit inference/execution capability status |
+| GET | `/api/intelligence-core` | Shared-core provider configuration status; no model is loaded or contacted |
 | POST | `/api/workers/{worker_id}/memory` | Append a bounded, provenance-labelled research note to a registered worker |
 | GET | `/api/workers/{worker_id}/memory` | Read worker-scoped notes with optional type and limit filters |
 | GET | `/api/ready` | SQLite dependency readiness; HTTP 503 when unavailable |
@@ -406,20 +414,36 @@ For manual setup, see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 | DELETE | `/api/watchlist/{symbol}` | Remove an instrument from the local watchlist |
 | GET | `/api/nodes` | Supported workflow node definitions |
 | GET | `/api/workers` | Worker profile catalogue |
-| GET | `/api/instruments?q=` | Search curated instrument examples by market group and asset class |\n| GET | `/api/instrument-master` | Search persistent four-market instrument reference metadata |\n| POST | `/api/instrument-master/identifiers` | Register provider-native identifiers against canonical instrument IDs |
+| GET | `/api/instruments?q=` | Search curated instrument examples by market group and asset class |
+| GET | `/api/instrument-master` | Search persistent four-market instrument reference metadata |
+| POST | `/api/instrument-master/identifiers` | Register provider-native identifiers against canonical instrument IDs |
 | GET | `/api/news` | Fetch configured official RSS headlines |
 | POST | `/api/news/ingest` | Trigger RSS ingestion |
 | POST | `/api/indicators` | Calculate deterministic indicator series |
 | POST | `/api/research/setup` | Calculate hypothetical entry/stop/target geometry and risk/reward from user-supplied levels |
 | POST | `/api/analytics/performance` | Historical return, drawdown, volatility, Sharpe, Sortino and optional benchmark statistics |
 | GET | `/api/market-data/sample` | Explicitly synthetic OHLCV fixture for UI and integration tests |
-| POST | `/api/market-data/store` | Store normalized bars with source, status and retrieval metadata |\n| POST | `/api/market-data/events` | Import validated historical trades, quotes, order-book snapshots, open interest, funding and FX reference events |\n| GET | `/api/market-data/events` | Query historical microstructure events by instrument, event type, provider, venue and time range |
+| POST | `/api/market-data/store` | Store normalized bars with source, status and retrieval metadata |
+| POST | `/api/market-data/events` | Import validated historical trades, quotes, order-book snapshots, open interest, funding and FX reference events |
+| GET | `/api/market-data/events` | Query historical microstructure events by instrument, event type, provider, venue and time range |
 | GET | `/api/market-data/events/quality` | Diagnose historical event sequence, timestamp and order-book snapshot consistency |
 | GET | `/api/market-data/history` | Retrieve stored bars with provenance metadata |
 | GET | `/api/research/chart` | Single-timeframe descriptive report from stored bars |
 | GET | `/api/research/timeframes` | Optional multi-timeframe comparison across stored 15m, 1h, 4h and 1d bars |
 | GET | `/api/research/export` | Download provenance-preserving historical evidence JSON with SHA-256 integrity metadata |
-| POST | `/api/research/compare-exports` | Compare two compatible historical evidence bundles |\n\nDeep terminal report (single or multi-timeframe):\n\n```bash\ncd backend\nPYTHONPATH=. python terminal_chart_report.py --symbol BTCUSD --mode single --interval 1h --limit 500 --deep\nPYTHONPATH=. python terminal_chart_report.py --symbol BTCUSD --mode multi --intervals 15m,1h,4h,1d --limit 500 --deep\nPYTHONPATH=. python terminal_chart_report.py --symbol BTCUSD --mode single --interval 1h --limit 500 --deep --correlate-symbols ETHUSD,SOLUSD\nPYTHONPATH=. python terminal_chart_report.py --symbol BTCUSD --mode single --interval 1h --limit 500 --deep --breadth-symbols ETHUSD,SOLUSD\n```\n\nThe deep report adds structural data-quality diagnostics, optional cross-asset correlation and market-breadth summaries from exact timestamp matches, and a consolidated `dashboard` summary. It does not infer freshness or missing exchange sessions without provider-specific schedules. See [deep analysis guide](docs/DEEP-ANALYSIS.md).
+| POST | `/api/research/compare-exports` | Compare two compatible historical evidence bundles |
+
+Deep terminal report (single or multi-timeframe):
+
+```bash
+cd backend
+PYTHONPATH=. python terminal_chart_report.py --symbol BTCUSD --mode single --interval 1h --limit 500 --deep
+PYTHONPATH=. python terminal_chart_report.py --symbol BTCUSD --mode multi --intervals 15m,1h,4h,1d --limit 500 --deep
+PYTHONPATH=. python terminal_chart_report.py --symbol BTCUSD --mode single --interval 1h --limit 500 --deep --correlate-symbols ETHUSD,SOLUSD
+PYTHONPATH=. python terminal_chart_report.py --symbol BTCUSD --mode single --interval 1h --limit 500 --deep --breadth-symbols ETHUSD,SOLUSD
+```
+
+The deep report adds structural data-quality diagnostics, optional cross-asset correlation and market-breadth summaries from exact timestamp matches, and a consolidated `dashboard` summary. It does not infer freshness or missing exchange sessions without provider-specific schedules. See [deep analysis guide](docs/DEEP-ANALYSIS.md).
 | POST | `/api/workflows/execute` | Execute a directed research graph |
 
 ## Repository structure
@@ -619,7 +643,7 @@ Generated improvement proposals can now be reviewed through append-only records:
 - `GET /api/analytical-agents/{worker_id}/tasks?limit=20` — lists that worker's task history.
 - `GET /api/analytical-agent-tasks/{task_id}` — retrieves the stored input, status, result, and brain-context digest.
 
-Tasks are isolated by worker ID and retain the worker context hash. Task execution is **bounded and delegated to the supervisor service**: it does not provide cloud workspaces, distributed scheduling, or 550 always-on autonomous processes. If the shared Ollama core is not configured, the result explicitly reports that synthesis is unavailable rather than fabricating analysis. Tasks use supplied data only; live market retrieval and broker execution are excluded.
+Tasks are isolated by worker ID and retain the worker context hash. Task execution is **bounded and delegated to the supervisor service**: it does not provide cloud workspaces, distributed scheduling, or 550 always-on autonomous processes. If the shared intelligence core is not configured, the result explicitly reports that synthesis is unavailable rather than fabricating analysis. Tasks use supplied data only; live market retrieval and broker execution are excluded.
 
 
 ## Human-reviewed staging experiment records

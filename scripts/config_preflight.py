@@ -1,0 +1,167 @@
+#!/usr/bin/env python3
+"""Offline deployment configuration preflight (no Docker, nginx or secrets).
+
+Checks the shipped TLS template, ingress configuration, Compose segmentation,
+DR environment variables and deploy-check gates. Emits only check IDs/statuses;
+no environment values, URLs or command strings are printed.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+from dr_common import validate_dr_environment
+
+
+def _read(root: Path, relative: str) -> str:
+    path = root / relative
+    if not path.is_file():
+        return ""
+    return path.read_text(encoding="utf-8", errors="replace")
+
+
+def _compose_checks(text: str) -> list[dict]:
+    results: list[dict] = []
+    if not text:
+        return [{"id": "compose_present", "status": "fail", "detail": "docker-compose.yml missing"}]
+    results.append({"id": "compose_present", "status": "pass", "detail": "file found"})
+    blocks: dict[str, list[str]] = {}
+    current = None
+    in_services = False
+    for line in text.splitlines():
+        if line.startswith("services:"):
+            in_services = True
+            continue
+        if in_services and line and not line.startswith(" "):
+            break
+        if not in_services:
+            continue
+        if line.startswith("  ") and not line.startswith("    ") and line.rstrip().endswith(":"):
+            current = line.strip().rstrip(":")
+            blocks[current] = []
+        elif current is not None:
+            blocks[current].append(line)
+    expected = {"backend", "agent-supervisor", "frontend", "n8n"}
+    results.append({
+        "id": "compose_services_present",
+        "status": "pass" if expected.issubset(blocks) else "fail",
+        "detail": f"{len(blocks)} services found",
+    })
+    exposed = [name for name in ("backend", "agent-supervisor") if any(
+        line.strip().startswith("ports:") for line in blocks.get(name, [])
+    )]
+    results.append({
+        "id": "backend_not_host_published",
+        "status": "pass" if not exposed else "fail",
+        "detail": "no host ports" if not exposed else ", ".join(exposed),
+    })
+    unprivileged = []
+    for name in sorted(expected & blocks.keys()):
+        body = "\n".join(blocks[name])
+        if ("no-new-privileges:true" in body and "cap_drop:" in body and "- ALL" in body):
+            continue
+        unprivileged.append(name)
+    results.append({
+        "id": "services_unprivileged",
+        "status": "pass" if not unprivileged else "fail",
+        "detail": "all services hardened" if not unprivileged else ", ".join(unprivileged),
+    })
+    published = [
+        line.strip() for body in blocks.values() for line in body
+        if line.strip().startswith("- ") and ":" in line and any(
+            token in line for token in ("8080", "5678", "8000")
+        )
+    ]
+    bad_bindings = []
+    for value in published:
+        binding = value[2:].strip().strip('"').strip("'")
+        if not binding.startswith("127.0.0.1:"):
+            bad_bindings.append(value)
+    results.append({
+        "id": "published_ports_loopback",
+        "status": "pass" if not bad_bindings else "fail",
+        "detail": "loopback only" if not bad_bindings else ", ".join(bad_bindings),
+    })
+    return results
+
+
+def build_report(root: Path) -> dict:
+    root = Path(root)
+    checks: list[dict] = []
+
+    env = validate_dr_environment()
+    checks.append({
+        "id": "dr_environment",
+        "status": "pass" if env["status"] == "ok" else "fail",
+        "detail": f"{len(env['findings'])} finding(s); values not printed",
+    })
+
+    tls = _read(root, "deploy/tls/nginx-tls.conf.example")
+    tls_tokens = ("TLSv1.2", "TLSv1.3", "Strict-Transport-Security",
+                  "return 301 https://", "X-Forwarded-Proto https")
+    missing_tls = [token for token in tls_tokens if token not in tls]
+    checks.append({
+        "id": "tls_template",
+        "status": "pass" if not missing_tls else "fail",
+        "detail": "template complete" if not missing_tls else "missing: " + ", ".join(missing_tls),
+    })
+
+    limits = _read(root, "frontend/nginx-limits.conf")
+    server = _read(root, "frontend/nginx.conf")
+    dockerfile = _read(root, "frontend/Dockerfile")
+    ingress_tokens = (
+        "limit_req_zone", "limit_conn_zone", "limit_req_status 429",
+        "limit_conn_status 429", "map $http_x_forwarded_proto $mm_forwarded_proto",
+    )
+    missing_ingress = [token for token in ingress_tokens if token not in limits]
+    if "X-Forwarded-Proto $mm_forwarded_proto" not in server:
+        missing_ingress.append("inner proxy preserves forwarded proto")
+    if "X-Forwarded-Proto $scheme" in server:
+        missing_ingress.append("inner proxy overwrites forwarded proto")
+    if "00-ingress-limits.conf" not in dockerfile or "default.conf" not in dockerfile:
+        missing_ingress.append("Dockerfile copy order")
+    checks.append({
+        "id": "ingress_limits_and_proto",
+        "status": "pass" if not missing_ingress else "fail",
+        "detail": "ingress complete" if not missing_ingress else "missing: " + ", ".join(missing_ingress),
+    })
+
+    checks.extend(_compose_checks(_read(root, "docker-compose.yml")))
+
+    deploy = _read(root, "scripts/deploy_check.sh")
+    deploy_tokens = ("command -v docker", "docker compose config --quiet", "/api/ready",
+                     "backend_has_no_published_ports", "sqlite_integrity_ok")
+    missing_deploy = [token for token in deploy_tokens if token not in deploy]
+    checks.append({
+        "id": "deploy_check_gates",
+        "status": "pass" if not missing_deploy else "fail",
+        "detail": "gates present" if not missing_deploy else "missing: " + ", ".join(missing_deploy),
+    })
+
+    failed = [check["id"] for check in checks if check["status"] != "pass"]
+    return {
+        "status": "pass" if not failed else "fail",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "root": str(root),
+        "checks": checks,
+        "failed": failed,
+        "scope": "static_offline_only",
+        "external_verification": "not_claimed",
+        "values_exposed": False,
+    }
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--root", default=str(Path(__file__).resolve().parents[1]))
+    args = parser.parse_args()
+    report = build_report(Path(args.root))
+    print(json.dumps(report, indent=2, sort_keys=True))
+    return 0 if report["status"] == "pass" else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

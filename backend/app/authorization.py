@@ -7,7 +7,8 @@ The model is deliberately small and deny-by-default:
 * Sensitive global endpoints have an explicit minimum role (see
   ``SENSITIVE_ROUTE_POLICY``).
 * User-owned resources (watchlists, saved layouts, research runs/tasks and
-  memory items) are tracked in a thread-safe in-memory registry. A user may
+  memory items) are tracked by ``OwnershipRegistry``: a thread-safe in-process
+  cache backed by the durable ``resource_ownership`` SQLite table. A user may
   only read or mutate their own resource; admins retain an explicit override.
 
 The project keeps local development open by default: the integration layer

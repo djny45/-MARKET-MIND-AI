@@ -33,6 +33,7 @@ class DrEnvironmentValidationTests(unittest.TestCase):
             "MARKET_MIND_BACKUP_RETENTION_DAYS": "nonsense",
             "MARKET_MIND_BACKUP_KEEP": "-2",
             "MARKET_MIND_DR_TIMEOUT_SECONDS": "0",
+            "MARKET_MIND_BACKUP_MIN_FREE_MB": "-1",
             "MARKET_MIND_INCIDENT_WEBHOOK_URL": "ftp://ops.example.invalid/hook",
             "MARKET_MIND_S3_ENDPOINT": "http://s3.example.invalid",
             "MARKET_MIND_BACKUP_UPLOAD_CMD": f"python hook.py --password={SECRET}",
@@ -43,6 +44,7 @@ class DrEnvironmentValidationTests(unittest.TestCase):
         self.assertIn("MARKET_MIND_BACKUP_RETENTION_DAYS", variables)
         self.assertIn("MARKET_MIND_INCIDENT_WEBHOOK_URL", variables)
         self.assertIn("MARKET_MIND_S3_ENDPOINT", variables)
+        self.assertIn("MARKET_MIND_BACKUP_MIN_FREE_MB", variables)
         self.assertIn("MARKET_MIND_BACKUP_UPLOAD_CMD", variables)
         text = json.dumps(result)
         self.assertNotIn(SECRET, text)

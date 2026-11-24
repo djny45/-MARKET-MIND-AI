@@ -330,6 +330,7 @@ def validate_dr_environment(environ: dict | None = None) -> dict:
     integer("MARKET_MIND_BACKUP_RETENTION_DAYS", minimum=0)
     integer("MARKET_MIND_BACKUP_KEEP", minimum=1)
     integer("MARKET_MIND_DR_TIMEOUT_SECONDS", minimum=1)
+    integer("MARKET_MIND_BACKUP_MIN_FREE_MB", minimum=0)
 
     for name in ("MARKET_MIND_INCIDENT_WEBHOOK_URL", "MARKET_MIND_S3_ENDPOINT"):
         raw = env.get(name, "").strip()

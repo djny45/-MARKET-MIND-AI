@@ -423,7 +423,6 @@ jobs:
           severity: MEDIUM,HIGH,CRITICAL
           ignore-unfixed: false
           exit-code: '1'
-          skip-setup-trivy: true
       - name: Publish container scan reports
         if: always()
         uses: actions/upload-artifact@v4

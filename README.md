@@ -131,12 +131,13 @@ This repository documents what is **verified** and what is **blocked**, because 
 
 | Area | State |
 | --- | --- |
-| Backend test suite | 1,100+ tests passing, 1 skipped (no nginx binary in the container) |
-| Frontend | 123 Vitest tests, 20 UI files, typecheck and production build clean |
+| Backend test suite | 1,181 tests passing, 1 skipped (no nginx binary in the container) |
+| Frontend | 10 `node:test` + 127 Vitest tests, 21 UI files, typecheck and production build clean |
 | Real-browser tests | 9 Playwright checks (desktop/tablet/mobile) in CI |
 | Security scans | `pip-audit`, `npm audit --omit=dev`, Trivy fs/config: clean at MEDIUM+ |
-| Recovery drills | Backup/restore parity, SHA-256 verification, retention, stale-lock and `kill -9` recovery executed with recorded evidence |
-| Acceptance matrix | 28/31 items verified; 3 blocked externally ([docs/acceptance-inventory.json](docs/acceptance-inventory.json)) |
+| Recovery drills | Backup/restore parity, SHA-256 verification, retention, stale-lock and `kill -9` recovery executed; local S3-compatible and fake-Docker drills added (real cloud/volume/host runs still external) |
+| Dual-auth browser UI | Session routes authoritative with per-user auth; central same-origin CSRF wrapper; verified by backend integration + 4 Vitest tests |
+| Acceptance matrix | 32/40 items verified, 5 partial, 3 blocked externally ([docs/acceptance-inventory.json](docs/acceptance-inventory.json)) |
 | Public deployment | **Not authorized.** TLS, segmentation, independent pen test are operator work |
 
 Exact commands, transcripts and blockers: [PROJECT_STATUS.md](PROJECT_STATUS.md) · [REMAINING_WORK.md](REMAINING_WORK.md) · [docs/RECOVERY_DRILL_EVIDENCE.md](docs/RECOVERY_DRILL_EVIDENCE.md) · [docs/OPERABILITY-HARDENING.md](docs/OPERABILITY-HARDENING.md).

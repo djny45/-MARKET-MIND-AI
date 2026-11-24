@@ -55,8 +55,8 @@ Local `main` had diverged (56 local commits, 17 origin commits) and tracked
 
 | Check | Result |
 | --- | --- |
-| Backend suite | PASS — 1063 tests; 1078 tests on `feat/dr-and-ingress-verification` (1 skipped: no nginx binary) |
-| Frontend node:test + Vitest | PASS — 10 + 123 tests |
+| Backend suite | PASS — 1,181 tests on this branch (1 skipped: no nginx binary) |
+| Frontend node:test + Vitest | PASS — 10 + 127 tests |
 | Frontend build / audits | PASS |
 | pip-audit / npm audit | PASS — 0 known vulnerabilities |
 | CI-equivalent Trivy scan | PASS — 0 findings at MEDIUM+ |
@@ -84,3 +84,19 @@ an OAuth App to create or update workflow ... without `workflow` scope".
 3. Host/S3/Docker-volume/process-kill drills on an authorized host, plus
    `npx playwright install-deps` to unlock real-browser responsive tests.
 4. Decide on ADR-0001 implementation and data-status attestation fix.
+
+## Re-verified 2026-11-24 (feature branch)
+
+Items 1 and the browser-test part of item 3 above are **stale**: the expanded
+Trivy job and the Playwright job are in `.github/workflows/quality.yml` on
+`main`, and CI run `45268550062` on `1a13bfe2` passed all six jobs.
+
+`fix/close-remaining-verification-gaps` re-verified the current tree and closed
+all locally executable gaps: backup freshness reporting, S3-compatible transfer
+with a stdlib fake-S3 integration test, an operator Docker-volume drill with a
+fake-Docker test, DR secret redaction, eight confirmed auth/rate-limit/audit
+defects, dual-auth browser integration, and offline preflight/ingress guards.
+See `REMAINING_WORK.md` § "Re-verification 2026-11-24" for the exact evidence and
+the updated 32/40 acceptance-inventory counts (previously 27/31). Private
+verification remains **7/10**; public deployment remains **0/6**. Real cloud S3,
+real Docker volumes and host service/restart drills are still operator work.

@@ -62,3 +62,14 @@ No real-money brokerage execution, wallet keys, transaction signing, live order 
 ## Recovery preserved
 
 `recovery/local-main-56-commits`, `security/trivy-ci-scope`, and the old divergent local `main` (`906b3765`) are untouched. No force-push, reset or rebase was used.
+
+## Re-verification appendix (2026-11-24)
+
+The historical results above are preserved and apply to their stated SHAs.
+They are **superseded** for current status by `REMAINING_WORK.md` §
+"Re-verification 2026-11-24" and `docs/acceptance-inventory.json` (source
+`b07c1d90`). In particular, the Trivy and browser CI jobs are no longer blocked,
+the stale "8/10" line above is superseded by the corrected 7/10 private score,
+and locally executable S3/Docker/preflight/security gaps have been closed with
+new tests. The three external infrastructure gates and public deployment 0/6
+remain unchanged.

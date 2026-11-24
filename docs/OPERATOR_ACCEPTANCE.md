@@ -63,6 +63,9 @@ databases under `/tmp/opencode/`; no production database was modified.
 - [x] Off-host S3-compatible adapter (local service, SHA-256 parity)
 - [x] Bounded read-only load probe
 - [x] Expanded Trivy (vuln + misconfig + secret, MEDIUM+) and browser job in CI
+- [x] Backup freshness (`never_run`/`ok`/`stale`) with 7 regression tests
+- [x] Docker volume drill plan + fake-Docker apply tests (4 tests)
+- [x] DR secret redaction, dual-auth browser integration and offline preflight tests
 - [ ] Docker volume restore (needs Docker on the target host)
 - [ ] Real cloud S3 restore (needs configured endpoint, bucket and credentials)
 - [ ] Host service restart via systemd/cron (needs host access)

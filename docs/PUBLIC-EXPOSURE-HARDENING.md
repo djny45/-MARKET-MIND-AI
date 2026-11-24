@@ -115,10 +115,11 @@ ingress or the operator's proxy hop count.
 
 ## 6. Real S3-compatible off-host backups
 
-There is **no S3 client in this repository**. Off-host copy is performed by an
-operator-supplied command hook with `{backup}`, `{sha256}`, `{name}` and
-`{destination}` placeholders and no shell interpolation. For an operator-hosted
-deployment:
+The repository provides **two** off-host mechanisms: a stdlib-only S3 adapter
+(`scripts/s3_offhost.py`, env-only credentials, SigV4 PUT/GET, local fake-S3
+integration tests) and a generic operator command hook with `{backup}`,
+`{sha256}`, `{name}` and `{destination}` placeholders and no shell interpolation.
+Neither proves that a real bucket exists. For an operator-hosted deployment:
 
 1. Create a dedicated bucket with object-lock/versioning and server-side
    encryption; block public access.

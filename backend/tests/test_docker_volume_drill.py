@@ -20,7 +20,7 @@ SCRIPT = ROOT / "scripts" / "docker_volume_drill.py"
 
 def _shim() -> str:
     return r'''#!/usr/bin/env python3
-import json, os, shutil, sys
+import json, os, shutil, sqlite3, sys
 from pathlib import Path
 args = sys.argv[1:]
 log = Path(os.environ["FAKE_DOCKER_LOG"])
@@ -56,6 +56,24 @@ elif args and args[0] == "run":
         source_arg = [a for a in args if a.startswith("/backups/")][0]
         shutil.copy(mapping["/backups"] / Path(source_arg).name,
                     mapping["/data"] / "market_mind.db")
+    elif "-c" in args:
+        db = mapping["/data"] / "market_mind.db"
+        connection = sqlite3.connect(db)
+        integrity = connection.execute("PRAGMA integrity_check").fetchone()[0]
+        tables = [row[0] for row in connection.execute(
+            "select name from sqlite_master where type='table'")]
+        counts = {name: connection.execute(
+            'select count(*) from "' + name + '"').fetchone()[0] for name in tables}
+        version = connection.execute(
+            "select max(version) from schema_migrations").fetchone()[0]
+        if os.environ.get("FAKE_DOCKER_CORRUPT_VERIFY"):
+            print(json.dumps({"integrity": "failed", "table_counts": {},
+                              "schema_version": None, "bytes": 0}, sort_keys=True))
+        else:
+            print(json.dumps({
+                "integrity": integrity, "table_counts": counts,
+                "schema_version": version, "bytes": db.stat().st_size,
+            }, sort_keys=True))
 else:
     sys.exit(2)
 '''
@@ -125,7 +143,10 @@ class DockerVolumeDrillTests(unittest.TestCase):
                             "--target-volume", "market_mind_data-drill",
                             "--backup", str(backup_path))
         self.assertEqual(restore.returncode, 0, restore.stderr)
-        self.assertEqual(json.loads(restore.stdout)["status"], "restored")
+        body = json.loads(restore.stdout)
+        self.assertEqual(body["status"], "restored_and_verified")
+        self.assertEqual(body["comparison"], "matched")
+        self.assertEqual(body["restored_fingerprint"], body["expected_fingerprint"])
         calls = [json.loads(line) for line in self.log.read_text().splitlines() if line.strip()]
         self.assertTrue(any(call[:2] == ["volume", "create"] and call[-1] == "market_mind_data-drill"
                             for call in calls))
@@ -184,6 +205,19 @@ class DockerVolumeDrillTests(unittest.TestCase):
         self.assertIn("backup_checksum_invalid", result.stdout)
         calls = [json.loads(line) for line in self.log.read_text().splitlines() if line.strip()]
         self.assertFalse(any(call[:2] == ["volume", "create"] for call in calls))
+
+    def test_fingerprint_mismatch_fails_and_still_removes_the_target(self):
+        backup = self._make_backup()
+        env = dict(self.env, FAKE_DOCKER_CORRUPT_VERIFY="1")
+        result = subprocess.run(
+            [sys.executable, str(SCRIPT), *self._base("restore"), "--apply",
+             "--target-volume", "market_mind_data-drill", "--backup", str(backup)],
+            env=env, capture_output=True, text=True, timeout=30,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("volume_fingerprint_mismatch", result.stdout)
+        calls = [json.loads(line) for line in self.log.read_text().splitlines() if line.strip()]
+        self.assertTrue(any(call[:2] == ["volume", "rm"] for call in calls))
 
     def test_plan_needs_no_docker_binary(self):
         result = self._run("plan", "--docker", "/nonexistent/docker-binary")

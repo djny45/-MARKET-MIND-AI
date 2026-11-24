@@ -22,10 +22,17 @@ RESTART_SERVICE = "market-mind-restart-recovery.service"
 BACKUP_SERVICE = "market-mind-backup.service"
 BACKUP_TIMER = "market-mind-backup.timer"
 CRON_FILE = "market-mind-backup.cron"
-PROTECTED_PREFIXES = ("/etc", "/usr/lib", "/var/spool/cron", "/lib/systemd")
+PROTECTED_PREFIXES = (
+    "/etc", "/usr/lib", "/usr/local/lib/systemd", "/run/systemd",
+    "/var/spool/cron", "/lib/systemd",
+)
 
 
-def _restart_unit() -> str:
+def _environment_directive(path: str) -> str:
+    return f"EnvironmentFile={shlex.quote(path)}"
+
+
+def _restart_unit(env_file: str) -> str:
     script = REPO_ROOT / "scripts" / "service_restart_recovery.py"
     return "\n".join([
         "[Unit]",
@@ -35,21 +42,29 @@ def _restart_unit() -> str:
         "[Service]",
         "Type=oneshot",
         f"WorkingDirectory={REPO_ROOT}",
+        _environment_directive(env_file),
         f"ExecStart={shlex.quote(sys.executable)} {shlex.quote(str(script))} run",
-        "# Requires MARKET_MIND_DB and MARKET_MIND_DR_STATE_DIR from a 0600 EnvironmentFile.",
-        "# This unit requeues interrupted tasks without dispatching them.",
+        "# Requeues interrupted tasks without dispatching them.",
+        "",
+        "[Install]",
+        "WantedBy=multi-user.target",
         "",
     ])
 
 
 def build_plan(args) -> dict:
+    env_file = args.environment_file
     cron = cron_line(args.schedule, args.log_path)
     units = systemd_units(args.interval_hours, args.on_calendar)
+    service = units["service"].replace(
+        "Type=oneshot", "Type=oneshot\n" + _environment_directive(env_file), 1
+    )
+    cron_environment = f"set -a; . {shlex.quote(env_file)}; set +a; "
     files = {
-        BACKUP_SERVICE: units["service"],
+        BACKUP_SERVICE: service,
         BACKUP_TIMER: units["timer"],
-        RESTART_SERVICE: _restart_unit(),
-        CRON_FILE: cron["line"] + "\n",
+        RESTART_SERVICE: _restart_unit(env_file),
+        CRON_FILE: cron_environment + cron["line"] + "\n",
     }
     return {
         "status": "planned",
@@ -81,7 +96,12 @@ def apply_plan(args) -> dict:
     written = {}
     for name, content in plan["files"].items():
         path = directory / name
-        path.write_text(content, encoding="utf-8")
+        if path.is_symlink():
+            raise DrError("refusing_symlinked_output:" + name)
+        flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_NOFOLLOW", 0)
+        descriptor = os.open(path, flags, 0o600)
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            handle.write(content)
         written[name] = str(path)
     summary = {key: value for key, value in plan.items() if key != "files"}
     summary.update({"status": "written", "files_written": written, "files": None})
@@ -96,7 +116,10 @@ def main() -> int:
     parser.add_argument("--schedule", default="0 2 * * *")
     parser.add_argument("--log-path")
     parser.add_argument("--interval-hours", type=int, default=24)
-    parser.add_argument("--on-calendar")
+    parser.add_argument("--on-calendar", default="daily",
+                        help="calendar expression; default keeps Persistent=true meaningful")
+    parser.add_argument("--environment-file", default="/etc/market-mind/market-mind.env",
+                        help="operator-owned 0600 file loaded by both units and the cron line")
     parser.add_argument("--apply", action="store_true", help="required to write files")
     parser.add_argument("--allow-system-paths", action="store_true",
                         help="explicit opt-in before writing under /etc or other system paths")

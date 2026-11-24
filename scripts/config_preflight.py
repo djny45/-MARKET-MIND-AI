@@ -23,6 +23,29 @@ def _read(root: Path, relative: str) -> str:
     return path.read_text(encoding="utf-8", errors="replace")
 
 
+def _ports_in_block(lines: list[str]) -> list[str]:
+    """Return every published-port entry from a Compose service block."""
+    entries: list[str] = []
+    collecting = False
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("ports:"):
+            inline = stripped.split(":", 1)[1].strip()
+            if inline:
+                entries.extend(
+                    token.strip().strip('"').strip("'")
+                    for token in inline.strip("[]").split(",") if token.strip()
+                )
+            collecting = True
+            continue
+        if collecting:
+            if stripped.startswith("- "):
+                entries.append(stripped[2:].strip().strip('"').strip("'"))
+            elif stripped:
+                collecting = False
+    return entries
+
+
 def _compose_checks(text: str) -> list[dict]:
     results: list[dict] = []
     if not text:
@@ -50,36 +73,34 @@ def _compose_checks(text: str) -> list[dict]:
         "status": "pass" if expected.issubset(blocks) else "fail",
         "detail": f"{len(blocks)} services found",
     })
-    exposed = [name for name in ("backend", "agent-supervisor") if any(
-        line.strip().startswith("ports:") for line in blocks.get(name, [])
-    )]
+    exposed = [
+        name for name in ("backend", "agent-supervisor")
+        if _ports_in_block(blocks.get(name, []))
+        or any("network_mode: host" in line for line in blocks.get(name, []))
+    ]
     results.append({
         "id": "backend_not_host_published",
         "status": "pass" if not exposed else "fail",
-        "detail": "no host ports" if not exposed else ", ".join(exposed),
+        "detail": "no host ports or host networking" if not exposed else ", ".join(exposed),
     })
-    unprivileged = []
-    for name in sorted(expected & blocks.keys()):
+    weak = []
+    for name in sorted(blocks):
         body = "\n".join(blocks[name])
-        if ("no-new-privileges:true" in body and "cap_drop:" in body and "- ALL" in body):
-            continue
-        unprivileged.append(name)
+        hardened = (
+            "no-new-privileges:true" in body
+            and "cap_drop:" in body and "- ALL" in body
+            and "privileged: true" not in body
+            and "cap_add:" not in body
+        )
+        if not hardened:
+            weak.append(name)
     results.append({
         "id": "services_unprivileged",
-        "status": "pass" if not unprivileged else "fail",
-        "detail": "all services hardened" if not unprivileged else ", ".join(unprivileged),
+        "status": "pass" if not weak else "fail",
+        "detail": "all services hardened" if not weak else ", ".join(weak),
     })
-    published = [
-        line.strip() for body in blocks.values() for line in body
-        if line.strip().startswith("- ") and ":" in line and any(
-            token in line for token in ("8080", "5678", "8000")
-        )
-    ]
-    bad_bindings = []
-    for value in published:
-        binding = value[2:].strip().strip('"').strip("'")
-        if not binding.startswith("127.0.0.1:"):
-            bad_bindings.append(value)
+    bindings = [value for block in blocks.values() for value in _ports_in_block(block)]
+    bad_bindings = [value for value in bindings if not value.startswith("127.0.0.1:")]
     results.append({
         "id": "published_ports_loopback",
         "status": "pass" if not bad_bindings else "fail",
@@ -117,6 +138,8 @@ def build_report(root: Path) -> dict:
         "limit_conn_status 429", "map $http_x_forwarded_proto $mm_forwarded_proto",
     )
     missing_ingress = [token for token in ingress_tokens if token not in limits]
+    if "limit_req zone=market_mind_api" not in server or "limit_conn market_mind_conn" not in server:
+        missing_ingress.append("server applies perimeter limits")
     if "X-Forwarded-Proto $mm_forwarded_proto" not in server:
         missing_ingress.append("inner proxy preserves forwarded proto")
     if "X-Forwarded-Proto $scheme" in server:

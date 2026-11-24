@@ -50,29 +50,7 @@ class RecoveryReportTests(unittest.TestCase):
         self.addCleanup(self.env.stop)
 
     def test_report_aggregates_real_backup_restore_and_restart_artifacts(self):
-        backup_args = argparse.Namespace(
-            source=self.source, destination_dir=self.root, state_dir=self.root,
-            retention_days=30, retention_count=None, upload_command=None,
-            backup=None, dry_run=False, alert_on_success=False,
-        )
-        backup = run_backup(BackupConfig(backup_args))
-        self.assertEqual(backup["status"], "completed")
-
-        restore_args = argparse.Namespace(
-            backup=Path(backup["backup"]), target=self.root / "restored",
-            state_dir=self.root, overwrite=True, expect_sha256=None,
-            no_strict_compare=False, alert_on_success=False,
-        )
-        restored = restore_backup(RestoreConfig(restore_args))
-        self.assertEqual(restored["comparison"]["status"], "matched")
-
-        recovery_args = argparse.Namespace(
-            db=self.source, state_dir=self.root, stale_after_seconds=900,
-            skip_task_recovery=True,
-        )
-        recovery = run_recovery(RecoveryConfig(recovery_args))
-        self.assertEqual(recovery["status"], "recovered")
-
+        self._create_valid_artifacts()
         report = recovery_report.build_report(self.root)
         self.assertEqual(report["status"], "evidence_complete")
         self.assertEqual(report["sections"]["backup"]["count"], 1)
@@ -91,6 +69,48 @@ class RecoveryReportTests(unittest.TestCase):
         self.assertEqual(report["sections"]["backup"]["freshness"], "never_run")
         self.assertIsNone(report["sections"]["backup"]["newest_age_seconds"])
         self.assertIsNone(report["sections"]["restore"]["status"])
+
+    def test_present_but_invalid_artifacts_are_not_counted_as_evidence(self):
+        source = _database(self.root / "market_mind-invalid.db")
+        (self.root / "market_mind-invalid.db.json").write_text('{"integrity": "failed"}')
+        (self.root / "restore-report-invalid.json").write_text('{"status": "failed", "comparison": {}}')
+        (self.root / "restart-recovery-invalid.json").write_text('{"status": "failed"}')
+        report = recovery_report.build_report(self.root)
+        self.assertEqual(report["status"], "evidence_incomplete")
+        self.assertFalse(report["sections"]["backup"]["evidence_valid"])
+        self.assertFalse(report["sections"]["restore"]["evidence_valid"])
+        self.assertFalse(report["sections"]["restart"]["evidence_valid"])
+
+    def test_reports_in_the_default_state_directory_are_found(self):
+        self._create_valid_artifacts()
+        state = self.root / ".state"
+        state.mkdir(exist_ok=True)
+        for path in self.root.glob("restore-report-*.json"):
+            path.rename(state / path.name)
+        for path in self.root.glob("restart-recovery-*.json"):
+            path.rename(state / path.name)
+        report = recovery_report.build_report(self.root)
+        self.assertEqual(report["status"], "evidence_complete")
+        self.assertTrue(report["sections"]["restore"]["report"].startswith(str(state)))
+
+    def _create_valid_artifacts(self):
+        backup_args = argparse.Namespace(
+            source=self.source, destination_dir=self.root, state_dir=self.root,
+            retention_days=30, retention_count=None, upload_command="",
+            backup=None, dry_run=False, alert_on_success=False,
+        )
+        backup = run_backup(BackupConfig(backup_args))
+        restore_args = argparse.Namespace(
+            backup=Path(backup["backup"]), target=self.root / "restored",
+            state_dir=self.root, overwrite=True, expect_sha256=None,
+            no_strict_compare=False, alert_on_success=False,
+        )
+        restore_backup(RestoreConfig(restore_args))
+        recovery_args = argparse.Namespace(
+            db=self.source, state_dir=self.root, stale_after_seconds=900,
+            skip_task_recovery=True,
+        )
+        run_recovery(RecoveryConfig(recovery_args))
 
 
 if __name__ == "__main__":

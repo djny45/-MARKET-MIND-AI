@@ -390,6 +390,47 @@ jobs:
           exit-code: '1'
           skip-setup-trivy: true
 
+  container-security:
+    name: Container image security scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build backend image for scanning
+        run: docker build -t market-mind-backend:ci ./backend
+      - name: Build frontend image for scanning
+        run: docker build -t market-mind-frontend:ci ./frontend
+      - name: Scan backend image (MEDIUM+)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: image
+          image-ref: market-mind-backend:ci
+          format: sarif
+          output: backend-image.sarif
+          severity: MEDIUM,HIGH,CRITICAL
+          ignore-unfixed: false
+          exit-code: '1'
+      - name: Scan frontend image (MEDIUM+)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: image
+          image-ref: market-mind-frontend:ci
+          format: sarif
+          output: frontend-image.sarif
+          severity: MEDIUM,HIGH,CRITICAL
+          ignore-unfixed: false
+          exit-code: '1'
+          skip-setup-trivy: true
+      - name: Publish container scan reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: container-image-scan-reports
+          path: '*-image.sarif'
+          if-no-files-found: warn
+
   browser:
     name: Real browser responsive tests
     runs-on: ubuntu-latest

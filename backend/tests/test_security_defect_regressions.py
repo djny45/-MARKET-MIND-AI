@@ -155,6 +155,35 @@ class SecurityRegressions(_MiddlewareCase):
                 connection.execute("SELECT count(*) FROM auth_session_identities").fetchone()[0], 0
             )
 
+    def test_rejected_requests_still_count_toward_rate_limits(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        users = json.dumps([
+            {"username": "viewer", "password_hash": hash_password("viewer-long-password"),
+             "role": "viewer"},
+        ])
+        env = {
+            "MARKET_MIND_USER_AUTH": "true", "MARKET_MIND_USERS": users,
+            "MARKET_MIND_DB": str(Path(tmp.name) / "auth.db"),
+            "API_RATE_LIMIT_PER_MINUTE": "1", "ENV_VALIDATION_STRICT": "",
+        }
+        stack = app.middleware_stack
+        while stack is not None:
+            if isinstance(stack, RateLimitMiddleware):
+                stack.reset()
+            stack = getattr(stack, "app", None)
+        audit_log.clear()
+        login_guard.GUARD.reset()
+        client = TestClient(app)
+        with patch.dict(os.environ, env, clear=False):
+            statuses = [client.post("/api/watchlist", json={"symbol": "AAPL"}).status_code
+                        for _ in range(3)]
+        # Rejected auth attempts are counted too: with a limit of one, the
+        # second unauthenticated request is already throttled.
+        self.assertEqual(statuses, [401, 429, 429])
+        audit_log.clear()
+        login_guard.GUARD.reset()
+
 
 if __name__ == "__main__":
     unittest.main()

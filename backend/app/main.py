@@ -130,9 +130,12 @@ app = FastAPI(
  lifespan=lifespan,
 )
 app.add_middleware(ResearchAPIAuthMiddleware)
+# Starlette runs the most recently added middleware first. Rate limiting must
+# wrap session enforcement so rejected auth/CSRF/origin attempts are counted;
+# health/ready and OPTIONS remain exempt inside both limiters.
+app.add_middleware(UserSessionAuthMiddleware)
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(DistributedRateLimitMiddleware)
-app.add_middleware(UserSessionAuthMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 # Keep browser origins explicit using a comma-separated allowlist.
 _frontend_origins = [

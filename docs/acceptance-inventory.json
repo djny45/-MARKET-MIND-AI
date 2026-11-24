@@ -159,8 +159,8 @@
     {
       "feature": "Supervisor lease-loss handling",
       "implementation": "heartbeat lease columns, CAS renewal, dispatch revalidation",
-      "missing": "two-process contention test (ADR-0001)",
-      "tests": "test_agent_supervisor.py (3 lease tests)",
+      "missing": "multi-host coordinator and crash/restart volume test remain design-gated",
+      "tests": "test_agent_supervisor.py (3 lease tests), test_supervisor_two_process_race.py (2-process single-host race)",
       "status": "verified",
       "id": "ACC-018"
     },

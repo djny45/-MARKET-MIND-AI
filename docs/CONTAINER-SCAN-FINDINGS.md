@@ -21,7 +21,11 @@ and upgrading Alpine packages. Both SARIF reports were collected:
 The first run [45373686192](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45373686192)
 on `900a9c36` reported backend 53 HIGH / 81 MEDIUM / 94 LOW-unknown; an
 intermediate run reported frontend 20 HIGH / 13 MEDIUM before the patched nginx
-tag was pinned. The backend count reflects a refreshed Trivy database; the gate
+tag was pinned. We also evaluated `python:3.12-slim-bookworm` (Debian 12) in CI
+run [45387123716](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45387123716):
+it produced **109 HIGH / 152 MEDIUM / 135 LOW-unknown**, substantially worse
+than the current Debian 13-based `python:3.12-slim` (59/78/95), so it was
+reverted. The backend count reflects a refreshed Trivy database; the gate
 remains failing.
 
 Affected OS packages include `bsdutils`, `util-linux`, `libblkid1`,

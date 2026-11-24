@@ -71,7 +71,10 @@ tenants/queues. Those requirements are not present today.
 
 - Two-process contract test with distinct PIDs sharing a real coordinator:
   exactly one lease acquired, loser performs no recovery/dispatch, takeover
-  only after expiry or explicit release.
+  only after expiry or explicit release. An isolated **single-host SQLite**
+  version of this test is already implemented
+  (`backend/tests/test_supervisor_two_process_race.py`); it does not validate a
+  distributed coordinator.
 - Kill -9 mid-dispatch: stale lease expires, task requeues once, stale token
   cannot finalize, new executor completes with a single final result.
 - Concurrent claim test: N workers, one queued row, exactly one successful

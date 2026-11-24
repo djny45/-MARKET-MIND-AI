@@ -71,7 +71,15 @@ The SQLite adapter must keep transactions short, use conditional updates, and pr
 
 ## Acceptance gates
 
-This ADR is a design decision, not an implementation claim. Mark the work complete only after code, migrations, provider contract tests, two-process integration tests, full CI, and a host-level restart drill pass. Until then, the supported deployment remains a single-host SQLite queue with one supervisor process.
+This ADR is a design decision, not an implementation claim. An **isolated
+two-process SQLite race test** now exists
+(`backend/tests/test_supervisor_two_process_race.py`): two real processes start
+together, exactly one acquires leadership and dispatches the single queued
+task, the loser performs no side effects, and the winner releases the lease.
+This closes the single-host race check, not the full ADR: provider contract
+tests, crash/restart against a persistent volume, and multi-host coordination
+remain incomplete. Until then, the supported deployment remains a single-host
+SQLite queue with one supervisor process.
 
 ## Explicit non-goals
 

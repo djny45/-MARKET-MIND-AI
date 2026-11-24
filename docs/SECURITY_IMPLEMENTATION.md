@@ -80,7 +80,17 @@ added or enabled by any of these controls.
   configured. The Redis path uses one atomic Lua script (`INCR` plus first-hit
   `EXPIRE`).
 * Any Redis import/connection/runtime error degrades once to a bounded
-  in-process sliding-window limiter rather than failing open.
+  in-process sliding-window limiter rather than failing open. Every successful
+  Redis request is mirrored into that local window, so a Redis outage or
+  recovery transition cannot grant the same client a second full budget inside
+  one window. Denials are audited with the binding backend (`redis` or
+  `in-process`).
+* **Fallback does not claim global enforcement.** During an outage, each
+  process has its own local counter, so a single global limit cannot be
+  guaranteed across processes or hosts. Operators must keep ingress/proxy rate
+  limits as the outer control and treat fallback as per-process protection.
+  Both the distributed and in-process middleware are active when configured;
+  the effective cap is the more restrictive of the two, which is conservative.
 * Health and readiness probes and CORS preflight requests are exempt.
 
 ## 6. Audit events (`backend/app/audit_events.py`)

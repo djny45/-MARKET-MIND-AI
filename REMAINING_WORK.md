@@ -284,7 +284,7 @@ procedures, evidence requirements, rollback and responsible operators are in
 [`docs/EXTERNAL-VERIFICATION-CHECKLIST.md`](docs/EXTERNAL-VERIFICATION-CHECKLIST.md).
 
 Final local validation on this branch: backend `unittest discover -s backend/tests -q`
-→ **1,248 OK, 1 skipped**; frontend `npm test` **10/10**, `npm run test:ui`
+→ **1,259 OK, 1 skipped**; frontend `npm test` **10/10**, `npm run test:ui`
 **127/127** (21 files), `npm run build` and `npm run typecheck:test` exit 0.
 Raw logs: `/tmp/opencode/phase2-final/`. CI results for the pushed PR head are
 recorded in the PR and final report.
@@ -325,9 +325,37 @@ verification stays 7/10 and public deployment 0/6; the three blocked checks are
 external by definition.
 
 Final Phase 3 local validation: backend `unittest discover -s backend/tests -q`
-→ **1,248 OK, 1 skipped**; frontend `npm test` **10/10**, `npm run test:ui`
+→ **1,259 OK, 1 skipped**; frontend `npm test` **10/10**, `npm run test:ui`
 **127/127** (21 files), `npm run build` and `npm run typecheck:test` exit 0.
 Logs: `/tmp/opencode/phase3-final/`.
+
+---
+
+## Final risk-reduction cycle (2026-11-24)
+
+Branch `feature/final-risks`, stacked on PR #104. Fixed four priority risks with
+regression tests:
+
+- **Supervisor lease:** conditional acquisition, fenced heartbeats/release,
+  expired-renewal rejection and renewal during long dispatch; acquisition and
+  long-dispatch/concurrency tests added. Single-host only; multi-host remains a
+  proposal (`docs/MULTI-HOST-ARCHITECTURE-ASSESSMENT.md`).
+- **Redis cooldown:** the Redis-success path now mirrors the local window, so a
+  backend transition cannot grant a second full budget; transition and
+  concurrency tests added.
+- **Login CSRF:** login requires `application/json` and rejects explicitly
+  cross-site `Origin`; API clients without Origin and all session transitions
+  remain supported; login/logout/expiry/invalid-token tests added.
+- **Container scanning:** CI builds both images and runs failing-closed Trivy
+  image scans with SARIF artifacts. The first real scan found 53 HIGH / 81
+  MEDIUM base-image findings with mostly no fixed versions; `pip` was upgraded
+  to a fixed release and findings are documented in
+  `docs/CONTAINER-SCAN-FINDINGS.md`. The gate remains **FAIL** — no suppression.
+
+Acceptance remains **37/40 PASS, 0 PARTIAL, 0 FAIL, 3 BLOCKED**. Private
+verification 7/10; public deployment 0/6. Local validation after all fixes:
+backend **1,259 OK, 1 skipped**; frontend **10/10**, **127/127**, clean
+build/typecheck. Logs: `/tmp/opencode/risks-final2/`.
 
 ---
 
@@ -350,5 +378,5 @@ fallback and stale "550+" wording, and provider-health clock consistency.
 Acceptance is unchanged at **37/40 PASS, 0 PARTIAL, 0 FAIL, 3 BLOCKED**. The
 three BLOCKED checks remain external (EXT-01 real cloud S3 restore, EXT-02 real
 host/Docker recovery, EXT-03 independent security sign-off). Final local
-validation: backend **1,248 OK, 1 skipped**; frontend **10/10** and **127/127**
+validation: backend **1,259 OK, 1 skipped**; frontend **10/10** and **127/127**
 with clean build/typecheck; logs `/tmp/opencode/final-run/`.

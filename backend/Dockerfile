@@ -6,7 +6,16 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 COPY requirements.txt ./requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt \
+# Refresh OS packages so the image picks up security fixes published after the
+# base tag was cut. The container scan remains fail-closed for anything Debian
+# has not fixed yet.
+RUN apt-get update \
+    && apt-get -y --no-install-recommends upgrade \
+    && rm -rf /var/lib/apt/lists/*
+RUN pip install --no-cache-dir --upgrade pip==26.2.0 \
+    && pip install --no-cache-dir -r requirements.txt \
+    && pip install --no-cache-dir --upgrade \
+        certifi==2026.10.18 msgpack==1.2.3 setuptools==83.0.0 urllib3==2.8.0 \
     && useradd --create-home --uid 10001 appuser \
     && mkdir -p /data \
     && chown -R appuser:appuser /app /data

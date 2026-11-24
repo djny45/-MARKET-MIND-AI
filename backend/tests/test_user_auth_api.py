@@ -45,6 +45,56 @@ class UserAuthApiTests(unittest.TestCase):
             self.assertTrue(throttled.headers.get("Retry-After"))
         login_guard.GUARD.reset()
 
+    def test_text_plain_login_body_is_rejected(self):
+        from app import login_guard
+        login_guard.GUARD.reset()
+        with patch.dict(os.environ, self.env, clear=False):
+            response = self.client.post(
+                "/api/auth/login",
+                content='{"username":"admin","password":"admin-long-password"}',
+                headers={"Content-Type": "text/plain"},
+            )
+        self.assertEqual(response.status_code, 415)
+        login_guard.GUARD.reset()
+
+    def test_cross_site_login_origin_is_denied(self):
+        from app import login_guard
+        login_guard.GUARD.reset()
+        env = dict(self.env, FRONTEND_ORIGINS="https://app.example")
+        with patch.dict(os.environ, env, clear=False):
+            response = self.client.post(
+                "/api/auth/login",
+                json={"username": "admin", "password": "admin-long-password"},
+                headers={"Origin": "https://evil.example"},
+            )
+        self.assertEqual(response.status_code, 403)
+        self.assertNotIn("mm_session", response.cookies)
+        login_guard.GUARD.reset()
+
+    def test_same_origin_relogin_rotates_csrf_and_logout_requires_it(self):
+        from app import login_guard
+        login_guard.GUARD.reset()
+        env = dict(self.env, FRONTEND_ORIGINS="http://localhost:5173")
+        with patch.dict(os.environ, env, clear=False):
+            first = self.client.post(
+                "/api/auth/login",
+                json={"username": "viewer", "password": "viewer-long-password"},
+                headers={"Origin": "http://localhost:5173"},
+            )
+            self.assertEqual(first.status_code, 200, first.text)
+            csrf = first.json()["csrf_token"]
+            self.assertEqual(self.client.post("/api/auth/logout").status_code, 403)
+            self.assertEqual(self.client.post(
+                "/api/auth/logout", headers={"X-CSRF-Token": csrf}).status_code, 200)
+            again = self.client.post(
+                "/api/auth/login",
+                json={"username": "viewer", "password": "viewer-long-password"},
+                headers={"Origin": "http://localhost:5173"},
+            )
+            self.assertEqual(again.status_code, 200)
+            self.assertNotEqual(again.json()["csrf_token"], csrf)
+        login_guard.GUARD.reset()
+
     def test_login_me_and_logout(self):
         with patch.dict(os.environ, self.env, clear=False):
             response = self.client.post(

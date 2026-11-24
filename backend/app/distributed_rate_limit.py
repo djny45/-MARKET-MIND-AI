@@ -157,11 +157,21 @@ class DistributedRateLimiter:
                 self._redis_retry_after = 0.0
                 if current > self.limit:
                     return RateLimitResult(False, "redis", 0, self.window_seconds)
-                return RateLimitResult(True, "redis", self.limit - current, 0)
+                # Mirror every Redis hit in the local window. Without this,
+                # a Redis outage/recovery transition grants a second full
+                # budget to the same client inside one window.
+                local_result = self._local.check(key, self.limit, now)
+                if not local_result.allowed:
+                    return RateLimitResult(
+                        False, "in-process", 0, local_result.retry_after
+                    )
+                return RateLimitResult(
+                    True, "redis", min(self.limit - current, local_result.remaining), 0
+                )
         return self._local.check(key, self.limit, now)
 
     def reset(self) -> None:
-        """Clear local state (and, when safe, the known Redis keys)."""
+        """Clear local state and cooldown; Redis keys expire on their own."""
         self._local.reset()
         self._redis_disabled = False
         self._redis_retry_after = 0.0

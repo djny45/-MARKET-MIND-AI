@@ -19,10 +19,17 @@ class TrivyWorkflowConfigTest(unittest.TestCase):
     def setUpClass(cls):
         cls.text = WORKFLOW.read_text(encoding="utf-8")
 
-    def _trivy_job(self) -> str:
-        match = re.search(r"^  trivy-security:\n(?P<body>(?:^    .*\n|^      .*\n|^        .*\n|^          .*\n|^            .*\n)*)", self.text, re.M)
-        self.assertIsNotNone(match, "trivy-security job missing from quality.yml")
+    def _job(self, name: str) -> str:
+        pattern = (
+            r"^  " + re.escape(name) + r":\n"
+            r"(?P<body>(?:^    .*\n|^      .*\n|^        .*\n|^          .*\n|^            .*\n)*)"
+        )
+        match = re.search(pattern, self.text, re.M)
+        self.assertIsNotNone(match, f"{name} job missing from quality.yml")
         return match.group("body")
+
+    def _trivy_job(self) -> str:
+        return self._job("trivy-security")
 
     def test_workflow_has_least_privilege_permissions(self):
         self.assertIn("permissions:\n  contents: read", self.text)
@@ -51,6 +58,19 @@ class TrivyWorkflowConfigTest(unittest.TestCase):
         self.assertIn("scan-type: fs", job)
         self.assertIn("scan-type: config", job)
         self.assertGreaterEqual(job.count("uses: aquasecurity/trivy-action@v0.36.0"), 2)
+
+    def test_container_image_scans_fail_closed_with_actionable_reports(self):
+        job = self._job("container-security")
+        self.assertIn("docker build -t market-mind-backend:ci ./backend", job)
+        self.assertIn("docker build -t market-mind-frontend:ci ./frontend", job)
+        self.assertGreaterEqual(job.count("scan-type: image"), 2)
+        self.assertGreaterEqual(job.count("image-ref: market-mind-"), 2)
+        self.assertGreaterEqual(job.count("severity: MEDIUM,HIGH,CRITICAL"), 2)
+        self.assertGreaterEqual(job.count("exit-code: '1'"), 2)
+        self.assertNotIn("ignore-unfixed: true", job)
+        self.assertNotIn("continue-on-error", job)
+        self.assertIn("format: sarif", job)
+        self.assertIn("container-image-scan-reports", job)
 
     def test_workflow_triggers_include_feature_branches(self):
         self.assertIn("branches: [main, 'feat/**', 'feature/**']", self.text)

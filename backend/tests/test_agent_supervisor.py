@@ -8,6 +8,8 @@ from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import patch
 
 from app.analytical_agent_tasks import (
+    _acquire_supervisor_lease,
+    _release_supervisor_lease,
     _renew_supervisor_lease,
     _supervisor_lease_is_valid,
     _write_supervisor_heartbeat,
@@ -309,6 +311,58 @@ print(json.dumps({"recovery": recovery, "status": task["status"]}))
             dispatch_queued_research_tasks(limit=0)
         with self.assertRaises(ValueError):
             dispatch_queued_research_tasks(max_concurrency=17)
+
+    def test_lease_acquisition_is_fenced_and_expiry_releases_leadership(self):
+        import time
+        from datetime import datetime, timedelta, timezone
+        instance = f"pid-{os.getpid()}"
+        self.assertTrue(_acquire_supervisor_lease(instance, "token-A", 0.3))
+        self.assertFalse(_acquire_supervisor_lease("other", "token-B", 0.3))
+        expiry = (datetime.now(timezone.utc) + timedelta(seconds=0.3)).isoformat()
+        self.assertTrue(_write_supervisor_heartbeat(
+            "running", 1.0, 10, 2, lease_token="token-A", expires_at=expiry
+        ))
+        self.assertTrue(_supervisor_lease_is_valid(instance, "token-A"))
+        time.sleep(0.4)
+        self.assertFalse(_supervisor_lease_is_valid(instance, "token-A"))
+        self.assertFalse(_renew_supervisor_lease(instance, "token-A", 0.3))
+        self.assertTrue(_acquire_supervisor_lease("other", "token-B", 0.3))
+        self.assertTrue(_release_supervisor_lease("other", "token-B"))
+        self.assertFalse(_supervisor_lease_is_valid("other", "token-B"))
+
+    def test_dispatch_renews_lease_during_a_long_running_task(self):
+        import threading
+        import time
+        from datetime import datetime, timedelta, timezone
+
+        enqueue_research_task("worker_001", "long lease sample")
+        instance = f"pid-{os.getpid()}"
+        self.assertTrue(_acquire_supervisor_lease(instance, "token-long", 0.6))
+        expiry = (datetime.now(timezone.utc) + timedelta(seconds=0.6)).isoformat()
+        self.assertTrue(_write_supervisor_heartbeat(
+            "running", 1.0, 10, 2, lease_token="token-long", expires_at=expiry
+        ))
+        gate = threading.Event()
+        result = {}
+
+        def run():
+            with patch("app.analytical_agent_tasks.execute_queued_research_task",
+                       side_effect=lambda task_id: gate.wait(3)):
+                result["value"] = dispatch_queued_research_tasks(
+                    limit=1, max_concurrency=1, supervisor_instance_id=instance,
+                    supervisor_lease_token="token-long", lease_seconds=0.6,
+                )
+
+        thread = threading.Thread(target=run, daemon=True)
+        thread.start()
+        try:
+            time.sleep(1.4)  # beyond the original 0.6 s lease TTL
+            self.assertTrue(_supervisor_lease_is_valid(instance, "token-long"))
+        finally:
+            gate.set()
+            thread.join(timeout=5)
+        self.assertEqual(result["value"]["status"], "completed")
+        self.assertEqual(result["value"]["dispatched"], 1)
 
 
 if __name__ == "__main__":

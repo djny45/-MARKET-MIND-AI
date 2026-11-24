@@ -458,8 +458,31 @@
       "interrupted recovery journal blocks evidence_complete",
       "host preflight loads audited install_schedule from --root",
       "benign upload outcomes remain in the journal",
-      "retry_upload/FK/Journal gating regressions added"
+      "retry_upload/FK/Journal gating regressions added",
+      "single-host supervisor lease: conditional acquisition, fenced heartbeats/release, expired-renewal rejection, in-dispatch renewal",
+      "Redis/local limiter transition mirrors local window to prevent 2x allowance",
+      "login requires application/json and rejects explicit cross-site Origin while preserving API clients",
+      "CI container image scanning with fail-closed Trivy and SARIF artifacts",
+      "multi-host assessment documents proposal and test strategy without claiming support"
     ],
     "scope": "all 40 checks unchanged: 37 PASS, 0 PARTIAL, 3 BLOCKED"
+  },
+  "container_scan": {
+    "status": "FAIL",
+    "run": 45380741384,
+    "head": "964dceadb972f90d96d76511f43e9a6caea4200b",
+    "backend": {
+      "high": 59,
+      "medium": 78,
+      "low_or_unknown": 95
+    },
+    "frontend": {
+      "high": 0,
+      "medium": 0,
+      "low_or_unknown": 0
+    },
+    "remediation": "frontend pinned to patched nginx 1.31.7 and upgraded; backend pip/OS packages upgraded; remaining backend findings have no safe in-image fix",
+    "suppressed": false,
+    "evidence": "docs/CONTAINER-SCAN-FINDINGS.md"
   }
 }

@@ -113,6 +113,41 @@ class DistributedLimiterTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(fake.calls), 2)
         self.assertEqual(limiter.backend, "redis")
 
+    async def test_cooldown_recovery_does_not_grant_second_budget(self):
+        fake = FakeRedis(error=ConnectionError("redis down"))
+        limiter = DistributedRateLimiter(client=fake, limit=3)
+        clock = [100.0]
+        limiter._now = lambda: clock[0]
+        self.assertTrue(all(limiter.check("client-a").allowed for _ in range(3)))
+        clock[0] += 6.0
+        fake.error = None
+        # Redis would start a fresh counter, but the mirrored local window must
+        # still deny the same client inside the original 60-second window.
+        self.assertFalse(any(limiter.check("client-a").allowed for _ in range(3)))
+
+    async def test_redis_outage_does_not_grant_second_budget(self):
+        fake = FakeRedis(values=[1, 2, 3])
+        limiter = DistributedRateLimiter(client=fake, limit=3)
+        self.assertTrue(all(limiter.check("client-a").allowed for _ in range(3)))
+        fake.error = ConnectionError("redis down")
+        self.assertFalse(any(limiter.check("client-a").allowed for _ in range(3)))
+
+    async def test_local_fallback_concurrent_allocation_is_bounded(self):
+        import threading
+        from concurrent.futures import ThreadPoolExecutor
+
+        limiter = DistributedRateLimiter(client=FakeRedis(error=ConnectionError("down")), limit=5)
+        limiter._now = lambda: 100.0
+        barrier = threading.Barrier(40)
+
+        def attempt():
+            barrier.wait()
+            return limiter.check("client-a").allowed
+
+        with ThreadPoolExecutor(max_workers=40) as pool:
+            results = list(pool.map(lambda _: attempt(), range(40)))
+        self.assertEqual(sum(results), 5)
+
     async def test_invalid_configuration_is_rejected(self):
         with self.assertRaises(ValueError):
             DistributedRateLimiter(limit=-1)

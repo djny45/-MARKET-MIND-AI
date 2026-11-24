@@ -505,6 +505,9 @@ async def login(request: Request):
   raise HTTPException(status_code=400, detail="Invalid JSON body") from exc
  if not isinstance(body, dict):
   raise HTTPException(status_code=400, detail="Invalid login body")
+ content_type = request.headers.get("content-type", "").split(";", 1)[0].strip().lower()
+ if content_type != "application/json":
+  raise HTTPException(status_code=415, detail="Content-Type must be application/json")
  username = str(body.get("username", ""))
  client = client_ip(request)
  allowed, retry_after = login_guard.check_login(username, client)

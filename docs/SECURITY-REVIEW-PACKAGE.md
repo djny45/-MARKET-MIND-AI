@@ -24,7 +24,9 @@ routes. Public ingress is **not authorized**.
 | Credential stuffing / user enumeration | per-account+IP sliding window, doubling lockout, dummy scrypt for unknown users (`login_guard.py`, `user_auth.py`) | In-process single-host counters; restart clears them. |
 | CSRF / origin spoofing | rotating CSRF cookie+header, strict Origin checks, malformed-origin fail-closed, same-origin fetch wrapper (`user_session_middleware.py`, `frontend/src/apiClient.ts`) | Requires correct `FRONTEND_ORIGINS` and trusted-proxy count on host. |
 | Privilege escalation | four-role deny-by-default policy, durable SQLite ownership, unknown-resource denial (`authorization.py`) | Roles come from operator config; misconfiguration is an operator risk. |
-| Rate-limit bypass | limiters wrap session enforcement, audited denials, flood-safe eviction (`rate_limit.py`, `distributed_rate_limit.py`) | Redis cooldown can transiently double allowance (bounded); ingress limits still external. |
+| Rate-limit bypass | limiters wrap session enforcement, audited denials, flood-safe eviction; Redis success now mirrors the local window so backend transitions cannot grant a second budget (`distributed_rate_limit.py`) | Multi-process global limits cannot be enforced during a Redis outage; ingress limits remain external. |
+| Login CSRF / forced login | login requires `application/json` and rejects explicitly cross-site `Origin`; browser JS cannot set Origin and form posts are blocked by content type | API clients without Origin remain supported; SameSite is defence in depth. |
+| Supervisor lease loss | conditional acquisition, fenced heartbeats/release, rejection of expired renewals, renewal during dispatch (`analytical_agent_tasks.py`) | Two-process race test remains ADR-0001 gated; single-host only. |
 | Secret leakage | audit redaction, DR hook/alert redaction, env-only S3 credentials, secret-free preflight (`audit_events.py`, `dr_common.py`, `s3_offhost.py`, `config_preflight.py`) | Logs/webhooks on the real host must be reviewed by the operator. |
 | Backup/restore failure | SHA-256 sidecars, manifests, fingerprints, freshness status, recovery reports | Real cloud/volume/host drills are EXT-01/02, still BLOCKED. |
 | Malicious market/news text | treated as untrusted data, provenance labels, no instruction execution | Provider authenticity requires licensed provider + legal review. |
@@ -107,12 +109,14 @@ failed-report artifact. Retention and encryption-at-rest are operator-side
 bucket settings and are **not** verified by mocks. Backup freshness is reported
 by `/api/backup/status` (`never_run`/`ok`/`stale`) but never gates `/api/ready`.
 
-## 6c. Container image scanning gap
+## 6c. Container image scanning
 
-CI runs Trivy `fs` and `config` scans and builds the Compose stack, but it does
-**not** run `trivy image` against the built frontend/backend images. An
-independent reviewer should add an image scan of the exact built digests; this
-is listed as an outstanding evidence item, not as a PASS.
+CI now builds the backend and frontend images and runs `trivy image` on both at
+MEDIUM/HIGH/CRITICAL with `ignore-unfixed: false` and `exit-code: 1`. SARIF
+reports are uploaded as the `container-image-scan-reports` artifact for triage;
+findings are not suppressed to obtain a green pipeline. The final PR run URL
+and job result are recorded in the final report. This is CI evidence, not an
+independent security approval.
 
 ## 6d. Independent sign-off block (to be completed by the reviewer)
 

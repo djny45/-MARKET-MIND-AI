@@ -20,7 +20,7 @@ infrastructure or independent approval is implied.
 ## 2. Database consistency and recovery
 
 Executed evidence on the baseline:
-- `unittest discover -s backend/tests -q` → 1,248 OK, 1 skipped (no nginx binary).
+- `unittest discover -s backend/tests -q` → 1,259 OK, 1 skipped (no nginx binary).
 - Backup → checksum → clean restore → fingerprint parity, retention, stale-lock
   and process-kill recovery are covered by `test_recovery_drills.py` (20 tests),
   `test_backup_database.py`, `test_backup_wal_hygiene.py`.

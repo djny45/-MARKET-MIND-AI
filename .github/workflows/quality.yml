@@ -413,6 +413,7 @@ jobs:
           ignore-unfixed: false
           exit-code: '1'
       - name: Scan frontend image (MEDIUM+)
+        if: always()
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: image

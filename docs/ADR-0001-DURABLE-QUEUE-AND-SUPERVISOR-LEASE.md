@@ -1,6 +1,10 @@
 # ADR-0001: Durable queue provider and single-active supervisor
 
-- Status: Proposed (ported from PR #39; design only, not implemented)
+- Status: Partially implemented (ported from PR #39). The single-host SQLite
+  supervisor lease (conditional acquisition, fenced heartbeats/release, expiry
+  rejection and in-dispatch renewal) is implemented and tested. The broker/
+  queue-provider interface and two-host contract tests remain proposed — see
+  `docs/MULTI-HOST-ARCHITECTURE-ASSESSMENT.md`.
 - Date: 2026-11-18
 - Scope: research-task execution only; brokerage/order execution remains out of scope
 

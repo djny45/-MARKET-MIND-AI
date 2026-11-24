@@ -131,7 +131,7 @@ This repository documents what is **verified** and what is **blocked**, because 
 
 | Area | State |
 | --- | --- |
-| Backend test suite | 1,248 tests passing, 1 skipped (no nginx binary in the container) |
+| Backend test suite | 1,259 tests passing, 1 skipped (no nginx binary in the container) |
 | Frontend | 10 `node:test` + 127 Vitest tests, 21 UI files, typecheck and production build clean |
 | Real-browser tests | 9 Playwright checks (desktop/tablet/mobile) in CI |
 | Security scans | `pip-audit`, `npm audit --omit=dev`, Trivy fs/config: clean at MEDIUM+ |
@@ -140,7 +140,7 @@ This repository documents what is **verified** and what is **blocked**, because 
 | Acceptance matrix | 37/40 items verified, 0 partial, 3 blocked externally ([docs/acceptance-inventory.json](docs/acceptance-inventory.json)) |
 | Feature inventory | 26/26 modules (the earlier 28/28 claim was unsupported and is corrected) |
 | Public deployment | **Not authorized.** TLS, segmentation, independent pen test are operator work |
-| External gates | Procedures: [docs/EXTERNAL-VERIFICATION-CHECKLIST.md](docs/EXTERNAL-VERIFICATION-CHECKLIST.md) · [S3](docs/S3-VERIFICATION-PACKAGE.md) · [Host recovery](docs/HOST-RECOVERY-PROCEDURE.md) · [Security review](docs/SECURITY-REVIEW-PACKAGE.md) · [Final audit](docs/FINAL-ENGINEERING-AUDIT.md) · [PR review](docs/PR-REVIEW-REPORT.md) |
+| External gates | Procedures: [docs/EXTERNAL-VERIFICATION-CHECKLIST.md](docs/EXTERNAL-VERIFICATION-CHECKLIST.md) · [S3](docs/S3-VERIFICATION-PACKAGE.md) · [Host recovery](docs/HOST-RECOVERY-PROCEDURE.md) · [Security review](docs/SECURITY-REVIEW-PACKAGE.md) · [Final audit](docs/FINAL-ENGINEERING-AUDIT.md) · [PR review](docs/PR-REVIEW-REPORT.md) · [Multi-host assessment](docs/MULTI-HOST-ARCHITECTURE-ASSESSMENT.md) |
 
 Exact commands, transcripts and blockers: [PROJECT_STATUS.md](PROJECT_STATUS.md) · [REMAINING_WORK.md](REMAINING_WORK.md) · [docs/RECOVERY_DRILL_EVIDENCE.md](docs/RECOVERY_DRILL_EVIDENCE.md) · [docs/OPERABILITY-HARDENING.md](docs/OPERABILITY-HARDENING.md).
 

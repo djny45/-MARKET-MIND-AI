@@ -468,20 +468,25 @@
     "scope": "all 40 checks unchanged: 37 PASS, 0 PARTIAL, 3 BLOCKED"
   },
   "container_scan": {
-    "status": "FAIL",
-    "run": 45380741384,
-    "head": "964dceadb972f90d96d76511f43e9a6caea4200b",
+    "status": "PASS",
+    "run": 45420717539,
+    "head": "8785e468ad5eef997f973f1128f1e380261262c1",
     "backend": {
-      "high": 59,
-      "medium": 78,
-      "low_or_unknown": 95
+      "high": 0,
+      "medium": 0,
+      "critical": 0,
+      "low_or_unknown": 0
     },
     "frontend": {
       "high": 0,
       "medium": 0,
+      "critical": 0,
       "low_or_unknown": 0
     },
-    "remediation": "frontend pinned to patched nginx 1.31.7 and upgraded; backend pip/OS packages upgraded; remaining backend findings have no safe in-image fix",
+    "base_image": "python:3.12.16-alpine3.24",
+    "settings": "Trivy v0.70.0 image scan, severity MEDIUM,HIGH,CRITICAL, ignore-unfixed=false, exit-code=1, no ignore file",
+    "verified_packages_scanned": "OS family alpine 3.24.4, 38 OS packages plus Python packages enumerated",
+    "remediation": "backend moved from python:3.12-slim (Debian 13, 137 MEDIUM+ findings with 0 fixable) to a pinned Alpine 3.12.16 multi-stage runtime with runtime pip/setuptools removed and apk upgrade; frontend pinned to patched nginx 1.31.7",
     "suppressed": false,
     "evidence": "docs/CONTAINER-SCAN-FINDINGS.md"
   }

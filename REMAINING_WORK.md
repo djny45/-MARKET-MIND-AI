@@ -255,8 +255,8 @@ evidence; **no external check was converted to PASS**.
 | ACC-016 Worker memory isolation | Durable ownership and cross-user denial evidence | `test_worker_memory_ownership.py` (3); authorization.py docstring corrected |
 | ACC-019 Market-data provenance | Cross-module provenance, stale and failure evidence | `test_research_provenance_verification.py` (6) |
 | ACC-021 Local backup/restore | Aggregated recovery artifact evidence | `scripts/recovery_report.py` + `test_recovery_report.py` (2) using real local artifacts |
-| ACC-026 S3 adapter contract | Orchestrator→S3→download parity evidence | `test_s3_offhost_integration.py` (4, fake S3; mock-based contract test) |
-| ACC-027 Docker volume drill | Failure/cleanup/checksum contract coverage | `test_docker_volume_drill.py` (7, fake Docker shim; mock-based contract tests) |
+| ACC-025 S3 adapter contract | Orchestrator→S3→download parity evidence | `test_s3_offhost_integration.py` (4, fake S3; mock-based contract test) |
+| ACC-026 Docker volume drill | Failure/cleanup/checksum contract coverage | `test_docker_volume_drill.py` (7, fake Docker shim; mock-based contract tests) |
 
 Additional reliability scaffolding: `scripts/install_schedule.py` (5 tests),
 `scripts/config_preflight.py` (4 tests), backup disk-space preflight with 3 tests,
@@ -282,3 +282,9 @@ remains **7/10 (70%)** and public deployment **0/6 (0%)** because the three
 BLOCKED checks require external infrastructure or independent review. External
 procedures, evidence requirements, rollback and responsible operators are in
 [`docs/EXTERNAL-VERIFICATION-CHECKLIST.md`](docs/EXTERNAL-VERIFICATION-CHECKLIST.md).
+
+Final local validation on this branch: backend `unittest discover -s backend/tests -q`
+→ **1,211 OK, 1 skipped**; frontend `npm test` **10/10**, `npm run test:ui`
+**127/127** (21 files), `npm run build` and `npm run typecheck:test` exit 0.
+Raw logs: `/tmp/opencode/phase2-final/`. CI results for the pushed PR head are
+recorded in the PR and final report.

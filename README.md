@@ -131,7 +131,7 @@ This repository documents what is **verified** and what is **blocked**, because 
 
 | Area | State |
 | --- | --- |
-| Backend test suite | 1,181 tests passing, 1 skipped (no nginx binary in the container) |
+| Backend test suite | 1,211 tests passing, 1 skipped (no nginx binary in the container) |
 | Frontend | 10 `node:test` + 127 Vitest tests, 21 UI files, typecheck and production build clean |
 | Real-browser tests | 9 Playwright checks (desktop/tablet/mobile) in CI |
 | Security scans | `pip-audit`, `npm audit --omit=dev`, Trivy fs/config: clean at MEDIUM+ |

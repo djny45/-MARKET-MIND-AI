@@ -102,6 +102,17 @@ Production startup fails closed when mandatory configuration is missing or
 weak (see `backend/app/env_validation.py`). Do not set `API_AUTH_REQUIRED`
 without a strong token; the service intentionally refuses to start.
 
+**Dual-auth behavior (verified 2026-11-24).** With `MARKET_MIND_USER_AUTH=true`,
+per-user sessions are authoritative for every API route: the deployment bearer
+is not required by the browser (which cannot safely hold the server secret).
+`API_AUTH_REQUIRED=true` still enforces the bearer in bearer-only deployments
+where per-user auth is off. The shipped frontend installs a same-origin fetch
+wrapper (`frontend/src/apiClient.ts`) that attaches the `mm_csrf` cookie as
+`X-CSRF-Token` to mutating requests. Evidence: `test_frontend_auth_integration.py`
+(login, CSRF rejection, CSRF-accepted write, bearer-only gate) and
+`tests/ui/api-client.test.ts` (4 tests). This does not verify the real TLS
+ingress or the operator's proxy hop count.
+
 ## 6. Real S3-compatible off-host backups
 
 There is **no S3 client in this repository**. Off-host copy is performed by an

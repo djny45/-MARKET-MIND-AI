@@ -120,7 +120,7 @@
       "feature": "Responsive browser verification",
       "implementation": "Playwright chromium desktop/tablet/mobile projects; wrapped side-tabs and mobile header fixes",
       "missing": "none in-scope; real browser CI job present and passing",
-      "tests": "tests/e2e/responsive.spec.ts (9 pass); CI run 45268550062",
+      "tests": "tests/e2e/responsive.spec.ts (9 pass); CI run 45367456403",
       "status": "verified",
       "id": "ACC-013"
     },

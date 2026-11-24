@@ -469,10 +469,18 @@
   },
   "container_scan": {
     "status": "FAIL",
-    "run": 45373686192,
-    "high": 53,
-    "medium": 81,
-    "low_or_unknown": 94,
+    "run": 45377337583,
+    "head": "2eee8082b59d4faf40001d8b95f998ec4eb97340",
+    "backend": {
+      "high": 59,
+      "medium": 78,
+      "low_or_unknown": 94
+    },
+    "frontend": {
+      "high": 20,
+      "medium": 13,
+      "low_or_unknown": 48
+    },
     "remediation": "pip pinned to fixed 26.2.0; base-image OS findings lack fixed versions and remain external",
     "suppressed": false,
     "evidence": "docs/CONTAINER-SCAN-FINDINGS.md"

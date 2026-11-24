@@ -7,15 +7,20 @@ reports are uploaded as artifact `container-image-scan-reports`. Findings are
 
 ## Observed result
 
-CI run [45373686192](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45373686192)
-on `900a9c36`: the **Container image security scan job FAILED** on the backend
-image; the other six jobs passed. The backend SARIF contained:
+CI run [45377337583](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45377337583)
+on the final head `2eee8082`: the **Container image security scan job FAILED**
+on real findings in both images; the other six jobs passed. Both SARIF reports
+were collected:
 
-| SARIF level | Trivy severity | Count |
-| --- | --- | --- |
-| error | HIGH | 53 |
-| warning | MEDIUM | 81 |
-| note | LOW / unknown | 94 |
+| Image | HIGH | MEDIUM | LOW / unknown |
+| --- | --- | --- | --- |
+| backend | 59 | 78 | 94 |
+| frontend | 20 | 13 | 48 |
+
+The first run [45373686192](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45373686192)
+on `900a9c36` reported backend 53 HIGH / 81 MEDIUM / 94 LOW-unknown. The
+difference reflects a refreshed Trivy database plus the `pip` upgrade; the gate
+remains failing.
 
 Affected OS packages include `bsdutils`, `util-linux`, `libblkid1`,
 `libmount1`, `libuuid1`, `openssl`/`libssl3t64`, `libsqlite3-0`, `ncurses`,

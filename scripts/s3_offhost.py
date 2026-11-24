@@ -127,7 +127,10 @@ def main(argv: list[str] | None = None) -> int:
         status, _ = _request("PUT", url, payload, settings, urlparse(endpoint).netloc, path)
     else:
         status, payload = _request("GET", url, b"", settings, urlparse(endpoint).netloc, path)
-        Path(args.file).write_bytes(payload)
+        # A non-2xx body is an error document, not a backup. Never overwrite a
+        # verified local file with it, and never create a file from a failure.
+        if 200 <= status < 300:
+            Path(args.file).write_bytes(payload)
     print(json.dumps({"action": args.action, "status": status, "key": key,
                       "credentials_exposed": False}, sort_keys=True))
     return 0 if 200 <= status < 300 else 1

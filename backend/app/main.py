@@ -585,24 +585,58 @@ def system_configuration(_principal: Any = Depends(require_user_role("admin"))):
  return validate_environment()
 
 
+DEFAULT_BACKUP_MAX_AGE_SECONDS = 90000
+
+
+def _backup_max_age_seconds() -> int:
+  """Return the configured backup freshness threshold (seconds).
+
+  Invalid or non-positive values fall back to the default so a malformed
+  operator setting cannot silently make every backup look fresh.
+  """
+  try:
+   value = int(os.getenv("MARKET_MIND_BACKUP_MAX_AGE_SECONDS", DEFAULT_BACKUP_MAX_AGE_SECONDS))
+  except (TypeError, ValueError):
+   return DEFAULT_BACKUP_MAX_AGE_SECONDS
+  return value if 1 <= value <= 31536000 else DEFAULT_BACKUP_MAX_AGE_SECONDS
+
+
 @app.get("/api/backup/status")
 def backup_status(_principal: Any = Depends(require_user_role("admin"))):
-  """Report non-secret backup inventory; no restore or secret values are exposed."""
+  """Report non-secret backup inventory and freshness; no restore or secret values."""
   directory = Path(os.getenv("MARKET_MIND_BACKUP_DIR", "./data/backups"))
+  paths = sorted(directory.glob("*.db")) if directory.is_dir() else []
   backups = []
-  if directory.is_dir():
-   for path in sorted(directory.glob("*.db"))[:50]:
-    backups.append({
-     "name": path.name,
-     "bytes": path.stat().st_size,
-     "sha256_sidecar": path.with_suffix(path.suffix + ".sha256").is_file(),
-     "manifest": path.with_suffix(path.suffix + ".json").is_file(),
-    })
+  for path in paths[:50]:
+   backups.append({
+    "name": path.name,
+    "bytes": path.stat().st_size,
+    "sha256_sidecar": path.with_suffix(path.suffix + ".sha256").is_file(),
+    "manifest": path.with_suffix(path.suffix + ".json").is_file(),
+   })
+  max_age_seconds = _backup_max_age_seconds()
+  newest_mtime = max((path.stat().st_mtime for path in paths), default=None)
+  newest_age_seconds = (
+   max(0, int(datetime.now(timezone.utc).timestamp() - newest_mtime))
+   if newest_mtime is not None else None
+  )
+  if newest_age_seconds is None:
+   state = "never_run"
+  elif newest_age_seconds > max_age_seconds:
+   state = "stale"
+  else:
+   state = "ok"
   return {
-   "status": "ok", "directory": str(directory),
-   "backup_count": len(list(directory.glob("*.db"))) if directory.is_dir() else 0,
+   "status": "missing" if state == "never_run" else state,
+   "directory": str(directory),
+   "backup_count": len(paths),
+   "freshness": {
+    "state": state,
+    "newest_age_seconds": newest_age_seconds,
+    "max_age_seconds": max_age_seconds,
+   },
    "backups": backups,
-   "note": "Inventory only; integrity verification requires the local recovery scripts.",
+   "note": "Inventory and file-mtime freshness only; integrity verification requires local recovery scripts.",
   }
 
 

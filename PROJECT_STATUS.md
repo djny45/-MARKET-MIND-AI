@@ -100,3 +100,11 @@ See `REMAINING_WORK.md` § "Re-verification 2026-11-24" for the exact evidence a
 the updated 32/40 acceptance-inventory counts (previously 27/31). Private
 verification remains **7/10**; public deployment remains **0/6**. Real cloud S3,
 real Docker volumes and host service/restart drills are still operator work.
+
+Phase 2 on `fix/phase2-acceptance-gaps` (code through `d9169e81`) closed the five
+partial checks with local evidence, added host-schedule and config-preflight
+scaffolding, and corrected the unsupported 28/28 feature claim to 26/26.
+Acceptance inventory is now **37/40 verified, 0 partial, 3 BLOCKED**. The three
+external gates have procedures in
+`docs/EXTERNAL-VERIFICATION-CHECKLIST.md`; private verification stays 7/10 and
+public deployment 0/6.

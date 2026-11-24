@@ -83,6 +83,26 @@ pre-drill database from a separately verified backup if service state changed;
 remove only the throwaway target volume, never the source. Do not restart or
 modify production services outside an approved maintenance window.
 
-The authoritative external procedure, expected results, required permissions,
-evidence list and responsible operators are in
+## 7. Required infrastructure, permissions and accountability
+
+- **Infrastructure:** authorized Linux host with `systemd` or `crontab`, root
+  access, a 0600 `/etc/market-mind/market-mind.env`, Docker engine and a
+  disposable named volume for the sub-drill. Production data is not used.
+- **Permissions:** sudo/root only for installing/enabling generated units;
+  operator authorization and a maintenance window for any service restart.
+  No cloud credentials are needed for EXT-02.
+- **Expected result:** timer active, one fresh verified backup, killed task
+  requeued once with `still_running_count=0`, `integrity_check=ok`,
+  `/api/ready` HTTP 200, volume restore `restored_and_verified` with
+  `comparison=matched`, throwaway volume removed.
+- **Evidence to capture:** redacted `systemctl`/`crontab` output, journal lines,
+  restart and restore reports, `recovery_report.py` JSON, host identity and
+  operator name.
+- **Rollback:** disable/stop generated units before removal; restore the
+  pre-drill DB from a separately verified backup if service state changed;
+  remove only the throwaway target volume, never `market_mind_data`.
+- **Responsible external operator:** host/system administrator with root and
+  the service owner. No privileged operation was executed in this repository.
+
+The authoritative external procedure is also in
 `docs/EXTERNAL-VERIFICATION-CHECKLIST.md` (EXT-02).

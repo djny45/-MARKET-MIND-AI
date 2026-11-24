@@ -143,5 +143,15 @@ Required evidence before ACC-031 may become PASS:
 4. Scan outputs for dependency/container/config checks on the reviewed commit.
 5. Explicit go/no-go decision. Critical/High findings must be closed and retested.
 
+Required infrastructure/permissions: an isolated staging deployment with TLS
+ingress, role-based test identities, written rules of engagement and an
+independent testing team with no production write access. Expected result: no
+open Critical/High findings, all Medium findings accepted or remediated, and a
+signed go/no-go decision. Rollback on a failed review: keep public ingress
+disabled, remain in research-only private mode, remediate and retest before
+re-review. **Responsible external operator:** independent security lead or
+penetration-test provider, with the repository owner accepting or rejecting the
+final sign-off.
+
 Until then, public deployment remains **NOT READY** and ACC-031 remains BLOCKED.
-See `docs/EXTERNAL-VERIFICATION-CHECKLIST.md` (EXT-03) for rollback and operators.
+See `docs/EXTERNAL-VERIFICATION-CHECKLIST.md` (EXT-03) for the full procedure.

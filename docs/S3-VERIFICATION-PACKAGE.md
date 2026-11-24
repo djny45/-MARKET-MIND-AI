@@ -82,6 +82,26 @@ Expected evidence: redacted transcripts, sidecar/manifest, bucket encryption and
 versioning settings, object key/version/ETag, restore report with `comparison=matched`,
 restart report, aggregated report, operator identity and timestamp.
 
+## 4a. Required infrastructure, permissions and accountability
+
+- **Infrastructure:** authorized S3-compatible endpoint, dedicated bucket with
+  versioning, object lock and server-side encryption enabled, private network
+  path, and an isolated host with Python 3.11+ and this checkout.
+- **Permissions:** scoped IAM/token allowing `PutObject`, `GetObject` and
+  `ListBucket` only on the configured prefix; no production write credentials;
+  credentials supplied via a 0600 EnvironmentFile, never in Git or command lines.
+- **Expected result:** all commands exit 0; local/downloaded SHA-256 and the
+  backup fingerprint match; restore comparison `matched`; integrity `ok`; no
+  secret value in any output or artifact.
+- **Evidence to capture:** redacted transcripts, bucket encryption/versioning
+  policy, object key/version/ETag, sidecar and manifest, restore report,
+  restart report, `recovery_report.py` JSON, operator identity and timestamp.
+- **Rollback:** never overwrite the live database; discard the isolated copy.
+  If a service DB was touched, stop writes and restore the separately verified
+  pre-drill backup; revoke/rotate credentials used for the drill.
+- **Responsible external operator:** cloud infrastructure owner (IAM) plus the
+  host operator who owns the private database. Both must sign the evidence.
+
 ## 5. Honest boundary
 
 No real cloud target was contacted. Passing local fake-S3 tests proves only the

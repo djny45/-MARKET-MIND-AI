@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -295,8 +296,24 @@ def _resume(config: BackupConfig, journal: dict) -> dict:
     return _finalize(config, journal, backup, retention)
 
 
+def _ensure_free_space(directory: Path) -> None:
+    """Fail before copying when the backup volume is below the configured floor."""
+    if not os.getenv("MARKET_MIND_BACKUP_MIN_FREE_MB", "").strip():
+        return
+    minimum_mb = env_int("MARKET_MIND_BACKUP_MIN_FREE_MB", 0, minimum=0)
+    if minimum_mb <= 0:
+        return
+    try:
+        free_mb = shutil.disk_usage(directory).free // (1024 * 1024)
+    except OSError as exc:
+        raise DrError("backup_disk_probe_failed:" + type(exc).__name__) from exc
+    if free_mb < minimum_mb:
+        raise DrError("insufficient_backup_disk_space")
+
+
 def run_backup(config: BackupConfig, *, resume: bool = False) -> dict:
     config.destination_dir.mkdir(parents=True, exist_ok=True)
+    _ensure_free_space(config.destination_dir)
     config.state_dir.mkdir(parents=True, exist_ok=True)
     with DrLock(config.state_dir, "backup"):
         journal = read_json(_journal_path(config))

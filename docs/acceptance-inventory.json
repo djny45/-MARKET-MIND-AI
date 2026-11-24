@@ -452,7 +452,13 @@
       "recovery runs had no journal/lock or interrupted-run flag",
       "host preflight did not validate referenced scripts",
       "cron fields and calendar expressions were not fully validated",
-      "config preflight rejected IPv6 loopback and accepted protocol-relative CSRF URLs"
+      "config preflight rejected IPv6 loopback and accepted protocol-relative CSRF URLs",
+      "FK parity compares violation sets, not absence of violations",
+      "WAL-safe pre-restore snapshot and guaranteed failed report",
+      "interrupted recovery journal blocks evidence_complete",
+      "host preflight loads audited install_schedule from --root",
+      "benign upload outcomes remain in the journal",
+      "retry_upload/FK/Journal gating regressions added"
     ],
     "scope": "all 40 checks unchanged: 37 PASS, 0 PARTIAL, 3 BLOCKED"
   }

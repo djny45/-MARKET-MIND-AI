@@ -284,7 +284,7 @@ procedures, evidence requirements, rollback and responsible operators are in
 [`docs/EXTERNAL-VERIFICATION-CHECKLIST.md`](docs/EXTERNAL-VERIFICATION-CHECKLIST.md).
 
 Final local validation on this branch: backend `unittest discover -s backend/tests -q`
-→ **1,241 OK, 1 skipped**; frontend `npm test` **10/10**, `npm run test:ui`
+→ **1,248 OK, 1 skipped**; frontend `npm test` **10/10**, `npm run test:ui`
 **127/127** (21 files), `npm run build` and `npm run typecheck:test` exit 0.
 Raw logs: `/tmp/opencode/phase2-final/`. CI results for the pushed PR head are
 recorded in the PR and final report.
@@ -325,7 +325,7 @@ verification stays 7/10 and public deployment 0/6; the three blocked checks are
 external by definition.
 
 Final Phase 3 local validation: backend `unittest discover -s backend/tests -q`
-→ **1,241 OK, 1 skipped**; frontend `npm test` **10/10**, `npm run test:ui`
+→ **1,248 OK, 1 skipped**; frontend `npm test` **10/10**, `npm run test:ui`
 **127/127** (21 files), `npm run build` and `npm run typecheck:test` exit 0.
 Logs: `/tmp/opencode/phase3-final/`.
 
@@ -350,5 +350,5 @@ fallback and stale "550+" wording, and provider-health clock consistency.
 Acceptance is unchanged at **37/40 PASS, 0 PARTIAL, 0 FAIL, 3 BLOCKED**. The
 three BLOCKED checks remain external (EXT-01 real cloud S3 restore, EXT-02 real
 host/Docker recovery, EXT-03 independent security sign-off). Final local
-validation: backend **1,241 OK, 1 skipped**; frontend **10/10** and **127/127**
+validation: backend **1,248 OK, 1 skipped**; frontend **10/10** and **127/127**
 with clean build/typecheck; logs `/tmp/opencode/final-run/`.

@@ -33,6 +33,19 @@ merged automatically.
 | Low | `provider_health.report(now=...)` mixed injected and wall clocks | `now` forwarded to `health()` |
 | Low | Cron fields/calendar unvalidated; IPv6 loopback rejected; host tooling not preflighted | per-field cron validation, IPv6 loopback accepted, host-tooling preflight check |
 
+## Final follow-up audit (before delivery)
+
+A second read-only audit of the final diff found and fixed six more confirmed defects, each with a regression test:
+
+| Defect | Fix |
+| --- | --- |
+| Strict restore rejected a byte-identical backup that already contained an FK violation | `_compare` now requires equality of violation sets, not absence of violations |
+| Pre-restore snapshot could lose WAL-committed data; failed reports could be skipped | snapshot uses `sqlite3.Connection.backup()` with byte-copy fallback; rollback removes sidecars and always writes a failed report |
+| Recovery report could say `evidence_complete` while an interrupted journal existed | `journal_status == completed` is now required; CLI fails closed |
+| Host preflight validated the shipped `install_schedule.py` rather than the audited `--root` copy | audited module is loaded from the target root via `importlib.util` |
+| Normal no-upload backups lost journal fidelity (`upload.status`) | benign `not_configured`/`dry_run` outcomes are recorded again |
+| `retry_upload` finalization, FK parity and interrupted-journal gating lacked tests | added dedicated regression tests |
+
 ## Not fixed / explicitly out of scope
 
 - Real cloud S3 restore, real host service/Docker recovery and independent security sign-off remain **BLOCKED**; no mock is counted as external evidence.

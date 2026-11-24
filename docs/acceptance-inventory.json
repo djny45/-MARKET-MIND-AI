@@ -3,8 +3,8 @@
   "source": "verified 2026-11-24 on branch feature/phase3-external-prep (final head recorded in final report)",
   "counts": {
     "api_routes": 147,
-    "backend_modules": 118,
-    "backend_test_modules": 155,
+    "backend_modules": 121,
+    "backend_test_modules": 181,
     "frontend_ui_test_files": 21,
     "analytical_worker_configs": 550,
     "auth_routes": 6,
@@ -184,7 +184,7 @@
       "feature": "Local backup, restore and recovery reporting",
       "implementation": "scripts/backup_orchestrator.py, restore_orchestrator.py, migration_rollback.py",
       "missing": "external cloud, volume and host drills are tracked by ACC-029..031",
-      "tests": "test_recovery_drills.py (20), test_recovery_report.py (2)",
+      "tests": "test_recovery_drills.py (20), test_recovery_report.py (6)",
       "status": "verified",
       "id": "ACC-021"
     },
@@ -216,7 +216,7 @@
       "feature": "S3 adapter contract and integrity (local)",
       "implementation": "scripts/s3_offhost.py SigV4 PUT/GET with env-only credentials",
       "missing": "real bucket/credentials are tracked by ACC-029",
-      "tests": "test_s3_offhost.py (2), test_s3_offhost_integration.py (4, fake S3)",
+      "tests": "test_s3_offhost.py (2), test_s3_offhost_integration.py (8, fake S3)",
       "status": "verified",
       "id": "ACC-025"
     },
@@ -224,7 +224,7 @@
       "feature": "Docker volume drill contracts and local integration",
       "implementation": "scripts/docker_volume_drill.py with plan default, explicit --apply, separate target volume",
       "missing": "real Docker host execution is tracked by ACC-030",
-      "tests": "test_docker_volume_drill.py (7, fake Docker shim; mock-based contract tests)",
+      "tests": "test_docker_volume_drill.py (8, fake Docker shim; mock-based contract tests)",
       "status": "verified",
       "id": "ACC-026"
     },
@@ -272,7 +272,7 @@
       "feature": "Host schedule installation scaffolding",
       "implementation": "scripts/install_schedule.py: plan default, apply to chosen dir, systemd/cron generation without privileged calls",
       "missing": "actual host install is tracked by ACC-030",
-      "tests": "test_install_schedule.py (5)",
+      "tests": "test_install_schedule.py (7)",
       "status": "verified",
       "id": "ACC-032"
     },
@@ -280,7 +280,7 @@
       "feature": "Deployment config, TLS and ingress preflight",
       "implementation": "scripts/config_preflight.py plus nginx/map and Compose segmentation guards",
       "missing": "external TLS scan and pentest are tracked by ACC-031",
-      "tests": "test_config_preflight.py (4), test_ingress_config.py (14, 1 skip)",
+      "tests": "test_config_preflight.py (7), test_ingress_config.py (14, 1 skip)",
       "status": "verified",
       "id": "ACC-033"
     }
@@ -413,5 +413,47 @@
       "external checklist command corrections"
     ],
     "delivery": "fix(audit) commit on stacked feature/phase3-external-prep branch"
+  },
+  "final_pr_review": {
+    "prs": [
+      {
+        "number": 100,
+        "head": "2f3db51dc79a",
+        "ci_run": 45346939072,
+        "state": "OPEN",
+        "result": "all 6 jobs PASS"
+      },
+      {
+        "number": 102,
+        "head": "e69530045225",
+        "ci_run": 45353077146,
+        "state": "OPEN",
+        "result": "all 6 jobs PASS"
+      },
+      {
+        "number": 103,
+        "head": "2daaab4181e3",
+        "ci_run": 45359903577,
+        "state": "OPEN",
+        "result": "all 6 jobs PASS"
+      }
+    ],
+    "merge_conflicts": "none (stacked branches, MERGEABLE)",
+    "automated_findings": 33,
+    "confirmed_fixes_in_final_branch": [
+      "failed upload could be finalized by resume",
+      "migration rollback left stale WAL/SHM sidecars",
+      "login lockout could be bypassed when every key was actively locked",
+      "AgentNetwork fell back to a cross-origin localhost URL and showed 550+",
+      "provider_health report(now) mixed clocks",
+      "S3 adapter did not enforce config validation; no retries, metadata, atomic/digest-verified download",
+      "restore overwrite had no rollback snapshot or failed report",
+      "fingerprint parity was count-only and Docker snippet diverged",
+      "recovery runs had no journal/lock or interrupted-run flag",
+      "host preflight did not validate referenced scripts",
+      "cron fields and calendar expressions were not fully validated",
+      "config preflight rejected IPv6 loopback and accepted protocol-relative CSRF URLs"
+    ],
+    "scope": "all 40 checks unchanged: 37 PASS, 0 PARTIAL, 3 BLOCKED"
   }
 }

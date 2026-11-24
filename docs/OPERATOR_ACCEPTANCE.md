@@ -21,7 +21,15 @@ reference material.
 ## Status (verified 2026-11-24)
 
 - PR #107 is open, mergeable, on the stack (#100 → #102 → #103 → #104 → #105 → #106 → #107).
-- Workspace HEAD `2faf2227` == PR #107 head `2faf22270f70b6e97eb98f2540e1845326c53440`.
+- Workspace HEAD `ba909812` == PR #107 head `ba9098124353efdc68d22647e9bfe5c3c46de230`.
+- CI run `45450863434` (head `ba909812`): **success** — all 7 jobs pass.
+- Local verification results (re-run on HEAD ba909812):
+  - Backend: **1261 OK, 1 skipped**
+  - Frontend unit: **10/10**
+  - Frontend UI: **21 files, 127 passed**
+  - Playwright (with library prefix): **9 passed**
+  - `pip-audit -r backend/requirements.txt`: **No known vulnerabilities found**
+  - `npm audit --audit-level=high --omit=dev`: **found 0 vulnerabilities**
 
 | Check | Command (abbreviated) | Result |
 | --- | --- | --- |

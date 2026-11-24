@@ -1,6 +1,8 @@
 # Worker Registry Integrity
 
-The worker registry is a deterministic manifest of **550 analytical worker templates**. It is not a fleet of 550 independently running models. All profiles reference the shared `shared_central_intelligence` core, and registry evaluation does not execute inference or broker actions.
+The worker registry is a deterministic manifest of **550 analytical worker templates** spanning 20 departments and 28 specialty labels (a partial grid, not a full 560-cell cross-product). It is not a fleet of 550 independently running models. All profiles reference the shared `shared_central_intelligence` core, and registry evaluation does not execute inference or broker actions.
+
+Verified on 2026-11-24: the allowlisted skill catalog has **325 entries** (300 advisory sections in one pack file plus 25 standalone `SKILL.md` files), while `.agents/skills/` contains **115** `SKILL.md` files in total; 89 of those are Vibe Trading reference skills that are explicitly **not registered** and cannot be resolved through `skill_refs` or `/api/skills`.
 
 ## Validation layers
 

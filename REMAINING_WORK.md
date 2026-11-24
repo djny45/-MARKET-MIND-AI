@@ -204,3 +204,40 @@ no public ingress was enabled by this audit.
 - Application features: **26/26 (100%)** — `docs/acceptance-inventory.json` module inventory; full local suites pass.
 - Private research-platform verification: **7/10 (70%)** — corrected matrix above; three infrastructure gates BLOCKED.
 - Public deployment readiness: **0/6 (0%)** — no independent external evidence exists.
+
+---
+
+## Re-verification 2026-11-24 — closing locally executable work
+
+Baseline: `main` `1a13bfe28974ebdf2877ba0180889122aeafd7e0` (clean; all six CI
+jobs PASS in run `45268550062`). Work was done on
+`fix/close-remaining-verification-gaps`; code commits `3dab5955` through
+`b07c1d90`. Raw logs: `/tmp/opencode/audit4-20261124/`.
+
+**Recalculated status:** private-platform verification is **still 7/10 (70%)**,
+because all three remaining gates in the 10-gate matrix are external. Application
+features remain **26/26**; public deployment remains **0/6**. The separate
+acceptance inventory was corrected from 27/31 verified (README previously said
+28/31) to **32/40 verified, 5 partial, 3 blocked** after adding explicit items
+for locally verified work and the three external gates.
+
+### Closed with reproducible local evidence
+
+| Item | Evidence (this branch) |
+| --- | --- |
+| Backup freshness never reported a stopped schedule | `GET /api/backup/status` reports `never_run`/`ok`/`stale`, newest age and validated threshold; `test_backup_freshness.py` (7 tests) |
+| S3-compatible transfer/integrity | Stdlib fake-S3 HTTP server verifies SigV4 signatures, SHA-256 parity, bad-secret rejection and fail-closed downloads; `test_s3_offhost_integration.py` (3) + `test_s3_offhost.py` (2) |
+| Docker named-volume drill | `scripts/docker_volume_drill.py`: read-only `plan`, explicit `--apply`, separate target volume, no `down -v`; `test_docker_volume_drill.py` (4) with a fake Docker shim |
+| DR secret leakage | Hook output, manifests and webhook reasons redacted; `test_dr_secret_hygiene.py` (3) |
+| Confirmed security defects | Malformed Origin 500, unaudited rate limits, login actor field, lockout/rate-bucket eviction, identity-row growth, middleware ordering, dual-auth UI; `test_security_defect_regressions.py` (8), `test_frontend_auth_integration.py` (1), `tests/ui/api-client.test.ts` (4) |
+| Offline preflight/ingress | `test_load_check.py` (3), `test_dr_environment_validation.py` (3), TLS forwarded-proto and Compose segmentation guards in `test_ingress_config.py` (14 total, 1 skip) |
+| Documentation accuracy | Corrected 20×28 arithmetic, 325 vs 300+ skills, nonexistent vendored library, stale test filename, literal escapes and duplicate headings |
+
+### Still BLOCKED (external; no evidence invented)
+
+1. Real cloud S3 restore — no endpoint/bucket/credentials; the local fake-S3 test is a prerequisite only.
+2. Docker named-volume restore on a real host — no Docker binary here; the fake-Docker test verifies the command contract only.
+3. Host systemd/cron install, controlled restart and real process-kill drill — no privileges or host init access.
+
+Public deployment remains **0/6** (TLS issuance/scan, segmentation, ingress hardening,
+independent penetration test, formal review, production-scale recovery evidence).

@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-11-23",
-  "source": "origin/main b770a51cb1bc8ee3639996a9efebceb4ae477ef9",
+  "generated_at": "2026-11-24",
+  "source": "verified 2026-11-24 on branch fix/close-remaining-verification-gaps at b07c1d90",
   "counts": {
     "api_routes": 147,
     "backend_modules": 118,
@@ -17,33 +17,254 @@
     "blocked": "requires owner/operator/external action"
   },
   "acceptance_matrix": [
-    {"feature":"Per-user authentication","implementation":"backend/app/user_auth.py; /api/auth/login|logout|me","missing":"none in-scope","tests":"test_user_auth.py, test_user_auth_api.py","status":"verified"},
-    {"feature":"Four-role authorization","implementation":"backend/app/authorization.py; SENSITIVE_ROUTE_POLICY; bearer downgrade to viewer","missing":"none in-scope","tests":"test_authorization.py (SharedBearerPrivilegeTests)","status":"verified"},
-    {"feature":"Resource ownership","implementation":"SQLite-backed resource_ownership table; unknown refs denied","missing":"none in-scope","tests":"test_authorization.py (DurableOwnershipTests)","status":"verified"},
-    {"feature":"Session CSRF/rotation/expiry","implementation":"user_auth.py, auth_session_store.py, user_session_middleware.py","missing":"none in-scope","tests":"test_user_auth.py, test_authorization.py","status":"verified"},
-    {"feature":"Strict environment validation","implementation":"backend/app/env_validation.py; origin_required()","missing":"none in-scope","tests":"test_env_validation.py","status":"verified"},
-    {"feature":"Trusted proxy and rate limiting","implementation":"rate_limit.py, distributed_rate_limit.py","missing":"ingress limits are operator work","tests":"test_rate_limit.py, test_distributed_rate_limit.py","status":"verified"},
-    {"feature":"Audit events and redaction","implementation":"backend/app/audit_events.py","missing":"none in-scope","tests":"test_audit_events.py","status":"verified"},
-    {"feature":"Frontend auth UI","implementation":"frontend/src/AuthPanel.tsx","missing":"none in-scope","tests":"tests/ui/auth-panel.test.tsx","status":"verified"},
-    {"feature":"Role-aware navigation/access denied","implementation":"App.tsx sideTabs/selectTab","missing":"none in-scope","tests":"app.general-fixes.test.tsx","status":"verified"},
-    {"feature":"Observation screener","implementation":"frontend/src/CoverageTools.tsx","missing":"none in-scope","tests":"coverage-tools.test.tsx","status":"verified"},
-    {"feature":"Coverage heatmap","implementation":"frontend/src/CoverageTools.tsx","missing":"none in-scope","tests":"coverage-tools.test.tsx","status":"verified"},
-    {"feature":"Help dialog/news errors/watchlist states","implementation":"App.tsx","missing":"none in-scope","tests":"app.general-fixes.test.tsx, app.news.test.tsx","status":"verified"},
-    {"feature":"Responsive browser verification","implementation":"Playwright chromium desktop/tablet/mobile projects; wrapped side-tabs and mobile header fixes","missing":"CI job blocked by owner workflow scope","tests":"tests/e2e/responsive.spec.ts (9 pass locally)","status":"verified"},
-    {"feature":"550 worker registry","implementation":"backend/app/workers.py; worker_registry.py","missing":"none in-scope; shared-core templates not independent models","tests":"test_worker_registry.py, test_worker_skills.py","status":"verified"},
-    {"feature":"Skill allowlist and integrity","implementation":"skill_catalog.py, skill_integrity.py","missing":"none in-scope","tests":"test_skill_catalog.py, test_skill_integrity.py","status":"verified"},
-    {"feature":"Worker memory isolation","implementation":"backend/app/worker_memory.py","missing":"per-user ownership is separate and in-memory","tests":"test_worker_memory.py","status":"partial"},
-    {"feature":"Task ownership fencing","implementation":"analytical_agent_tasks.py execution_token CAS; PR #8 port","missing":"none in-scope","tests":"test_analytical_agent_tasks.py, test_agent_supervisor.py","status":"verified"},
-    {"feature":"Supervisor lease-loss handling","implementation":"heartbeat lease columns, CAS renewal, dispatch revalidation","missing":"two-process contention test (ADR-0001)","tests":"test_agent_supervisor.py (3 lease tests)","status":"verified"},
-    {"feature":"Market-data provenance/freshness","implementation":"market_data.py, provider_health.py, data_licensing_gate.py","missing":"licensed live provider; cryptographic attestation","tests":"test_market_data.py, test_market_data_store_api.py, test_provider_health.py","status":"partial"},
-    {"feature":"Historical research/backtesting","implementation":"backend research modules + CLI","missing":"none in-scope","tests":"test_historical_research.py","status":"verified"},
-    {"feature":"Backup/restore and DR scripts","implementation":"scripts/backup_orchestrator.py, restore_orchestrator.py, migration_rollback.py","missing":"S3 adapter, Docker volume restore, host drills","tests":"test_recovery_drills.py, test_backup_database.py","status":"partial"},
-    {"feature":"Trivy CI full scope","implementation":"local scan vuln,misconfig,secret MEDIUM+; workflow patch on security/trivy-ci-scope","missing":"owner workflow scope to land workflow change","tests":"test_ci_workflow_config.py (isolated branch)","status":"blocked"},
-    {"feature":"Container/runtime integration","implementation":"docker-compose.yml, Dockerfiles, health checks","missing":"no local docker; CI authoritative","tests":"GitHub Actions Docker Compose job","status":"verified"},
-    {"feature":"Imported execution code inert","implementation":"third_party excluded; no brokerage paths","missing":"none in-scope","tests":"test_skill_integrity.py, test_mcp_server.py","status":"verified"}
+    {
+      "feature": "Per-user authentication",
+      "implementation": "backend/app/user_auth.py; /api/auth/login|logout|me",
+      "missing": "none in-scope",
+      "tests": "test_user_auth.py, test_user_auth_api.py",
+      "status": "verified"
+    },
+    {
+      "feature": "Four-role authorization",
+      "implementation": "backend/app/authorization.py; SENSITIVE_ROUTE_POLICY; bearer downgrade to viewer",
+      "missing": "none in-scope",
+      "tests": "test_authorization.py (SharedBearerPrivilegeTests)",
+      "status": "verified"
+    },
+    {
+      "feature": "Resource ownership",
+      "implementation": "SQLite-backed resource_ownership table; unknown refs denied",
+      "missing": "none in-scope",
+      "tests": "test_authorization.py (DurableOwnershipTests)",
+      "status": "verified"
+    },
+    {
+      "feature": "Session CSRF/rotation/expiry",
+      "implementation": "user_auth.py, auth_session_store.py, user_session_middleware.py",
+      "missing": "none in-scope",
+      "tests": "test_user_auth.py, test_authorization.py",
+      "status": "verified"
+    },
+    {
+      "feature": "Strict environment validation",
+      "implementation": "backend/app/env_validation.py; origin_required()",
+      "missing": "none in-scope",
+      "tests": "test_env_validation.py",
+      "status": "verified"
+    },
+    {
+      "feature": "Trusted proxy and rate limiting",
+      "implementation": "rate_limit.py, distributed_rate_limit.py",
+      "missing": "ingress limits are operator work",
+      "tests": "test_rate_limit.py, test_distributed_rate_limit.py",
+      "status": "verified"
+    },
+    {
+      "feature": "Audit events and redaction",
+      "implementation": "backend/app/audit_events.py",
+      "missing": "none in-scope",
+      "tests": "test_audit_events.py",
+      "status": "verified"
+    },
+    {
+      "feature": "Frontend auth UI",
+      "implementation": "frontend/src/AuthPanel.tsx",
+      "missing": "none in-scope",
+      "tests": "tests/ui/auth-panel.test.tsx",
+      "status": "verified"
+    },
+    {
+      "feature": "Role-aware navigation/access denied",
+      "implementation": "App.tsx sideTabs/selectTab",
+      "missing": "none in-scope",
+      "tests": "app.general-fixes.test.tsx",
+      "status": "verified"
+    },
+    {
+      "feature": "Observation screener",
+      "implementation": "frontend/src/CoverageTools.tsx",
+      "missing": "none in-scope",
+      "tests": "coverage-tools.test.tsx",
+      "status": "verified"
+    },
+    {
+      "feature": "Coverage heatmap",
+      "implementation": "frontend/src/CoverageTools.tsx",
+      "missing": "none in-scope",
+      "tests": "coverage-tools.test.tsx",
+      "status": "verified"
+    },
+    {
+      "feature": "Help dialog/news errors/watchlist states",
+      "implementation": "App.tsx",
+      "missing": "none in-scope",
+      "tests": "app.general-fixes.test.tsx, app.news.test.tsx",
+      "status": "verified"
+    },
+    {
+      "feature": "Responsive browser verification",
+      "implementation": "Playwright chromium desktop/tablet/mobile projects; wrapped side-tabs and mobile header fixes",
+      "missing": "none in-scope; real browser CI job present and passing",
+      "tests": "tests/e2e/responsive.spec.ts (9 pass); CI run 45268550062",
+      "status": "verified"
+    },
+    {
+      "feature": "550 worker registry",
+      "implementation": "backend/app/workers.py; worker_registry.py",
+      "missing": "none in-scope; shared-core templates not independent models",
+      "tests": "test_worker_registry.py, test_worker_skills.py",
+      "status": "verified"
+    },
+    {
+      "feature": "Skill allowlist and integrity",
+      "implementation": "skill_catalog.py, skill_integrity.py",
+      "missing": "none in-scope",
+      "tests": "test_skill_catalog.py, test_skill_integrity.py",
+      "status": "verified"
+    },
+    {
+      "feature": "Worker memory isolation",
+      "implementation": "backend/app/worker_memory.py",
+      "missing": "per-user ownership is separate and in-memory",
+      "tests": "test_worker_memory.py",
+      "status": "partial"
+    },
+    {
+      "feature": "Task ownership fencing",
+      "implementation": "analytical_agent_tasks.py execution_token CAS; PR #8 port",
+      "missing": "none in-scope",
+      "tests": "test_analytical_agent_tasks.py, test_agent_supervisor.py",
+      "status": "verified"
+    },
+    {
+      "feature": "Supervisor lease-loss handling",
+      "implementation": "heartbeat lease columns, CAS renewal, dispatch revalidation",
+      "missing": "two-process contention test (ADR-0001)",
+      "tests": "test_agent_supervisor.py (3 lease tests)",
+      "status": "verified"
+    },
+    {
+      "feature": "Market-data provenance/freshness",
+      "implementation": "market_data.py, provider_health.py, data_licensing_gate.py",
+      "missing": "licensed live provider; cryptographic attestation",
+      "tests": "test_market_data.py, test_market_data_store_api.py, test_provider_health.py",
+      "status": "partial"
+    },
+    {
+      "feature": "Historical research/backtesting",
+      "implementation": "backend research modules + CLI",
+      "missing": "none in-scope",
+      "tests": "test_run_historical_research_walk_forward.py, test_run_multi_symbol_research.py",
+      "status": "verified"
+    },
+    {
+      "feature": "Backup/restore and DR scripts",
+      "implementation": "scripts/backup_orchestrator.py, restore_orchestrator.py, migration_rollback.py",
+      "missing": "real cloud S3, Docker host volume and host restart drills remain operator work",
+      "tests": "test_recovery_drills.py, test_backup_database.py, test_docker_volume_drill.py (fake Docker)",
+      "status": "partial"
+    },
+    {
+      "feature": "Trivy CI full scope",
+      "implementation": ".github/workflows/quality.yml trivy-security job (fs vuln,misconfig,secret + config, MEDIUM+)",
+      "missing": "none in-scope; CI run 45268550062 on 1a13bfe2 passed all 6 jobs",
+      "tests": "test_ci_workflow_config.py; GitHub Actions trivy-security job",
+      "status": "verified"
+    },
+    {
+      "feature": "Container/runtime integration",
+      "implementation": "docker-compose.yml, Dockerfiles, health checks",
+      "missing": "no local docker; CI authoritative",
+      "tests": "GitHub Actions Docker Compose job",
+      "status": "verified"
+    },
+    {
+      "feature": "Imported execution code inert",
+      "implementation": "third_party excluded; no brokerage paths",
+      "missing": "none in-scope",
+      "tests": "test_skill_integrity.py, test_mcp_server.py",
+      "status": "verified"
+    },
+    {
+      "feature": "Backup freshness monitoring",
+      "implementation": "GET /api/backup/status freshness state (never_run/ok/stale), newest_age_seconds, validated threshold",
+      "missing": "integrity verification still requires recovery scripts",
+      "tests": "test_backup_freshness.py (7 tests)",
+      "status": "verified"
+    },
+    {
+      "feature": "S3-compatible off-host transfer",
+      "implementation": "scripts/s3_offhost.py SigV4 PUT/GET with env-only credentials",
+      "missing": "real bucket/credentials/restore are operator work",
+      "tests": "test_s3_offhost.py + test_s3_offhost_integration.py (5 tests, stdlib fake S3)",
+      "status": "partial"
+    },
+    {
+      "feature": "Docker named-volume drill",
+      "implementation": "scripts/docker_volume_drill.py with plan default, explicit --apply, separate target volume",
+      "missing": "no Docker binary on this host; real volume restore not executed",
+      "tests": "test_docker_volume_drill.py (4 tests with fake Docker shim)",
+      "status": "partial"
+    },
+    {
+      "feature": "DR secret hygiene",
+      "implementation": "dr_common.redact_secrets applied to hook output, manifests and webhook details",
+      "missing": "none in-scope",
+      "tests": "test_dr_secret_hygiene.py (3 tests)",
+      "status": "verified"
+    },
+    {
+      "feature": "Dual-auth browser integration",
+      "implementation": "session routes authoritative when per-user auth enabled; same-origin CSRF fetch wrapper",
+      "missing": "real TLS ingress and proxy hop count unverified",
+      "tests": "test_frontend_auth_integration.py (1), tests/ui/api-client.test.ts (4)",
+      "status": "verified"
+    },
+    {
+      "feature": "Throttling audit and flood hardening",
+      "implementation": "rate-limit denials audited; key-flood fail-closed; login lockout survives noise; middleware counts rejected requests",
+      "missing": "none in-scope",
+      "tests": "test_security_defect_regressions.py (8 tests)",
+      "status": "verified"
+    },
+    {
+      "feature": "Real cloud S3 restore (external)",
+      "implementation": "none",
+      "missing": "operator endpoint, bucket, scoped credentials and clean-host restore evidence",
+      "tests": "not run",
+      "status": "blocked"
+    },
+    {
+      "feature": "Docker volume restore on a real host (external)",
+      "implementation": "operator script with dry-run default",
+      "missing": "Docker-capable host and authorization",
+      "tests": "fake-Docker tests only",
+      "status": "blocked"
+    },
+    {
+      "feature": "Host systemd/cron install and restart (external)",
+      "implementation": "config generators and recovery hook only",
+      "missing": "host privileges, service install, controlled restart evidence",
+      "tests": "config generation tests only",
+      "status": "blocked"
+    }
   ],
   "frontend_module_inventory": {
-    "implemented_tabs": ["OVERVIEW","WORKFLOW","AGENT_NETWORK","AGENT_POSITIONS","LEARNING","WORKERS","RUNS","SCREENER","COVERAGE","NEWS","RESEARCH","VALIDATION","WATCHLIST"],
+    "implemented_tabs": [
+      "OVERVIEW",
+      "WORKFLOW",
+      "AGENT_NETWORK",
+      "AGENT_POSITIONS",
+      "LEARNING",
+      "WORKERS",
+      "RUNS",
+      "SCREENER",
+      "COVERAGE",
+      "NEWS",
+      "RESEARCH",
+      "VALIDATION",
+      "WATCHLIST"
+    ],
     "implemented_inside_tabs": {
       "Market overview dashboard": "OVERVIEW",
       "Global market search": "header instrument search",
@@ -72,13 +293,55 @@
     "note": "All 26 requested frontend modules are implemented or covered inside a tab and connected to real backend services."
   },
   "operations_matrix": [
-    {"feature":"Portfolio research & performance analytics","implementation":"operations/PortfolioAnalytics -> POST /api/analytics/performance","missing":"none in-scope","tests":"tests/ui/operations-panels.test.tsx","status":"verified"},
-    {"feature":"Risk analytics","implementation":"operations/RiskAnalytics -> drawdown, volatility, Sharpe/Sortino","missing":"none in-scope","tests":"tests/ui/operations-panels.test.tsx","status":"verified"},
-    {"feature":"System health dashboard","implementation":"operations/SystemHealthPanel -> health, readiness, supervisor","missing":"none in-scope","tests":"tests/ui/operations-panels.test.tsx","status":"verified"},
-    {"feature":"Provider health","implementation":"operations/ProviderHealthPanel -> /api/providers/status","missing":"licensed live provider","tests":"tests/ui/operations-panels.test.tsx","status":"verified"},
-    {"feature":"Audit & security events","implementation":"operations/AuditEventsPanel -> operator-gated endpoint","missing":"none in-scope","tests":"tests/ui/operations-panels.test.tsx","status":"verified"},
-    {"feature":"Backup & recovery status","implementation":"GET /api/backup/status (admin) + operations panel","missing":"host/S3 drills are operator work","tests":"test_authorization.py, tests/ui/operations-panels.test.tsx","status":"verified"},
-    {"feature":"Settings & configuration","implementation":"operations/SettingsPanel -> non-secret server checks","missing":"none in-scope","tests":"tests/ui/operations-panels.test.tsx","status":"verified"}
+    {
+      "feature": "Portfolio research & performance analytics",
+      "implementation": "operations/PortfolioAnalytics -> POST /api/analytics/performance",
+      "missing": "none in-scope",
+      "tests": "tests/ui/operations-panels.test.tsx",
+      "status": "verified"
+    },
+    {
+      "feature": "Risk analytics",
+      "implementation": "operations/RiskAnalytics -> drawdown, volatility, Sharpe/Sortino",
+      "missing": "none in-scope",
+      "tests": "tests/ui/operations-panels.test.tsx",
+      "status": "verified"
+    },
+    {
+      "feature": "System health dashboard",
+      "implementation": "operations/SystemHealthPanel -> health, readiness, supervisor",
+      "missing": "none in-scope",
+      "tests": "tests/ui/operations-panels.test.tsx",
+      "status": "verified"
+    },
+    {
+      "feature": "Provider health",
+      "implementation": "operations/ProviderHealthPanel -> /api/providers/status",
+      "missing": "licensed live provider",
+      "tests": "tests/ui/operations-panels.test.tsx",
+      "status": "verified"
+    },
+    {
+      "feature": "Audit & security events",
+      "implementation": "operations/AuditEventsPanel -> operator-gated endpoint",
+      "missing": "none in-scope",
+      "tests": "tests/ui/operations-panels.test.tsx",
+      "status": "verified"
+    },
+    {
+      "feature": "Backup & recovery status",
+      "implementation": "GET /api/backup/status (admin) + operations panel",
+      "missing": "host/S3 drills are operator work",
+      "tests": "test_authorization.py, tests/ui/operations-panels.test.tsx",
+      "status": "verified"
+    },
+    {
+      "feature": "Settings & configuration",
+      "implementation": "operations/SettingsPanel -> non-secret server checks",
+      "missing": "none in-scope",
+      "tests": "tests/ui/operations-panels.test.tsx",
+      "status": "verified"
+    }
   ],
   "external_blockers": [
     "GitHub OAuth workflow scope for .github/workflows changes and PR #76",

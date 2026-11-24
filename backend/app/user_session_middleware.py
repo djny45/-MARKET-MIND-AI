@@ -96,7 +96,12 @@ def _origin_allowed(scope: dict[str, Any]) -> bool:
     if not candidates:
         return False
     for candidate in candidates:
-        parsed = urlparse(candidate.strip())
+        try:
+            parsed = urlparse(candidate.strip())
+        except ValueError:
+            # Origin/Referer are attacker-controlled. A malformed value must
+            # not turn an authorization check into a 500.
+            continue
         origin = f"{parsed.scheme}://{parsed.netloc}".lower()
         if parsed.scheme and parsed.netloc and any(hmac_compare(origin, allowed) for allowed in origins):
             return True

@@ -39,16 +39,16 @@ Read-only checks also succeeded: `python3 scripts/backup_scheduler.py config`,
 | Backup integrity (`PRAGMA integrity_check`, `market_bars` required) | Implemented, unit-tested |
 | SHA-256 sidecars and tamper rejection | Implemented, unit-tested |
 | Retention (age + count, sidecars pruned) | Implemented, unit-tested |
-| Generic off-host hook (local target only) | Implemented, unit-tested; **no S3 client exists** |
+| Generic off-host hook + stdlib S3 adapter | Implemented, unit-tested; local fake-S3 round-trip PASS, real cloud target not configured |
 | Clean restore and SQLite integrity/row-count parity | Implemented, unit-tested |
 | Stale-lock recovery | Implemented; **bug fixed in this audit** with regression test |
 | Restart recovery / stale task requeue (no dispatch) | Implemented, unit-tested |
 | Migration rollback | Implemented for simulated failures; **no real migration runner** |
 | Incident webhook with redacted payloads | Implemented, loopback-tested |
 | cron/systemd generation | Implemented; installation NOT performed |
-| Docker named-volume restore | Documentation only; `docker` absent |
-| Real S3 target | NOT IMPLEMENTED; operator hook configuration required |
-| Production process-kill drill | NOT IMPLEMENTED / NOT RUN; procedure in `docs/PUBLIC-EXPOSURE-HARDENING.md` |
+| Docker named-volume restore | Operator script `scripts/docker_volume_drill.py` (plan default, `--apply` required) with fake-Docker tests; real Docker host run NOT performed |
+| Real S3 target | Adapter implemented; real endpoint/bucket/credentials not configured |
+| Production process-kill drill | NOT RUN; procedure in `docs/PUBLIC-EXPOSURE-HARDENING.md` |
 
 ## Operator-only work (not claimed as tested)
 

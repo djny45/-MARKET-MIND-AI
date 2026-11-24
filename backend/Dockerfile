@@ -38,7 +38,18 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 # Upgrade the Alpine packages pinned in the base tag (libcrypto3/libssl3/zlib
 # had fixes available in 3.5.9-r1/1.4-r0 at scan time). The container scan
 # remains fail-closed for anything Alpine has not fixed.
+#
+# The runtime installs nothing, so remove the base image's system pip as well.
+# Leaving pip 25.0.1 in /usr/local/lib/python3.12 reintroduced five MEDIUM CVEs
+# (CVE-2025-8869, CVE-2026-13346, CVE-2026-3219, CVE-2026-6357, CVE-2026-8643).
 RUN apk upgrade --no-cache \
+    && rm -rf /usr/local/lib/python3.12/site-packages/pip \
+              /usr/local/lib/python3.12/site-packages/pip-*.dist-info \
+              /usr/local/lib/python3.12/site-packages/setuptools \
+              /usr/local/lib/python3.12/site-packages/setuptools-*.dist-info \
+              /usr/local/lib/python3.12/site-packages/pkg_resources \
+              /usr/local/lib/python3.12/site-packages/_distutils_hack \
+              /usr/local/lib/python3.12/site-packages/distutils-precedence.pth \
     && addgroup -g 10001 -S appuser \
     && adduser -u 10001 -S -G appuser -h /home/appuser appuser \
     && mkdir -p /data \

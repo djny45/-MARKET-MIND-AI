@@ -51,6 +51,8 @@ elif args and args[0] == "run":
         target_arg = [a for a in args if a.startswith("/backups/")][0]
         shutil.copy(os.environ["FAKE_DB_FIXTURE"], mapping["/backups"] / Path(target_arg).name)
     elif any("restore_database.py" in a for a in scripts):
+        if os.environ.get("FAKE_DOCKER_FAIL_RESTORE"):
+            sys.exit(1)
         source_arg = [a for a in args if a.startswith("/backups/")][0]
         shutil.copy(mapping["/backups"] / Path(source_arg).name,
                     mapping["/data"] / "market_mind.db")
@@ -151,6 +153,42 @@ class DockerVolumeDrillTests(unittest.TestCase):
             result = self._run(*self._base(command))
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("apply_required", result.stdout)
+
+    def _make_backup(self):
+        result = self._run(*self._base("backup"), "--apply")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return Path(json.loads(result.stdout)["backup"])
+
+    def test_failed_restore_cleans_up_only_the_temporary_volume(self):
+        backup = self._make_backup()
+        env = dict(self.env, FAKE_DOCKER_FAIL_RESTORE="1")
+        result = subprocess.run(
+            [sys.executable, str(SCRIPT), *self._base("restore"), "--apply",
+             "--target-volume", "market_mind_data-drill", "--backup", str(backup)],
+            env=env, capture_output=True, text=True, timeout=30,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("volume_restore_failed", result.stdout)
+        calls = [json.loads(line) for line in self.log.read_text().splitlines() if line.strip()]
+        self.assertTrue(any(call[:2] == ["volume", "rm"] and call[-1] == "market_mind_data-drill"
+                            for call in calls))
+        self.assertFalse(any(call[:2] == ["volume", "rm"] and call[-1] == "market_mind_data"
+                             for call in calls))
+
+    def test_restore_refuses_a_backup_whose_checksum_no_longer_matches(self):
+        backup = self._make_backup()
+        backup.write_bytes(b"tampered-after-verification")
+        result = self._run(*self._base("restore"), "--apply",
+                           "--target-volume", "market_mind_data-drill", "--backup", str(backup))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("backup_checksum_invalid", result.stdout)
+        calls = [json.loads(line) for line in self.log.read_text().splitlines() if line.strip()]
+        self.assertFalse(any(call[:2] == ["volume", "create"] for call in calls))
+
+    def test_plan_needs_no_docker_binary(self):
+        result = self._run("plan", "--docker", "/nonexistent/docker-binary")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout)["status"], "planned")
 
 
 if __name__ == "__main__":

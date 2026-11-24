@@ -115,13 +115,18 @@ though no local `nginx` binary exists.
 The old divergent local `main` (`906b3765`) and all recovery branches remain
 untouched.
 
-1. **Real-browser responsive tests — BLOCKED (host libraries)**: Chromium is
-   downloaded and present in `~/.cache/ms-playwright`, but it cannot launch in
-   this container: `libnss3`, `libnspr4`, `libxcomposite1` and `libxdamage1` are
-   missing, there is no root to install them and this image has no apt sources
-   (`apt-get download` resolves nothing). jsdom continues to check media-query
-   declarations and DOM availability only. A host with `npx playwright
-   install-deps` closes this gap.
+1. **Real-browser responsive tests — RESOLVED locally (2026-11-24)**: Chromium is
+   downloaded and present in `~/.cache/ms-playwright`, but it could not launch in
+   this container because `libnss3`, `libnspr4`, `libxcomposite1`, `libxdamage1`
+   and `libxrandr` were missing and there is no root to install them.
+   Workaround proven on the Phase 6 tree: the NSS libraries are present in
+   `~/.cache/camoufox`, and `xorg-libxcomposite`, `xorg-libxdamage`,
+   `xorg-libxrandr` and `at-spi2-atk` install into an unprivileged conda prefix.
+   With
+   `LD_LIBRARY_PATH=/tmp/opencode/pwlibs/lib:$HOME/.cache/camoufox:$LD_LIBRARY_PATH`
+   and Node 22.23.5, `npx playwright test` passes **9/9** locally, matching CI.
+   This removes a previously recorded local-only blocker; it changes no
+   production code and grants no new capability.
 
 ## Completion boundary
 
@@ -448,9 +453,10 @@ real scan (`Detected OS family="alpine" version="3.24.4"`, `pkg_num=38`).
 - Backend: **1,261 OK, 1 skipped** (1,260 + the new renewal regression test).
 - Frontend on Node 22.23.5: `npm test` **10/10**, `npm run test:ui` **127/127**
   (21 files), `npm run build` and `npm run typecheck:test` exit 0.
-- Playwright: **9 failed locally** — `libnspr4.so` missing, no root to install
-  it. CI's browser job passes on Node 22 with browser deps installed. This is the
-  pre-existing host-library limitation, not a code regression.
+- Playwright: **9/9 passed locally** on Node 22.23.5 once the missing X/NSS
+  libraries were supplied through an unprivileged conda prefix and
+  `LD_LIBRARY_PATH` (see the real-browser note above). This matches CI's browser
+  job and closes a previously documented local-only blocker.
 - Logs: `/tmp/opencode/phase6/`.
 
 ### Unchanged

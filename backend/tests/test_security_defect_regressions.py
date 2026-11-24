@@ -102,6 +102,25 @@ class SecurityRegressions(_MiddlewareCase):
             self.assertFalse(allowed)
             self.assertGreater(retry, 0)
 
+    def test_new_keys_fail_closed_when_every_tracked_key_is_locked(self):
+        env = {
+            "MARKET_MIND_LOGIN_MAX_FAILURES": "2",
+            "MARKET_MIND_LOGIN_WINDOW_SECONDS": "900",
+            "MARKET_MIND_LOGIN_LOCKOUT_SECONDS": "300",
+        }
+        guard = login_guard.LoginGuard(clock=lambda: 1000.0, max_tracked_keys=2)
+        with patch.dict(os.environ, env):
+            for name in ("victim-a", "victim-b"):
+                guard.record_failure(name, "10.0.0.1")
+                guard.record_failure(name, "10.0.0.1")
+                self.assertFalse(guard.check(name, "10.0.0.1")[0])
+            # Saturating the table with active lockouts must not create an
+            # unthrottled path for a new attacker key.
+            guard.record_failure("attacker", "10.0.0.9")
+            allowed, retry = guard.check("attacker", "10.0.0.9")
+            self.assertFalse(allowed)
+            self.assertGreater(retry, 0)
+
     def test_failed_login_audit_records_attempted_username(self):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)

@@ -35,6 +35,7 @@ SECRET_KEY = "DUMMYSECRETKEY-DO-NOT-USE"
 
 class _FakeS3Handler(BaseHTTPRequestHandler):
     objects: dict[str, bytes] = {}
+    put_attempts = 0
 
     def log_message(self, *_args):
         pass
@@ -74,14 +75,22 @@ class _FakeS3Handler(BaseHTTPRequestHandler):
         return hmac.compare_digest(expected, supplied) and f"/{scope}" in auth
 
     def do_PUT(self):
+        type(self).put_attempts += 1
         body = self.rfile.read(int(self.headers.get("Content-Length", "0")))
         if not self._signature_is_valid("PUT", body):
             self.send_response(403)
             self.send_header("Content-Length", "0")
             self.end_headers()
             return
+        if os.environ.get("FAKE_S3_FAIL_PUT_ONCE") and type(self).put_attempts == 1:
+            self.send_response(503)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
         self.objects[self.path] = body
         self.send_response(200)
+        self.send_header("ETag", '"mock-etag"')
+        self.send_header("x-amz-version-id", "mock-version-1")
         self.send_header("Content-Length", "0")
         self.end_headers()
 
@@ -100,7 +109,11 @@ class _FakeS3Handler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(b"NoSuchKeyBody!!")
             return
+        if os.environ.get("FAKE_S3_CORRUPT_DOWNLOAD"):
+            body = b"CORRUPTED-OBJECT"
         self.send_response(200)
+        self.send_header("ETag", '"mock-etag"')
+        self.send_header("x-amz-version-id", "mock-version-1")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
@@ -111,6 +124,7 @@ class S3OffhostIntegrationTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)
         _FakeS3Handler.objects.clear()
+        _FakeS3Handler.put_attempts = 0
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), _FakeS3Handler)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
@@ -165,6 +179,57 @@ class S3OffhostIntegrationTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(json.loads(result.stdout)["status"], 403)
         self.assertNotIn("WRONG-SECRET", result.stdout + result.stderr)
+
+    def test_transient_put_failure_is_retried_but_auth_failure_is_not(self):
+        source = self.root / "backup.db"
+        source.write_bytes(b"retry-fixture")
+        with patch.dict(os.environ, {"FAKE_S3_FAIL_PUT_ONCE": "1"}):
+            result = subprocess.run(
+                [sys.executable, str(SCRIPT), "upload", "--file", str(source),
+                 "--key", "market-mind/backups/retry.db", "--retries", "2", "--retry-delay", "0"],
+                env=self.env, capture_output=True, text=True, timeout=20,
+            )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout)["status"], 200)
+        self.assertEqual(_FakeS3Handler.put_attempts, 2)
+
+        bad = dict(self.env, MARKET_MIND_S3_SECRET_KEY="WRONG-SECRET")
+        failed = subprocess.run(
+            [sys.executable, str(SCRIPT), "upload", "--file", str(source),
+             "--key", "market-mind/backups/no-retry.db", "--retries", "2", "--retry-delay", "0"],
+            env=bad, capture_output=True, text=True, timeout=20,
+        )
+        self.assertNotEqual(failed.returncode, 0)
+        self.assertEqual(_FakeS3Handler.put_attempts, 3)  # one rejected attempt only
+
+    def test_response_metadata_is_captured(self):
+        source = self.root / "backup.db"
+        source.write_bytes(b"metadata-fixture")
+        result = self._run("upload", "--file", str(source),
+                           "--key", "market-mind/backups/meta.db")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        body = json.loads(result.stdout)
+        self.assertEqual(body["etag"], '"mock-etag"')
+        self.assertEqual(body["version_id"], "mock-version-1")
+        self.assertEqual(len(body["sha256"]), 64)
+
+    def test_download_digest_verification_is_atomic(self):
+        source = self.root / "backup.db"
+        source.write_bytes(b"expected-bytes")
+        self._run("upload", "--file", str(source), "--key", "market-mind/backups/digest.db")
+        destination = self.root / "existing.db"
+        destination.write_bytes(b"PREVIOUS")
+        with patch.dict(os.environ, {"FAKE_S3_CORRUPT_DOWNLOAD": "1"}):
+            result = subprocess.run(
+                [sys.executable, str(SCRIPT), "download", "--file", str(destination),
+                 "--key", "market-mind/backups/digest.db",
+                 "--expect-sha256", hashlib.sha256(b"expected-bytes").hexdigest()],
+                env=self.env, capture_output=True, text=True, timeout=20,
+            )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertTrue(json.loads(result.stdout)["sha256_mismatch"])
+        self.assertEqual(destination.read_bytes(), b"PREVIOUS")
+        self.assertFalse(destination.with_name(destination.name + ".part").exists())
 
     def test_unsigned_or_mis_signed_download_is_rejected(self):
         source = self.root / "backup.db"

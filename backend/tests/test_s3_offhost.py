@@ -37,6 +37,29 @@ class S3OffhostTests(unittest.TestCase):
         self.assertIn("missing S3 environment variables", result.stderr)
         self.assertNotIn("DUMMYSECRETKEY", result.stdout + result.stderr)
 
+    def test_invalid_bucket_and_remote_http_endpoint_fail_closed(self):
+        for name, value, expected in (
+            ("MARKET_MIND_S3_BUCKET", "Bad_Bucket", "invalid_bucket_name"),
+            ("MARKET_MIND_S3_ENDPOINT", "http://s3.remote.invalid", "https_required_outside_loopback"),
+            ("MARKET_MIND_S3_PREFIX", "a/../b", "unsafe_prefix"),
+        ):
+            env = dict(self.env, **{name: value})
+            result = self._run("describe-config", env=env)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn(expected, result.stderr)
+            self.assertNotIn(value, result.stdout + result.stderr)
+
+    def test_validate_config_reports_findings_without_values(self):
+        result = self._run("validate-config")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout)["status"], "ok")
+        env = dict(self.env, MARKET_MIND_S3_BUCKET="Bad_Bucket")
+        failed = self._run("validate-config", env=env)
+        self.assertNotEqual(failed.returncode, 0)
+        body = json.loads(failed.stdout)
+        self.assertEqual(body["status"], "failed")
+        self.assertNotIn("Bad_Bucket", failed.stdout + failed.stderr)
+
     def test_describe_config_and_dry_run_expose_no_secrets(self):
         config = self._run("describe-config")
         self.assertEqual(config.returncode, 0)

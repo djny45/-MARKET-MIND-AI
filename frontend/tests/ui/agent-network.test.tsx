@@ -11,7 +11,7 @@ const agents = [
 describe('AgentNetwork component', () => {
   it('renders real registered profiles, the shared core and the research-only legend', async () => {
     setupAgentNetwork(agents)
-    expect(await screen.findByRole('heading', { name: /550\+ Analytical Agent Network/ })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /550 Analytical Agent Network/ })).toBeInTheDocument()
     expect(screen.getByText('3')).toBeInTheDocument()
     expect(screen.getByTestId('react-flow')).toHaveAttribute('data-node-count', '4') // core + 3 agents
     expect(screen.getByTestId('flow-node-intelligence-core')).toHaveTextContent('MARKET-MIND AI')
@@ -21,10 +21,12 @@ describe('AgentNetwork component', () => {
   })
 
   it('loads persisted task activity and reports an API failure without hiding profiles', async () => {
-    const { unmount } = setupAgentNetwork(agents, {
+    const { unmount, calls } = setupAgentNetwork(agents, {
       'GET /api/agent-network/activity': () => new Response(JSON.stringify({ task_count: 12, status_counts: { running: 2, queued: 3 }, latest_by_agent: { 'agent-1': { status: 'running', task_id: 't1', updated_at: 'now' } }, note: 'fixture' }), { status: 200 }),
     })
     expect(await screen.findByText(/TASK ACTIVITY · 12 persisted tasks/)).toBeInTheDocument()
+    expect(calls.some(call => call.url.startsWith('/api/agent-network/activity'))).toBe(true)
+    expect(calls.some(call => call.url.startsWith('http://localhost:8000'))).toBe(false)
     expect(screen.getByText('2')).toBeInTheDocument()
     expect(screen.getByText(/RUNNING TASKS/)).toBeInTheDocument()
     expect(screen.getByTestId('flow-node-agent-1')).toHaveTextContent('RUNNING')

@@ -3,9 +3,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import shutil
 import sqlite3
+import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -80,6 +84,27 @@ class RecoveryReportTests(unittest.TestCase):
         self.assertFalse(report["sections"]["backup"]["evidence_valid"])
         self.assertFalse(report["sections"]["restore"]["evidence_valid"])
         self.assertFalse(report["sections"]["restart"]["evidence_valid"])
+
+    def test_restore_report_for_an_older_backup_is_not_complete_evidence(self):
+        self._create_valid_artifacts()
+        original = next(self.root.glob("market_mind-*.db"))
+        newer = self.root / "market_mind-20990101T000000Z.db"
+        shutil.copy2(original, newer)
+        shutil.copy2(Path(str(original) + ".json"), Path(str(newer) + ".json"))
+        stamp = time.time() + 1000
+        os.utime(newer, (stamp, stamp))
+        report = recovery_report.build_report(self.root)
+        self.assertEqual(report["status"], "evidence_incomplete")
+        self.assertFalse(report["sections"]["restore"]["paired_to_newest_backup"])
+
+    def test_cli_exits_non_zero_for_incomplete_evidence(self):
+        result = subprocess.run(
+            [sys.executable, str(ROOT / "scripts" / "recovery_report.py"),
+             "--root", str(self.root)],
+            capture_output=True, text=True, timeout=30,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(json.loads(result.stdout)["status"], "evidence_incomplete")
 
     def test_reports_in_the_default_state_directory_are_found(self):
         self._create_valid_artifacts()

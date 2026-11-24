@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 from app.market_data import DataStatus, MarketDataBatch, OHLCVBar, status_allowed_for_source
 from app.market_data_validation import validate_market_data_payload
 from app.main import app
-from app.provider_health import DEGRADED, STALE, UNAVAILABLE, ProviderHealthRegistry
+from app.provider_health import DEGRADED, FRESH, HEALTHY, STALE, UNAVAILABLE, ProviderHealthRegistry
 
 
 def _batch(*, status=DataStatus.HISTORICAL, source="manual-review", age_seconds=60):
@@ -43,6 +43,17 @@ class ProvenanceVerificationTests(unittest.TestCase):
         self.assertEqual(provider["freshness"], STALE)
         self.assertEqual(provider["health"], DEGRADED)
         self.assertGreater(provider["age_seconds"], 7 * 24 * 3600)
+
+    def test_report_uses_the_injected_clock_for_freshness_and_health(self):
+        reference = datetime.now(timezone.utc)
+        registry = ProviderHealthRegistry()
+        registry.record_success(_batch(age_seconds=10))
+        fresh = registry.report(now=reference)["providers"][0]
+        self.assertEqual(fresh["freshness"], FRESH)
+        self.assertEqual(fresh["health"], HEALTHY)
+        stale = registry.report(now=reference + timedelta(days=30))["providers"][0]
+        self.assertEqual(stale["freshness"], STALE)
+        self.assertEqual(stale["health"], DEGRADED)
 
     def test_provider_failures_are_recorded_without_live_claims(self):
         registry = ProviderHealthRegistry()

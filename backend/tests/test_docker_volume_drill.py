@@ -57,23 +57,15 @@ elif args and args[0] == "run":
         shutil.copy(mapping["/backups"] / Path(source_arg).name,
                     mapping["/data"] / "market_mind.db")
     elif "-c" in args:
-        db = mapping["/data"] / "market_mind.db"
-        connection = sqlite3.connect(db)
-        integrity = connection.execute("PRAGMA integrity_check").fetchone()[0]
-        tables = [row[0] for row in connection.execute(
-            "select name from sqlite_master where type='table'")]
-        counts = {name: connection.execute(
-            'select count(*) from "' + name + '"').fetchone()[0] for name in tables}
-        version = connection.execute(
-            "select max(version) from schema_migrations").fetchone()[0]
         if os.environ.get("FAKE_DOCKER_CORRUPT_VERIFY"):
             print(json.dumps({"integrity": "failed", "table_counts": {},
-                              "schema_version": None, "bytes": 0}, sort_keys=True))
+                              "schema_version": None, "bytes": 0,
+                              "foreign_key_violations": [], "content_digest": None},
+                             sort_keys=True))
         else:
-            print(json.dumps({
-                "integrity": integrity, "table_counts": counts,
-                "schema_version": version, "bytes": db.stat().st_size,
-            }, sort_keys=True))
+            db = mapping["/data"] / "market_mind.db"
+            code = args[args.index("-c") + 1].replace("/data/market_mind.db", str(db))
+            exec(code)
 else:
     sys.exit(2)
 '''
@@ -88,8 +80,11 @@ class DockerVolumeDrillTests(unittest.TestCase):
         self.log.touch()
         self.fixture = self.root / "fixture.db"
         with sqlite3.connect(self.fixture) as connection:
+            # AUTOINCREMENT creates sqlite_sequence, which the shared host
+            # fingerprint excludes; the old duplicated snippet did not.
             connection.execute(
-                "CREATE TABLE market_bars (symbol TEXT, interval TEXT, timestamp TEXT, "
+                "CREATE TABLE market_bars (id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                "symbol TEXT, interval TEXT, timestamp TEXT, "
                 "open REAL, high REAL, low REAL, close REAL, volume REAL, status TEXT, "
                 "source TEXT, retrieved_at TEXT)"
             )

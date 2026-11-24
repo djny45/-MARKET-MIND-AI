@@ -20,8 +20,8 @@ import shutil
 from pathlib import Path
 
 from dr_common import (
-    DrError, atomic_write_json, iso_now, parse_bool, read_json, run_repo_script,
-    send_alert, utcstamp, verify_checksum,
+    DrError, atomic_write_json, iso_now, parse_bool, read_json, remove_sidecars,
+    run_repo_script, send_alert, utcstamp, verify_checksum,
 )
 
 ORCHESTRATOR = Path(__file__).with_name("backup_orchestrator.py")
@@ -119,6 +119,7 @@ def rollback(config: RollbackConfig) -> dict:
     if not staged_db.is_file():
         raise DrError("rollback_staged_database_missing")
     os.replace(staged_db, config.target)
+    remove_sidecars(config.target)
     plan["status"] = "rolled_back"
     plan["rolled_back_at"] = iso_now()
     plan["failed_snapshot"] = str(failed_snapshot) if failed_snapshot else None

@@ -60,6 +60,7 @@ class DrStorageFailureTests(unittest.TestCase):
         atomic_write_json(config.state_dir / "backup-journal.json", {
             "status": "in_progress", "phase": "prune",
             "backup": "market_mind-test.db", "sha256": "a" * 64, "backup_bytes": 1,
+            "upload": {"status": "uploaded"},
         })
         (config.destination_dir / "market_mind-test.db").write_bytes(b"x")
         with patch.object(backup_orchestrator, "_ensure_free_space",

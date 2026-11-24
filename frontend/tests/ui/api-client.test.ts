@@ -16,6 +16,11 @@ describe('central CSRF wiring', () => {
 
     const external = withCsrf('https://example.invalid/api', { method: 'POST' }, cookie)
     expect(new Headers(external.headers).get(CSRF_HEADER)).toBeNull()
+    const protocolRelative = withCsrf('//example.invalid/api', { method: 'POST' }, cookie)
+    expect(new Headers(protocolRelative.headers).get(CSRF_HEADER)).toBeNull()
+    const absoluteSameOrigin = withCsrf(
+      `${globalThis.location.origin}/api/watchlist`, { method: 'POST' }, cookie)
+    expect(new Headers(absoluteSameOrigin.headers).get(CSRF_HEADER)).toBe('token-123')
   })
 
   it('never overrides an explicit token', () => {

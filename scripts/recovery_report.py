@@ -71,6 +71,9 @@ def build_report(root: Path, state_dir: Path | None = None) -> dict:
             manifest = {"path": str(sidecar), "payload": payload}
     restore = _find_artifact(search_dirs, "restore-report-*.json")
     restart = _find_artifact(search_dirs, "restart-recovery-*.json")
+    journal = _find_artifact(search_dirs, "recovery-journal.json")
+    journal_status = _as_dict((journal or {}).get("payload")).get("status")
+    interrupted_previous_run = journal_status in {"in_progress", "failed"}
 
     backup_payload = _as_dict((manifest or {}).get("payload"))
     restore_payload = _as_dict((restore or {}).get("payload"))
@@ -86,7 +89,16 @@ def build_report(root: Path, state_dir: Path | None = None) -> dict:
         and restore_fingerprint.get("integrity") == "ok"
     )
     restart_ok = restart_payload.get("status") == "recovered"
-    complete = bool(backups and backup_ok and restore_ok and restart_ok)
+    restore_backup_name = Path(str(restore_payload.get("backup") or "")).name
+    paired = (
+        newest_backup is not None
+        and restore_backup_name == newest_backup.name
+        and (
+            not backup_payload.get("sha256")
+            or restore_payload.get("sha256") == backup_payload.get("sha256")
+        )
+    )
+    complete = bool(backups and backup_ok and restore_ok and restart_ok and paired)
 
     sections = {
         "backup": {
@@ -105,6 +117,7 @@ def build_report(root: Path, state_dir: Path | None = None) -> dict:
             "comparison": restore_comparison.get("status"),
             "integrity": restore_fingerprint.get("integrity"),
             "evidence_valid": restore_ok,
+            "paired_to_newest_backup": paired,
         },
         "restart": {
             "report": (restart or {}).get("path"),
@@ -112,6 +125,8 @@ def build_report(root: Path, state_dir: Path | None = None) -> dict:
             "stale_locks_removed": restart_payload.get("stale_dr_locks_removed"),
             "requeued": requeue.get("requeued_interrupted_count"),
             "evidence_valid": restart_ok,
+            "journal_status": journal_status,
+            "interrupted_previous_run": interrupted_previous_run,
         },
     }
     return {
@@ -131,9 +146,9 @@ def main() -> int:
     parser.add_argument("--root", default="data/backups", help="directory holding backup artifacts")
     parser.add_argument("--state-dir", help="directory holding restore/restart reports (default: <root>/.state)")
     args = parser.parse_args()
-    print(json.dumps(build_report(Path(args.root), Path(args.state_dir) if args.state_dir else None),
-                     indent=2, sort_keys=True))
-    return 0
+    report = build_report(Path(args.root), Path(args.state_dir) if args.state_dir else None)
+    print(json.dumps(report, indent=2, sort_keys=True))
+    return 0 if report["status"] == "evidence_complete" else 1
 
 
 if __name__ == "__main__":

@@ -140,6 +140,22 @@ def atomic_write_json(path: Path, payload: dict) -> Path:
     return path
 
 
+def remove_sidecars(path: Path) -> None:
+    """Remove SQLite WAL/journal sidecars that belong to ``path``."""
+    path = Path(path)
+    for suffix in ("-wal", "-shm", "-journal"):
+        try:
+            Path(str(path) + suffix).unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
+def manifest_path(backup: Path) -> Path:
+    """Canonical manifest path for a backup artifact."""
+    backup = Path(backup)
+    return backup.with_name(backup.name + ".json")
+
+
 def write_checksum(path: Path, digest: str) -> Path:
     """Write a portable sha256sum-compatible sidecar next to a backup."""
     path = Path(path)
@@ -182,35 +198,64 @@ def readonly_uri(path: Path) -> str:
     return Path(path).resolve().as_uri() + "?mode=ro"
 
 
-def database_fingerprint(path: Path) -> dict:
-    """Collect integrity, per-table row counts and migration version for a DB."""
-    database = Path(path)
+def fingerprint_from_connection(connection, size: int | None = None) -> dict:
+    """Build a deterministic fingerprint from an open SQLite connection.
+
+    Self-contained on purpose: its source is embedded into the Docker drill's
+    in-container verification snippet so host and container use one algorithm.
+    """
     result = {
         "integrity": "unavailable",
         "table_counts": {},
         "schema_version": None,
-        "bytes": database.stat().st_size if database.is_file() else 0,
+        "bytes": size,
+        "foreign_key_violations": [],
+        "content_digest": None,
     }
+    row = connection.execute("PRAGMA integrity_check").fetchone()
+    result["integrity"] = row[0] if row else "no_integrity_result"
+    names = [
+        name for (name,) in connection.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' "
+            "AND name NOT LIKE 'sqlite_%' ORDER BY name"
+        )
+    ]
+    for name in names:
+        result["table_counts"][name] = connection.execute(
+            f'SELECT COUNT(*) FROM "{name}"'
+        ).fetchone()[0]
+    if "schema_migrations" in names:
+        result["schema_version"] = connection.execute(
+            "SELECT COALESCE(MAX(version), 0) FROM schema_migrations"
+        ).fetchone()[0]
+    result["foreign_key_violations"] = [
+        str(item) for item in connection.execute("PRAGMA foreign_key_check")
+    ]
+    digest = hashlib.sha256()
+    for name in names:
+        columns = [row[1] for row in connection.execute(f'PRAGMA table_info("{name}")')]
+        ordering = ",".join(f'"{column}"' for column in columns)
+        query = f'SELECT * FROM "{name}"' + (f" ORDER BY {ordering}" if ordering else "")
+        for values in connection.execute(query):
+            digest.update(json.dumps(list(values), sort_keys=True, default=str).encode("utf-8"))
+    result["content_digest"] = digest.hexdigest()
+    return result
+
+
+def database_fingerprint(path: Path) -> dict:
+    """Collect integrity, row counts, content digest and migration version."""
+    database = Path(path)
+    size = database.stat().st_size if database.is_file() else 0
+    result = {"bytes": size}
     try:
         with sqlite3.connect(readonly_uri(database), uri=True) as connection:
-            row = connection.execute("PRAGMA integrity_check").fetchone()
-            result["integrity"] = row[0] if row else "no_integrity_result"
-            names = [
-                name for (name,) in connection.execute(
-                    "SELECT name FROM sqlite_master WHERE type='table' "
-                    "AND name NOT LIKE 'sqlite_%' ORDER BY name"
-                )
-            ]
-            for name in names:
-                result["table_counts"][name] = connection.execute(
-                    f'SELECT COUNT(*) FROM "{name}"'
-                ).fetchone()[0]
-            if "schema_migrations" in names:
-                result["schema_version"] = connection.execute(
-                    "SELECT COALESCE(MAX(version), 0) FROM schema_migrations"
-                ).fetchone()[0]
+            result.update(fingerprint_from_connection(connection, size))
     except sqlite3.Error as exc:
-        result["integrity"] = type(exc).__name__
+        result.update({
+            "integrity": type(exc).__name__, "table_counts": {},
+            "schema_version": None, "foreign_key_violations": [],
+            "content_digest": None,
+        })
     return result
 
 

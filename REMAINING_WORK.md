@@ -284,7 +284,7 @@ procedures, evidence requirements, rollback and responsible operators are in
 [`docs/EXTERNAL-VERIFICATION-CHECKLIST.md`](docs/EXTERNAL-VERIFICATION-CHECKLIST.md).
 
 Final local validation on this branch: backend `unittest discover -s backend/tests -q`
-→ **1,259 OK, 1 skipped**; frontend `npm test` **10/10**, `npm run test:ui`
+→ **1,260 OK, 1 skipped**; frontend `npm test` **10/10**, `npm run test:ui`
 **127/127** (21 files), `npm run build` and `npm run typecheck:test` exit 0.
 Raw logs: `/tmp/opencode/phase2-final/`. CI results for the pushed PR head are
 recorded in the PR and final report.
@@ -325,7 +325,7 @@ verification stays 7/10 and public deployment 0/6; the three blocked checks are
 external by definition.
 
 Final Phase 3 local validation: backend `unittest discover -s backend/tests -q`
-→ **1,259 OK, 1 skipped**; frontend `npm test` **10/10**, `npm run test:ui`
+→ **1,260 OK, 1 skipped**; frontend `npm test` **10/10**, `npm run test:ui`
 **127/127** (21 files), `npm run build` and `npm run typecheck:test` exit 0.
 Logs: `/tmp/opencode/phase3-final/`.
 
@@ -354,7 +354,7 @@ regression tests:
 
 Acceptance remains **37/40 PASS, 0 PARTIAL, 0 FAIL, 3 BLOCKED**. Private
 verification 7/10; public deployment 0/6. Local validation after all fixes:
-backend **1,259 OK, 1 skipped**; frontend **10/10**, **127/127**, clean
+backend **1,260 OK, 1 skipped**; frontend **10/10**, **127/127**, clean
 build/typecheck. Logs: `/tmp/opencode/risks-final2/`.
 
 ---
@@ -378,5 +378,30 @@ fallback and stale "550+" wording, and provider-health clock consistency.
 Acceptance is unchanged at **37/40 PASS, 0 PARTIAL, 0 FAIL, 3 BLOCKED**. The
 three BLOCKED checks remain external (EXT-01 real cloud S3 restore, EXT-02 real
 host/Docker recovery, EXT-03 independent security sign-off). Final local
-validation: backend **1,259 OK, 1 skipped**; frontend **10/10** and **127/127**
+validation: backend **1,260 OK, 1 skipped**; frontend **10/10** and **127/127**
 with clean build/typecheck; logs `/tmp/opencode/final-run/`.
+
+---
+
+## Phase 5 final risk resolution (2026-11-24)
+
+Branch `feature/phase5-risk-resolution`, stacked on PR #105.
+
+- **Two-process supervisor race:** added an isolated test with two real
+  processes contending for the SQLite lease. Exactly one acquires leadership,
+  recovers and dispatches the single task; the loser has no side effects; the
+  winner releases the lease. ADR-0001 and the multi-host assessment now state
+  that this closes the single-host race check only, not distributed execution.
+- **Container investigation:** evaluated `python:3.12-slim-bookworm` in CI; it
+  was substantially worse (109 HIGH / 152 MEDIUM) than the current Debian 13
+  base (59 HIGH / 78 MEDIUM) and was reverted. Frontend remains clean at 0
+  MEDIUM+ after pinning nginx 1.31.7. All backend findings are preserved, not
+  suppressed.
+- **Redis fallback semantics:** documented that fallback is per-process only
+  and does not claim global enforcement; successful Redis requests are mirrored
+  locally to prevent double allocation on transitions.
+- **Regression validation:** backend **1,260 OK, 1 skipped**; frontend **10/10**
+  and **127/127** with clean build/typecheck. Logs: `/tmp/opencode/phase5-final/`.
+
+No external gate was marked PASS. PR #105 remains unmerged while the container
+security gate fails on real upstream findings.

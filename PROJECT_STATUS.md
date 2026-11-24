@@ -116,3 +116,9 @@ pinning nginx 1.31.7; the backend image still has OS-level CVEs with no fixed
 version, so the container gate remains **FAIL** and PR #105 must not be merged.
 See `docs/CONTAINER-SCAN-FINDINGS.md` and
 `docs/MULTI-HOST-ARCHITECTURE-ASSESSMENT.md`.
+
+Phase 5 (PR #106) added an isolated two-process supervisor lease race test,
+evaluated and rejected a worse Debian 12 base image, and documented Redis
+fallback as per-process only. Acceptance remains 37/40 PASS, 0 PARTIAL,
+0 FAIL, 3 BLOCKED; the container security gate remains FAIL on real upstream
+backend findings and PR #105 must not be merged.

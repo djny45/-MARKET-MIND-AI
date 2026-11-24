@@ -7,19 +7,21 @@ reports are uploaded as artifact `container-image-scan-reports`. Findings are
 
 ## Observed result
 
-CI run [45377337583](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45377337583)
-on the final head `2eee8082`: the **Container image security scan job FAILED**
-on real findings in both images; the other six jobs passed. Both SARIF reports
-were collected:
+Final CI run [45380741384](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45380741384)
+on head `964dcead`: the **Container image security scan job FAILED** on backend
+findings only; the other six jobs passed. The frontend image now has **zero**
+MEDIUM+ findings after pinning `nginxinc/nginx-unprivileged:1.31.7-alpine3.24-slim`
+and upgrading Alpine packages. Both SARIF reports were collected:
 
 | Image | HIGH | MEDIUM | LOW / unknown |
 | --- | --- | --- | --- |
-| backend | 59 | 78 | 94 |
-| frontend | 20 | 13 | 48 |
+| backend | 59 | 78 | 95 |
+| frontend | 0 | 0 | 0 |
 
 The first run [45373686192](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45373686192)
-on `900a9c36` reported backend 53 HIGH / 81 MEDIUM / 94 LOW-unknown. The
-difference reflects a refreshed Trivy database plus the `pip` upgrade; the gate
+on `900a9c36` reported backend 53 HIGH / 81 MEDIUM / 94 LOW-unknown; an
+intermediate run reported frontend 20 HIGH / 13 MEDIUM before the patched nginx
+tag was pinned. The backend count reflects a refreshed Trivy database; the gate
 remains failing.
 
 Affected OS packages include `bsdutils`, `util-linux`, `libblkid1`,
@@ -28,7 +30,12 @@ Affected OS packages include `bsdutils`, `util-linux`, `libblkid1`,
 `python:3.12-slim` base image (Debian 13.8). Most report **no fixed version** in
 Trivy's database, so an in-image `apt upgrade` cannot resolve them today.
 Python `pip` 25.0.1 had five MEDIUM findings with fixed versions, so the backend
-Dockerfile now upgrades to `pip==26.2.0`.
+Dockerfile now upgrades to `pip==26.2.0`; `certifi`, `msgpack`, `setuptools` and
+`urllib3` are also pinned to fixed releases. The final SARIF still reports those
+Python packages at the older installed versions, consistent with Debian-packaged
+duplicates in the base image rather than the pip-installed copies. No further
+safe in-image remediation was identified without changing the base distribution,
+so those findings are preserved rather than suppressed.
 
 The frontend scan step is marked `if: always()` so its SARIF is still collected
 after a backend failure; the job remains failed because the scans are real

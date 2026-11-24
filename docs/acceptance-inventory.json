@@ -469,19 +469,19 @@
   },
   "container_scan": {
     "status": "FAIL",
-    "run": 45377337583,
-    "head": "2eee8082b59d4faf40001d8b95f998ec4eb97340",
+    "run": 45380741384,
+    "head": "964dceadb972f90d96d76511f43e9a6caea4200b",
     "backend": {
       "high": 59,
       "medium": 78,
-      "low_or_unknown": 94
+      "low_or_unknown": 95
     },
     "frontend": {
-      "high": 20,
-      "medium": 13,
-      "low_or_unknown": 48
+      "high": 0,
+      "medium": 0,
+      "low_or_unknown": 0
     },
-    "remediation": "pip pinned to fixed 26.2.0; base-image OS findings lack fixed versions and remain external",
+    "remediation": "frontend pinned to patched nginx 1.31.7 and upgraded; backend pip/OS packages upgraded; remaining backend findings have no safe in-image fix",
     "suppressed": false,
     "evidence": "docs/CONTAINER-SCAN-FINDINGS.md"
   }

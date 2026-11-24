@@ -306,6 +306,59 @@ def _sanitize_alert_detail(detail: dict | None) -> dict:
     return clean
 
 
+def validate_dr_environment(environ: dict | None = None) -> dict:
+    """Validate DR/backup variables without echoing any value.
+
+    Used by deployment preflight. Findings name the variable and the problem;
+    secrets, endpoints and command values are never included.
+    """
+    env = dict(os.environ if environ is None else environ)
+    findings: list[dict[str, str]] = []
+
+    def integer(name: str, *, minimum: int) -> None:
+        raw = env.get(name, "").strip()
+        if not raw:
+            return
+        try:
+            value = int(raw)
+        except ValueError:
+            findings.append({"variable": name, "issue": "must_be_an_integer"})
+            return
+        if value < minimum:
+            findings.append({"variable": name, "issue": f"must_be_at_least_{minimum}"})
+
+    integer("MARKET_MIND_BACKUP_RETENTION_DAYS", minimum=0)
+    integer("MARKET_MIND_BACKUP_KEEP", minimum=1)
+    integer("MARKET_MIND_DR_TIMEOUT_SECONDS", minimum=1)
+
+    for name in ("MARKET_MIND_INCIDENT_WEBHOOK_URL", "MARKET_MIND_S3_ENDPOINT"):
+        raw = env.get(name, "").strip()
+        if not raw:
+            continue
+        parsed = urlsplit(raw)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            findings.append({"variable": name, "issue": "must_be_http_or_https_url"})
+        elif parsed.scheme == "http" and parsed.hostname not in {"127.0.0.1", "localhost", "::1"}:
+            findings.append({"variable": name, "issue": "https_required_outside_loopback"})
+
+    command = env.get("MARKET_MIND_BACKUP_UPLOAD_CMD", "")
+    if command:
+        try:
+            parse_upload_command(command)
+        except DrError as exc:
+            findings.append({"variable": "MARKET_MIND_BACKUP_UPLOAD_CMD",
+                             "issue": str(exc)})
+        if redact_secrets(command) != command:
+            findings.append({"variable": "MARKET_MIND_BACKUP_UPLOAD_CMD",
+                             "issue": "must_not_embed_secrets_use_environment"})
+
+    return {
+        "status": "failed" if findings else "ok",
+        "findings": findings,
+        "values_exposed": False,
+    }
+
+
 def send_alert(event: str, status: str, detail: dict | None = None,
                *, timeout: float = 5.0) -> dict:
     """Best-effort incident webhook hook. Never logs or emits the webhook URL.

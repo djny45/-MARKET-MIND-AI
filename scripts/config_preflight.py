@@ -115,7 +115,29 @@ def _compose_checks(text: str) -> list[dict]:
 def _host_tooling_checks(root: Path) -> list[dict]:
     """Verify the scripts invoked by generated host units exist and parse."""
     import argparse
-    import install_schedule
+    import importlib.util
+
+    def load_audited(name: str):
+        path = root / "scripts" / f"{name}.py"
+        spec = importlib.util.spec_from_file_location(f"audited_{name}", path)
+        if spec is None or spec.loader is None:
+            raise ImportError(name)
+        module = importlib.util.module_from_spec(spec)
+        old_path = list(sys.path)
+        saved = {key: sys.modules.get(key) for key in ("backup_scheduler", "dr_common")}
+        try:
+            sys.path.insert(0, str(root / "scripts"))
+            for key in saved:
+                sys.modules.pop(key, None)
+            spec.loader.exec_module(module)
+        finally:
+            sys.path[:] = old_path
+            for key, value in saved.items():
+                if value is None:
+                    sys.modules.pop(key, None)
+                else:
+                    sys.modules[key] = value
+        return module
 
     required = (
         "scripts/backup_scheduler.py", "scripts/service_restart_recovery.py",
@@ -142,13 +164,14 @@ def _host_tooling_checks(root: Path) -> list[dict]:
         "detail": "all scripts compile" if not compile_errors else ", ".join(compile_errors),
     })
     try:
-        plan = install_schedule.build_plan(argparse.Namespace(
+        audited = load_audited("install_schedule")
+        plan = audited.build_plan(argparse.Namespace(
             output_dir=str(root / "deploy" / "generated"), schedule="0 2 * * *",
             log_path=None, interval_hours=24, on_calendar="daily",
             environment_file="/etc/market-mind/market-mind.env",
         ))
-        service = plan["files"][install_schedule.BACKUP_SERVICE]
-        cron = plan["files"][install_schedule.CRON_FILE]
+        service = plan["files"][audited.BACKUP_SERVICE]
+        cron = plan["files"][audited.CRON_FILE]
         valid = (
             "\nEnvironmentFile=" in service
             and ". /etc/market-mind/market-mind.env" in cron

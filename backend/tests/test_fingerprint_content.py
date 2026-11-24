@@ -40,6 +40,23 @@ class FingerprintContentTests(unittest.TestCase):
         self.assertEqual(comparison["status"], "mismatch")
         self.assertFalse(comparison["content_match"])
 
+    def test_identical_fk_violations_do_not_break_parity(self):
+        fingerprint = {
+            "table_counts": {"child": 1}, "schema_version": 1,
+            "content_digest": "same", "foreign_key_violations": ["orphan-child"],
+        }
+        result = _compare(dict(fingerprint), {"fingerprint": dict(fingerprint)})
+        self.assertEqual(result["status"], "matched")
+        self.assertTrue(result["foreign_key_ok"])
+
+    def test_new_fk_violation_on_restore_is_a_mismatch(self):
+        expected = {"table_counts": {"child": 1}, "schema_version": 1,
+                    "content_digest": "same", "foreign_key_violations": []}
+        restored = dict(expected, foreign_key_violations=["orphan-child"])
+        result = _compare(restored, {"fingerprint": expected})
+        self.assertEqual(result["status"], "mismatch")
+        self.assertFalse(result["foreign_key_ok"])
+
     def test_foreign_key_violations_are_recorded(self):
         path = self.root / "fk.db"
         with sqlite3.connect(path) as connection:

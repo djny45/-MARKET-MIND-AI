@@ -150,10 +150,12 @@ def _create_backup(config: BackupConfig, backup: Path, journal: dict) -> dict:
 
 def _upload(config: BackupConfig, backup: Path, journal: dict,
             sha256: str | None = None) -> dict:
-    if config.dry_run:
-        return {"status": "dry_run"}
-    if not config.upload_command:
-        return {"status": "not_configured"}
+    if config.dry_run or not config.upload_command:
+        outcome = {"status": "dry_run" if config.dry_run else "not_configured"}
+        # Preserve journal fidelity for a normal no-upload backup; this is not
+        # a failed upload and must not block resume or retention.
+        _set_phase(config, journal, journal.get("phase", "upload"), upload=outcome)
+        return outcome
     digest = sha256 or sha256_file(backup)
     outcome = run_upload_command(
         config.upload_command, backup=backup, sha256=digest, timeout=config.timeout

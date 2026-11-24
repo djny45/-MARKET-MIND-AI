@@ -98,7 +98,10 @@ def build_report(root: Path, state_dir: Path | None = None) -> dict:
             or restore_payload.get("sha256") == backup_payload.get("sha256")
         )
     )
-    complete = bool(backups and backup_ok and restore_ok and restart_ok and paired)
+    complete = bool(
+        backups and backup_ok and restore_ok and restart_ok and paired
+        and journal_status == "completed" and not interrupted_previous_run
+    )
 
     sections = {
         "backup": {

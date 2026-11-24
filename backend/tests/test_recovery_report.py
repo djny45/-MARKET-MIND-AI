@@ -85,6 +85,21 @@ class RecoveryReportTests(unittest.TestCase):
         self.assertFalse(report["sections"]["restore"]["evidence_valid"])
         self.assertFalse(report["sections"]["restart"]["evidence_valid"])
 
+    def test_interrupted_recovery_journal_blocks_complete_evidence(self):
+        self._create_valid_artifacts()
+        (self.root / "recovery-journal.json").write_text(
+            json.dumps({"status": "in_progress", "phase": "requeue"}), encoding="utf-8"
+        )
+        report = recovery_report.build_report(self.root)
+        self.assertEqual(report["status"], "evidence_incomplete")
+        self.assertTrue(report["sections"]["restart"]["interrupted_previous_run"])
+        result = subprocess.run(
+            [sys.executable, str(ROOT / "scripts" / "recovery_report.py"),
+             "--root", str(self.root)],
+            capture_output=True, text=True, timeout=30,
+        )
+        self.assertNotEqual(result.returncode, 0)
+
     def test_restore_report_for_an_older_backup_is_not_complete_evidence(self):
         self._create_valid_artifacts()
         original = next(self.root.glob("market_mind-*.db"))

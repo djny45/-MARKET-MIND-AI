@@ -67,6 +67,32 @@ class RestoreRollbackTests(unittest.TestCase):
         self.assertEqual(report["status"], "failed")
         self.assertEqual(report["rollback"]["status"], "restored")
 
+    def test_wal_committed_data_survives_a_failed_restore(self):
+        self.original.write_bytes(b"")  # start from a valid empty SQLite file
+        connection = sqlite3.connect(self.original, isolation_level=None)
+        connection.execute("PRAGMA journal_mode=WAL")
+        connection.execute("CREATE TABLE live (id INTEGER)")
+        connection.execute("INSERT INTO live VALUES (1)")
+        self.assertTrue((self.root / "target" / "market_mind.db-wal").exists())
+
+        def fail(config, destination):
+            destination.write_bytes(b"PARTIAL-CORRUPT")
+            return {"status": "failed"}
+
+        with patch.object(restore_orchestrator, "_restore_copy", side_effect=fail):
+            with self.assertRaises(DrError):
+                restore_backup(RestoreConfig(self.restore_args))
+        connection.close()
+        # The rollback must leave no stale sidecars from the failed restore;
+        # a later read may legitimately recreate WAL files for a WAL-mode DB.
+        self.assertFalse(Path(str(self.original) + "-wal").exists())
+        self.assertFalse(Path(str(self.original) + "-shm").exists())
+        with sqlite3.connect(self.original) as check:
+            self.assertEqual(check.execute("SELECT COUNT(*) FROM live").fetchone()[0], 1)
+        reports = list((self.root / "restore-state").glob("restore-report-*.json"))
+        self.assertEqual(len(reports), 1)
+        self.assertEqual(json.loads(reports[0].read_text())["status"], "failed")
+
     def test_successful_overwrite_records_the_snapshot(self):
         result = restore_backup(RestoreConfig(self.restore_args))
         self.assertEqual(result["status"], "restored_and_verified")

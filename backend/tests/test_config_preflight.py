@@ -101,6 +101,13 @@ class ConfigPreflightTests(unittest.TestCase):
                       "published_ports_loopback"):
             self.assertIn(check, report["failed"])
 
+    def test_drift_in_audited_install_schedule_is_detected(self):
+        schedule = self.root / "scripts" / "install_schedule.py"
+        source = schedule.read_text()
+        schedule.write_text(source.replace("_environment_directive(env_file)", "'# removed'"), encoding="utf-8")
+        report = json.loads(self._run().stdout)
+        self.assertIn("host_schedule_plan_valid", report["failed"])
+
     def test_missing_host_tooling_is_reported(self):
         (self.root / "scripts" / "service_restart_recovery.py").unlink()
         report = json.loads(self._run().stdout)

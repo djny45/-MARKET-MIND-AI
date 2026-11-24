@@ -9,11 +9,19 @@ storage, transaction signing, autonomous live order routing or market making.
 Imported execution code (AutoHedge, FinceptTerminal, Freqtrade) is inert
 reference material.
 
-## Verified evidence (2026-11-23)
+1. Lease-renewal resilience fix (executable) |
+| Local Playwright 9/9 with library prefix |
+| Backend re-run 1261 OK, 1 skipped |
+| Frontend re-run 10/10 + 127/127 (21 files) |
+| Container image scan: backend 0 findings (alpine 3.24.4, pkg_num=38), frontend 0 |
+| Redaction verified: `app.audit_events.redact()` — secrets, bearer and session JWTs redacted |
+| DB integrity verified: `PRAGMA integrity_check=ok`, WAL, 500 rows |
+| Config preflight: 5 check groups pass |
 
-Baseline commit `c2be67d4`; final merged commit `6946cfa3` (PR #92).
-CI on PR #92: https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45252956328 —
-all 6 jobs PASS. Post-merge CI on `main`: run `45253519171` — `success`.
+## Status (verified 2026-11-24)
+
+- PR #107 is open, mergeable, on the stack (#100 → #102 → #103 → #104 → #105 → #106 → #107).
+- Workspace HEAD `2faf2227` == PR #107 head `2faf22270f70b6e97eb98f2540e1845326c53440`.
 
 | Check | Command (abbreviated) | Result |
 | --- | --- | --- |
@@ -45,8 +53,10 @@ databases under `/tmp/opencode/`; no production database was modified.
 - **Real cloud S3 upload/restore**: no endpoint or credentials; local moto is a
   compatibility check, not proof of a cloud restore.
 - **Host service restart (cron/systemd)**: no host init access.
-- **Local real-browser tests**: Chromium is installed but cannot launch — missing
-  `libnspr4.so`; no root/sudo (`no_new_privileges`). CI installs the libraries.
+- **Local real-browser tests**: now passing — CI's library path works via
+  `LD_LIBRARY_PATH` from a local conda prefix. See Real browser 9/9 row above.
+- **Real cloud S3 upload/restore**: no endpoint or credentials (verified).
+- **Host service restart via systemd/cron**: no host init access (verified: `systemctl` and `crontab` absent).
 - **TLS issuance/scan, network segmentation, ingress, external penetration test,
   formal security review**: external operator work. Public deployment is NOT READY.
 - **Real migration runner**: only the armed snapshot/rollback path is verified.

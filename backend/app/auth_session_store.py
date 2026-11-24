@@ -254,13 +254,27 @@ def purge_expired_sessions(database_path: str | Path, *, now: int) -> int:
     if isinstance(now, bool) or not isinstance(now, int) or now < 0:
         raise ValueError("now must be a non-negative integer")
     with _connect(database_path) as connection:
+        condition = """
+            revoked_at IS NOT NULL
+            OR idle_expires_at <= ?
+            OR absolute_expires_at <= ?
+        """
+        hashes = [
+            row[0] for row in connection.execute(
+                f"SELECT session_token_hash FROM auth_sessions WHERE {condition}", (now, now)
+            )
+        ]
         cursor = connection.execute(
-            """
-            DELETE FROM auth_sessions
-            WHERE revoked_at IS NOT NULL
-               OR idle_expires_at <= ?
-               OR absolute_expires_at <= ?
-            """,
-            (now, now),
+            f"DELETE FROM auth_sessions WHERE {condition}", (now, now)
         )
+        if hashes:
+            try:
+                connection.executemany(
+                    "DELETE FROM auth_session_identities WHERE session_token_hash = ?",
+                    [(value,) for value in hashes],
+                )
+            except sqlite3.OperationalError:
+                # Databases created before the identity table existed still
+                # purge sessions; the next login creates the table.
+                pass
         return cursor.rowcount

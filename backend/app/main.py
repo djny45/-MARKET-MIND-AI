@@ -506,8 +506,9 @@ async def login(request: Request):
  client = client_ip(request)
  allowed, retry_after = login_guard.check_login(username, client)
  if not allowed:
-  audit_log.record("authentication", None, "/api/auth/login", "login", "throttled",
-                   metadata={"retry_after_seconds": retry_after})
+  audit_log.record("authentication", safe_actor({"username": username, "role": "unauthenticated"}),
+                   "/api/auth/login", "login", "throttled",
+                   metadata={"attempted_username": username, "retry_after_seconds": retry_after})
   raise HTTPException(
    status_code=429,
    detail="Too many failed login attempts; retry later",
@@ -516,8 +517,10 @@ async def login(request: Request):
  identity = user_auth.authenticate(username, str(body.get("password", "")))
  if identity is None:
   outcome = login_guard.record_login_failure(username, client)
-  audit_log.record("authentication", None, "/api/auth/login", "login", "denied",
-                   metadata={"failures": outcome["failures"],
+  audit_log.record("authentication", safe_actor({"username": username, "role": "unauthenticated"}),
+                   "/api/auth/login", "login", "denied",
+                   metadata={"attempted_username": username,
+                             "failures": outcome["failures"],
                              "locked_for_seconds": outcome["locked_for"]})
   raise HTTPException(status_code=401, detail="Invalid credentials")
  login_guard.record_login_success(username, client)

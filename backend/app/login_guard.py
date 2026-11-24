@@ -83,13 +83,28 @@ class LoginGuard:
 
     def _entry(self, key: str) -> _Entry:
         entry = self._entries.get(key)
-        if entry is None:
-            entry = _Entry()
-            self._entries[key] = entry
-            while len(self._entries) > self.max_tracked_keys:
-                self._entries.popitem(last=False)
-        else:
+        if entry is not None:
             self._entries.move_to_end(key)
+            return entry
+        now = self._clock()
+        window = self._config()["window_seconds"]
+        # Prefer dropping entries that can no longer affect a decision.
+        for old_key, old_entry in list(self._entries.items()):
+            if old_entry.locked_until <= now:
+                self._prune(old_entry, now, window)
+                if not old_entry.failures:
+                    self._entries.pop(old_key, None)
+        while len(self._entries) >= self.max_tracked_keys:
+            victim = next(
+                (name for name, value in self._entries.items() if value.locked_until <= now),
+                None,
+            )
+            if victim is None:
+                # Never evict an active lockout to track an unrelated key.
+                return _Entry()
+            self._entries.pop(victim)
+        entry = _Entry()
+        self._entries[key] = entry
         return entry
 
     def _prune(self, entry: _Entry, now: float, window: int) -> None:

@@ -16,7 +16,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 import backup_orchestrator  # noqa: E402
 from backup_orchestrator import BackupConfig, run_backup  # noqa: E402
-from dr_common import DrError  # noqa: E402
+from dr_common import DrError, atomic_write_json  # noqa: E402
 
 
 class DrStorageFailureTests(unittest.TestCase):
@@ -34,7 +34,7 @@ class DrStorageFailureTests(unittest.TestCase):
         self.args = argparse.Namespace(
             source=self.source, destination_dir=self.root / "backups",
             state_dir=self.root / "state", retention_days=30, retention_count=None,
-            upload_command=None, backup=None, dry_run=False, alert_on_success=False,
+            upload_command="", backup=None, dry_run=False, alert_on_success=False,
         )
 
     def test_low_free_space_aborts_before_creating_a_backup(self):
@@ -52,6 +52,20 @@ class DrStorageFailureTests(unittest.TestCase):
             with self.assertRaises(DrError) as caught:
                 run_backup(BackupConfig(self.args))
         self.assertIn("backup_disk_probe_failed", str(caught.exception))
+
+    def test_resume_of_non_copy_phases_skips_the_disk_probe(self):
+        config = BackupConfig(self.args)
+        config.state_dir.mkdir(parents=True, exist_ok=True)
+        config.destination_dir.mkdir(parents=True, exist_ok=True)
+        atomic_write_json(config.state_dir / "backup-journal.json", {
+            "status": "in_progress", "phase": "prune",
+            "backup": "market_mind-test.db", "sha256": "a" * 64, "backup_bytes": 1,
+        })
+        (config.destination_dir / "market_mind-test.db").write_bytes(b"x")
+        with patch.object(backup_orchestrator, "_ensure_free_space",
+                          side_effect=AssertionError("probe must be skipped on resume")):
+            result = run_backup(config, resume=True)
+        self.assertEqual(result["status"], "completed")
 
     def test_default_configuration_does_not_require_a_disk_probe(self):
         with patch.dict(os.environ, {"MARKET_MIND_BACKUP_MIN_FREE_MB": ""}), \

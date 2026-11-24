@@ -40,7 +40,12 @@ class ConfigPreflightTests(unittest.TestCase):
         )
 
     def test_clean_configuration_passes_without_exposing_values(self):
-        env = dict(os.environ, DUMMY_SECRET_FOR_PREFLIGHT="do-not-print-this-value")
+        # Isolate from any DR variables exported on the host; this test checks
+        # the copied files, not the operator's environment.
+        env = {key: value for key, value in os.environ.items()
+               if not key.startswith("MARKET_MIND_") and "SECRET" not in key
+               and "TOKEN" not in key and "PASSWORD" not in key}
+        env["DUMMY_SECRET_FOR_PREFLIGHT"] = "do-not-print-this-value"
         result = self._run(env)
         self.assertEqual(result.returncode, 0, result.stderr)
         report = json.loads(result.stdout)
@@ -78,6 +83,28 @@ class ConfigPreflightTests(unittest.TestCase):
         self.assertIn("dr_environment", report["failed"])
         self.assertNotIn("not-a-number", result.stdout)
         self.assertNotIn("abc123", result.stdout)
+
+    def test_host_networking_privilege_and_new_ports_are_rejected(self):
+        compose = self.root / "docker-compose.yml"
+        text = compose.read_text().replace(
+            "  backend:\n    build:",
+            "  backend:\n    network_mode: host\n    privileged: true\n"
+            "    cap_add:\n      - SYS_ADMIN\n    ports:\n      - \"0.0.0.0:9000:9000\"\n    build:",
+        )
+        compose.write_text(text, encoding="utf-8")
+        report = json.loads(self._run().stdout)
+        for check in ("backend_not_host_published", "services_unprivileged",
+                      "published_ports_loopback"):
+            self.assertIn(check, report["failed"])
+
+    def test_ingest_limits_must_be_applied_not_only_declared(self):
+        server = self.root / "frontend" / "nginx.conf"
+        server.write_text(
+            server.read_text().replace("limit_req zone=market_mind_api burst=20 nodelay", ""),
+            encoding="utf-8",
+        )
+        report = json.loads(self._run().stdout)
+        self.assertIn("ingress_limits_and_proto", report["failed"])
 
 
 if __name__ == "__main__":

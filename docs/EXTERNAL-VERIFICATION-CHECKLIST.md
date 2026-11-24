@@ -32,15 +32,21 @@ removes the duplicate that previously counted the same external gap twice.
    endpoint/bucket/region/prefix are present and `credentials_exposed=false`.
 2. Create a verified local backup with
    `python3 scripts/backup_orchestrator.py run --source <db> --destination-dir <dir> --state-dir <state>`.
-3. Upload with `MARKET_MIND_BACKUP_UPLOAD_CMD='python3 scripts/s3_offhost.py upload --file {backup} --key {name}'`
-   and `backup_orchestrator.py retry-upload` if needed.
-4. Download to a **new** path with `s3_offhost.py download --file <isolated>/restored.db --key <key>`.
+3. Upload during the backup run with
+   `MARKET_MIND_BACKUP_UPLOAD_CMD='python3 scripts/s3_offhost.py upload --file {backup} --key {name}' python3 scripts/backup_orchestrator.py run --source <db> --destination-dir <dir> --state-dir <state>`.
+   If only the upload failed, retry explicitly with
+   `python3 scripts/backup_orchestrator.py retry-upload --backup <failed-backup> --state-dir <state>`.
+4. Download to a **new** path with
+   `python3 scripts/s3_offhost.py download --file <isolated>/restored.db --key <key>`.
 5. `sha256sum` the local and downloaded files; verify against the `.sha256`
    sidecar and the backup manifest.
 6. `python3 scripts/restore_orchestrator.py verify --backup <downloaded> --state-dir <state>`
-   then `restore --target <clean-isolated-dir>`; compare fingerprints and row counts.
-7. `python3 scripts/recovery_report.py --root <dir>` and confirm
-   `status=evidence_complete`, `freshness=ok`, restore comparison `matched`.
+   then `python3 scripts/restore_orchestrator.py restore --backup <downloaded> --target <clean-isolated-dir> --state-dir <state>`;
+   compare fingerprints and row counts.
+7. Produce restart evidence on the isolated copy with
+   `python3 scripts/service_restart_recovery.py run --db <isolated-restored-db> --state-dir <state> --stale-after-seconds 1 --skip-task-recovery`,
+   then `python3 scripts/recovery_report.py --root <dir> --state-dir <state>`
+   and confirm `status=evidence_complete`, `freshness=ok`, restore comparison `matched`.
 
 **Expected result**
 - All commands exit 0; SHA-256 parity; restore comparison `matched`;
@@ -75,17 +81,28 @@ removes the duplicate that previously counted the same external gap twice.
 **Exact test procedure**
 1. `python3 scripts/install_schedule.py plan --output-dir <review-dir>` — verify
    no writes and no `systemctl`/`crontab` invocation.
-2. `apply --apply --output-dir <review-dir>`; review the generated service,
-   timer, restart-recovery unit and crontab line. Install manually on the host.
-3. `systemctl daemon-reload && systemctl enable --now market-mind-backup.timer`;
+2. Create `/etc/market-mind/market-mind.env` with mode 0600 containing the
+   operator's `MARKET_MIND_*` settings. The generated units load it through an
+   active `EnvironmentFile=` directive; the crontab line sources the same file.
+3. `python3 scripts/install_schedule.py apply --apply --output-dir <review-dir>`;
+   review the generated service, timer, restart-recovery unit and crontab line,
+   then install them manually on the host.
+4. `systemctl daemon-reload && systemctl enable --now market-mind-backup.timer market-mind-restart-recovery.service`;
    confirm `systemctl list-timers` and one successful backup manifest.
-4. Kill the supervisor/executor process with `kill -9` during a queued task;
-   run `python3 scripts/service_restart_recovery.py run` (or let the unit run).
-5. Check `/api/ready` (200), `PRAGMA integrity_check`, and that the killed
+5. Kill the supervisor/executor process with `kill -9` during a queued task,
+   wait one second, then run
+   `python3 scripts/service_restart_recovery.py run --stale-after-seconds 1`
+   (or let the installed unit run with that threshold).
+6. Check `/api/ready` (200), `PRAGMA integrity_check`, and that the killed
    `running` task was requeued exactly once with `still_running_count=0`.
-6. Volume sub-drill: `docker_volume_drill.py plan`, then `backup --apply` and
-   `restore --apply` into a **different** disposable volume; compare fingerprints.
-7. Capture `recovery_report.py` after the drill.
+7. Volume sub-drill (all arguments required):
+   `python3 scripts/docker_volume_drill.py plan --source-volume market_mind_data --backup-dir <backup-dir>`,
+   `python3 scripts/docker_volume_drill.py backup --apply --image <backend-image> --source-volume market_mind_data --backup-dir <backup-dir>`,
+   `python3 scripts/docker_volume_drill.py restore --apply --image <backend-image> --source-volume market_mind_data --target-volume market_mind_data-drill --backup-dir <backup-dir> --backup <backup>`.
+   The restore reports `status=restored_and_verified` and `comparison=matched`
+   only after an in-container fingerprint check; the throwaway volume is then removed.
+8. Capture `python3 scripts/recovery_report.py --root <backup-dir> --state-dir <state>`
+   after the drill.
 
 **Expected result**
 - Timer active; backup fresh (`freshness=ok`); stale locks removed; interrupted

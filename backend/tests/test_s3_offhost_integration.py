@@ -86,6 +86,13 @@ class _FakeS3Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
+        # Downloads must be signed too; otherwise an unsigned GET regression
+        # would pass this contract test.
+        if not self._signature_is_valid("GET", b""):
+            self.send_response(403)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
         body = self.objects.get(self.path)
         if body is None:
             self.send_response(404)
@@ -158,6 +165,23 @@ class S3OffhostIntegrationTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(json.loads(result.stdout)["status"], 403)
         self.assertNotIn("WRONG-SECRET", result.stdout + result.stderr)
+
+    def test_unsigned_or_mis_signed_download_is_rejected(self):
+        source = self.root / "backup.db"
+        source.write_bytes(b"fixture")
+        upload = self._run("upload", "--file", str(source),
+                           "--key", "market-mind/backups/signed.db")
+        self.assertEqual(upload.returncode, 0, upload.stderr)
+        env = dict(self.env, MARKET_MIND_S3_SECRET_KEY="WRONG-SECRET")
+        destination = self.root / "not-written.db"
+        result = subprocess.run(
+            [sys.executable, str(SCRIPT), "download", "--file", str(destination),
+             "--key", "market-mind/backups/signed.db"],
+            env=env, capture_output=True, text=True, timeout=20,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(json.loads(result.stdout)["status"], 403)
+        self.assertFalse(destination.exists())
 
     def test_failed_download_does_not_overwrite_an_existing_file(self):
         destination = self.root / "existing.db"

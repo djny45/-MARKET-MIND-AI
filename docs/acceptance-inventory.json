@@ -1,11 +1,11 @@
 {
   "generated_at": "2026-11-24",
-  "source": "verified 2026-11-24 on branch fix/phase2-acceptance-gaps at d9169e81 (code complete)",
+  "source": "verified 2026-11-24 on branch feature/phase3-external-prep (final head recorded in final report)",
   "counts": {
     "api_routes": 147,
     "backend_modules": 118,
     "backend_test_modules": 155,
-    "frontend_ui_test_files": 19,
+    "frontend_ui_test_files": 21,
     "analytical_worker_configs": 550,
     "auth_routes": 6,
     "ownership_claim_sites": 8,
@@ -391,5 +391,27 @@
     "EXT-02 real host service install/restart/recovery (incl. Docker volume sub-drill)",
     "EXT-03 independent security review, penetration test and formal sign-off",
     "licensed live market-data provider and legal/licensing review (public gate)"
-  ]
+  ],
+  "reference_documents": {
+    "ACC-029": "docs/S3-VERIFICATION-PACKAGE.md",
+    "ACC-030": "docs/HOST-RECOVERY-PROCEDURE.md",
+    "ACC-031": "docs/SECURITY-REVIEW-PACKAGE.md",
+    "external_procedures": "docs/EXTERNAL-VERIFICATION-CHECKLIST.md",
+    "engineering_audit": "docs/FINAL-ENGINEERING-AUDIT.md"
+  },
+  "pr_102_review": {
+    "automated_findings": 33,
+    "genuine_findings_fixed": [
+      "systemd EnvironmentFile directives and boot activation",
+      "calendar timer for Persistent=true",
+      "symlink-safe writes and broader protected paths",
+      "Compose host-network/privilege/new-port preflight",
+      "applied ingress limit assertions",
+      "recovery evidence pairing/state-dir/artifact validation",
+      "in-container volume fingerprint parity",
+      "GET signature verification in fake S3",
+      "external checklist command corrections"
+    ],
+    "delivery": "fix(audit) commit on stacked feature/phase3-external-prep branch"
+  }
 }

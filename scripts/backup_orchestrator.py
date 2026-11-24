@@ -313,16 +313,18 @@ def _ensure_free_space(directory: Path) -> None:
 
 def run_backup(config: BackupConfig, *, resume: bool = False) -> dict:
     config.destination_dir.mkdir(parents=True, exist_ok=True)
-    _ensure_free_space(config.destination_dir)
     config.state_dir.mkdir(parents=True, exist_ok=True)
     with DrLock(config.state_dir, "backup"):
         journal = read_json(_journal_path(config))
         if resume:
             if not journal:
                 raise DrInterrupted("no_journal_to_resume")
+            # Resume may only upload/prune; those phases do not copy locally and
+            # must remain recoverable when the volume is already below the floor.
             return _resume(config, journal)
         if journal and journal.get("status") == "in_progress":
             raise DrInterrupted("incomplete_backup_run_use_resume")
+        _ensure_free_space(config.destination_dir)
         if not config.source.is_file():
             raise DrError("source_database_not_found:" + str(config.source))
         backup = _new_backup_path(config)

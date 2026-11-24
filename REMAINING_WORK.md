@@ -288,3 +288,43 @@ Final local validation on this branch: backend `unittest discover -s backend/tes
 **127/127** (21 files), `npm run build` and `npm run typecheck:test` exit 0.
 Raw logs: `/tmp/opencode/phase2-final/`. CI results for the pushed PR head are
 recorded in the PR and final report.
+
+---
+
+## Phase 3 — external verification preparation (2026-11-24)
+
+Branch `feature/phase3-external-prep`, stacked on PR #102. No external access,
+credentials, privileged operations or independent approval were used.
+
+- **PR #102 audit:** all 8 commits and 21 files reviewed. CI on head
+  `e69530045225afd1f0d25ed3c97e3d12ed8019d1` (run `45353077146`) passed all six
+  jobs. Automated reviewers reported 33 findings; genuine ones were fixed in the
+  `fix(audit)` commit: active `EnvironmentFile=` directives, boot activation for
+  the restart unit, calendar timer, symlink-safe writes, broader protected paths,
+  Compose host-network/privilege/new-port checks, applied ingress-limit checks,
+  recovery evidence pairing/state-dir/artifact validation, in-container volume
+  fingerprint parity, GET signature verification in fake S3, and corrected
+  external commands.
+- **ACC-029:** `docs/S3-VERIFICATION-PACKAGE.md` documents supported providers,
+  limits, encryption/checksum/metadata requirements and the real-cloud procedure.
+  DR config validation now rejects partial S3 settings, invalid bucket/region and
+  prefix traversal (tests added).
+- **ACC-030:** `docs/HOST-RECOVERY-PROCEDURE.md` plus `host_recovery_plan.py` give
+  a read-only runbook generator, systemd/cron install guidance, short-threshold
+  restart drill, Docker named-volume commands, preflight and rollback. The volume
+  drill now verifies fingerprints inside the target before cleanup.
+- **ACC-031:** `docs/SECURITY-REVIEW-PACKAGE.md` contains the threat model,
+  architecture references, dependency inventory, CI scan results, control
+  evidence and penetration-test scope/evidence checklist.
+- **Final audit:** `docs/FINAL-ENGINEERING-AUDIT.md` records architecture,
+  database/recovery, 550-worker/325-skill registry verification, provenance and
+  research-only boundary evidence.
+
+Acceptance remains **37/40 verified, 0 partial, 3 BLOCKED**. Private-platform
+verification stays 7/10 and public deployment 0/6; the three blocked checks are
+external by definition.
+
+Final Phase 3 local validation: backend `unittest discover -s backend/tests -q`
+→ **1,223 OK, 1 skipped**; frontend `npm test` **10/10**, `npm run test:ui`
+**127/127** (21 files), `npm run build` and `npm run typecheck:test` exit 0.
+Logs: `/tmp/opencode/phase3-final/`.

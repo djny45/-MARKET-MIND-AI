@@ -26,6 +26,18 @@ from dr_common import (
 DEFAULT_SOURCE_VOLUME = "market_mind_data"
 DEFAULT_PREFIX = "market-mind"
 
+# Runs inside the restored container before the throwaway volume is removed.
+FINGERPRINT_CODE = (
+    "import json,os,sqlite3;"
+    "c=sqlite3.connect('/data/market_mind.db');"
+    "integrity=c.execute('PRAGMA integrity_check').fetchone()[0];"
+    "tables=[r[0] for r in c.execute(\"select name from sqlite_master where type='table'\")];"
+    "counts={t:c.execute('select count(*) from \\\"'+t+'\\\"').fetchone()[0] for t in tables};"
+    "version=c.execute('select max(version) from schema_migrations').fetchone()[0];"
+    "print(json.dumps({'integrity':integrity,'table_counts':counts,'schema_version':version,"
+    "'bytes':os.path.getsize('/data/market_mind.db')},sort_keys=True))"
+)
+
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -75,6 +87,8 @@ def build_plan(args) -> dict:
              "-v", f"{target}:/data", "-v", f"{backup_dir}:/backups:ro", image,
              "python", "/app/restore_database.py", f"/backups/{name}",
              "/data/market_mind.db", "--overwrite"],
+            [args.docker, "run", "--rm", "-v", f"{target}:/data:ro", image,
+             "python", "-c", FINGERPRINT_CODE],
             [args.docker, "volume", "rm", target],
         ]
     return {
@@ -161,15 +175,31 @@ def run_restore(args) -> dict:
         ])
         if restore.returncode != 0:
             raise DrError("volume_restore_failed:" + str(restore.returncode))
+        verified = _run(args.docker, [
+            "run", "--rm", "-v", f"{args.target_volume}:/data:ro", args.image,
+            "python", "-c", FINGERPRINT_CODE,
+        ])
+        if verified.returncode != 0 or not verified.stdout.strip():
+            raise DrError("volume_fingerprint_probe_failed")
+        try:
+            restored_fingerprint = json.loads(verified.stdout.strip().splitlines()[-1])
+        except ValueError as exc:
+            raise DrError("volume_fingerprint_unreadable") from exc
+        expected = database_fingerprint(backup)
+        if restored_fingerprint != expected:
+            raise DrError("volume_fingerprint_mismatch")
         report = {
-            "status": "restored",
+            "status": "restored_and_verified",
             "kind": "docker_named_volume_restore",
             "restored_at": iso_now(),
             "source_volume": args.source_volume,
             "target_volume": args.target_volume,
             "backup": str(backup),
             "checksum": checksum,
-            "note": "Integrity/parity of the restored volume must be verified by the operator before use.",
+            "expected_fingerprint": expected,
+            "restored_fingerprint": restored_fingerprint,
+            "comparison": "matched",
+            "note": "Parity was checked inside the throwaway volume before its removal.",
         }
         atomic_write_json(backup_dir / f"volume-restore-{utcstamp()}.json", report)
         return report

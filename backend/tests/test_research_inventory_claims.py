@@ -38,7 +38,7 @@ class ResearchInventoryClaimTests(unittest.TestCase):
         self.assertNotIn("550+", readme)
         self.assertNotIn("300+ composable skills", readme)
         self.assertIn("325 entries", registry_doc)
-        self.assertIn("89", registry_doc)
+        self.assertIn("89 of those are Vibe Trading reference skills", registry_doc)
 
 
 if __name__ == "__main__":

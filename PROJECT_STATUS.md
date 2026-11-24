@@ -108,3 +108,11 @@ Acceptance inventory is now **37/40 verified, 0 partial, 3 BLOCKED**. The three
 external gates have procedures in
 `docs/EXTERNAL-VERIFICATION-CHECKLIST.md`; private verification stays 7/10 and
 public deployment 0/6.
+
+Continuous Phase 4 (PR #105) fixed supervisor lease acquisition/renewal, Redis
+limiter transitions, and login CSRF compatibility with regression tests, and
+added failing-closed container image scanning. The frontend image is clean after
+pinning nginx 1.31.7; the backend image still has OS-level CVEs with no fixed
+version, so the container gate remains **FAIL** and PR #105 must not be merged.
+See `docs/CONTAINER-SCAN-FINDINGS.md` and
+`docs/MULTI-HOST-ARCHITECTURE-ASSESSMENT.md`.

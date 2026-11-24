@@ -342,6 +342,23 @@ def validate_dr_environment(environ: dict | None = None) -> dict:
         elif parsed.scheme == "http" and parsed.hostname not in {"127.0.0.1", "localhost", "::1"}:
             findings.append({"variable": name, "issue": "https_required_outside_loopback"})
 
+    s3_keys = (
+        "MARKET_MIND_S3_ENDPOINT", "MARKET_MIND_S3_BUCKET", "MARKET_MIND_S3_REGION",
+        "MARKET_MIND_S3_ACCESS_KEY", "MARKET_MIND_S3_SECRET_KEY",
+    )
+    configured = [name for name in s3_keys if env.get(name, "").strip()]
+    if configured and len(configured) != len(s3_keys):
+        findings.append({"variable": "MARKET_MIND_S3_*", "issue": "partial_configuration"})
+    bucket = env.get("MARKET_MIND_S3_BUCKET", "").strip()
+    if bucket and not re.fullmatch(r"[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]", bucket):
+        findings.append({"variable": "MARKET_MIND_S3_BUCKET", "issue": "invalid_bucket_name"})
+    region = env.get("MARKET_MIND_S3_REGION", "").strip()
+    if region and not re.fullmatch(r"[a-z0-9-]{1,40}", region):
+        findings.append({"variable": "MARKET_MIND_S3_REGION", "issue": "invalid_region"})
+    prefix = env.get("MARKET_MIND_S3_PREFIX", "").strip().strip("/")
+    if ".." in prefix or len(prefix) > 200:
+        findings.append({"variable": "MARKET_MIND_S3_PREFIX", "issue": "unsafe_prefix"})
+
     command = env.get("MARKET_MIND_BACKUP_UPLOAD_CMD", "")
     if command:
         try:

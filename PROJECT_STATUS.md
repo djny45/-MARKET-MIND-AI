@@ -119,6 +119,15 @@ See `docs/CONTAINER-SCAN-FINDINGS.md` and
 
 Phase 5 (PR #106) added an isolated two-process supervisor lease race test,
 evaluated and rejected a worse Debian 12 base image, and documented Redis
-fallback as per-process only. Acceptance remains 37/40 PASS, 0 PARTIAL,
-0 FAIL, 3 BLOCKED; the container security gate remains FAIL on real upstream
-backend findings and PR #105 must not be merged.
+fallback as per-process only.
+
+Phase 6 (this branch, stacked on #106) resolved the container gate on evidence
+rather than suppression. A real renewal defect was found and fixed: the dispatch
+renewal thread had no exception handling, so one transient store error silently
+ended leadership while tasks kept running. The backend image moved to a pinned
+`python:3.12.16-alpine3.24` multi-stage runtime with the base system pip removed,
+taking backend findings from 137 MEDIUM+ (0 of 129 OS findings fixable on
+Debian 13) to **0**. Run `45420717539` on head `8785e468` passes all seven CI
+jobs including the container scan, with no ignore file and no threshold change.
+Acceptance remains 37/40 PASS, 0 PARTIAL, 0 FAIL, 3 BLOCKED, because ACC-029/030/
+031 still require authorized external evidence.

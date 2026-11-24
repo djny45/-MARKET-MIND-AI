@@ -405,3 +405,57 @@ Branch `feature/phase5-risk-resolution`, stacked on PR #105.
 
 No external gate was marked PASS. PR #105 remains unmerged while the container
 security gate fails on real upstream findings.
+
+---
+
+## Phase 6 completion (2026-11-24)
+
+Branch `feature/alpine-backend-runtime`, stacked on PR #106.
+
+### Confirmed defect fixed
+
+`test_dispatch_renews_lease_during_a_long_running_task` flaked on CI. The flake
+was a symptom: the dispatch **renewal thread had no exception handling**, so a
+single transient SQLite error terminated the only renewal loop and leadership
+lapsed silently while the task kept running. Renewal now retries on error and
+reports `lease_renewal_error_type`. Added
+`test_dispatch_survives_transient_lease_renewal_error`, and verified it genuinely
+catches the bug by reverting the fix (test fails) and restoring it (test passes).
+The original test now polls a deadline instead of asserting a fixed
+`sleep(1.4)` against a 0.6 s TTL.
+
+### Container security resolved on evidence
+
+| Backend base | MEDIUM+ | OS findings fixable |
+| --- | --- | --- |
+| `python:3.12-slim` (Debian 13) | 137 | 0 of 129 |
+| `python:3.12-slim-bookworm` (Debian 12) | 261 | 0 |
+| `cgr.dev/chainguard/python:latest` | 8 | 8 of 8, but only a floating tag and Python 3.15 |
+| `python:3.12.16-alpine3.24` (adopted) | **0** | — |
+
+Also corrected an earlier documentation error: the `certifi`/`msgpack`/`urllib3`/
+`setuptools` findings were **pip's vendored copies** (pip's `vendor.txt` pins
+`setuptools==70.3.0` exactly), not Debian duplicates, which is why the earlier
+pip-upgrade pins could not clear them. The runtime image is multi-stage and now
+carries no pip or setuptools at all.
+
+No ignore file, severity downgrade or `continue-on-error` was introduced. CI run
+`45420717539` on `8785e468` passes all seven jobs, and the scan log confirms a
+real scan (`Detected OS family="alpine" version="3.24.4"`, `pkg_num=38`).
+
+### Regression validation (Phase 6 tree)
+
+- Backend: **1,261 OK, 1 skipped** (1,260 + the new renewal regression test).
+- Frontend on Node 22.23.5: `npm test` **10/10**, `npm run test:ui` **127/127**
+  (21 files), `npm run build` and `npm run typecheck:test` exit 0.
+- Playwright: **9 failed locally** — `libnspr4.so` missing, no root to install
+  it. CI's browser job passes on Node 22 with browser deps installed. This is the
+  pre-existing host-library limitation, not a code regression.
+- Logs: `/tmp/opencode/phase6/`.
+
+### Unchanged
+
+Acceptance stays **37/40 PASS, 3 BLOCKED**; ACC-029/030/031 still need
+authorized external evidence. Acceptance and the container gate are reported
+separately: the container gate is now PASS on reproducible CI evidence, but that
+is not an independent security approval.

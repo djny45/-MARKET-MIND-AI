@@ -20,6 +20,10 @@ FILES = (
     "frontend/Dockerfile",
     "docker-compose.yml",
     "scripts/deploy_check.sh",
+    "scripts/backup_scheduler.py",
+    "scripts/service_restart_recovery.py",
+    "scripts/docker_volume_drill.py",
+    "scripts/install_schedule.py",
 )
 
 
@@ -96,6 +100,27 @@ class ConfigPreflightTests(unittest.TestCase):
         for check in ("backend_not_host_published", "services_unprivileged",
                       "published_ports_loopback"):
             self.assertIn(check, report["failed"])
+
+    def test_drift_in_audited_install_schedule_is_detected(self):
+        schedule = self.root / "scripts" / "install_schedule.py"
+        source = schedule.read_text()
+        schedule.write_text(source.replace("_environment_directive(env_file)", "'# removed'"), encoding="utf-8")
+        report = json.loads(self._run().stdout)
+        self.assertIn("host_schedule_plan_valid", report["failed"])
+
+    def test_missing_host_tooling_is_reported(self):
+        (self.root / "scripts" / "service_restart_recovery.py").unlink()
+        report = json.loads(self._run().stdout)
+        self.assertIn("host_tooling_scripts_present", report["failed"])
+
+    def test_ipv6_loopback_binding_is_accepted(self):
+        compose = self.root / "docker-compose.yml"
+        compose.write_text(
+            compose.read_text().replace('"127.0.0.1:8080:8080"', '"[::1]:8080:8080"'),
+            encoding="utf-8",
+        )
+        report = json.loads(self._run().stdout)
+        self.assertNotIn("published_ports_loopback", report["failed"])
 
     def test_ingest_limits_must_be_applied_not_only_declared(self):
         server = self.root / "frontend" / "nginx.conf"

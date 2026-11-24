@@ -110,8 +110,12 @@ where per-user auth is off. The shipped frontend installs a same-origin fetch
 wrapper (`frontend/src/apiClient.ts`) that attaches the `mm_csrf` cookie as
 `X-CSRF-Token` to mutating requests. Evidence: `test_frontend_auth_integration.py`
 (login, CSRF rejection, CSRF-accepted write, bearer-only gate) and
-`tests/ui/api-client.test.ts` (4 tests). This does not verify the real TLS
-ingress or the operator's proxy hop count.
+`tests/ui/api-client.test.ts` (4 tests). The wrapper deliberately attaches the
+CSRF token only to same-origin requests; protocol-relative URLs such as
+`//evil.example` are rejected. A cross-origin `VITE_API_URL` is therefore not
+supported in dual-auth mode — the built Compose stack uses an empty value so
+all API calls stay on the app origin. This does not verify the real TLS ingress
+or the operator's proxy hop count.
 
 ## 6. Real S3-compatible off-host backups
 

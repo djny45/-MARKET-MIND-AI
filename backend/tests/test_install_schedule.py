@@ -67,6 +67,19 @@ class InstallScheduleTests(unittest.TestCase):
         result = self._run("plan", "--output-dir", str(self.output), "--schedule", "invalid")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("cron_schedule_must_have_5_fields", result.stdout)
+        for bad in ("61 * * * *", "* 24 * * *", "*/0 * * * *", "0 0 32 * *"):
+            result = self._run("plan", "--output-dir", str(self.output), "--schedule", bad)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("cron_field_", result.stdout)
+        good = self._run("plan", "--output-dir", str(self.output),
+                         "--schedule", "*/5 0-6 1,15 * 1-5")
+        self.assertEqual(good.returncode, 0, good.stderr)
+        self.assertIn("*/5 0-6 1,15 * 1-5", json.loads(good.stdout)["files"]["market-mind-backup.cron"])
+
+    def test_invalid_calendar_expression_fails_closed(self):
+        result = self._run("plan", "--output-dir", str(self.output), "--on-calendar", "   ")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("on_calendar_invalid", result.stdout)
 
     def test_apply_writes_only_to_the_chosen_output_directory(self):
         result = self._run("apply", "--apply", "--output-dir", str(self.output))

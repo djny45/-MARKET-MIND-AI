@@ -72,6 +72,7 @@ class LoginGuard:
                  max_tracked_keys: int = MAX_TRACKED_KEYS):
         self._clock = clock or time.monotonic
         self._entries: OrderedDict[str, _Entry] = OrderedDict()
+        self._rejected: OrderedDict[str, float] = OrderedDict()
         self.max_tracked_keys = max_tracked_keys
 
     # -- internals -------------------------------------------------------
@@ -87,7 +88,11 @@ class LoginGuard:
             self._entries.move_to_end(key)
             return entry
         now = self._clock()
-        window = self._config()["window_seconds"]
+        config = self._config()
+        window = config["window_seconds"]
+        self._prune_rejected(now)
+        if key in self._rejected:
+            return _Entry(locked_until=self._rejected[key])
         # Prefer dropping entries that can no longer affect a decision.
         for old_key, old_entry in list(self._entries.items()):
             if old_entry.locked_until <= now:
@@ -100,8 +105,13 @@ class LoginGuard:
                 None,
             )
             if victim is None:
-                # Never evict an active lockout to track an unrelated key.
-                return _Entry()
+                # Every tracked key is actively locked out. Fail closed for
+                # new keys instead of giving attackers an unthrottled path.
+                locked_until = now + config["lockout_seconds"]
+                self._rejected[key] = locked_until
+                while len(self._rejected) > self.max_tracked_keys:
+                    self._rejected.popitem(last=False)
+                return _Entry(locked_until=locked_until)
             self._entries.pop(victim)
         entry = _Entry()
         self._entries[key] = entry
@@ -111,14 +121,23 @@ class LoginGuard:
         horizon = now - window
         entry.failures = [stamp for stamp in entry.failures if stamp >= horizon]
 
+    def _prune_rejected(self, now: float) -> None:
+        for name, expiry in list(self._rejected.items()):
+            if expiry <= now:
+                self._rejected.pop(name, None)
+
     # -- public API ------------------------------------------------------
     def check(self, username: str, client: str = "") -> tuple[bool, int]:
         """Return ``(allowed, retry_after_seconds)`` without recording a try."""
         config = self._config()
-        entry = self._entries.get(self._key(username, client))
+        key = self._key(username, client)
+        now = self._clock()
+        self._prune_rejected(now)
+        if key in self._rejected:
+            return False, max(1, int(round(self._rejected[key] - now)))
+        entry = self._entries.get(key)
         if entry is None:
             return True, 0
-        now = self._clock()
         if entry.locked_until > now:
             return False, max(1, int(round(entry.locked_until - now)))
         self._prune(entry, now, config["window_seconds"])
@@ -148,6 +167,7 @@ class LoginGuard:
     def reset(self) -> None:
         """Drop all state (tests and operator recovery)."""
         self._entries.clear()
+        self._rejected.clear()
 
     def tracked_keys(self) -> int:
         return len(self._entries)

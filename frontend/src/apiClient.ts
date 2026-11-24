@@ -31,7 +31,9 @@ function isSameOrigin(input: RequestInfo | URL): boolean {
   const reference = typeof input === 'string' || input instanceof URL
     ? String(input)
     : input.url
-  if (reference.startsWith('/')) return true
+  // Protocol-relative URLs (//evil.example) start with '/' but resolve to a
+  // different origin; never attach the CSRF token to them.
+  if (reference.startsWith('//')) return false
   const origin = globalThis.location?.origin
   if (!origin) return false
   try {

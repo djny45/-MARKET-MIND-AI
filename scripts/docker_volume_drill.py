@@ -11,6 +11,7 @@ This is a research-only database drill. It does not trade, sign or route orders.
 from __future__ import annotations
 
 import argparse
+import inspect
 import json
 import os
 import shutil
@@ -19,23 +20,23 @@ import sys
 from pathlib import Path
 
 from dr_common import (
-    REPO_ROOT, DrError, atomic_write_json, database_fingerprint, iso_now,
-    sha256_file, utcstamp, verify_checksum, write_checksum,
+    REPO_ROOT, DrError, atomic_write_json, database_fingerprint,
+    fingerprint_from_connection, iso_now, sha256_file, utcstamp, verify_checksum,
+    write_checksum,
 )
 
 DEFAULT_SOURCE_VOLUME = "market_mind_data"
 DEFAULT_PREFIX = "market-mind"
 
 # Runs inside the restored container before the throwaway volume is removed.
+# The function source is embedded so host and container cannot drift apart.
 FINGERPRINT_CODE = (
-    "import json,os,sqlite3;"
-    "c=sqlite3.connect('/data/market_mind.db');"
-    "integrity=c.execute('PRAGMA integrity_check').fetchone()[0];"
-    "tables=[r[0] for r in c.execute(\"select name from sqlite_master where type='table'\")];"
-    "counts={t:c.execute('select count(*) from \\\"'+t+'\\\"').fetchone()[0] for t in tables};"
-    "version=c.execute('select max(version) from schema_migrations').fetchone()[0];"
-    "print(json.dumps({'integrity':integrity,'table_counts':counts,'schema_version':version,"
-    "'bytes':os.path.getsize('/data/market_mind.db')},sort_keys=True))"
+    "import hashlib,json,sqlite3\n"
+    + inspect.getsource(fingerprint_from_connection)
+    + "\n"
+    + "c=sqlite3.connect('/data/market_mind.db');"
+    + "print(json.dumps(fingerprint_from_connection("
+    + "c, __import__('os').path.getsize('/data/market_mind.db')), sort_keys=True))"
 )
 
 

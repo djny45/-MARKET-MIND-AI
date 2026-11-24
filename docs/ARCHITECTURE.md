@@ -57,7 +57,7 @@ Every worker should declare:
 - Memory namespace and retention policy.
 - Owner/reviewer and change log.
 
-The 550+ worker target should be achieved by composing tested analytical modules and configurations. It must not mean launching hundreds of independent language models.
+The 550-worker target should be achieved by composing tested analytical modules and configurations. It must not mean launching hundreds of independent language models.
 
 ## 4. Research evaluation
 

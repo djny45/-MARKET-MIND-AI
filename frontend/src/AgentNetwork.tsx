@@ -33,7 +33,7 @@ export default function AgentNetwork({ agents }: { agents: AgentProfile[] }) {
   const [selectedAgent, setSelectedAgent] = useState<AgentNodeData | null>(null)
   const [activity, setActivity] = useState<ActivitySnapshot | null>(null)
   const [activityError, setActivityError] = useState('')
-  useEffect(() => { let alive = true; const load = async () => { try { const response = await fetch((import.meta.env.VITE_API_URL || 'http://localhost:8000') + '/api/agent-network/activity?limit=500'); if (!response.ok) throw new Error('Activity endpoint unavailable'); const snapshot = await response.json(); if (alive) { setActivity(snapshot); setActivityError('') } } catch { if (alive) setActivityError('API activity unavailable — showing registered profiles only') } }; load(); const timer = window.setInterval(load, 20000); return () => { alive = false; window.clearInterval(timer) } }, [])
+  useEffect(() => { let alive = true; const load = async () => { try { const response = await fetch((import.meta.env.VITE_API_URL ?? '') + '/api/agent-network/activity?limit=500'); if (!response.ok) throw new Error('Activity endpoint unavailable'); const snapshot = await response.json(); if (alive) { setActivity(snapshot); setActivityError('') } } catch { if (alive) setActivityError('API activity unavailable — showing registered profiles only') } }; load(); const timer = window.setInterval(load, 20000); return () => { alive = false; window.clearInterval(timer) } }, [])
   const departments = useMemo(() => ['ALL DEPARTMENTS', ...Array.from(new Set(agents.map(a => a.department || 'General Research'))).sort()], [agents])
   const filteredProfiles = useMemo(() => agents.slice(0, 550).filter(profile => {
     const haystack = [profile.id, profile.name, profile.department, profile.specialty, profile.kind].join(' ').toLowerCase()
@@ -98,7 +98,7 @@ export default function AgentNetwork({ agents }: { agents: AgentProfile[] }) {
 
   return <section className="agent-network-view">
     <div className="agent-network-heading">
-      <div><span className="eyebrow">MARKET-MIND-AI / AGENT TOPOLOGY</span><h1><Network size={21}/> 550+ Analytical Agent Network</h1><p>Node-based visual map inspired by the reference image. Each card represents a registered specialist profile; the graph is a topology visualization, not proof that every agent is currently running.</p></div>
+      <div><span className="eyebrow">MARKET-MIND-AI / AGENT TOPOLOGY</span><h1><Network size={21}/> 550 Analytical Agent Network</h1><p>Node-based visual map inspired by the reference image. Each card represents a registered specialist profile; the graph is a topology visualization, not proof that every agent is currently running.</p></div>
       <div className="agent-network-stats"><b>{agents.length || 550}</b><span>REGISTERED PROFILES</span><b>{edges.length.toLocaleString()}</b><span>VISUAL CONNECTIONS</span>{activity && <><b>{activity.status_counts.running || 0}</b><span>RUNNING TASKS</span><b>{activity.status_counts.queued || 0}</b><span>QUEUED TASKS</span></>}</div>
     </div>
     {activityError && <div className="agent-network-activity-note">{activityError}</div>}

@@ -20,12 +20,12 @@ infrastructure or independent approval is implied.
 ## 2. Database consistency and recovery
 
 Executed evidence on the baseline:
-- `unittest discover -s backend/tests -q` → 1,211 OK, 1 skipped (no nginx binary).
+- `unittest discover -s backend/tests -q` → 1,248 OK, 1 skipped (no nginx binary).
 - Backup → checksum → clean restore → fingerprint parity, retention, stale-lock
   and process-kill recovery are covered by `test_recovery_drills.py` (20 tests),
   `test_backup_database.py`, `test_backup_wal_hygiene.py`.
 - `scripts/recovery_report.py` aggregates real local artifacts; tests verify
-  complete, incomplete and invalid-artifact cases (4 tests).
+  complete, incomplete, invalid-artifact, stale-pairing and CLI fail-closed cases (6 tests).
 - Migration rollback path covered by `test_recovery_drills.py` and exercised
   locally on isolated DBs in the prior phase (`prepare → rollback → status`).
 - Disk exhaustion fail-closed preflight: `test_dr_storage_failure.py` (4 tests).

@@ -254,7 +254,7 @@ evidence; **no external check was converted to PASS**.
 | --- | --- | --- |
 | ACC-016 Worker memory isolation | Durable ownership and cross-user denial evidence | `test_worker_memory_ownership.py` (3); authorization.py docstring corrected |
 | ACC-019 Market-data provenance | Cross-module provenance, stale and failure evidence | `test_research_provenance_verification.py` (6) |
-| ACC-021 Local backup/restore | Aggregated recovery artifact evidence | `scripts/recovery_report.py` + `test_recovery_report.py` (2) using real local artifacts |
+| ACC-021 Local backup/restore | Aggregated recovery artifact evidence | `scripts/recovery_report.py` + `test_recovery_report.py` (6) using real local artifacts |
 | ACC-025 S3 adapter contract | Orchestrator→S3→download parity evidence | `test_s3_offhost_integration.py` (4, fake S3; mock-based contract test) |
 | ACC-026 Docker volume drill | Failure/cleanup/checksum contract coverage | `test_docker_volume_drill.py` (7, fake Docker shim; mock-based contract tests) |
 
@@ -284,7 +284,7 @@ procedures, evidence requirements, rollback and responsible operators are in
 [`docs/EXTERNAL-VERIFICATION-CHECKLIST.md`](docs/EXTERNAL-VERIFICATION-CHECKLIST.md).
 
 Final local validation on this branch: backend `unittest discover -s backend/tests -q`
-→ **1,211 OK, 1 skipped**; frontend `npm test` **10/10**, `npm run test:ui`
+→ **1,248 OK, 1 skipped**; frontend `npm test` **10/10**, `npm run test:ui`
 **127/127** (21 files), `npm run build` and `npm run typecheck:test` exit 0.
 Raw logs: `/tmp/opencode/phase2-final/`. CI results for the pushed PR head are
 recorded in the PR and final report.
@@ -325,6 +325,30 @@ verification stays 7/10 and public deployment 0/6; the three blocked checks are
 external by definition.
 
 Final Phase 3 local validation: backend `unittest discover -s backend/tests -q`
-→ **1,223 OK, 1 skipped**; frontend `npm test` **10/10**, `npm run test:ui`
+→ **1,248 OK, 1 skipped**; frontend `npm test` **10/10**, `npm run test:ui`
 **127/127** (21 files), `npm run build` and `npm run typecheck:test` exit 0.
 Logs: `/tmp/opencode/phase3-final/`.
+
+---
+
+## Final completion cycle (2026-11-24)
+
+Branch `feature/final-completion`, stacked on PR #103. All three earlier PRs
+(#100/#102/#103) were reviewed end-to-end: no merge conflicts, no weakened
+tests, all six required jobs PASS on their exact head SHAs. Findings and
+dispositions are in `docs/PR-REVIEW-REPORT.md`.
+
+Confirmed defects fixed with regressions in this cycle: failed-upload resume
+finalization, migration-rollback WAL sidecars, login-lock saturation bypass,
+protocol-relative CSRF token leak, unpaired recovery evidence and non-failing
+CLI, content-level DB fingerprints with FK checks and unified Docker snippet,
+restore overwrite rollback with failed reports, S3 config enforcement plus
+bounded retries/atomic digest-checked downloads/response metadata, host-tooling
+preflight, cron/calendar validation, IPv6 loopback bindings, cross-origin API
+fallback and stale "550+" wording, and provider-health clock consistency.
+
+Acceptance is unchanged at **37/40 PASS, 0 PARTIAL, 0 FAIL, 3 BLOCKED**. The
+three BLOCKED checks remain external (EXT-01 real cloud S3 restore, EXT-02 real
+host/Docker recovery, EXT-03 independent security sign-off). Final local
+validation: backend **1,248 OK, 1 skipped**; frontend **10/10** and **127/127**
+with clean build/typecheck; logs `/tmp/opencode/final-run/`.

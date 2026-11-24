@@ -23,7 +23,7 @@ from pathlib import Path
 
 from dr_common import (
     BACKUP_PREFIX, BACKUP_SCRIPT, DrError, DrInterrupted, DrLock, atomic_write_json,
-    database_fingerprint, env_int, iso_now, parse_bool, positive_int, read_json,
+    database_fingerprint, env_int, iso_now, manifest_path, parse_bool, positive_int, read_json,
     run_repo_script, run_upload_command, send_alert, sha256_file, utcstamp,
     verify_checksum, write_checksum,
 )
@@ -85,10 +85,6 @@ def _journal_path(config: BackupConfig) -> Path:
     return config.state_dir / JOURNAL_NAME
 
 
-def _manifest_path(backup: Path) -> Path:
-    return backup.with_name(backup.name + ".json")
-
-
 def _new_backup_path(config: BackupConfig) -> Path:
     stamp = utcstamp()
     candidate = config.destination_dir / f"{BACKUP_PREFIX}{stamp}.db"
@@ -145,7 +141,7 @@ def _create_backup(config: BackupConfig, backup: Path, journal: dict) -> dict:
         "retention_count": config.retention_count,
         "upload": {"status": "not_configured"},
     }
-    atomic_write_json(_manifest_path(backup), manifest)
+    atomic_write_json(manifest_path(backup), manifest)
     _set_phase(config, journal, "upload", backup=backup.name, sha256=actual,
                backup_bytes=manifest["bytes"])
     return {"status": "verified", "backup": str(backup), "sha256": actual,
@@ -154,17 +150,21 @@ def _create_backup(config: BackupConfig, backup: Path, journal: dict) -> dict:
 
 def _upload(config: BackupConfig, backup: Path, journal: dict,
             sha256: str | None = None) -> dict:
-    if config.dry_run:
-        return {"status": "dry_run"}
-    if not config.upload_command:
-        return {"status": "not_configured"}
+    if config.dry_run or not config.upload_command:
+        outcome = {"status": "dry_run" if config.dry_run else "not_configured"}
+        # Preserve journal fidelity for a normal no-upload backup; this is not
+        # a failed upload and must not block resume or retention.
+        _set_phase(config, journal, journal.get("phase", "upload"), upload=outcome)
+        return outcome
     digest = sha256 or sha256_file(backup)
     outcome = run_upload_command(
         config.upload_command, backup=backup, sha256=digest, timeout=config.timeout
     )
-    _set_phase(config, journal, "prune", upload=outcome)
     if outcome["status"] != "uploaded":
+        # Do not advance the journal to prune on a failed upload: resume must
+        # not silently finalize an off-host copy that never happened.
         raise DrError("offhost_upload_failed:" + str(outcome.get("error_type") or outcome.get("returncode")))
+    _set_phase(config, journal, "prune", upload=outcome)
     return outcome
 
 
@@ -208,7 +208,7 @@ def apply_retention(config: BackupConfig, *, keep_backup: Path | None = None) ->
             pruned.append(backup.name)
             continue
         for path in (backup, backup.with_name(backup.name + ".sha256"),
-                     _manifest_path(backup)):
+                     manifest_path(backup)):
             try:
                 path.unlink()
             except FileNotFoundError:
@@ -287,7 +287,9 @@ def _resume(config: BackupConfig, journal: dict) -> dict:
             raise DrInterrupted("resume_checksum_failed")
         _upload(config, backup, journal, checksum["sha256"])
     elif phase == "prune":
-        pass
+        upload = journal.get("upload") or {}
+        if upload.get("status") != "uploaded":
+            raise DrInterrupted("upload_not_completed_use_retry_upload")
     elif phase == "completed":
         raise DrInterrupted("journal_already_completed_use_run")
     else:
@@ -353,18 +355,21 @@ def retry_upload(config: BackupConfig, backup: Path) -> dict:
         "started_at": iso_now(), "updated_at": iso_now(),
     }
     outcome = _upload(config, backup, journal, checksum["sha256"])
-    manifest_path = _manifest_path(backup)
-    manifest = read_json(manifest_path) or {}
+    manifest_file = manifest_path(backup)
+    manifest = read_json(manifest_file) or {}
     manifest["upload"] = outcome
-    atomic_write_json(manifest_path, manifest)
-    return {"status": "upload_retried", "backup": str(backup), "upload": outcome}
+    atomic_write_json(manifest_file, manifest)
+    retention = apply_retention(config, keep_backup=backup)
+    _set_phase(config, journal, "completed", status="completed", retention=retention)
+    return {"status": "upload_retried", "backup": str(backup), "upload": outcome,
+            "journal_status": "completed"}
 
 
 def backup_status(config: BackupConfig) -> dict:
     entries = []
     if config.destination_dir.is_dir():
         for backup in sorted(config.destination_dir.glob(f"{BACKUP_PREFIX}*.db")):
-            manifest = read_json(_manifest_path(backup)) or {}
+            manifest = read_json(manifest_path(backup)) or {}
             entries.append({
                 "backup": backup.name,
                 "bytes": backup.stat().st_size if backup.is_file() else 0,

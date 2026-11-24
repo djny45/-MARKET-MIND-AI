@@ -213,8 +213,11 @@ python3 scripts/docker_volume_drill.py restore --apply --image <backend-image> \
 ```
 
 `plan` is the default and invokes no Docker binary. `backup`/`restore` require
-`--apply`; restore refuses the source volume and any existing target, and
-removes only the throwaway target volume when finished. The script never runs
+`--apply`; restore refuses the source volume and any existing target, verifies
+the backup checksum, compares the backup fingerprint with an in-container
+fingerprint of the restored volume (using the shared `dr_common` algorithm), and
+only then removes the throwaway target. Success is
+`status=restored_and_verified`, `comparison=matched`. The script never runs
 `docker compose down -v`. Its tests use a fake Docker shim and do **not** prove
 a real volume restore. Run the drill on an authorized Docker host before use.
 

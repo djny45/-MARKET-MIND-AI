@@ -1,0 +1,337 @@
+{
+  "commit": "f4ea61aa7cf24305c27d419ec7851a07a525541e",
+  "time": "2026-11-25T18:59:12Z",
+  "results": [
+    {
+      "label": "auth.login",
+      "method": "POST",
+      "path": "/api/auth/login",
+      "status": 200,
+      "ms": 51.0,
+      "summary": {
+        "username": "admin",
+        "role": "admin",
+        "csrf_token": "K_AZCNkV_1-FVGNIYQEUMOft6KV46Y_vffsYxAaSbLY",
+        "absolute_expires_at": 1795676351
+      }
+    },
+    {
+      "label": "inventory.workers",
+      "method": "GET",
+      "path": "/api/workers?limit=1000",
+      "status": 200,
+      "ms": 134.1,
+      "summary": {
+        "count": 550,
+        "workers": "<list len=550>"
+      }
+    },
+    {
+      "label": "inventory.runtime",
+      "method": "GET",
+      "path": "/api/analytical-agents/runtime",
+      "status": 200,
+      "ms": 6.1,
+      "summary": {
+        "agent_count": 550,
+        "departments": "<list len=20>",
+        "agent_brains": "distinct_role_context_and_namespace",
+        "inference": "shared_core_provider",
+        "persistent_memory": "worker_scoped_sqlite_evidence_notes",
+        "research": "assigned_tasks_over_supplied_or_configured_data",
+        "learning": "feedback_records_and_reviewable_improvement_proposals",
+        "self_update": "proposals_only; approval and rollback required",
+        "autonomous_weight_training": false,
+        "paper_trading": false,
+        "broker_execution": false,
+        "cloud_workspace": "not_yet_implemented",
+        "note": "This manifest describes implemented agent context and governance scaffolding; it does not claim 550 independent model instances or autonomous cloud agents."
+      }
+    },
+    {
+      "label": "inventory.skills",
+      "method": "GET",
+      "path": "/api/skills",
+      "status": 200,
+      "ms": 23.9,
+      "summary": {
+        "count": 325,
+        "skills": "<list len=325>",
+        "execution": "<dict len=2>"
+      }
+    },
+    {
+      "label": "inventory.health",
+      "method": "GET",
+      "path": "/api/health",
+      "status": 200,
+      "ms": 3.2,
+      "summary": {
+        "status": "ok",
+        "service": "market-mind-ai",
+        "mode": "research-only",
+        "paper_trading": true,
+        "broker_execution": false,
+        "paper": "<dict len=6>"
+      }
+    },
+    {
+      "label": "memory.before",
+      "method": "GET",
+      "path": "/api/workers/worker_001/memory?limit=10",
+      "status": 200,
+      "ms": 5.9,
+      "summary": {
+        "worker_id": "worker_001",
+        "count": 0,
+        "total_matching": 0,
+        "memory": "<list len=0>",
+        "storage_mode": "append_only_evidence_notes",
+        "note": "Notes are stored evidence, not verified truth, model instructions, autonomous learning, or executable code."
+      }
+    },
+    {
+      "label": "memory.write",
+      "method": "POST",
+      "path": "/api/workers/worker_001/memory",
+      "status": 200,
+      "ms": 3.8,
+      "summary": {
+        "memory_id": "3789f15b-3b0e-4ac2-b6ae-2bb2e6bbd8ff",
+        "worker_id": "worker_001",
+        "memory_type": "observation",
+        "created_at": "2026-11-25T18:59:12.137586+00:00",
+        "source_refs": "<list len=1>",
+        "quality_status": "synthetic",
+        "content": "<dict len=1>",
+        "storage_mode": "append_only_evidence_notes"
+      }
+    },
+    {
+      "label": "memory.after",
+      "method": "GET",
+      "path": "/api/workers/worker_001/memory?limit=10",
+      "status": 200,
+      "ms": 2.9,
+      "summary": {
+        "worker_id": "worker_001",
+        "count": 1,
+        "total_matching": 1,
+        "memory": "<list len=1>",
+        "storage_mode": "append_only_evidence_notes",
+        "note": "Notes are stored evidence, not verified truth, model instructions, autonomous learning, or executable code."
+      }
+    },
+    {
+      "label": "research.routing",
+      "method": "POST",
+      "path": "/api/research/specialist-routing",
+      "status": 200,
+      "ms": 11.9,
+      "summary": {
+        "routing_mode": "deterministic_keyword_capability_match",
+        "brief": "Summarize supplied BTCUSD bars; research only",
+        "candidate_count": 0,
+        "selected_count": 0,
+        "candidates": "<list len=0>",
+        "limitations": "<list len=4>"
+      }
+    },
+    {
+      "label": "research.queue",
+      "method": "POST",
+      "path": "/api/analytical-agents/worker_001/tasks/queue",
+      "status": 202,
+      "ms": 5.8,
+      "summary": {
+        "task_id": "b3bf8bf1-d863-43de-9148-96956c0c8a48",
+        "agent_id": "worker_001",
+        "worker_id": "worker_001",
+        "status": "queued",
+        "created_at": "2026-11-25T18:59:12.158479+00:00",
+        "updated_at": "2026-11-25T18:59:12.158479+00:00",
+        "brain_context_sha256": "bc6f8d6ea0d8988c3571879263b46557dbba271ee15632a0cfeab8f659e22ff2",
+        "execution_mode": "persistent_sqlite_supervisor_queue"
+      }
+    },
+    {
+      "label": "research.dispatch",
+      "method": "POST",
+      "path": "/api/analytical-agent-supervisor/dispatch",
+      "status": 200,
+      "ms": 6.5,
+      "summary": {
+        "selected": 1,
+        "dispatched": 1,
+        "max_concurrency": 1,
+        "status": "completed",
+        "task_ids": "<list len=1>",
+        "dispatch_error_count": 0,
+        "dispatch_errors": "<list len=0>",
+        "lease_lost_during_dispatch": false,
+        "lease_renewal_error_type": null,
+        "dispatch_mode": "bounded_sqlite_queue_snapshot",
+        "note": "Tasks are persisted in the shared SQLite queue; this bounded dispatch runs in the supervisor process. The queue is single-host, not a distributed broker."
+      }
+    },
+    {
+      "label": "/api/analytical-agent-tasks/b3bf8bf1-d863-43de-9148-96956c0c8a48",
+      "method": "GET",
+      "path": "/api/analytical-agent-tasks/b3bf8bf1-d863-43de-9148-96956c0c8a48",
+      "status": 200,
+      "ms": 3.4,
+      "summary": {
+        "task_id": "b3bf8bf1-d863-43de-9148-96956c0c8a48",
+        "agent_id": "worker_001",
+        "worker_id": "worker_001",
+        "task_type": "research_brief",
+        "status": "completed",
+        "execution_attempts": 1,
+        "input": "<dict len=2>",
+        "result": "<dict len=10>",
+        "brain_context_sha256": "bc6f8d6ea0d8988c3571879263b46557dbba271ee15632a0cfeab8f659e22ff2",
+        "created_at": "2026-11-25T18:59:12.158479+00:00",
+        "updated_at": "2026-11-25T18:59:12.164653+00:00"
+      }
+    },
+    {
+      "label": "/api/analytical-agent-tasks/b3bf8bf1-d863-43de-9148-96956c0c8a48/audit",
+      "method": "GET",
+      "path": "/api/analytical-agent-tasks/b3bf8bf1-d863-43de-9148-96956c0c8a48/audit",
+      "status": 200,
+      "ms": 3.6,
+      "summary": {
+        "task_id": "b3bf8bf1-d863-43de-9148-96956c0c8a48",
+        "count": 5,
+        "events": "<list len=5>",
+        "next_before_event_id": null
+      }
+    },
+    {
+      "label": "/api/agent-network/activity?limit=500",
+      "method": "GET",
+      "path": "/api/agent-network/activity?limit=500",
+      "status": 200,
+      "ms": 3.0,
+      "summary": {
+        "task_count": 1,
+        "status_counts": "<dict len=4>",
+        "latest_by_agent": "<dict len=1>",
+        "tasks": "<list len=1>",
+        "recent_audit_events": "<list len=5>",
+        "audit_event_count": 5,
+        "source": "persisted_sqlite_task_records_and_audit_events",
+        "note": "This snapshot reflects recorded task lifecycle states and bounded audit events, not continuous agent activity."
+      }
+    },
+    {
+      "label": "learning.feedback",
+      "method": "POST",
+      "path": "/api/analytical-agents/worker_001/learning-feedback",
+      "status": 200,
+      "ms": 3.1,
+      "summary": {
+        "feedback": "<dict len=5>",
+        "memory_id": "2854e5b7-e630-4aed-b452-8d4398d00c69",
+        "status": "recorded_for_future_evaluation",
+        "model_training": false
+      }
+    },
+    {
+      "label": "/api/analytical-agents/learning-overview",
+      "method": "GET",
+      "path": "/api/analytical-agents/learning-overview",
+      "status": 200,
+      "ms": 450.4,
+      "summary": {
+        "agent_count": 550,
+        "agents_with_feedback": 1,
+        "total_feedback_records": 1,
+        "scored_feedback_records": 1,
+        "unverified_feedback_records": 0,
+        "improvement_proposals": 0,
+        "agents": "<list len=550>",
+        "system_feedback_score": 1.0,
+        "score_note": "Descriptive reviewer feedback only; not a measured trading edge or financial performance metric.",
+        "learning_mode": "feedback_evaluation_and_human_review",
+        "autonomous_model_training": false,
+        "automatic_agent_updates": false,
+        "broker_execution": false
+      }
+    },
+    {
+      "label": "/api/intelligence-core",
+      "method": "GET",
+      "path": "/api/intelligence-core",
+      "status": 200,
+      "ms": 5.0,
+      "summary": {
+        "core_id": "shared_central_intelligence",
+        "architecture": "one_shared_core_for_logical_worker_profiles",
+        "provider": "none",
+        "enabled": false,
+        "model": null,
+        "status": "disabled_or_not_configured",
+        "capabilities": "<dict len=5>"
+      }
+    },
+    {
+      "label": "/api/providers/status",
+      "method": "GET",
+      "path": "/api/providers/status",
+      "status": 200,
+      "ms": 2.4,
+      "summary": {
+        "status": "no_live_provider_configured",
+        "live_providers": "<list len=0>",
+        "available_adapters": "<list len=1>",
+        "market_data_note": "No live or delayed market-data provider is currently configured."
+      }
+    },
+    {
+      "label": "/api/market-data/sample?symbol=BTCUSD&interval=1d&limit=3",
+      "method": "GET",
+      "path": "/api/market-data/sample?symbol=BTCUSD&interval=1d&limit=3",
+      "status": 200,
+      "ms": 2.6,
+      "summary": {
+        "symbol": "BTCUSD",
+        "interval": "1d",
+        "status": "synthetic",
+        "source": "synthetic-fixture",
+        "retrieved_at": "2026-11-25T18:59:12.642555Z",
+        "bars": "<list len=3>",
+        "warnings": "<list len=1>"
+      }
+    },
+    {
+      "label": "auth.logout",
+      "method": "POST",
+      "path": "/api/auth/logout",
+      "status": 200,
+      "ms": 3.1,
+      "summary": {
+        "status": "logged_out"
+      }
+    }
+  ],
+  "key_facts": {
+    "workers_count": 550,
+    "runtime_agent_count": 550,
+    "skills_count": 325,
+    "health_agents": 550,
+    "memory_before": 0,
+    "memory_after": 1,
+    "routing_candidates": 0,
+    "task_id": "b3bf8bf1-d863-43de-9148-96956c0c8a48",
+    "dispatch": {
+      "selected": 1,
+      "dispatched": 1,
+      "status": "completed",
+      "dispatch_error_count": 0
+    },
+    "llm": {},
+    "market_providers": null,
+    "sample": null
+  }
+}

@@ -1,0 +1,697 @@
+{
+  "baseline": "b47781aa3df633f9bc969221633e543d28ac877c",
+  "time": "2026-11-25T18:33:10Z",
+  "results": [
+    {
+      "label": "auth.login(admin)",
+      "method": "POST",
+      "path": "/api/auth/login",
+      "status": 200,
+      "ms": 43.9,
+      "summary": {
+        "username": "admin",
+        "role": "admin",
+        "csrf_token": "IocpZH0RBUUKPAE_XlpX6wgLQP0g47dzKaLnIHr8CGw",
+        "absolute_expires_at": 1795674789
+      }
+    },
+    {
+      "label": "/api/auth/me",
+      "method": "GET",
+      "path": "/api/auth/me",
+      "status": 200,
+      "ms": 2.5,
+      "summary": {
+        "enabled": true,
+        "user": "<dict len=2>"
+      }
+    },
+    {
+      "label": "/api/admin/users",
+      "method": "GET",
+      "path": "/api/admin/users",
+      "status": 200,
+      "ms": 2.9,
+      "summary": {
+        "users": "<list len=2>",
+        "count": 2
+      }
+    },
+    {
+      "label": "/api/system/config",
+      "method": "GET",
+      "path": "/api/system/config",
+      "status": 200,
+      "ms": 2.6,
+      "summary": {
+        "ok": true,
+        "issues": "<list len=0>",
+        "strict_mode": false,
+        "checks": "<dict len=10>",
+        "secret_values_exposed": false
+      }
+    },
+    {
+      "label": "/api/backup/status",
+      "method": "GET",
+      "path": "/api/backup/status",
+      "status": 200,
+      "ms": 4.0,
+      "summary": {
+        "status": "missing",
+        "directory": "data/backups",
+        "backup_count": 0,
+        "freshness": "<dict len=3>",
+        "backups": "<list len=0>",
+        "note": "Inventory and file-mtime freshness only; integrity verification requires local recovery scripts."
+      }
+    },
+    {
+      "label": "/api/health",
+      "method": "GET",
+      "path": "/api/health",
+      "status": 200,
+      "ms": 8.3,
+      "summary": {
+        "status": "ok",
+        "service": "market-mind-ai",
+        "mode": "research-only",
+        "paper_trading": true,
+        "broker_execution": false,
+        "paper": "<dict len=6>"
+      }
+    },
+    {
+      "label": "/api/ops/status",
+      "method": "GET",
+      "path": "/api/ops/status",
+      "status": 200,
+      "ms": 28.3,
+      "summary": {
+        "services": "<dict len=4>",
+        "supervision_loop_pid": 2582,
+        "backups": "<dict len=3>",
+        "supervisor": "<dict len=3>",
+        "disk": "<dict len=2>",
+        "execution": "<dict len=2>",
+        "secret_values_exposed": false
+      }
+    },
+    {
+      "label": "/api/environment-validation",
+      "method": "GET",
+      "path": "/api/environment-validation",
+      "status": 200,
+      "ms": 2.6,
+      "summary": {
+        "ok": true,
+        "issues": "<list len=0>",
+        "strict_mode": false,
+        "checks": "<dict len=10>",
+        "secret_values_exposed": false
+      }
+    },
+    {
+      "label": "/api/watchlist",
+      "method": "GET",
+      "path": "/api/watchlist",
+      "status": 200,
+      "ms": 2.5,
+      "summary": {
+        "count": 0,
+        "symbols": "<list len=0>",
+        "limit": 100
+      }
+    },
+    {
+      "label": "/api/audit/events",
+      "method": "GET",
+      "path": "/api/audit/events",
+      "status": 200,
+      "ms": 3.1,
+      "summary": {
+        "count": 0,
+        "events": "<list len=0>",
+        "limit": 100,
+        "data_note": "Audit events record batch-ingestion metadata only; they do not prove provider authenticity or user identity."
+      }
+    },
+    {
+      "label": "/api/security/audit-events",
+      "method": "GET",
+      "path": "/api/security/audit-events",
+      "status": 200,
+      "ms": 3.4,
+      "summary": {
+        "count": 18,
+        "events": "<list len=18>",
+        "secret_values_exposed": false
+      }
+    },
+    {
+      "label": "/api/market-data/overview",
+      "method": "GET",
+      "path": "/api/market-data/overview",
+      "status": 200,
+      "ms": 2.7,
+      "summary": {
+        "status": "stored_data_overview",
+        "instrument_interval_count": 0,
+        "coverage": "<list len=0>",
+        "limit": 200,
+        "data_note": "This view summarizes locally stored observations only. It is not a live quote, complete universe, market-wide ranking, or freshness guarantee."
+      }
+    },
+    {
+      "label": "/api/market-data/lineage?symbol=BTCUSD&interval=15m",
+      "method": "GET",
+      "path": "/api/market-data/lineage?symbol=BTCUSD&interval=15m",
+      "status": 200,
+      "ms": 2.9,
+      "summary": {
+        "symbol": "BTCUSD",
+        "interval": "15m",
+        "observation_count": 0,
+        "lineage": "<list len=0>",
+        "limit": 5000,
+        "data_note": "Lineage is derived from stored observation metadata; it does not authenticate providers or establish freshness."
+      }
+    },
+    {
+      "label": "/api/ready",
+      "method": "GET",
+      "path": "/api/ready",
+      "status": 200,
+      "ms": 1.6,
+      "summary": {
+        "status": "ready",
+        "service": "market-mind-ai",
+        "checks": "<dict len=2>",
+        "execution": "<dict len=4>"
+      }
+    },
+    {
+      "label": "/api/providers/status",
+      "method": "GET",
+      "path": "/api/providers/status",
+      "status": 200,
+      "ms": 2.1,
+      "summary": {
+        "status": "no_live_provider_configured",
+        "live_providers": "<list len=0>",
+        "available_adapters": "<list len=1>",
+        "market_data_note": "No live or delayed market-data provider is currently configured."
+      }
+    },
+    {
+      "label": "/api/nodes",
+      "method": "GET",
+      "path": "/api/nodes",
+      "status": 200,
+      "ms": 2.3,
+      "summary": {
+        "nodes": "<list len=10>"
+      }
+    },
+    {
+      "label": "/api/worker-registry",
+      "method": "GET",
+      "path": "/api/worker-registry",
+      "status": 200,
+      "ms": 101.8,
+      "summary": {
+        "manifest": "<dict len=7>",
+        "evaluation": "<dict len=17>"
+      }
+    },
+    {
+      "label": "/api/worker-runtime",
+      "method": "GET",
+      "path": "/api/worker-runtime",
+      "status": 200,
+      "ms": 4.5,
+      "summary": {
+        "intelligence_core": "shared_central_intelligence",
+        "worker_profile_count": 550,
+        "routable_node_types": "<list len=10>",
+        "routed_departments": "<list len=4>",
+        "execution_mode": "deterministic_analytical_handlers",
+        "llm_inference_enabled": false,
+        "broker_execution": false,
+        "note": "Workflow nodes are routed to specialist worker profiles and existing deterministic handlers. Profiles are not independent models; LLM inference and autonomous learning are not enabled."
+      }
+    },
+    {
+      "label": "/api/workers",
+      "method": "GET",
+      "path": "/api/workers",
+      "status": 200,
+      "ms": 60.5,
+      "summary": {
+        "count": 550,
+        "workers": "<list len=550>"
+      }
+    },
+    {
+      "label": "/api/skills",
+      "method": "GET",
+      "path": "/api/skills",
+      "status": 200,
+      "ms": 30.8,
+      "summary": {
+        "count": 325,
+        "skills": "<list len=325>",
+        "execution": "<dict len=2>"
+      }
+    },
+    {
+      "label": "/api/intelligence-core",
+      "method": "GET",
+      "path": "/api/intelligence-core",
+      "status": 200,
+      "ms": 4.5,
+      "summary": {
+        "core_id": "shared_central_intelligence",
+        "architecture": "one_shared_core_for_logical_worker_profiles",
+        "provider": "none",
+        "enabled": false,
+        "model": null,
+        "status": "disabled_or_not_configured",
+        "capabilities": "<dict len=5>"
+      }
+    },
+    {
+      "label": "/api/models",
+      "method": "GET",
+      "path": "/api/models",
+      "status": 200,
+      "ms": 2.1,
+      "summary": {
+        "mode": "research_metadata_only",
+        "models": "<list len=1>"
+      }
+    },
+    {
+      "label": "/api/agent-network/activity",
+      "method": "GET",
+      "path": "/api/agent-network/activity",
+      "status": 200,
+      "ms": 3.0,
+      "summary": {
+        "task_count": 1,
+        "status_counts": "<dict len=4>",
+        "latest_by_agent": "<dict len=1>",
+        "tasks": "<list len=1>",
+        "recent_audit_events": "<list len=5>",
+        "audit_event_count": 5,
+        "source": "persisted_sqlite_task_records_and_audit_events",
+        "note": "This snapshot reflects recorded task lifecycle states and bounded audit events, not continuous agent activity."
+      }
+    },
+    {
+      "label": "/api/analytical-agent-supervisor/status",
+      "method": "GET",
+      "path": "/api/analytical-agent-supervisor/status",
+      "status": 200,
+      "ms": 2.9,
+      "summary": {
+        "supervisor": "sqlite_polling_supervisor",
+        "status": "not_started",
+        "task_count": 1,
+        "status_counts": "<dict len=5>",
+        "registered_agent_count": 550,
+        "dispatch_mode": "persistent_sqlite_polling",
+        "continuous_daemon": "separate_supervisor_process_required",
+        "supervisor_health": "not_started",
+        "supervisor_heartbeat": null,
+        "distributed_queue": false,
+        "startup_recovery": "<dict len=9>"
+      }
+    },
+    {
+      "label": "/api/analytical-agents/runtime",
+      "method": "GET",
+      "path": "/api/analytical-agents/runtime",
+      "status": 200,
+      "ms": 2.3,
+      "summary": {
+        "agent_count": 550,
+        "departments": "<list len=20>",
+        "agent_brains": "distinct_role_context_and_namespace",
+        "inference": "shared_core_provider",
+        "persistent_memory": "worker_scoped_sqlite_evidence_notes",
+        "research": "assigned_tasks_over_supplied_or_configured_data",
+        "learning": "feedback_records_and_reviewable_improvement_proposals",
+        "self_update": "proposals_only; approval and rollback required",
+        "autonomous_weight_training": false,
+        "paper_trading": false,
+        "broker_execution": false,
+        "cloud_workspace": "not_yet_implemented",
+        "note": "This manifest describes implemented agent context and governance scaffolding; it does not claim 550 independent model instances or autonomous cloud agents."
+      }
+    },
+    {
+      "label": "/api/analytical-agents/learning-overview",
+      "method": "GET",
+      "path": "/api/analytical-agents/learning-overview",
+      "status": 200,
+      "ms": 459.8,
+      "summary": {
+        "agent_count": 550,
+        "agents_with_feedback": 1,
+        "total_feedback_records": 1,
+        "scored_feedback_records": 1,
+        "unverified_feedback_records": 0,
+        "improvement_proposals": 0,
+        "agents": "<list len=550>",
+        "system_feedback_score": 1.0,
+        "score_note": "Descriptive reviewer feedback only; not a measured trading edge or financial performance metric.",
+        "learning_mode": "feedback_evaluation_and_human_review",
+        "autonomous_model_training": false,
+        "automatic_agent_updates": false,
+        "broker_execution": false
+      }
+    },
+    {
+      "label": "/api/paper/status",
+      "method": "GET",
+      "path": "/api/paper/status",
+      "status": 200,
+      "ms": 6.5,
+      "summary": {
+        "registered_agents": 550,
+        "initialized_portfolios": 550,
+        "agents_with_open_positions": 0,
+        "total_virtual_capital": 275000.0,
+        "total_portfolio_value": 275000.0,
+        "active_agents": 0,
+        "platform_slug": "market-mind-paper",
+        "initial_capital_per_agent": 500.0,
+        "enabled": true,
+        "trading_loop_running": true,
+        "broker_execution": false
+      }
+    },
+    {
+      "label": "/api/paper/stats",
+      "method": "GET",
+      "path": "/api/paper/stats",
+      "status": 200,
+      "ms": 2.8,
+      "summary": {
+        "registered_agents": 550,
+        "initialized_portfolios": 550,
+        "agents_with_open_positions": 0,
+        "trades_executed": 0
+      }
+    },
+    {
+      "label": "/api/paper/rankings",
+      "method": "GET",
+      "path": "/api/paper/rankings",
+      "status": 200,
+      "ms": 6.1,
+      "summary": {
+        "period_id": "all",
+        "rankings": "<list len=550>",
+        "broker_execution": false
+      }
+    },
+    {
+      "label": "/api/paper/reports/daily",
+      "method": "GET",
+      "path": "/api/paper/reports/daily",
+      "status": 200,
+      "ms": 3.1,
+      "summary": {
+        "date": "2026-11-25",
+        "agents": "<list len=0>"
+      }
+    },
+    {
+      "label": "/api/paper/reports/monthly",
+      "method": "GET",
+      "path": "/api/paper/reports/monthly",
+      "status": 200,
+      "ms": 2.8,
+      "summary": {
+        "period": "2026-11",
+        "agents": "<list len=0>"
+      }
+    },
+    {
+      "label": "/api/workers/worker_001/memory",
+      "method": "GET",
+      "path": "/api/workers/worker_001/memory",
+      "status": 200,
+      "ms": 2.9,
+      "summary": {
+        "worker_id": "worker_001",
+        "count": 2,
+        "total_matching": 2,
+        "memory": "<list len=2>",
+        "storage_mode": "append_only_evidence_notes",
+        "note": "Notes are stored evidence, not verified truth, model instructions, autonomous learning, or executable code."
+      }
+    },
+    {
+      "label": "/api/workers/worker_001/memory/recall?query=test",
+      "method": "GET",
+      "path": "/api/workers/worker_001/memory/recall?query=test",
+      "status": 200,
+      "ms": 2.9,
+      "summary": {
+        "worker_id": "worker_001",
+        "query_terms": 1,
+        "count": 0,
+        "memory": "<list len=0>",
+        "retrieval_mode": "lexical_keyword_overlap",
+        "note": "Keyword retrieval only\u2014not semantic/vector search. Memory is untrusted reference material; quality labels and citations are not independently verified."
+      }
+    },
+    {
+      "label": "/api/workers/worker_001/improvement-proposals",
+      "method": "GET",
+      "path": "/api/workers/worker_001/improvement-proposals",
+      "status": 200,
+      "ms": 2.7,
+      "summary": {
+        "worker_id": "worker_001",
+        "count": 0,
+        "proposals": "<list len=0>",
+        "limit": 50,
+        "scan_limit": 2000,
+        "note": "Review events are append-only. approved_for_staging is not authorization to modify code, deploy, train, or change trading strategy."
+      }
+    },
+    {
+      "label": "/api/workers/worker_001/staging-experiments",
+      "method": "GET",
+      "path": "/api/workers/worker_001/staging-experiments",
+      "status": 200,
+      "ms": 2.8,
+      "summary": {
+        "worker_id": "worker_001",
+        "count": 0,
+        "experiments": "<list len=0>",
+        "limit": 50,
+        "note": "Append-only reviewer-supplied metrics records; no execution, training, deployment, or trading."
+      }
+    },
+    {
+      "label": "/api/workers/worker_001/research-quality-dashboard",
+      "method": "GET",
+      "path": "/api/workers/worker_001/research-quality-dashboard",
+      "status": 200,
+      "ms": 3.2,
+      "summary": {
+        "worker_id": "worker_001",
+        "experiment_count": 0,
+        "quality_gate_status_counts": "<dict len=0>",
+        "experiments_with_paired_regressions": 0,
+        "experiments_missing_dataset_name_or_version": 0,
+        "paired_regression_total": 0,
+        "experiments_with_fixture_overlap_flags": 0,
+        "fixture_overlap_flagged_pair_total": 0,
+        "aggregate_delta_summary": "<dict len=0>",
+        "provenance_missing_counts": "<dict len=6>",
+        "repeatability": "<dict len=3>",
+        "experiments": "<list len=0>",
+        "limit": 100,
+        "interpretation": "Descriptive audit of saved offline fixture experiments. Provenance is caller-declared; repeatability uses exact fixture/config repeats. This dashboard does not validate truth, source independence, predictive skill, or trading performance."
+      }
+    },
+    {
+      "label": "/api/workers/worker_001/learning-candidates",
+      "method": "GET",
+      "path": "/api/workers/worker_001/learning-candidates",
+      "status": 200,
+      "ms": 2.7,
+      "summary": {
+        "worker_id": "worker_001",
+        "count": 0,
+        "candidates": "<list len=0>",
+        "limit": 50,
+        "scan_limit": 2000,
+        "note": "Review status is derived from append-only review events. Approved status is a label only; it does not train models or activate instructions."
+      }
+    },
+    {
+      "label": "/api/workers/worker_001/open-source-license-reviews",
+      "method": "GET",
+      "path": "/api/workers/worker_001/open-source-license-reviews",
+      "status": 200,
+      "ms": 3.2,
+      "summary": {
+        "worker_id": "worker_001",
+        "count": 0,
+        "reviews": "<list len=0>",
+        "scan_limit": 200,
+        "memory_records_scanned": 1,
+        "scan_truncated": false,
+        "note": "Recent append-only records only; reviewer identity is unverified and dispositions are not license clearance or reuse permission."
+      }
+    },
+    {
+      "label": "/api/analytical-agents/worker_001/tasks",
+      "method": "GET",
+      "path": "/api/analytical-agents/worker_001/tasks",
+      "status": 200,
+      "ms": 3.7,
+      "summary": {
+        "agent_id": "worker_001",
+        "worker_id": "worker_001",
+        "count": 1,
+        "total": 1,
+        "tasks": "<list len=1>"
+      }
+    },
+    {
+      "label": "/api/analytical-agents/worker_001/learning-summary",
+      "method": "GET",
+      "path": "/api/analytical-agents/worker_001/learning-summary",
+      "status": 200,
+      "ms": 3.2,
+      "summary": {
+        "worker_id": "worker_001",
+        "feedback_count": 1,
+        "scored_feedback_count": 1,
+        "feedback_outcomes": "<dict len=4>",
+        "observed_feedback_score": 1.0,
+        "latest_feedback_at": "2026-11-25T18:18:28.279461+00:00",
+        "feedback_trend": "<dict len=7>",
+        "improvement_proposals": 0,
+        "evaluation_status": "insufficient_feedback",
+        "minimum_feedback_for_trend": 5,
+        "score_definition": "mean of reviewer labels: helpful=1, partially_helpful=0.5, not_helpful=0; unverified excluded",
+        "model_training": false,
+        "auto_apply": false
+      }
+    },
+    {
+      "label": "/api/analytical-agents/worker_001/update-proposals",
+      "method": "GET",
+      "path": "/api/analytical-agents/worker_001/update-proposals",
+      "status": 200,
+      "ms": 3.0,
+      "summary": {
+        "worker_id": "worker_001",
+        "count": 0,
+        "proposals": "<list len=0>",
+        "note": "Version 1 is immutable evidence; approval does not automatically apply changes."
+      }
+    },
+    {
+      "label": "/api/analytical-agents/worker_001/brain",
+      "method": "GET",
+      "path": "/api/analytical-agents/worker_001/brain",
+      "status": 200,
+      "ms": 2.2,
+      "summary": {
+        "agent_id": "worker_001",
+        "agent_name": "Trend Analyst 001",
+        "department": "technical_analysis",
+        "specialty": "trend",
+        "brain_context": "You are Trend Analyst 001, a specialist analytical research agent in technical_analysis. Your specialty is trend. Analyze only supplied data and research materials. Separate observations, calculations, assumptions, and unknowns. Cite supplied source references. Never invent data, claim certainty without evidence, or execute trades.",
+        "brain_context_sha256": "bc6f8d6ea0d8988c3571879263b46557dbba271ee15632a0cfeab8f659e22ff2",
+        "memory_namespace": "workers/worker_001",
+        "intelligence_core": "shared_central_intelligence",
+        "model_topology": "individual_agent_context_shared_inference_provider",
+        "independent_model": false,
+        "research_scope": "supplied_and_configured_research_data_only",
+        "learning_mode": "evaluated_feedback_and_reviewed_proposals",
+        "self_update_mode": "proposal_only_review_required",
+        "broker_execution": false
+      }
+    },
+    {
+      "label": "/api/skills",
+      "method": "GET",
+      "path": "/api/skills",
+      "status": 200,
+      "ms": 48.5,
+      "summary": {
+        "count": 325,
+        "skills": "<list len=325>",
+        "execution": "<dict len=2>"
+      }
+    },
+    {
+      "label": "market-data.sample",
+      "method": "GET",
+      "path": "/api/market-data/sample?symbol=BTCUSD&interval=1d&limit=3",
+      "status": 200,
+      "ms": 4.9,
+      "summary": {
+        "symbol": "BTCUSD",
+        "interval": "1d",
+        "status": "synthetic",
+        "source": "synthetic-fixture",
+        "retrieved_at": "2026-11-25T18:33:10.163283Z",
+        "bars": "<list len=3>",
+        "warnings": "<list len=1>"
+      }
+    },
+    {
+      "label": "error.login_empty",
+      "method": "POST",
+      "path": "/api/auth/login",
+      "status": 401,
+      "ms": 35.2,
+      "summary": {
+        "detail": "Invalid credentials"
+      }
+    },
+    {
+      "label": "error.invalid_limit",
+      "method": "GET",
+      "path": "/api/watchlist?limit=-1",
+      "status": 400,
+      "ms": 2.6,
+      "summary": {
+        "detail": "limit must be between 1 and 500"
+      }
+    },
+    {
+      "label": "error.unknown_agent",
+      "method": "GET",
+      "path": "/api/paper/trades?agent_id=does_not_exist",
+      "status": 200,
+      "ms": 3.0,
+      "summary": {
+        "agent_id": "does_not_exist",
+        "trades": "<list len=0>"
+      }
+    },
+    {
+      "label": "auth.logout",
+      "method": "POST",
+      "path": "/api/auth/logout",
+      "status": 200,
+      "ms": 3.2,
+      "summary": {
+        "status": "logged_out"
+      }
+    }
+  ]
+}

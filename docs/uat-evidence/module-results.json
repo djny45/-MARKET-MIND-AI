@@ -1,0 +1,224 @@
+[
+  {
+    "module": "OVERVIEW",
+    "status": "CLICKED",
+    "signals": [
+      "- text: MARKET-MIND-AI GLOBAL INTELLIGENCE TERMINAL RESEARCH NETWORK 550 WORKER PROFILES NO EXECUTION LAYER CONNECTED",
+      "- text: SIGNED IN",
+      "- heading \"Market research overview\" [level=1]",
+      "- text: CONNECTED API CONNECTION \u00b7 \u2014 SYMBOL / TIMEFRAME SETS \u00b7 0 WATCHLIST INSTRUMENTS \u00b7 0 WORKER TEMPLATES"
+    ],
+    "screenshot": "/tmp/opencode/uat-evidence/modules/overview.png",
+    "bytes": 168076
+  },
+  {
+    "module": "WORKFLOW",
+    "status": "CLICKED",
+    "signals": [
+      "- text: MARKET-MIND-AI GLOBAL INTELLIGENCE TERMINAL RESEARCH NETWORK 550 WORKER PROFILES NO EXECUTION LAYER CONNECTED",
+      "- text: SIGNED IN"
+    ],
+    "screenshot": "/tmp/opencode/uat-evidence/modules/workflow.png",
+    "bytes": 281826
+  },
+  {
+    "module": "AGENT NETWORK",
+    "status": "CLICKED",
+    "signals": [
+      "- text: MARKET-MIND-AI GLOBAL INTELLIGENCE TERMINAL RESEARCH NETWORK 550 WORKER PROFILES NO EXECUTION LAYER CONNECTED",
+      "- text: SIGNED IN",
+      "- heading \"550 Analytical Agent Network\" [level=1]"
+    ],
+    "screenshot": "/tmp/opencode/uat-evidence/modules/agent-network.png",
+    "bytes": 167908
+  },
+  {
+    "module": "AGENT POSITIONS",
+    "status": "CLICKED",
+    "signals": [
+      "- text: MARKET-MIND-AI GLOBAL INTELLIGENCE TERMINAL RESEARCH NETWORK 550 WORKER PROFILES NO EXECUTION LAYER CONNECTED",
+      "- text: SIGNED IN",
+      "- heading \"AI Agent Position Monitor\" [level=1]"
+    ],
+    "screenshot": "/tmp/opencode/uat-evidence/modules/agent-positions.png",
+    "bytes": 177028
+  },
+  {
+    "module": "LEARNING LAB",
+    "status": "CLICKED",
+    "signals": [
+      "- text: MARKET-MIND-AI GLOBAL INTELLIGENCE TERMINAL RESEARCH NETWORK 550 WORKER PROFILES NO EXECUTION LAYER CONNECTED",
+      "- text: SIGNED IN",
+      "- heading \"Agent Learning Lab\" [level=1]"
+    ],
+    "screenshot": "/tmp/opencode/uat-evidence/modules/learning-lab.png",
+    "bytes": 202375
+  },
+  {
+    "module": "AGENT DIRECTORY",
+    "status": "CLICKED",
+    "signals": [
+      "- text: MARKET-MIND-AI GLOBAL INTELLIGENCE TERMINAL RESEARCH NETWORK 550 WORKER PROFILES NO EXECUTION LAYER CONNECTED",
+      "- text: SIGNED IN"
+    ],
+    "screenshot": "/tmp/opencode/uat-evidence/modules/agent-directory.png",
+    "bytes": 268056
+  },
+  {
+    "module": "RUNS",
+    "status": "CLICKED",
+    "signals": [
+      "- text: MARKET-MIND-AI GLOBAL INTELLIGENCE TERMINAL RESEARCH NETWORK 550 WORKER PROFILES NO EXECUTION LAYER CONNECTED",
+      "- text: SIGNED IN"
+    ],
+    "screenshot": "/tmp/opencode/uat-evidence/modules/runs.png",
+    "bytes": 265555
+  },
+  {
+    "module": "SCREENER",
+    "status": "CLICKED",
+    "signals": [
+      "- text: MARKET-MIND-AI GLOBAL INTELLIGENCE TERMINAL RESEARCH NETWORK 550 WORKER PROFILES NO EXECUTION LAYER CONNECTED",
+      "- alert: Valid user session required.",
+      "- text: SIGNED IN",
+      "- heading \"Observation screener\" [level=1]",
+      "- alert: Valid user session required."
+    ],
+    "screenshot": "/tmp/opencode/uat-evidence/modules/screener.png",
+    "bytes": 129777
+  },
+  {
+    "module": "COVERAGE",
+    "status": "CLICKED",
+    "signals": [
+      "- text: MARKET-MIND-AI GLOBAL INTELLIGENCE TERMINAL RESEARCH NETWORK 550 WORKER PROFILES NO EXECUTION LAYER CONNECTED",
+      "- alert: Valid user session required.",
+      "- text: SIGNED IN",
+      "- heading \"Coverage heatmap\" [level=1]",
+      "- alert: Valid user session required."
+    ],
+    "screenshot": "/tmp/opencode/uat-evidence/modules/coverage.png",
+    "bytes": 125618
+  },
+  {
+    "module": "NEWS",
+    "status": "CLICKED",
+    "signals": [
+      "- text: MARKET-MIND-AI GLOBAL INTELLIGENCE TERMINAL RESEARCH NETWORK 550 WORKER PROFILES NO EXECUTION LAYER CONNECTED",
+      "- text: SIGNED IN"
+    ],
+    "screenshot": "/tmp/opencode/uat-evidence/modules/news.png",
+    "bytes": 258897
+  },
+  {
+    "module": "RESEARCH",
+    "status": "CLICKED",
+    "signals": [
+      "- text: MARKET-MIND-AI GLOBAL INTELLIGENCE TERMINAL RESEARCH NETWORK 550 WORKER PROFILES NO EXECUTION LAYER CONNECTED",
+      "- text: OFFLINE RESEARCH BENCHMARK FIXTURE ONLY Run a reproducible structural traceability check on two synthetic cases. No live market data or trading. REGRESSION THRESHOLD (0\u20131)",
+      "- button \"RUN OFFLINE BENCHMARK\" [e36]",
+      "- text: SIGNED IN"
+    ],
+    "screenshot": "/tmp/opencode/uat-evidence/modules/research.png",
+    "bytes": 282943
+  },
+  {
+    "module": "DATA VALIDATION",
+    "status": "CLICKED",
+    "signals": [
+      "- text: MARKET-MIND-AI GLOBAL INTELLIGENCE TERMINAL RESEARCH NETWORK 550 WORKER PROFILES NO EXECUTION LAYER CONNECTED",
+      "- text: SIGNED IN",
+      "- heading \"Market data validation\" [level=1]"
+    ],
+    "screenshot": "/tmp/opencode/uat-evidence/modules/data-validation.png",
+    "bytes": 101214
+  },
+  {
+    "module": "WATCHLIST",
+    "status": "CLICKED",
+    "signals": [
+      "- text: MARKET-MIND-AI GLOBAL INTELLIGENCE TERMINAL RESEARCH NETWORK 550 WORKER PROFILES NO EXECUTION LAYER CONNECTED",
+      "- alert: Valid user session required.",
+      "- text: SIGNED IN"
+    ],
+    "screenshot": "/tmp/opencode/uat-evidence/modules/watchlist.png",
+    "bytes": 271723
+  },
+  {
+    "module": "PORTFOLIO",
+    "status": "CLICKED",
+    "signals": [
+      "- text: MARKET-MIND-AI GLOBAL INTELLIGENCE TERMINAL RESEARCH NETWORK 550 WORKER PROFILES NO EXECUTION LAYER CONNECTED",
+      "- text: SIGNED IN",
+      "- heading \"PORTFOLIO\" [level=1]"
+    ],
+    "screenshot": "/tmp/opencode/uat-evidence/modules/portfolio.png",
+    "bytes": 94144
+  },
+  {
+    "module": "RISK",
+    "status": "CLICKED",
+    "signals": [
+      "- text: MARKET-MIND-AI GLOBAL INTELLIGENCE TERMINAL RESEARCH NETWORK 550 WORKER PROFILES NO EXECUTION LAYER CONNECTED",
+      "- text: SIGNED IN",
+      "- heading \"RISK\" [level=1]"
+    ],
+    "screenshot": "/tmp/opencode/uat-evidence/modules/risk.png",
+    "bytes": 92357
+  },
+  {
+    "module": "SYSTEM HEALTH",
+    "status": "CLICKED",
+    "signals": [
+      "- text: MARKET-MIND-AI GLOBAL INTELLIGENCE TERMINAL RESEARCH NETWORK 550 WORKER PROFILES NO EXECUTION LAYER CONNECTED",
+      "- text: SIGNED IN",
+      "- heading \"HEALTH\" [level=1]"
+    ],
+    "screenshot": "/tmp/opencode/uat-evidence/modules/system-health.png",
+    "bytes": 101903
+  },
+  {
+    "module": "PROVIDERS",
+    "status": "CLICKED",
+    "signals": [
+      "- text: MARKET-MIND-AI GLOBAL INTELLIGENCE TERMINAL RESEARCH NETWORK 550 WORKER PROFILES NO EXECUTION LAYER CONNECTED",
+      "- text: SIGNED IN",
+      "- heading \"PROVIDERS\" [level=1]"
+    ],
+    "screenshot": "/tmp/opencode/uat-evidence/modules/providers.png",
+    "bytes": 93455
+  },
+  {
+    "module": "AUDIT",
+    "status": "CLICKED",
+    "signals": [
+      "- text: MARKET-MIND-AI GLOBAL INTELLIGENCE TERMINAL RESEARCH NETWORK 550 WORKER PROFILES NO EXECUTION LAYER CONNECTED",
+      "- text: SIGNED IN",
+      "- heading \"AUDIT\" [level=1]"
+    ],
+    "screenshot": "/tmp/opencode/uat-evidence/modules/audit.png",
+    "bytes": 146727
+  },
+  {
+    "module": "BACKUP",
+    "status": "CLICKED",
+    "signals": [
+      "- text: MARKET-MIND-AI GLOBAL INTELLIGENCE TERMINAL RESEARCH NETWORK 550 WORKER PROFILES NO EXECUTION LAYER CONNECTED",
+      "- text: SIGNED IN",
+      "- heading \"BACKUP\" [level=1]"
+    ],
+    "screenshot": "/tmp/opencode/uat-evidence/modules/backup.png",
+    "bytes": 91120
+  },
+  {
+    "module": "SETTINGS",
+    "status": "CLICKED",
+    "signals": [
+      "- text: MARKET-MIND-AI GLOBAL INTELLIGENCE TERMINAL RESEARCH NETWORK 550 WORKER PROFILES NO EXECUTION LAYER CONNECTED",
+      "- text: SIGNED IN",
+      "- heading \"SETTINGS\" [level=1]"
+    ],
+    "screenshot": "/tmp/opencode/uat-evidence/modules/settings.png",
+    "bytes": 106011
+  }
+]

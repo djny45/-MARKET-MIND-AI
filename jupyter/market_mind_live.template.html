@@ -42,31 +42,13 @@
   <table id="ord"><thead><tr><th>Time</th><th>Agent</th><th>Sym</th><th>Side</th><th>Qty</th><th>Price</th><th>P&amp;L</th></tr></thead><tbody></tbody></table>
   <p class="note warn">Virtual orders only — no exchange orders placed.</p></section>
 </main>
-<script>
-/*__MM_SNAPSHOT__*/
-(function(){
- const d = window.__MM_SNAPSHOT__ || {};
- const st = document.getElementById('status');
- st.textContent = 'backend snapshot ' + (d.generated_at||'').slice(11,19) + 'Z';
- const f=(n,n2=2)=>Number(n||0).toFixed(n2);
- const p=d.pnl||{};
- document.getElementById('kpi').innerHTML=[
-  ['Agents',p.registered_agents],['Active',p.active_agents_with_positions],
-  ['Virtual capital','$'+f(p.total_virtual_capital)],['Equity','$'+f(p.total_portfolio_value)],
-  ['Realized P&L','$'+f(p.realized_pnl)],['Max drawdown',f(p.max_drawdown_pct)+'%']
- ].map(([k,v])=>'<div><b>'+v+'</b><span>'+k+'</span></div>').join('');
- document.getElementById('mktnote').textContent = d.market_data_status==='available'
-   ? 'STORED market observations with source provenance — not a live feed.'
-   : 'NO VERIFIED LIVE FEED: no licensed live provider configured. No live prices are displayed.';
- const fill=(sel,rows,cells)=>{
-   const body=document.querySelector(sel+' tbody');
-   body.innerHTML=(rows||[]).map(r=>'<tr>'+cells(r).map(c=>'<td>'+c+'</td>').join('')+'</tr>').join('')
-     ||'<tr><td colspan="7" style="color:#8093a8">(none)</td></tr>';
- };
- fill('#mkt',d.market_prices,r=>[r.symbol,f(r.close,4),r.source||'-',r.status||'-',(r.timestamp||'').slice(0,19)]);
- fill('#pos',d.open_positions,r=>[r.agent_id,r.symbol,f(r.quantity),f(r.avg_entry,4),f(r.current_price,4),r.stop_loss_pct??'-',r.take_profit_pct??'-']);
- fill('#ord',d.virtual_orders,r=>[(r.executed_at||'').slice(11,19),r.agent_id,r.symbol,r.side,f(r.quantity),f(r.price,4),'<span class="'+(r.pnl>=0?'pos':'neg')+'">'+f(r.pnl)+'</span>']);
-})();
-</script>
+
+<!-- Snapshot is a non-executable data block, so it is delivered even where
+     inline executable script is refused (the private proxy sends
+     `script-src 'self'`). The placeholder is a valid JSON string, so an
+     unsubstituted template still parses. All behaviour lives in the external
+     script below, which satisfies every route that serves this page. -->
+<script type="application/json" id="mm-snapshot">"__MM_SNAPSHOT__"</script>
+<script src="market_mind_dashboard.js?v=__MM_VERSION__"></script>
 </body>
 </html>

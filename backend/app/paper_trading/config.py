@@ -40,8 +40,10 @@ class VirtualCapitalConfig:
 
     # -- live trading loop ------------------------------------------------------------
     enabled: bool = True
-    symbols: tuple[str, ...] = ("AAPL", "MSFT", "GOOG", "TSLA", "NVDA")
+    symbols: tuple[str, ...] = ("BTCUSD", "ETHUSD", "SOLUSD", "BNBUSD")
     interval_seconds: float = 60.0
+    market_interval: str = "15m"
+    agents_per_tick: int = 10
 
     def __post_init__(self) -> None:
         if abs(self.registered_agents * self.initial_capital_per_agent

@@ -222,15 +222,36 @@ class PaperTradeStore:
         return [dict(r) for r in rows]
 
     def upsert_ranking(self, period_id: str, agent_id: str, period_start: str,
-                       period_end: str, period_return: float) -> None:
+                       period_end: str, period_return: float, rank: int = 0) -> None:
         import datetime
         with self._conn() as c:
             c.execute(
                 "INSERT INTO paper_rankings(period_id, rank, agent_id, period_start, period_end,"
-                " period_return, updated_at)"
-                " VALUES (?, 0, ?, ?, ?, ?, ?)",
-                (period_id, agent_id, period_start, period_end, period_return,
+                " period_return, updated_at) VALUES (?,?,?,?,?,?,?)"
+                " ON CONFLICT(period_id, agent_id) DO UPDATE SET"
+                " rank=excluded.rank, period_return=excluded.period_return,"
+                " period_start=excluded.period_start, period_end=excluded.period_end,"
+                " updated_at=excluded.updated_at",
+                (period_id, rank, agent_id, period_start, period_end, period_return,
                  datetime.datetime.now(datetime.timezone.utc).isoformat()),
+            )
+
+    def upsert_rankings_bulk(self, period_id: str, rows: list[tuple[str, float, int]]) -> None:
+        """Insert/update a full ranking in one transaction.
+
+        rows: [(agent_id, period_return, rank), ...]
+        """
+        import datetime
+        stamp = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        with self._conn() as c:
+            c.executemany(
+                "INSERT INTO paper_rankings(period_id, rank, agent_id, period_start,"
+                " period_end, period_return, updated_at) VALUES (?,?,?,?,?,?,?)"
+                " ON CONFLICT(period_id, agent_id) DO UPDATE SET"
+                " rank=excluded.rank, period_return=excluded.period_return,"
+                " updated_at=excluded.updated_at",
+                [(period_id, rank, agent_id, period_id, period_id, ret, stamp)
+                 for agent_id, ret, rank in rows],
             )
 
     def rankings(self, period_id: str) -> list[dict]:

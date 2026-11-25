@@ -75,12 +75,10 @@ def monthly_report(store: PaperTradeStore, year: int, month: int) -> list[dict]:
 
 def rank_agents(store: PaperTradeStore, period_id: str, agent_ids: list[str] | None = None) -> list[dict]:
     """Rank agents by realized P&L for a period; writes paper_rankings rows."""
-    rows = store.rankings(period_id)
-    if rows:
-        return rows
-    ranked = sorted(store.portfolios(), key=lambda p: (p["realized_pnl"], p["agent_id"]), reverse=False)
+    ranked = sorted(store.portfolios(), key=lambda p: (-p["realized_pnl"], p["agent_id"]))
     ranked = [p for p in ranked if (agent_ids is None or p["agent_id"] in agent_ids)]
     out = []
+    bulk_rows = []
     for rank, p in enumerate(ranked, start=1):
         pct = (p["realized_pnl"] / p["initial_capital"] * 100.0) if p["initial_capital"] else 0.0
         out.append({
@@ -89,11 +87,11 @@ def rank_agents(store: PaperTradeStore, period_id: str, agent_ids: list[str] | N
             "pnl_pct_of_capital": _fmt(pct),
             "max_drawdown": _fmt(p["max_drawdown"]),
         })
-        try:
-            from datetime import datetime, timezone
-            store.upsert_ranking(period_id, p["agent_id"], period_id, period_id, p["realized_pnl"])
-        except Exception:
-            pass
+        bulk_rows.append((p["agent_id"], p["realized_pnl"], rank))
+    try:
+        store.upsert_rankings_bulk(period_id, bulk_rows)
+    except Exception:
+        pass
     return out
 
 

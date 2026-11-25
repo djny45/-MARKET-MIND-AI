@@ -48,7 +48,7 @@ def run_paper_backtest(
     symbol: str,
     strategy: str,
     initial_capital: float | None = None,
-    interval: str = "1d",
+    interval: str = "15m",
     limit: int = 500,
     config: BacktestConfig | None = None,
 ) -> dict:

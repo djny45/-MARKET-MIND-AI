@@ -36,6 +36,7 @@ class LivePaperTrader:
         self.config = config or VirtualCapitalConfig.from_env()
         self._task: asyncio.Task | None = None
         self.last_executed_at = 0.0
+        self.agent_cursor = 0
 
     # -- lifecycle ------------------------------------------------------------
     @property
@@ -76,27 +77,32 @@ class LivePaperTrader:
                 raise
 
     async def tick(self, symbol: str | None = None) -> list[dict]:
+        """Run one cycle in a worker thread so the API event loop stays responsive."""
+        return await asyncio.to_thread(self._tick_sync, symbol)
+
+    def _tick_sync(self, symbol: str | None = None) -> list[dict]:
         """One paper-trading cycle: trade all configured symbols, then metrics."""
         executed: list[dict] = []
         symbols = [symbol] if symbol else list(self.config.symbols)
         for sym in symbols:
             try:
-                data = get_bars(sym, "1d", limit=60)
+                data = get_bars(sym, self.config.market_interval, limit=120)
             except Exception:
                 data = {"bars": []}
             bars = data.get("bars", [])
             if not bars:
-                # No stored bars yet: use a deterministic ramp ending in a dip
-                # so the mean-reversion paper signal has a real entry.
-                bars = [
-                    {"close": 100.0 + (i - 30) * 0.5 if i < 57 else 100.0 + (i - 30) * 0.5 - 6.0}
-                    for i in range(60)
-                ]
+                # No stored bars yet: skip this symbol rather than invent prices.
+                continue
             price = float(bars[-1]["close"])
             sig = paper_signal(sym, bars)
-            # Trade the first N agents on every tick, including those with no
-            # open position: a fresh system must be able to start trading.
-            agent_ids = [p["agent_id"] for p in self.broker.store.portfolios()][:10]
+            # Every registered agent participates in live paper trading on
+            # every tick. Sizing is fractional so $500 portfolios can hold
+            # high-priced instruments such as BTC.
+            all_ids = [p["agent_id"] for p in self.broker.store.portfolios()]
+            size = max(1, self.config.agents_per_tick)
+            start = self.agent_cursor % len(all_ids) if all_ids else 0
+            agent_ids = [all_ids[(start + i) % len(all_ids)] for i in range(min(size, len(all_ids)))] if all_ids else []
+            self.agent_cursor = (start + len(agent_ids)) % (len(all_ids) or 1)
             for agent_id in agent_ids:
                 try:
                     existing = self.broker.store.get_position(agent_id, sym)
@@ -106,7 +112,7 @@ class LivePaperTrader:
                         pf = self.broker.portfolio(agent_id)
                         if pf is None:
                             continue
-                        qty = min(2, int((pf.cash * 0.1) / max(price, 0.01)) or 1)
+                        qty = round((pf.cash * 0.1) / max(price, 0.01), 6)
                         if qty <= 0 or pf.cash < (qty * price) * 1.001:
                             continue  # can't afford this tick; skip without error spam
                         trade = self.broker.place_order(

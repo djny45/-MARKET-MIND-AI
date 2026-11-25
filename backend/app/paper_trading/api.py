@@ -108,10 +108,12 @@ def register_paper_routes(app, broker: VirtualBroker) -> None:
         return broker.snapshot(agent_id)
 
     @app.get("/api/paper/backtest/run", dependencies=[Depends(require_role("operator"))])
-    def paper_backtest_run(agent_id: str, symbol: str, strategy: str = "momentum_10") -> dict:
+    def paper_backtest_run(agent_id: str, symbol: str, strategy: str = "momentum_10",
+                           interval: str = "15m") -> dict:
         from .backtest import run_paper_backtest
 
-        result = run_paper_backtest(broker.store, agent_id, symbol, strategy)
+        result = run_paper_backtest(broker.store, agent_id, symbol, strategy,
+                                    interval=interval)
         result["broker_execution"] = False
         return result
 

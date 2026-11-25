@@ -26,6 +26,12 @@ from pathlib import Path
 BASE = os.getenv("MM_BACKEND_URL", "http://127.0.0.1:8080")
 OPS = Path(os.getenv("MM_OPS_DIR", "/home/jovyan/.market-mind-ops"))
 TEMPLATE = Path(os.getenv("MM_DASH_TEMPLATE", "/home/jovyan/-MARKET-MIND-AI/jupyter/market_mind_live.template.html"))
+DASHBOARD_JS = TEMPLATE.with_name("market_mind_dashboard.js")
+DASHBOARD_JS_NAME = "market_mind_dashboard.js"
+PUBLISH_DIRS = [
+    Path("/home/jovyan"),
+    Path("/home/jovyan/-MARKET-MIND-AI/frontend/dist"),
+]
 PUBLISH = [
     Path(os.getenv("MM_DASH_OUT", "/home/jovyan/market_mind_live.html")),
     Path("/home/jovyan/-MARKET-MIND-AI/frontend/dist/market_mind_live.html"),
@@ -87,7 +93,15 @@ class Session:
 def build_snapshot(client: Session) -> dict:
     _, status = client.request("GET", "/api/paper/status")
     _, portfolios = client.request("GET", "/api/paper/portfolios")
-    _, overview = client.request("GET", "/api/market-data/overview")
+    market = []
+    for symbol in ("BTCUSD", "ETHUSD", "SOLUSD", "BNBUSD"):
+        try:
+            _, data = client.request(
+                "GET", f"/api/market-data/history?symbol={symbol}&interval=15m&limit=1")
+            for bar in (data or {}).get("bars", [])[:1]:
+                market.append({**bar, "symbol": symbol})
+        except Exception:
+            continue
     snap = {
         "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "source": "market-mind-backend-api",
@@ -126,24 +140,44 @@ def build_snapshot(client: Session) -> dict:
     orders.sort(key=lambda t: t.get("executed_at", ""), reverse=True)
     snap["virtual_orders"] = orders[:40]
     snap["pnl"]["virtual_trades"] = len(orders)
-    # Market prices are reported only when the backend has a real observation.
-    bars = overview.get("bars", []) if isinstance(overview, dict) else []
-    if bars:
+    # Market prices are reported only from backend-stored exchange observations.
+    if market:
         snap["market_data_status"] = "available"
         snap["market_prices"] = [
             {k: b.get(k) for k in ("symbol", "close", "source", "status", "timestamp")}
-            for b in bars[:40]
+            for b in market
         ]
     return snap
 
 
 def publish(snap: dict) -> None:
+    """Render and publish the dashboard for both Jupyter and the loopback proxy.
+
+    The snapshot is emitted as a JSON *data block*, not executable script: the
+    private proxy serves this page with `script-src 'self'`, which refuses
+    inline JavaScript. Keeping the data out of the script policy and the
+    behaviour in an external file keeps one page working on every route.
+    """
     template = TEMPLATE.read_text(encoding="utf-8")
-    payload = "window.__MM_SNAPSHOT__=" + json.dumps(snap, default=str).replace("</", "<\\/") + ";"
-    html = template.replace("/*__MM_SNAPSHOT__*/", payload)
+    # `</` is escaped so a string in the payload can never close the data block.
+    payload = json.dumps(snap, default=str).replace("</", "<\\/")
+    generated = str(snap.get("generated_at") or "")
+    version = "".join(ch for ch in generated if ch.isalnum()) or "0"
+    html = template.replace('"__MM_SNAPSHOT__"', payload).replace("__MM_VERSION__", version)
+    dashboard_js = DASHBOARD_JS.read_text(encoding="utf-8")
+    # Jupyter's /files/ sandbox gives an opaque origin, so its CSP refuses the
+    # external same-URL script; the loopback proxy blocks inline scripts. Ship
+    # both renderers: inline for Jupyter, external for the proxy. Injecting here
+    # prevents template drift from removing the inline copy.
+    if "MARKET-MIND-AI private dashboard renderer" not in html:
+        html = html.replace(
+            "</body>", "<script>\n" + dashboard_js + "\n</script>\n</body>")
     for out in PUBLISH:
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(html, encoding="utf-8")
+    for folder in PUBLISH_DIRS:
+        if folder.is_dir():
+            (folder / DASHBOARD_JS_NAME).write_text(dashboard_js, encoding="utf-8")
     STATE.parent.mkdir(parents=True, exist_ok=True)
     STATE.write_text(json.dumps(snap, indent=2, default=str), encoding="utf-8")
 

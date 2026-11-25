@@ -4,10 +4,26 @@ This directory contains the in-repository integration that makes the private
 MARKET-MIND-AI dashboard available from an authenticated JupyterLab session.
 
 ## Files
-- `market_mind_live.template.html` — dashboard template (`/*__MM_SNAPSHOT__*/`
-  is replaced with a backend snapshot by the bridge; no secrets are embedded).
+- `market_mind_live.template.html` — dashboard template. `"__MM_SNAPSHOT__"` is
+  replaced with a backend snapshot by the bridge (no secrets are embedded) and
+  `__MM_VERSION__` with a per-snapshot cache token.
+- `market_mind_dashboard.js` — the renderer. Published next to the page so it
+  loads over HTTP; holds all behaviour, so the page needs no inline script.
 - `launcher.ipynb` — JupyterLab notebook with one clickable link that opens the
   dashboard from the Jupyter origin (sends a Referer → passes XSRF checks).
+
+## Why the snapshot is a data block, not inline script
+The page is served from two places with different policies:
+
+| Route | Policy | Consequence |
+| --- | --- | --- |
+| `/user/<name>/files/...` | Jupyter sandbox | inline script allowed, no same-origin `fetch` |
+| `/proxy/8080/...` | proxy CSP `script-src 'self'` | inline script **refused** |
+
+The snapshot therefore ships as `<script type="application/json">` (a data
+block, unaffected by `script-src`) and the renderer is an external same-origin
+file, which both routes accept. This is why the dashboard must not be changed
+back to an inline `<script>`: it would render blank behind the private proxy.
 
 ## Why a launcher is required
 Jupyter Server protects `GET /user/<name>/files/...` with XSRF/referer checks.

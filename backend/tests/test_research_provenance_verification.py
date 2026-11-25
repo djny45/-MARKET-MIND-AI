@@ -85,14 +85,31 @@ class ProvenanceVerificationTests(unittest.TestCase):
         self.assertIsNone(report["source"])
         self.assertGreater(report["error_count"], 0)
 
-    def test_provider_status_endpoint_claims_no_live_provider(self):
+    def test_provider_status_endpoint_reflects_actual_attestation(self):
+        """The endpoint must not claim a live provider it cannot back up.
+
+        Regression: it hardcoded "no_live_provider_configured" even after an
+        operator-attested public feed was storing live bars, so the status
+        endpoint contradicted the store.
+        """
         response = TestClient(app).get("/api/providers/status")
         self.assertEqual(response.status_code, 200)
         body = response.json()
-        self.assertEqual(body["status"], "no_live_provider_configured")
-        self.assertEqual(body["live_providers"], [])
         self.assertEqual(body["available_adapters"][0]["data_status"], "synthetic")
-        self.assertIn("No live or delayed", body["market_data_note"])
+        self.assertIn(body["status"],
+                      {"no_live_provider_configured", "live_provider_configured"})
+        # Whatever it reports as live must also be attested by this server.
+        from app.env_validation import attested_data_sources
+        attested = set(attested_data_sources())
+        for source in body["live_providers"]:
+            self.assertIn(source, attested,
+                          "reported a live provider the server has not attested")
+        if body["status"] == "no_live_provider_configured":
+            self.assertEqual(body["live_providers"], [])
+            self.assertIn("No live or delayed", body["market_data_note"])
+        else:
+            self.assertTrue(body["live_providers"])
+            self.assertIn("not a licensed real-time feed", body["market_data_note"])
 
 
 if __name__ == "__main__":

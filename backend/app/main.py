@@ -937,7 +937,17 @@ def readiness():
   "status": "ready" if ready else "not_ready",
   "service": "market-mind-ai",
   "checks": checks,
-  "execution": {"paper_trading": False, "broker_execution": False},
+  # `paper_trading`/`broker_execution` are the stable execution-boundary
+  # contract: both stay False because no real order ever reaches a broker and
+  # no real money moves. The virtual simulation that is actually running is
+  # reported separately as `paper_trading_simulated`, and /api/health carries
+  # the live paper-engine state.
+  "execution": {
+   "paper_trading": False,
+   "broker_execution": False,
+   "paper_trading_simulated": True,
+   "real_money": False,
+  },
  }
  if not ready:
   raise HTTPException(status_code=503, detail={
@@ -948,7 +958,45 @@ def readiness():
 
 @app.get("/api/providers/status")
 def provider_status():
- """Describe implemented provider availability without implying live connectivity."""
+ """Describe implemented provider availability without implying live connectivity.
+
+ This used to assert "no live provider" unconditionally. That stopped being
+ true once the attested public feed (``MARKET_MIND_ATTESTED_DATA_SOURCES``)
+ began storing live bars, and a hardcoded claim that contradicts the stored
+ data is worse than no claim at all. Report what is actually attested and in
+ the store, and stay conservative when nothing is attested.
+ """
+ attested = sorted(attested_data_sources())
+ live_sources: set[str] = set()
+ try:
+  with market_store._connect() as connection:
+   live_sources = {
+    row["source"] for row in connection.execute(
+     "SELECT DISTINCT source FROM market_bars WHERE status = 'live'")
+    if row["source"]
+   }
+ except Exception:
+  live_sources = set()
+
+ # A source only counts as live if it is both attested and present as live rows.
+ live = sorted(s for s in live_sources if s in attested)
+ if live:
+  return {
+   "status": "live_provider_configured",
+   "live_providers": live,
+   "available_adapters": [{
+    "name": SyntheticFixtureAdapter.name,
+    "status": "available",
+    "data_status": "synthetic",
+    "purpose": "development and integration testing only",
+   }],
+   "market_data_note": (
+    "Live bars in the local store come from operator-attested public source(s): "
+    + ", ".join(live)
+    + ". These are public exchange endpoints, not a licensed real-time feed; "
+    "no redistribution or execution-grade guarantee is implied."
+   ),
+  }
  return {
   "status": "no_live_provider_configured",
   "live_providers": [],

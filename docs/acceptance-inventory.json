@@ -250,7 +250,17 @@
       "missing": "endpoint, bucket, scoped credentials, clean-host restore evidence",
       "tests": "not run; external operator procedure in docs/EXTERNAL-VERIFICATION-CHECKLIST.md",
       "status": "blocked",
-      "id": "ACC-029"
+      "id": "ACC-029",
+      "supporting_evidence": [
+        "docs/S3-VERIFICATION-PACKAGE.md (preparation, not a real restore)",
+        "docs/EXTERNAL-VERIFICATION-CHECKLIST.md § EXT-01 (exact procedure and rollback)",
+        "scripts/s3_offhost.py, scripts/backup_orchestrator.py, scripts/restore_orchestrator.py (contract tests only)",
+        "docs/external-evidence/EXT-01.json (pending intake template)"
+      ],
+      "evidence_bundle": "docs/external-evidence/EXT-01.json",
+      "evidence_status": "template_pending_external",
+      "external_verification": "not_claimed",
+      "closure_requires": "Authorized S3 endpoint/bucket/scoped credentials and an operator-supplied bundle that passes scripts/external_evidence.py validate"
     },
     {
       "feature": "Real host service installation, restart and recovery drill (EXT-02)",
@@ -258,7 +268,17 @@
       "missing": "authorized host, root/cron/systemd access, controlled restart evidence; includes Docker volume sub-drill",
       "tests": "not run; external operator procedure in docs/EXTERNAL-VERIFICATION-CHECKLIST.md",
       "status": "blocked",
-      "id": "ACC-030"
+      "id": "ACC-030",
+      "supporting_evidence": [
+        "docs/HOST-RECOVERY-PROCEDURE.md (read-only runbook, not a host drill)",
+        "docs/EXTERNAL-VERIFICATION-CHECKLIST.md § EXT-02 (exact procedure and rollback)",
+        "scripts/install_schedule.py, scripts/service_restart_recovery.py, scripts/docker_volume_drill.py (contract tests only)",
+        "docs/external-evidence/EXT-02.json (pending intake template)"
+      ],
+      "evidence_bundle": "docs/external-evidence/EXT-02.json",
+      "evidence_status": "template_pending_external",
+      "external_verification": "not_claimed",
+      "closure_requires": "Root/systemd/crontab access on an authorized host and an operator-supplied bundle that passes scripts/external_evidence.py validate"
     },
     {
       "feature": "Independent security review, penetration testing and formal sign-off (EXT-03)",
@@ -266,7 +286,17 @@
       "missing": "independent reviewer, signed report, go/no-go decision",
       "tests": "not run; external operator procedure in docs/EXTERNAL-VERIFICATION-CHECKLIST.md",
       "status": "blocked",
-      "id": "ACC-031"
+      "id": "ACC-031",
+      "supporting_evidence": [
+        "docs/SECURITY-REVIEW-PACKAGE.md (review package, not an independent review)",
+        "docs/EXTERNAL-VERIFICATION-CHECKLIST.md § EXT-03 (scope and sign-off requirements)",
+        "SECURITY_AUDIT.md and CI scan results (internal evidence only, no self-certification)",
+        "docs/external-evidence/EXT-03.json (pending intake template)"
+      ],
+      "evidence_bundle": "docs/external-evidence/EXT-03.json",
+      "evidence_status": "template_pending_external",
+      "external_verification": "not_claimed",
+      "closure_requires": "Independent reviewer's signed report and go/no-go decision, captured in an operator-supplied bundle that passes scripts/external_evidence.py validate"
     },
     {
       "feature": "Host schedule installation scaffolding",
@@ -468,20 +498,25 @@
     "scope": "all 40 checks unchanged: 37 PASS, 0 PARTIAL, 3 BLOCKED"
   },
   "container_scan": {
-    "status": "FAIL",
-    "run": 45380741384,
-    "head": "964dceadb972f90d96d76511f43e9a6caea4200b",
+    "status": "PASS",
+    "run": 45420717539,
+    "head": "8785e468ad5eef997f973f1128f1e380261262c1",
     "backend": {
-      "high": 59,
-      "medium": 78,
-      "low_or_unknown": 95
+      "high": 0,
+      "medium": 0,
+      "critical": 0,
+      "low_or_unknown": 0
     },
     "frontend": {
       "high": 0,
       "medium": 0,
+      "critical": 0,
       "low_or_unknown": 0
     },
-    "remediation": "frontend pinned to patched nginx 1.31.7 and upgraded; backend pip/OS packages upgraded; remaining backend findings have no safe in-image fix",
+    "base_image": "python:3.12.16-alpine3.24",
+    "settings": "Trivy v0.70.0 image scan, severity MEDIUM,HIGH,CRITICAL, ignore-unfixed=false, exit-code=1, no ignore file",
+    "verified_packages_scanned": "OS family alpine 3.24.4, 38 OS packages plus Python packages enumerated",
+    "remediation": "backend moved from python:3.12-slim (Debian 13, 137 MEDIUM+ findings with 0 fixable) to a pinned Alpine 3.12.16 multi-stage runtime with runtime pip/setuptools removed and apk upgrade; frontend pinned to patched nginx 1.31.7",
     "suppressed": false,
     "evidence": "docs/CONTAINER-SCAN-FINDINGS.md"
   }

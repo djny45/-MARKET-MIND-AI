@@ -120,6 +120,7 @@ async def lifespan(app: FastAPI):
   metadata={"strict_mode": report["strict_mode"], "issue_count": len(report["issues"])},
  )
  recover_stale_tasks_on_startup()
+ _init_paper_trading(app)
  yield
 
 
@@ -151,6 +152,30 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(agent_council_router)
+
+
+def _init_paper_trading(app: FastAPI) -> None:
+ """Initialize the 550 virtual portfolios and mount paper-trading routes."""
+ try:
+  from .paper_trading.api import register_paper_routes
+  from .paper_trading.engine import VirtualBroker
+  from .paper_trading.live import LivePaperTrader
+
+  broker = VirtualBroker()
+  broker.initialize_all_portfolios()
+  app.state.paper_broker = broker
+  app.state.paper_trader = None
+  register_paper_routes(app, broker)
+  try:
+   trader = LivePaperTrader(broker)
+   trader.start()
+   app.state.paper_trader = trader
+  except Exception:
+   app.state.paper_trader = None  # never let trading-loop startup kill the API
+ except Exception:
+  # Paper trading must never take down the research API.
+  app.state.paper_broker = None
+  app.state.paper_trader = None
 
 
 def recover_stale_tasks_on_startup():
@@ -651,8 +676,105 @@ def backup_status(_principal: Any = Depends(require_user_role("admin"))):
 
 @app.get("/api/health")
 def health():
+ broker = getattr(app.state, "paper_broker", None)
+ from .paper_trading.reports import portfolio_summary
+ paper = portfolio_summary(broker.store) if broker is not None else {}
  return {"status":"ok","service":"market-mind-ai","mode":"research-only",
-  "paper_trading":False,"broker_execution":False}
+  "paper_trading":True,"broker_execution":False,
+  **({"paper": paper} if paper else {})}
+
+
+@app.get("/api/ops/status")
+def ops_status(_principal: Any = Depends(require_user_role("operator"))):
+ """Report local operational health without secrets or host command execution.
+
+ Read-only: inspects the local ops directory (PID files, backup status file)
+ plus the persisted supervisor heartbeat. It never shells out, never returns
+ file contents, and never exposes credentials.
+ """
+ import shutil
+ from pathlib import Path as _Path
+
+ ops_dir = _Path(os.getenv("MARKET_MIND_OPS_DIR", "/home/jovyan/.market-mind-ops"))
+ run_dir = ops_dir / "run"
+
+ def _valid_pid(pid: int) -> bool:
+  return isinstance(pid, int) and not isinstance(pid, bool) and 0 < pid <= 2**31 - 1
+
+ def _alive(pid: int) -> bool:
+  if not _valid_pid(pid):
+   return False
+  try:
+   os.kill(pid, 0)
+  except ProcessLookupError:
+   return False
+  except PermissionError:
+   return True
+  except OverflowError:
+   return False
+  try:
+   state = (_Path(f"/proc/{pid}/stat").read_text().split(") ", 1)[1].split()[0])
+   return state != "Z"
+  except (OSError, IndexError):
+   return True
+
+ services = {}
+ for name in ("backend", "proxy", "supervisor", "backup_scheduler"):
+  pid_file = run_dir / f"{name}.pid"
+  pid = None
+  if pid_file.is_file():
+   try:
+    candidate = int(pid_file.read_text().strip())
+    pid = candidate if _valid_pid(candidate) else None
+   except (ValueError, OSError):
+    pid = None
+  services[name] = {"pid": pid, "running": bool(pid) and _alive(pid)}
+
+ loop_pid = None
+ lock = run_dir / "supervisor-loop.lock"
+ if lock.is_file():
+  try:
+   candidate = int(lock.read_text().strip())
+   loop_pid = candidate if _valid_pid(candidate) else None
+  except (ValueError, OSError):
+   loop_pid = None
+ if loop_pid is not None and not _alive(loop_pid):
+  loop_pid = None
+
+ backups = {"status": "unknown"}
+ status_file = ops_dir / "backups" / "scheduler-status.json"
+ if status_file.is_file():
+  try:
+   payload = json.loads(status_file.read_text())
+   backups = {
+    "status": payload.get("status"),
+    "run_at": payload.get("run_at"),
+    "restore_verified": (payload.get("restore_test") or {}).get("status") == "verified",
+   }
+  except (ValueError, OSError):
+   backups = {"status": "unreadable"}
+
+ disk = {}
+ try:
+  total, used, free = shutil.disk_usage(str(ops_dir))
+  disk = {"used_pct": round(used / total * 100, 1), "free_gb": round(free / 1024**3, 1)}
+ except OSError:
+  disk = {}
+
+ supervisor = agent_supervisor_status()
+ return {
+  "services": services,
+  "supervision_loop_pid": loop_pid,
+  "backups": backups,
+  "supervisor": {
+   "health": supervisor.get("supervisor_health"),
+   "status_counts": supervisor.get("status_counts"),
+   "heartbeat_age_seconds": (supervisor.get("supervisor_heartbeat") or {}).get("heartbeat_age_seconds"),
+  },
+  "disk": disk,
+  "execution": {"paper_trading": False, "broker_execution": False},
+  "secret_values_exposed": False,
+ }
 
 @app.get("/api/environment-validation")
 def environment_validation(_actor: Any = Depends(require_user_role("admin"))):

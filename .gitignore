@@ -8,6 +8,11 @@ __pycache__/
 htmlcov/
 *.log
 
+# Operator secrets and private-mode environment files (never commit)
+.env
+*.env
+!*.env.example
+
 # Local application state and databases
 data/
 *.sqlite

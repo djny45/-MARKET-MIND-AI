@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>MARKET-MIND-AI — Private Research Dashboard</title>
+<style>
+ :root{--bg:#0b0d10;--panel:#11151b;--line:#1e2a38;--txt:#d9e2ec;--dim:#8093a8;--cyan:#39d0d8;--amber:#f0a93b;--green:#3ddc84;--red:#f06a6a}
+ *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font:13px/1.45 ui-monospace,Menlo,monospace}
+ header{padding:10px 14px;border-bottom:1px solid var(--line);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+ .brand{color:var(--cyan);font-weight:700;letter-spacing:.05em}
+ .tag{padding:2px 7px;border:1px solid var(--line);border-radius:3px;color:var(--dim);font-size:11px}
+ .tag.sim{color:var(--cyan);border-color:#1b4a50}.tag.live{color:var(--amber);border-color:#5a431a}
+ #status{color:var(--dim);font-size:11px;margin-left:auto}
+ main{padding:10px 14px;display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:12px}
+ section{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:12px}
+ h2{margin:0 0 8px;font-size:11px;letter-spacing:.1em;color:var(--dim);text-transform:uppercase}
+ table{width:100%;border-collapse:collapse;font-size:11px}th,td{text-align:left;padding:4px 6px;border-bottom:1px solid #18202a;white-space:nowrap}
+ th{color:var(--dim)}.pos{color:var(--green)}.neg{color:var(--red)}
+ .note{font-size:11px;color:var(--dim);margin:6px 0 0}.warn{color:var(--amber)}
+ .kpi{display:flex;gap:8px;flex-wrap:wrap}.kpi div{border:1px solid var(--line);border-radius:4px;padding:7px 9px;flex:1 1 44%}
+ .kpi b{display:block;color:var(--cyan);font-size:16px}.kpi span{color:var(--dim);font-size:10px}
+ @media(max-width:600px){header{padding:8px 10px}main{padding:8px 10px;grid-template-columns:1fr}table{font-size:10px;display:block;overflow-x:auto}th,td{padding:3px 4px}}
+</style>
+</head>
+<body>
+<header>
+ <span class="brand">MARKET-MIND-AI / PRIVATE DASHBOARD</span>
+ <span class="tag">research-only</span>
+ <span class="tag sim">paper trading ON</span>
+ <span class="tag live">broker_execution: false</span>
+ <span id="status">connecting…</span>
+</header>
+<main>
+ <section><h2>Portfolio / P&amp;L (SIMULATED)</h2><div class="kpi" id="kpi"></div>
+  <p class="note warn">Virtual capital $500/agent · $275,000 total. Not real money or holdings.</p></section>
+ <section><h2>Market Data</h2><p class="note warn" id="mktnote">Loading provenance…</p>
+  <table id="mkt"><thead><tr><th>Symbol</th><th>Close</th><th>Source</th><th>Status</th><th>Timestamp</th></tr></thead><tbody></tbody></table></section>
+ <section><h2>Open Virtual Positions</h2>
+  <table id="pos"><thead><tr><th>Agent</th><th>Sym</th><th>Qty</th><th>Entry</th><th>Last</th><th>SL%</th><th>TP%</th></tr></thead><tbody></tbody></table></section>
+ <section><h2>Recent Virtual Orders</h2>
+  <table id="ord"><thead><tr><th>Time</th><th>Agent</th><th>Sym</th><th>Side</th><th>Qty</th><th>Price</th><th>P&amp;L</th></tr></thead><tbody></tbody></table>
+  <p class="note warn">Virtual orders only — no exchange orders placed.</p></section>
+</main>
+
+<!-- Snapshot is a non-executable data block, so it is delivered even where
+     inline executable script is refused (the private proxy sends
+     `script-src 'self'`). The placeholder is a valid JSON string, so an
+     unsubstituted template still parses. All behaviour lives in the external
+     script below, which satisfies every route that serves this page. -->
+<script type="application/json" id="mm-snapshot">"__MM_SNAPSHOT__"</script>
+<script src="market_mind_dashboard.js?v=__MM_VERSION__"></script>
+</body>
+</html>

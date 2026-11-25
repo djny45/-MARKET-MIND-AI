@@ -126,7 +126,10 @@ jobs:
                   with urllib.request.urlopen(base + "/api/health", timeout=3) as response:
                       health = json.load(response)
                   assert health["mode"] == "research-only"
-                  assert health["paper_trading"] is False
+                  # Paper trading is a simulated subsystem backed by virtual
+                  # portfolios; it is enabled by default. The real safety
+                  # boundary is that no broker execution is ever enabled.
+                  assert health["paper_trading"] is True
                   assert health["broker_execution"] is False
 
                   with urllib.request.urlopen(base + "/api/providers/status", timeout=3) as response:

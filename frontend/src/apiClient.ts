@@ -57,6 +57,45 @@ export function withCsrf(
   return { ...init, headers }
 }
 
+/** The API origin, when the frontend is served from a different origin.
+ *  Requests to this origin (or to the current origin) carry the session cookie. */
+function configuredApiOrigin(): string {
+  const raw = (import.meta.env.VITE_API_URL ?? '').trim()
+  if (!raw) return globalThis.location?.origin ?? ''
+  try {
+    return new URL(raw, globalThis.location?.origin || undefined).origin
+  } catch {
+    return ''
+  }
+}
+
+function isApiRequest(input: RequestInfo | URL): boolean {
+  const reference = typeof input === 'string' || input instanceof URL
+    ? String(input)
+    : input.url
+  if (reference.startsWith('//')) return false
+  const origin = globalThis.location?.origin
+  if (!origin) return false
+  try {
+    const target = new URL(reference, origin)
+    return target.origin === origin || target.origin === configuredApiOrigin()
+  } catch {
+    return false
+  }
+}
+
+/** Fetch wrapper for authenticated research API calls.
+ *
+ * The session cookie is HttpOnly; cross-origin requests do not send it unless
+ * `credentials: 'include'` is set. Only requests to the configured API origin
+ * (or same-origin) opt in — arbitrary external URLs never receive credentials.
+ * An explicit caller-provided `credentials` value is always respected.
+ */
+export function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const credentials = init?.credentials ?? (isApiRequest(input) ? 'include' : undefined)
+  return globalThis.fetch(input, credentials ? { ...init, credentials } : init)
+}
+
 /** Install once at application startup. Returns a restore function for tests. */
 export function installCsrfFetch(): () => void {
   const original = globalThis.fetch

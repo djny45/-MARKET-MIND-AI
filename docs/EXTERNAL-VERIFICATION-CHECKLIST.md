@@ -171,3 +171,11 @@ Only after an external operator executes the procedure and supplies evidence
 may the corresponding acceptance row change from `blocked` to `verified`, with
 the exact procedure URL, evidence location and operator identity. Mock, fake or
 simulated tests must not be used as evidence for EXT-01, EXT-02 or EXT-03.
+
+Use [`EXTERNAL-EVIDENCE-BUNDLES.md`](EXTERNAL-EVIDENCE-BUNDLES.md) for the
+fail-closed intake contract and [`EXTERNAL-ACCESS-REQUESTS.md`](EXTERNAL-ACCESS-REQUESTS.md)
+for the drafted owner/reviewer requests. Pending templates are checked in at
+`docs/external-evidence/EXT-01.json`, `EXT-02.json` and `EXT-03.json`; a bundle
+that does not pass `python3 scripts/external_evidence.py validate` cannot close
+an acceptance row, and even a passing bundle is evidence completeness, not
+approval. The repository owner records the external decision.

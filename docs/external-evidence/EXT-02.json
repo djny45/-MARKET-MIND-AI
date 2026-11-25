@@ -1,0 +1,53 @@
+{
+  "acceptance_id": "ACC-030",
+  "artifacts": {
+    "host-identity.txt": {
+      "path": "host-identity.txt",
+      "sha256": ""
+    },
+    "journal-excerpt.txt": {
+      "path": "journal-excerpt.txt",
+      "sha256": ""
+    },
+    "list-timers.txt": {
+      "path": "list-timers.txt",
+      "sha256": ""
+    },
+    "recovery-report.json": {
+      "path": "recovery-report.json",
+      "sha256": ""
+    },
+    "restart-report.json": {
+      "path": "restart-report.json",
+      "sha256": ""
+    },
+    "systemctl-status.txt": {
+      "path": "systemctl-status.txt",
+      "sha256": ""
+    },
+    "volume-drill-result.json": {
+      "path": "volume-drill-result.json",
+      "sha256": ""
+    }
+  },
+  "bundle_id": "EXT-02-<unique-id>",
+  "check_id": "EXT-02",
+  "checks": {
+    "backup_freshness_ok": false,
+    "database_integrity_ok": false,
+    "disposable_volume_removed": false,
+    "stale_locks_removed": false,
+    "task_requeued_once": false,
+    "timer_active": false,
+    "volume_comparison_matched": false
+  },
+  "environment": "",
+  "executed_at": "",
+  "external_approval": "not_claimed",
+  "generated_at": "2026-11-24T18:53:13.215924Z",
+  "notes": "Complete this bundle only from a real authorized drill; never from mock evidence.",
+  "operator_identity": "",
+  "outcome": "pending",
+  "owner_identity": "",
+  "procedure": "docs/HOST-RECOVERY-PROCEDURE.md"
+}

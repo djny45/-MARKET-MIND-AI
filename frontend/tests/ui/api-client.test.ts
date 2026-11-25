@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { CSRF_HEADER, installCsrfFetch, readCsrfCookie, withCsrf } from '../../src/apiClient'
+import { CSRF_HEADER, apiFetch, installCsrfFetch, readCsrfCookie, withCsrf } from '../../src/apiClient'
 
 const cookie = 'other=1; mm_csrf=token-123; theme=dark'
 
@@ -44,5 +44,42 @@ describe('central CSRF wiring', () => {
     restore()
     expect(globalThis.fetch).toBe(spy)
     globalThis.fetch = original
+  })
+})
+
+describe('apiFetch session credentials', () => {
+  it('sends the session cookie to the configured cross-origin API', async () => {
+    vi.stubEnv('VITE_API_URL', 'http://127.0.0.1:18090')
+    const spy = vi.fn(async () => new Response(null, { status: 200 }))
+    globalThis.fetch = spy as typeof fetch
+    await apiFetch('http://127.0.0.1:18090/api/workers?limit=550')
+    const [, init] = spy.mock.calls[0] as unknown as [string, RequestInit]
+    expect(init.credentials).toBe('include')
+  })
+
+  it('sends the session cookie for same-origin relative URLs', async () => {
+    const spy = vi.fn(async () => new Response(null, { status: 200 }))
+    globalThis.fetch = spy as typeof fetch
+    await apiFetch('/api/health')
+    const [, init] = spy.mock.calls[0] as unknown as [string, RequestInit]
+    expect(init.credentials).toBe('include')
+  })
+
+  it('does not send credentials to an unrelated external origin', async () => {
+    vi.stubEnv('VITE_API_URL', 'http://127.0.0.1:18090')
+    const spy = vi.fn(async () => new Response(null, { status: 200 }))
+    globalThis.fetch = spy as typeof fetch
+    await apiFetch('https://example.invalid/data')
+    const [, init] = spy.mock.calls[0] as unknown as [string, RequestInit | undefined]
+    expect(init?.credentials).toBeUndefined()
+  })
+
+  it('preserves an explicit credentials setting', async () => {
+    vi.stubEnv('VITE_API_URL', 'http://127.0.0.1:18090')
+    const spy = vi.fn(async () => new Response(null, { status: 200 }))
+    globalThis.fetch = spy as typeof fetch
+    await apiFetch('http://127.0.0.1:18090/api/health', { credentials: 'omit' })
+    const [, init] = spy.mock.calls[0] as unknown as [string, RequestInit]
+    expect(init.credentials).toBe('omit')
   })
 })

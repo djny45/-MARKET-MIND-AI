@@ -10,6 +10,7 @@ Tables:
 """
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import sqlite3
@@ -42,6 +43,57 @@ class PaperTradeStore:
             conn.execute("PRAGMA foreign_keys=ON")
             self._local.conn = conn
         return conn
+
+    @contextlib.contextmanager
+    def transaction(self):
+        """Group many writes into a single SQLite commit.
+
+        The database lives on NFS (EFS), where every commit costs ~40ms of
+        durable I/O. A paper-trading tick issues ~160 independent writes
+        (550 portfolios x 4 symbols), which without batching serialised into
+        8-32s of blocking work and starved the API health probes. Wrapping the
+        batch in one transaction keeps the same rows and the same final state
+        while paying the commit cost once.
+
+        Nesting is a no-op: the outermost scope owns the commit/rollback, so
+        existing `with self._conn() as c:` call sites keep their semantics.
+        """
+        depth = getattr(self._local, "txn_depth", 0)
+        if depth:
+            self._local.txn_depth = depth + 1
+            try:
+                yield self._conn()
+            finally:
+                self._local.txn_depth -= 1
+            return
+
+        conn = self._conn()
+        self._local.txn_depth = 1
+        previous = getattr(self._local, "defer_metrics", False)
+        self._local.defer_metrics = True
+        try:
+            yield conn
+        except BaseException:
+            self._local.txn_depth = 0
+            self._local.defer_metrics = previous
+            try:
+                conn.rollback()
+            except sqlite3.Error:
+                pass
+            raise
+        else:
+            self._local.txn_depth = 0
+            self._local.defer_metrics = previous
+            conn.commit()
+
+    @contextlib.contextmanager
+    def _write(self):
+        """Write scope: joins an open batch, else commits on its own."""
+        if getattr(self._local, "txn_depth", 0):
+            yield self._conn()
+            return
+        with self._conn() as c:
+            yield c
 
     def init_schema(self) -> None:
         with self._conn() as c:
@@ -96,7 +148,7 @@ class PaperTradeStore:
 
     # -- portfolios -------------------------------------------------------------
     def upsert_portfolio(self, agent_id: str, initial_capital: float, status: str = "initialized") -> None:
-        with self._conn() as c:
+        with self._write() as c:
             c.execute(
                 """INSERT OR IGNORE INTO paper_portfolios
                    (agent_id, initial_capital, current_cash, realized_pnl,
@@ -120,7 +172,7 @@ class PaperTradeStore:
         assignments = ", ".join(f"{k}=?" for k in fields if k in allowed)
         if not assignments:
             return
-        with self._conn() as c:
+        with self._write() as c:
             c.execute(
                 f"UPDATE paper_portfolios SET {assignments} WHERE agent_id=?",
                 (*(fields[k] for k in fields if k in allowed), agent_id),
@@ -134,7 +186,7 @@ class PaperTradeStore:
         placeholders = ", ".join("?" for _ in keys)
         cols = ", ".join(keys)
         update_assignments = ", ".join(f"{k}=excluded.{k}" for k in keys)
-        with self._conn() as c:
+        with self._write() as c:
             c.execute(
                 f"INSERT INTO paper_positions(agent_id, symbol, {cols}) VALUES (?,?,{placeholders}) "
                 f"ON CONFLICT(agent_id, symbol) DO UPDATE SET {update_assignments}",
@@ -142,7 +194,7 @@ class PaperTradeStore:
             )
 
     def remove_position(self, agent_id: str, symbol: str) -> None:
-        with self._conn() as c:
+        with self._write() as c:
             c.execute("DELETE FROM paper_positions WHERE agent_id=? AND symbol=?", (agent_id, symbol))
 
     def get_position(self, agent_id: str, symbol: str) -> dict | None:
@@ -155,12 +207,32 @@ class PaperTradeStore:
             rows = c.execute("SELECT * FROM paper_positions WHERE agent_id=? ORDER BY symbol", (agent_id,)).fetchall()
         return [dict(r) for r in rows]
 
+    def positions_for_symbol(self, symbol: str) -> dict[str, dict]:
+        """All open positions for one symbol, keyed by agent_id (one query).
+
+        The trading loop needs this for every agent each tick; fetching them
+        one agent at a time cost ~12ms per row on NFS.
+        """
+        with self._conn() as c:
+            rows = c.execute(
+                "SELECT * FROM paper_positions WHERE symbol=?", (symbol,)
+            ).fetchall()
+        return {r["agent_id"]: dict(r) for r in rows}
+
+    def cash_by_agent(self) -> dict[str, float]:
+        """Current cash for every portfolio, keyed by agent_id (one query)."""
+        with self._conn() as c:
+            rows = c.execute(
+                "SELECT agent_id, current_cash FROM paper_portfolios"
+            ).fetchall()
+        return {r["agent_id"]: r["current_cash"] for r in rows}
+
     # -- trades ---------------------------------------------------------------------
     def append_trade(
         self, agent_id: str, symbol: str, side: str, quantity: float, price: float,
         fee: float, slippage: float, pnl: float, realized: bool, executed_at: str,
     ) -> int:
-        with self._conn() as c:
+        with self._write() as c:
             cur = c.execute(
                 """INSERT INTO paper_trades
                    (agent_id, symbol, side, quantity, price, fee, slippage, pnl, realized, executed_at)
@@ -224,7 +296,7 @@ class PaperTradeStore:
     def upsert_ranking(self, period_id: str, agent_id: str, period_start: str,
                        period_end: str, period_return: float, rank: int = 0) -> None:
         import datetime
-        with self._conn() as c:
+        with self._write() as c:
             c.execute(
                 "INSERT INTO paper_rankings(period_id, rank, agent_id, period_start, period_end,"
                 " period_return, updated_at) VALUES (?,?,?,?,?,?,?)"
@@ -243,7 +315,7 @@ class PaperTradeStore:
         """
         import datetime
         stamp = datetime.datetime.now(datetime.timezone.utc).isoformat()
-        with self._conn() as c:
+        with self._write() as c:
             c.executemany(
                 "INSERT INTO paper_rankings(period_id, rank, agent_id, period_start,"
                 " period_end, period_return, updated_at) VALUES (?,?,?,?,?,?,?)"

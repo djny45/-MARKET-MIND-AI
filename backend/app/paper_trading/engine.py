@@ -168,25 +168,29 @@ class VirtualBroker:
 
         pos = self.store.get_position(agent_id, symbol)
         pnl = 0.0
-        cash_delta = -notional
         if side == "BUY":
-            if pf["current_cash"] - notional - fee - slip < -1e-9:
+            cash_delta = -notional - fee - slip
+            if pf["current_cash"] + cash_delta < -1e-9:
                 raise ValueError(f"insufficient cash for {agent_id}")
             slp = stop_loss_pct if stop_loss_pct is not None else (pos.get("stop_loss_pct") if pos else None)
             tpp = take_profit_pct if take_profit_pct is not None else (pos.get("take_profit_pct") if pos else None)
             if pos:
                 q = pos["quantity"] + quantity
-                avg = ((pos["quantity"] * pos["avg_entry"]) + notional) / q
+                # Blend the *actual* cost paid for this leg (exec_price carries
+                # fee + slippage), matching how an opening BUY sets avg_entry.
+                # Using bare `notional` here understated the basis on every add.
+                avg = ((pos["quantity"] * pos["avg_entry"]) + quantity * exec_price) / q
                 self.store.set_position(agent_id, symbol, quantity=q, avg_entry=avg, current_price=exec_price,
                                         stop_loss_pct=slp, take_profit_pct=tpp, updated_at=_utcnow())
             else:
                 self.store.set_position(agent_id, symbol, quantity=quantity, avg_entry=exec_price,
                                         current_price=exec_price, stop_loss_pct=slp, take_profit_pct=tpp,
                                         updated_at=_utcnow())
-            cash_delta -= fee + slip
         else:  # SELL
             if not pos or pos["quantity"] < quantity - 1e-9:
                 raise ValueError(f"insufficient position for {agent_id}/{symbol}")
+            # Proceeds are credited gross, then the fee/slippage are charged.
+            cash_delta = notional - fee - slip
             pnl = (exec_price - pos["avg_entry"]) * quantity
             remaining = pos["quantity"] - quantity
             if remaining <= 1e-9:
@@ -194,13 +198,17 @@ class VirtualBroker:
             else:
                 self.store.set_position(agent_id, symbol, quantity=remaining, avg_entry=pos["avg_entry"],
                                         current_price=exec_price, updated_at=_utcnow())
-            cash_delta += notional - fee - slip
             self.store.update_portfolio(agent_id, realized_pnl=pf["realized_pnl"] + pnl)
         new_cash = pf["current_cash"] + cash_delta
         self.store.update_portfolio(agent_id, current_cash=new_cash)
         trade_id = self.store.append_trade(
             agent_id, symbol, side, quantity, exec_price, fee, slip, pnl, side == "SELL", _utcnow())
-        self._refresh_metrics(agent_id)
+        # Metrics (high-watermark/drawdown) are refreshed in bulk by the caller:
+        # the live loop calls refresh_all_metrics() once per tick. Refreshing
+        # here as well re-read the agent's whole position set per order, which
+        # on NFS dominated tick latency (~60ms of the ~90ms per order).
+        if not getattr(self.store._local, "defer_metrics", False):
+            self._refresh_metrics(agent_id)
         return {
             "trade_id": trade_id, "agent_id": agent_id, "symbol": symbol, "side": side,
             "quantity": quantity, "reference_price": ref_price, "execution_price": round(exec_price, 8),
@@ -217,10 +225,28 @@ class VirtualBroker:
             return []
         price = float(current_price) if current_price else 1.0
         if pos.get("stop_loss_pct") and price <= pos["avg_entry"] * (1 - pos["stop_loss_pct"] / 100):
-            return [self.place_order(agent_id, symbol, pos["quantity"], "SELL", note="stop_loss_hit")]
+            # Pass the triggering market price: omitting it made place_order
+            # fall back to ref_price=1.0, so every exit sold at $1.
+            return [self.place_order(agent_id, symbol, pos["quantity"], "SELL", price=price,
+                                     note="stop_loss_hit")]
         if pos.get("take_profit_pct") and price >= pos["avg_entry"] * (1 + pos["take_profit_pct"] / 100):
-            return [self.place_order(agent_id, symbol, pos["quantity"], "SELL", note="take_profit_hit")]
+            return [self.place_order(agent_id, symbol, pos["quantity"], "SELL", price=price,
+                                     note="take_profit_hit")]
         return []
+
+    def mark_symbol_to_market(self, symbol: str, price: float) -> int:
+        """Re-price every open position in `symbol` to `price` (one statement).
+
+        The trading loop only places orders for a rotating slice of agents, so
+        positions it did not touch today kept a stale `current_price` and thus
+        a stale portfolio value and drawdown. Marking the whole symbol keeps
+        every agent's equity on the same live mark.
+        """
+        with self.store._write() as c:
+            cur = c.execute(
+                "UPDATE paper_positions SET current_price=? WHERE symbol=?", (float(price), symbol)
+            )
+            return cur.rowcount
 
     # -- metrics -------------------------------------------------------------------
     def _refresh_metrics(self, agent_id: str) -> None:
@@ -238,7 +264,7 @@ class VirtualBroker:
         Avoids 550 per-agent reads/writes (which dominated tick latency on
         network filesystems) while computing exactly the same metrics.
         """
-        with self.store._conn() as c:
+        with self.store._write() as c:
             cur = c.execute("""
                 UPDATE paper_portfolios
                 SET high_watermark = MAX(high_watermark, mark_to_market),

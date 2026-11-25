@@ -37,3 +37,6 @@ npm-debug.log*
 # Playwright artifacts
 frontend/test-results/
 frontend/playwright-report/
+
+# Jupyter checkpoint artifacts
+.ipynb_checkpoints/

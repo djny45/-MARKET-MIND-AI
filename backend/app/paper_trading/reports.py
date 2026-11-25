@@ -95,12 +95,26 @@ def rank_agents(store: PaperTradeStore, period_id: str, agent_ids: list[str] | N
     return out
 
 
+_SUMMARY_CACHE: dict[str, tuple[float, dict]] = {}
+_SUMMARY_TTL_SECONDS = 2.0
+
+
 def portfolio_summary(store: PaperTradeStore) -> dict:
     """Aggregate paper system summary used by the health/status endpoint.
 
-    Uses a bounded number of SQL queries (no N+1 per agent), so health probes
-    stay fast even with 550 portfolios.
+    Uses a bounded number of SQL queries (no N+1 per agent). The result is
+    cached for a couple of seconds: health probes arrive far more often than
+    the numbers change, and repeating the scan while the trading loop is
+    committing made probes contend for the same NFS-backed database.
     """
+    import time
+
+    key = getattr(store, "_path", "default")
+    cached = _SUMMARY_CACHE.get(key)
+    now = time.monotonic()
+    if cached and now - cached[0] < _SUMMARY_TTL_SECONDS:
+        return dict(cached[1])
+
     portfolios = store.portfolios()
     positions = store.active_agents()
     # Market value = cash + sum(open qty * last price), one query.
@@ -109,7 +123,7 @@ def portfolio_summary(store: PaperTradeStore) -> dict:
             "SELECT COALESCE(SUM(quantity * current_price), 0) FROM paper_positions"
         ).fetchone()[0]
     total_value = sum(p["current_cash"] for p in portfolios) + (mark_to_market or 0.0)
-    return {
+    summary = {
         "registered_agents": len(portfolios),
         "initialized_portfolios": len(portfolios),
         "agents_with_open_positions": len(positions),
@@ -117,3 +131,5 @@ def portfolio_summary(store: PaperTradeStore) -> dict:
         "total_portfolio_value": _fmt(total_value),
         "active_agents": len(positions),
     }
+    _SUMMARY_CACHE[key] = (now, dict(summary))
+    return summary

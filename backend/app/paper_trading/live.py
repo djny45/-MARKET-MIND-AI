@@ -81,7 +81,16 @@ class LivePaperTrader:
         return await asyncio.to_thread(self._tick_sync, symbol)
 
     def _tick_sync(self, symbol: str | None = None) -> list[dict]:
-        """One paper-trading cycle: trade all configured symbols, then metrics."""
+        """One paper-trading cycle: trade all configured symbols, then metrics.
+
+        The whole cycle runs inside one store transaction: on NFS each commit
+        costs ~40ms, so committing per order turned a tick into 8-32s of I/O.
+        One commit keeps identical rows and final state.
+        """
+        with self.broker.store.transaction():
+            return self._tick_body(symbol)
+
+    def _tick_body(self, symbol: str | None = None) -> list[dict]:
         executed: list[dict] = []
         symbols = [symbol] if symbol else list(self.config.symbols)
         for sym in symbols:
@@ -103,17 +112,21 @@ class LivePaperTrader:
             start = self.agent_cursor % len(all_ids) if all_ids else 0
             agent_ids = [all_ids[(start + i) % len(all_ids)] for i in range(min(size, len(all_ids)))] if all_ids else []
             self.agent_cursor = (start + len(agent_ids)) % (len(all_ids) or 1)
+            # Bulk-load state for this symbol: one query each instead of
+            # ~2 per agent (NFS round trips dominated the tick).
+            open_for_symbol = self.broker.store.positions_for_symbol(sym)
+            cash = self.broker.store.cash_by_agent()
             for agent_id in agent_ids:
                 try:
-                    existing = self.broker.store.get_position(agent_id, sym)
+                    existing = open_for_symbol.get(agent_id)
                     pos_side = int(existing["quantity"]) if existing else 0
                     want = 1 if sig > 0 else 0
                     if want and pos_side == 0:
-                        pf = self.broker.portfolio(agent_id)
-                        if pf is None:
+                        agent_cash = cash.get(agent_id)
+                        if agent_cash is None:
                             continue
-                        qty = round((pf.cash * 0.1) / max(price, 0.01), 6)
-                        if qty <= 0 or pf.cash < (qty * price) * 1.001:
+                        qty = round((agent_cash * 0.1) / max(price, 0.01), 6)
+                        if qty <= 0 or agent_cash < (qty * price) * 1.001:
                             continue  # can't afford this tick; skip without error spam
                         trade = self.broker.place_order(
                             agent_id, sym, qty, "BUY", price=price,
@@ -121,12 +134,19 @@ class LivePaperTrader:
                             take_profit_pct=self.config.take_profit_pct,
                             note=f"live_signal={sig}")
                         executed.append(trade)
+                        cash[agent_id] = agent_cash - qty * price
                     # Simulated exits: close positions whose stop/target is hit.
                     for closed in self.broker.check_stop_loss_take_profit(
                             agent_id, sym, price):
                         executed.append(closed)
                 except Exception:
                     logger.exception("trade failed for %s/%s", agent_id, sym)
+            # Re-price every open position in this symbol, not only the slice
+            # that traded, so all 550 portfolios stay on the live mark.
+            try:
+                self.broker.mark_symbol_to_market(sym, price)
+            except Exception:
+                logger.exception("mark-to-market failed for %s", sym)
         try:
             self.broker.refresh_all_metrics()
         except Exception:

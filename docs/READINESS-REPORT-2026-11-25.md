@@ -24,7 +24,7 @@ public deployment.
 | Overall (46-check table) | **37 PASS / 9 BLOCKED / 0 FAIL** |
 | Runtime health | 6/6 services healthy, supervision loop alive |
 | Ledger correctness | reconciles to **0.0000000000** |
-| Test suite | **1331 / 1331** backend, 137 frontend, build clean |
+| Test suite | **1324 / 1324** backend, 137 frontend, build clean |
 
 Every check that can be resolved inside this environment passes: 37 of 37. The
 nine blocked entries are 3 acceptance items plus 6 gates, and all nine require
@@ -38,12 +38,18 @@ an external party. None is counted as passing.
 
 | Suite | Result |
 |---|---|
-| Backend (CI-identical invocation) | 1331 OK, 1 skipped |
+| Backend (CI-identical invocation) | **1324 OK**, 1 skipped (counted on a clean checkout of the committed HEAD) |
 | Frontend node unit | 10 / 10 |
 | Frontend vitest | 127 / 127, 21 files |
 | Frontend production build | clean (`tsc` + bundle) |
 
 The skipped test is a pre-existing environment skip, not a suppressed failure.
+
+The count is 1324 on a clean `git worktree` of the committed HEAD, so the figure
+reproduces exactly. A concurrent session has left further uncommitted test files
+in the working tree (one importing a module that does not exist yet); those are
+not mine and are not counted here. The frontend is byte-identical to HEAD, so
+its 10 + 127 results apply directly.
 
 ### 2.2 Live stack
 

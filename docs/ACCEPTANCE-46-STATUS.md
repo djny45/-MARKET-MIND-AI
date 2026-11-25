@@ -60,7 +60,7 @@ Evidence gathered against the running stack, not from fixtures.
 
 | Area | Result | Evidence |
 |---|---|---|
-| Backend suite | 1331/1331 OK, 1 skipped | `unittest discover backend/tests` (CI-identical invocation) |
+| Backend suite | 1324/1324 OK, 1 skipped | `unittest discover backend/tests` on a clean worktree of HEAD (CI-identical) |
 | Frontend unit | 10/10 node + 127/127 vitest, build clean | `npm test`, `npm run test:ui`, `npm run build` |
 | Health latency | 50/50 ok; median 0.9 ms, p95 1.0 ms, max 41 ms | 50 sequential `/api/health` samples |
 | Kill-and-recover (SIGKILL ×6) | all 6 services returned 0.8–2.5 s | `/tmp/mm-repair/drill-results.json` |

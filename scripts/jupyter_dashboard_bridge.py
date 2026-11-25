@@ -23,18 +23,23 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+# Resolve repository paths from this file so the bridge works both in the
+# operator's home checkout and in a clean CI checkout (which has no /home/jovyan).
+REPO = Path(__file__).resolve().parents[1]
+HOME = Path.home()
+
 BASE = os.getenv("MM_BACKEND_URL", "http://127.0.0.1:8080")
-OPS = Path(os.getenv("MM_OPS_DIR", "/home/jovyan/.market-mind-ops"))
-TEMPLATE = Path(os.getenv("MM_DASH_TEMPLATE", "/home/jovyan/-MARKET-MIND-AI/jupyter/market_mind_live.template.html"))
+OPS = Path(os.getenv("MM_OPS_DIR", str(HOME / ".market-mind-ops")))
+TEMPLATE = Path(os.getenv("MM_DASH_TEMPLATE", str(REPO / "jupyter" / "market_mind_live.template.html")))
 DASHBOARD_JS = TEMPLATE.with_name("market_mind_dashboard.js")
 DASHBOARD_JS_NAME = "market_mind_dashboard.js"
 PUBLISH_DIRS = [
-    Path("/home/jovyan"),
-    Path("/home/jovyan/-MARKET-MIND-AI/frontend/dist"),
+    HOME,
+    REPO / "frontend" / "dist",
 ]
 PUBLISH = [
-    Path(os.getenv("MM_DASH_OUT", "/home/jovyan/market_mind_live.html")),
-    Path("/home/jovyan/-MARKET-MIND-AI/frontend/dist/market_mind_live.html"),
+    Path(os.getenv("MM_DASH_OUT", str(HOME / "market_mind_live.html"))),
+    REPO / "frontend" / "dist" / "market_mind_live.html",
 ]
 STATE = Path(os.getenv("MM_DASH_STATE", str(OPS / "jupyter_dashboard_state.json")))
 INTERVAL = 20.0

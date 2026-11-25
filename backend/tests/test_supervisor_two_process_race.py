@@ -66,13 +66,31 @@ class SupervisorTwoProcessRaceTests(unittest.TestCase):
                         process.communicate()
 
             results = [json.loads(path.read_text()) for path in output_files]
+            # Both workers are released from the same start gate, but on a fast
+            # runner the winner can finish its single cycle and release the
+            # lease before the loser calls run_supervisor(). In that case the
+            # loser also sees "cycle_limit_reached". The invariant that must
+            # hold is not the loser's status string but that exactly one
+            # process actually dispatched the one queued task.
             statuses = sorted(result["status"] for result in results)
-            self.assertEqual(statuses, ["cycle_limit_reached", "lease_unavailable"])
+            self.assertTrue(
+                set(statuses) <= {"cycle_limit_reached", "lease_unavailable"},
+                statuses,
+            )
+            self.assertIn("cycle_limit_reached", statuses)
 
-            winner = next(result for result in results if result["status"] == "cycle_limit_reached")
-            self.assertEqual(len(winner["dispatch_results"]), 1)
-            self.assertEqual(winner["dispatch_results"][0]["selected"], 1)
-            self.assertEqual(winner["dispatch_results"][0]["dispatched"], 1)
+            winners = [r for r in results if r["status"] == "cycle_limit_reached"]
+            dispatched = sum(
+                cycle.get("dispatched", 0)
+                for winner in winners
+                for cycle in winner.get("dispatch_results", [])
+            )
+            self.assertEqual(dispatched, 1, "exactly one process must dispatch the task")
+            self.assertEqual(
+                sum(1 for winner in winners for cycle in winner.get("dispatch_results", [])
+                    if cycle.get("selected") == 1),
+                1,
+            )
 
             with patch.dict(os.environ, env, clear=False):
                 stored = get_research_task(task["task_id"])

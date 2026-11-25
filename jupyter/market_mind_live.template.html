@@ -21,25 +21,27 @@
  .kpi{display:flex;gap:8px;flex-wrap:wrap}.kpi div{border:1px solid var(--line);border-radius:4px;padding:7px 9px;flex:1 1 44%}
  .kpi b{display:block;color:var(--cyan);font-size:16px}.kpi span{color:var(--dim);font-size:10px}
  @media(max-width:600px){header{padding:8px 10px}main{padding:8px 10px;grid-template-columns:1fr}table{font-size:10px;display:block;overflow-x:auto}th,td{padding:3px 4px}}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 </style>
 </head>
 <body>
 <header>
+ <h1 class="sr-only">MARKET-MIND-AI private research dashboard</h1>
  <span class="brand">MARKET-MIND-AI / PRIVATE DASHBOARD</span>
  <span class="tag">research-only</span>
  <span class="tag sim">paper trading ON</span>
  <span class="tag live">broker_execution: false</span>
- <span id="status">connecting…</span>
+ <span id="status" role="status" aria-live="polite">connecting…</span>
 </header>
 <main>
  <section><h2>Portfolio / P&amp;L (SIMULATED)</h2><div class="kpi" id="kpi"></div>
   <p class="note warn">Virtual capital $500/agent · $275,000 total. Not real money or holdings.</p></section>
  <section><h2>Market Data</h2><p class="note warn" id="mktnote">Loading provenance…</p>
-  <table id="mkt"><thead><tr><th>Symbol</th><th>Close</th><th>Source</th><th>Status</th><th>Timestamp</th></tr></thead><tbody></tbody></table></section>
+  <table id="mkt" aria-label="Market data by symbol"><thead><tr><th>Symbol</th><th>Close</th><th>Source</th><th>Status</th><th>Timestamp</th></tr></thead><tbody></tbody></table></section>
  <section><h2>Open Virtual Positions</h2>
-  <table id="pos"><thead><tr><th>Agent</th><th>Sym</th><th>Qty</th><th>Entry</th><th>Last</th><th>SL%</th><th>TP%</th></tr></thead><tbody></tbody></table></section>
+  <table id="pos" aria-label="Open virtual positions"><thead><tr><th>Agent</th><th>Sym</th><th>Qty</th><th>Entry</th><th>Last</th><th>SL%</th><th>TP%</th></tr></thead><tbody></tbody></table></section>
  <section><h2>Recent Virtual Orders</h2>
-  <table id="ord"><thead><tr><th>Time</th><th>Agent</th><th>Sym</th><th>Side</th><th>Qty</th><th>Price</th><th>P&amp;L</th></tr></thead><tbody></tbody></table>
+  <table id="ord" aria-label="Recent virtual orders"><thead><tr><th>Time</th><th>Agent</th><th>Sym</th><th>Side</th><th>Qty</th><th>Price</th><th>P&amp;L</th></tr></thead><tbody></tbody></table>
   <p class="note warn">Virtual orders only — no exchange orders placed.</p></section>
 </main>
 

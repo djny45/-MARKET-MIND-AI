@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { AlertTriangle, LogIn, LogOut, ShieldCheck, UserRound } from 'lucide-react'
+import { apiFetch } from './apiClient'
 
 export type Identity = { username: string; role: string }
 
@@ -38,7 +39,7 @@ export default function AuthPanel({ api, onIdentity }: Props) {
   const load = async () => {
     setState('loading')
     try {
-      const response = await fetch(`${api}/api/auth/me`, { credentials: 'include' })
+      const response = await apiFetch(`${api}/api/auth/me`, { credentials: 'include' })
       const body = await response.json().catch(() => ({}))
       if (response.status === 401) {
         publish(null)
@@ -72,7 +73,7 @@ export default function AuthPanel({ api, onIdentity }: Props) {
     setMessage('')
     setActionFailed(false)
     try {
-      const response = await fetch(`${api}/api/auth/login`, {
+      const response = await apiFetch(`${api}/api/auth/login`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -97,7 +98,7 @@ export default function AuthPanel({ api, onIdentity }: Props) {
     setMessage('')
     setActionFailed(false)
     try {
-      const response = await fetch(`${api}/api/auth/logout`, {
+      const response = await apiFetch(`${api}/api/auth/logout`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'X-CSRF-Token': readCookie('mm_csrf') },

@@ -1173,6 +1173,36 @@ def terminal_ingest_bars(symbol: str, market_group: str,
  return result
 
 
+@app.get("/api/terminal/bars/analytics")
+def terminal_bar_analytics(symbol: str, interval: str = "1d", limit: int = 200):
+    """Volume and volatility summary from stored bars, using existing indicators."""
+    from .indicators import realized_volatility
+
+    if not symbol.strip() or len(symbol) > 32:
+        raise HTTPException(status_code=400, detail="symbol must contain 1 to 32 characters")
+    if interval not in ("15m", "1h", "4h", "1d"):
+        raise HTTPException(status_code=400, detail="interval must be one of 15m,1h,4h,1d")
+    if not 1 <= limit <= 5000:
+        raise HTTPException(status_code=400, detail="limit must be between 1 and 5000")
+    history = market_store.get_bars(symbol, interval, limit)
+    closes = [bar["close"] for bar in history["bars"] if bar.get("close")]
+    volumes = [bar["volume"] for bar in history["bars"] if bar.get("volume")]
+    average_volume = sum(volumes) / len(volumes) if volumes else None
+    return {
+        "symbol": symbol.upper(), "interval": interval,
+        "observation_count": history["count"],
+        "source": history["source"], "status": history["status"],
+        "realized_volatility": realized_volatility(closes) if len(closes) >= 2 else None,
+        "average_volume": average_volume,
+        "max_volume": max(volumes) if volumes else None,
+        "volume_note": (
+            "Volume=0 may mean the provider did not supply volume. "
+            "Realized volatility is descriptive, not a forecast."
+        ),
+        "execution": {"broker_execution": False, "real_money": False},
+    }
+
+
 @app.get("/api/terminal/bars/history")
 def terminal_bar_history(symbol: str, interval: str = "1d", limit: int = 500):
  """Read stored OHLCV bars with source/status provenance for the terminal chart."""
@@ -1306,6 +1336,32 @@ def liquidation_intelligence(limit: int = 500):
 
 
 # ---- Broker connection boundary (research-only, credential-free) ----------
+
+@app.post("/api/intelligence/research/task")
+def intelligence_research_task(request: dict[str, Any]):
+    """Submit a market-structure research task to the EXISTING agent system."""
+    from .intelligence_research import submit_market_structure_research
+
+    credential_keys = {"token", "password", "secret", "api_key", "access_token", "session"}
+    if credential_keys & {str(key).lower() for key in request}:
+        raise HTTPException(status_code=400, detail="credentials are not accepted")
+    try:
+        return submit_market_structure_research(
+            agent_id=str(request.get("agent_id") or ""),
+            instrument=str(request.get("instrument") or ""),
+            market=str(request.get("market") or ""),
+            source=str(request.get("source") or ""),
+            event_timestamp=request.get("event_timestamp"),
+            retrieval_timestamp=request.get("retrieval_timestamp"),
+            observed_facts=list(request.get("observed_facts") or []),
+            calculated_indicators=request.get("calculated_indicators"),
+            interpretation=request.get("interpretation"),
+            limitations=list(request.get("limitations") or []),
+            confidence=str(request.get("confidence") or "low"),
+        )
+    except (ValueError, TypeError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
 
 @app.get("/api/intelligence/research/topics")
 def intelligence_research_topics():

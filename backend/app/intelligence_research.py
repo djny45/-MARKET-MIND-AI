@@ -140,6 +140,69 @@ def build_research_finding(
     }
 
 
+def submit_market_structure_research(
+    *,
+    agent_id: str,
+    instrument: str,
+    market: str,
+    source: str,
+    event_timestamp: str | None,
+    retrieval_timestamp: str | None,
+    observed_facts: list[str],
+    calculated_indicators: dict[str, Any] | None = None,
+    interpretation: str | None = None,
+    limitations: list[str] | None = None,
+    confidence: str = "low",
+) -> dict[str, Any]:
+    """Submit a bounded task through the EXISTING analytical-agent task system.
+
+    The registered Tredye skill is loaded via the existing allowlisted
+    ``skill_catalog.load_skill``; the task is submitted via the existing
+    ``submit_research_task``. No agent, skill, queue or memory subsystem is
+    created. The skill's text is advisory context only, never executable.
+    """
+    from .analytical_agent_tasks import submit_research_task
+    from .skill_catalog import load_skill
+
+    skill = load_skill("tredye-market-structure-research")
+    if not isinstance(skill, dict) or not skill.get("content"):
+        raise ValueError("registered Tredye skill could not be loaded")
+
+    finding = build_research_finding(
+        topic="cross_market", instrument=instrument, market=market,
+        source=source, event_timestamp=event_timestamp,
+        retrieval_timestamp=retrieval_timestamp,
+        observed_facts=observed_facts,
+        calculated_indicators=calculated_indicators,
+        interpretation=interpretation,
+        limitations=limitations,
+        confidence=confidence,
+    )
+    brief = (
+        "Using the registered tredye-market-structure-research playbook, "
+        f"review the supplied {market} observations for {instrument}. "
+        "Distinguish observed facts, calculated indicators and hypotheses. "
+        "Do not place orders or claim a live connection."
+    )
+    task = submit_research_task(agent_id=agent_id, brief=brief, data={
+        "skill_id": "tredye-market-structure-research",
+        "skill_excerpt": str(skill["content"])[:2000],
+        "finding": finding["content_json"],
+        "execution_boundary": finding["content_json"]["data_boundary"],
+    })
+    return {
+        "task_id": task.get("task_id"),
+        "status": task.get("status"),
+        "agent_id": agent_id,
+        "skill_id": "tredye-market-structure-research",
+        "finding": finding["content_json"],
+        "note": (
+            "Task lifecycle, retries and memory remain with the existing "
+            "analytical-agent task system."
+        ),
+    }
+
+
 def manifest() -> dict[str, Any]:
     return {
         "mode": "existing_agent_ecosystem_extension",

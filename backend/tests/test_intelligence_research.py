@@ -128,6 +128,24 @@ class AgentRoutingTests(unittest.TestCase):
         )
         self.assertIsNone(finding["content_json"]["provenance"]["event_timestamp"])
 
+    def test_skill_bridge_submits_to_existing_task_system(self):
+        import os
+        import tempfile
+
+        os.environ["MARKET_MIND_DB"] = tempfile.mkdtemp() + "/bridge.db"
+        from app.intelligence_research import submit_market_structure_research
+
+        result = submit_market_structure_research(
+            agent_id="worker_001", instrument="BTCUSDT", market="crypto",
+            source="okx-public", event_timestamp="2026-11-26T12:00:00Z",
+            retrieval_timestamp="2026-11-26T12:00:05Z",
+            observed_facts=["Funding rate is 0.0001"],
+        )
+        self.assertTrue(result["task_id"])
+        self.assertEqual(result["skill_id"], "tredye-market-structure-research")
+        self.assertIn("observed_facts", result["finding"])
+        self.assertFalse(result["finding"]["data_boundary"]["broker_execution"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -476,3 +476,7 @@ body{min-width:0}
 .intel-details pre{margin:7px 0 0;max-height:170px;overflow:auto;color:#9fb0be;font:9px/1.5 'DM Mono';white-space:pre-wrap}
 .intel-boundary{display:grid;gap:5px;border-top:1px solid #253039;padding-top:9px}
 .intel-boundary .research-note{margin:0;line-height:1.6}
+
+/* Descriptive volume/volatility strip for the existing chart panel */
+.chart-analytics{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;padding:8px 11px;border:1px solid #26323c;border-radius:5px;background:#0f171e;font:9px 'DM Mono';letter-spacing:.4px;color:#9aa7b3}
+.chart-analytics small{color:#7f8c98;font-size:8px}

@@ -51,6 +51,13 @@ type IntervalRow = {
 
 type Props = { api: string; markets?: string[] }
 
+type Analytics = {
+  realized_volatility: { per_observation: number; observations: number } | null
+  average_volume: number | null
+  max_volume: number | null
+  observation_count: number
+}
+
 const TITLES: Record<string, string> = {
   us: 'UNITED STATES', india: 'INDIA · NSE / BSE',
   forex: 'FOREX · OTC', crypto: 'CRYPTOCURRENCY',
@@ -83,6 +90,7 @@ export default function FourMarketChart({ api, markets }: Props) {
   const [symbol, setSymbol] = useState(SYMBOLS[groups[0]][0].value)
   const [interval, setInterval] = useState('1d')
   const [result, setResult] = useState<IngestionResult | null>(null)
+  const [analytics, setAnalytics] = useState<Analytics | null>(null)
   const [intervals, setIntervals] = useState<Record<string, IntervalRow>>({})
   const [state, setState] = useState<'idle' | 'loading' | 'error' | 'ready'>('idle')
   const [error, setError] = useState('')
@@ -125,6 +133,14 @@ export default function FourMarketChart({ api, markets }: Props) {
       }
       setResult(body as IngestionResult)
       setState('ready')
+      // Descriptive volume/volatility from the SAME stored bars. Uses existing
+      // backend indicators; no new analytics engine.
+      const analyticsResponse = await apiFetch(
+        `${api}/api/terminal/bars/analytics?${new URLSearchParams({ symbol, interval }).toString()}`,
+        { credentials: 'include' },
+      )
+      if (analyticsResponse.ok) setAnalytics(await analyticsResponse.json() as Analytics)
+      else setAnalytics(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'OHLCV ingestion failed')
       setResult(null)
@@ -137,6 +153,7 @@ export default function FourMarketChart({ api, markets }: Props) {
     setSymbol(SYMBOLS[group][0].value)
     setInterval(group === 'forex' ? '1d' : '1d')
     setResult(null)
+    setAnalytics(null)
     setState('idle')
   }
 
@@ -192,6 +209,15 @@ export default function FourMarketChart({ api, markets }: Props) {
             <span>BROKER {String(result.execution.broker_execution).toUpperCase()}</span>
             <span>REAL MONEY {String(result.execution.real_money).toUpperCase()}</span>
           </div>
+          {analytics && (
+            <div className="chart-analytics" data-testid="chart-analytics">
+              <span>OBSERVATIONS {analytics.observation_count}</span>
+              <span>REALIZED VOL {analytics.realized_volatility?.per_observation?.toFixed(6) ?? '—'}</span>
+              <span>AVG VOLUME {analytics.average_volume?.toFixed(2) ?? '—'}</span>
+              <span>MAX VOLUME {analytics.max_volume?.toFixed(2) ?? '—'}</span>
+              <small>Descriptive statistics only; not a forecast or trading signal.</small>
+            </div>
+          )}
           <div className="chart-host" data-testid="four-market-chart-host">
             <PriceChart bars={result.bars} interval={result.interval} retrievedAt={result.retrieved_at} />
           </div>

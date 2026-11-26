@@ -21,7 +21,7 @@ class OrderBookResearchTests(unittest.TestCase):
         self.assertEqual(result["bids"][0]["price"], 100)
         self.assertEqual(result["asks"][0]["price"], 101)
         self.assertEqual(result["metrics"]["spread"], 1)
-        self.assertAlmostEqual(result["metrics"]["depth_imbalance"], (200 + 297 - 101 - 408) / (200 + 297 + 101 + 408))
+        self.assertAlmostEqual(result["metrics"]["depth_imbalance"], (200 - 101) / (200 + 101))
 
     def test_delta_updates_and_deletes_levels(self):
         delta = {

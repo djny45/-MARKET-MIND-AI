@@ -19,7 +19,7 @@ class SkillIntegrityTests(unittest.TestCase):
 
     def test_catalog_skills_are_valid(self):
         report = audit_catalog()
-        self.assertEqual(report["count"], 325)
+        self.assertEqual(report["count"], 326)
         self.assertEqual(report["issues"], [])
         self.assertEqual(report["activation"], "allowlisted_and_loadable")
 
@@ -39,9 +39,9 @@ class SkillIntegrityTests(unittest.TestCase):
 
     def test_full_report_counts_match_verified_inventory(self):
         report = full_integrity_report()
-        self.assertEqual(report["catalog_skills"], 325)
+        self.assertEqual(report["catalog_skills"], 326)
         self.assertEqual(report["reference_skills"], 89)
-        self.assertEqual(report["total_skill_definitions"], 414)
+        self.assertEqual(report["total_skill_definitions"], 415)
         self.assertEqual(report["workers"], 550)
         self.assertEqual(report["total_issues"], 0)
         self.assertFalse(report["brokerage_execution"])

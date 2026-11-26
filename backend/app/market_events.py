@@ -15,11 +15,8 @@ from pathlib import Path
 from . import sqlite_tuning
 
 EVENT_TYPES = {
-    "trade", "quote", "order_book_snapshot", "open_interest", "funding", "fx_rate",
-    # EXTENSION: liquidation events from verified public feeds. No existing
-    # schema was replaced; this only adds a contract for an event class the
-    # original store could not represent.
-    "liquidation",
+    "trade", "quote", "order_book_snapshot", "order_book_delta",
+    "liquidation", "open_interest", "funding", "fx_rate",
 }
 STATUSES = {"historical", "delayed", "end_of_day", "reference", "synthetic"}
 _ID = re.compile(r"^[A-Za-z0-9._:/-]{1,128}$")
@@ -109,6 +106,23 @@ def _validate_payload(event_type, payload):
                     raise ValueError(f"payload.{side}[{index}] must be an object")
                 _number(level.get("price"), f"payload.{side}[{index}].price", 0, True)
                 _number(level.get("quantity"), f"payload.{side}[{index}].quantity", 0, True)
+    elif event_type == "order_book_delta":
+        previous = p.get("previous_sequence_number")
+        if isinstance(previous, bool) or not isinstance(previous, int) or previous < 0:
+            raise ValueError("payload.previous_sequence_number must be a non-negative integer")
+        for side in ("bids", "asks"):
+            levels = p.get(side, [])
+            if not isinstance(levels, list) or len(levels) > 5000:
+                raise ValueError(f"payload.{side} must be an array of at most 5000 updates")
+            seen = set()
+            for index, level in enumerate(levels):
+                if not isinstance(level, dict):
+                    raise ValueError(f"payload.{side}[{index}] must be an object")
+                price = _number(level.get("price"), f"payload.{side}[{index}].price", 0, True)
+                _number(level.get("quantity"), f"payload.{side}[{index}].quantity", 0)
+                if price in seen:
+                    raise ValueError(f"payload.{side} contains duplicate price levels")
+                seen.add(price)
     elif event_type == "open_interest":
         _number(p.get("value"), "payload.value", 0)
         if not isinstance(p.get("unit"), str) or not p["unit"].strip():
@@ -129,9 +143,11 @@ def _validate_payload(event_type, payload):
     elif event_type == "liquidation":
         _number(p.get("price"), "payload.price", 0, True)
         _number(p.get("quantity"), "payload.quantity", 0, True)
+        # Two importer conventions are accepted: exchange-native long/short
+        # and generic buy/sell. Both are stored verbatim for attribution.
         side = p.get("side")
-        if side not in {"long", "short"}:
-            raise ValueError("payload.side must be long or short for a liquidation")
+        if side not in {"long", "short", "buy", "sell"}:
+            raise ValueError("payload.side must be long, short, buy or sell")
     return p
 
 

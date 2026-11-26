@@ -35,14 +35,33 @@ jobs:
         with:
           node-version: "22"
 
+      - name: Validate API URL input
+        shell: bash
+        env:
+          API_URL: ${{ inputs.api_url }}
+        run: |
+          python3 - "$API_URL" <<'PY'
+          import sys
+          from urllib.parse import urlsplit
+          value = (sys.argv[1] if len(sys.argv) > 1 else "").strip()
+          parsed = urlsplit(value)
+          if parsed.scheme != "https" or not parsed.netloc:
+              raise SystemExit("api_url must be an absolute HTTPS URL")
+          if parsed.username or parsed.password or parsed.query or parsed.fragment:
+              raise SystemExit("api_url must not contain credentials, query or fragment")
+          print("api_url validation: ok")
+          PY
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
       - name: Build frontend
         working-directory: frontend
         env:
           VITE_API_URL: ${{ inputs.api_url }}
           VITE_BASE_PATH: /${{ github.event.repository.name }}/
-        run: |
-          npm install
-          npm run build
+        run: npm run build
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

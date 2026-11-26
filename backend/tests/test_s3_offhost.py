@@ -49,6 +49,17 @@ class S3OffhostTests(unittest.TestCase):
             self.assertIn(expected, result.stderr)
             self.assertNotIn(value, result.stdout + result.stderr)
 
+    def test_validate_config_fails_closed_with_no_credentials(self):
+        env = {k: v for k, v in self.env.items() if not k.startswith("MARKET_MIND_S3_")}
+        result = self._run("validate-config", env=env)
+        self.assertNotEqual(result.returncode, 0)
+        body = json.loads(result.stdout)
+        self.assertEqual(body["status"], "failed")
+        self.assertIn("missing_required_variables",
+                      [item["issue"] for item in body["findings"]])
+        self.assertEqual(len(body["missing_variables"]), 5)
+        self.assertFalse(body["values_exposed"])
+
     def test_validate_config_reports_findings_without_values(self):
         result = self._run("validate-config")
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -59,6 +70,27 @@ class S3OffhostTests(unittest.TestCase):
         body = json.loads(failed.stdout)
         self.assertEqual(body["status"], "failed")
         self.assertNotIn("Bad_Bucket", failed.stdout + failed.stderr)
+
+    def test_endpoint_base_path_is_rejected(self):
+        env = dict(self.env, MARKET_MIND_S3_ENDPOINT="https://s3.example.invalid/base")
+        result = self._run("describe-config", env=env)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("base path", result.stderr)
+        self.assertNotIn("/base", result.stdout)
+
+    def test_unsafe_object_key_is_rejected(self):
+        source = ROOT / "README.md"
+        for key in ("../escape.db", "/absolute.db", "a/b?x=1", "a b.db"):
+            result = self._run("upload", "--file", str(source), "--key", key)
+            self.assertNotEqual(result.returncode, 0, key)
+            self.assertIn("unsafe object key", result.stderr)
+
+    def test_endpoint_userinfo_is_rejected_and_never_printed(self):
+        env = dict(self.env, MARKET_MIND_S3_ENDPOINT="https://user:topsecret@s3.example.invalid")
+        result = self._run("describe-config", env=env)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertNotIn("topsecret", result.stdout + result.stderr)
+        self.assertIn("user information", result.stderr)
 
     def test_describe_config_and_dry_run_expose_no_secrets(self):
         config = self._run("describe-config")

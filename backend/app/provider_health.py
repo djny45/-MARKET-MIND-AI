@@ -17,6 +17,10 @@ from app.market_data import DataStatus
 
 # Maximum acceptable age, in seconds, for a batch of each status. These are
 # descriptive thresholds for the research UI, not trading SLAs.
+#
+# UNAVAILABLE is deliberately absent: it is not an observation, so there is no
+# age to test. ``freshness`` reports "unknown" for it and ``health`` degrades,
+# which is the honest outcome for a provider that has nothing to serve.
 FRESHNESS_THRESHOLDS: dict[DataStatus, int] = {
     DataStatus.LIVE: 60,
     DataStatus.DELAYED: 15 * 60,

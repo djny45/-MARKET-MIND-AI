@@ -207,11 +207,20 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Install and build frontend
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Frontend unit tests and typecheck
         working-directory: frontend
         run: |
-          npm install
-          npm run build
+          npm test
+          npm run test:ui
+          npm run typecheck:test
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
 
       - name: Capture frontend failure diagnostics
         if: failure()

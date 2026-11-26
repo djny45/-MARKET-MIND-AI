@@ -77,6 +77,42 @@ class AgentSupervisorTests(unittest.TestCase):
         self.assertEqual(status["supervisor_health"], "stale")
         self.assertGreater(status["supervisor_heartbeat"]["heartbeat_age_seconds"], 15)
 
+    def test_fresh_heartbeat_from_dead_process_reports_stale(self):
+        """A fresh heartbeat must not mask a SIGKILLed supervisor."""
+        import sqlite3
+        import threading
+        run_supervisor(
+            threading.Event(), poll_interval_seconds=0.01,
+            batch_size=1, max_concurrency=1, max_cycles=1,
+        )
+        with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+            db.execute(
+                "UPDATE analytical_agent_supervisor_heartbeat "
+                "SET state='running', process_id=?, heartbeat_at=? WHERE singleton_id=1",
+                (2147483646, "2100-01-01T00:00:00+00:00"),  # impossible pid, future heartbeat
+            )
+        status = agent_supervisor_status()
+        self.assertEqual(status["supervisor_health"], "stale")
+        self.assertFalse(status["supervisor_heartbeat"]["process_alive"])
+        self.assertLess(status["supervisor_heartbeat"]["heartbeat_age_seconds"], 1)
+
+    def test_out_of_range_heartbeat_pid_is_not_alive(self):
+        import sqlite3
+        import threading
+        run_supervisor(
+            threading.Event(), poll_interval_seconds=0.01,
+            batch_size=1, max_concurrency=1, max_cycles=1,
+        )
+        with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+            db.execute(
+                "UPDATE analytical_agent_supervisor_heartbeat "
+                "SET state='running', process_id=?, heartbeat_at=? WHERE singleton_id=1",
+                (2147483648, "2100-01-01T00:00:00+00:00"),
+            )
+        status = agent_supervisor_status()
+        self.assertEqual(status["supervisor_health"], "stale")
+        self.assertFalse(status["supervisor_heartbeat"]["process_alive"])
+
     def test_lease_ownership_is_fenced_against_a_second_supervisor(self):
         import sqlite3
         from datetime import datetime, timedelta, timezone

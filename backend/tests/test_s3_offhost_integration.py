@@ -227,7 +227,12 @@ class S3OffhostIntegrationTests(unittest.TestCase):
                 env=self.env, capture_output=True, text=True, timeout=20,
             )
         self.assertNotEqual(result.returncode, 0)
-        self.assertTrue(json.loads(result.stdout)["sha256_mismatch"])
+        body = json.loads(result.stdout)
+        self.assertTrue(body["sha256_mismatch"])
+        self.assertEqual(body["status"], 200)
+        self.assertEqual(body["result"], "sha256_mismatch")
+        self.assertFalse(body["success"])
+        self.assertEqual(body["http_status"], 200)
         self.assertEqual(destination.read_bytes(), b"PREVIOUS")
         self.assertFalse(destination.with_name(destination.name + ".part").exists())
 

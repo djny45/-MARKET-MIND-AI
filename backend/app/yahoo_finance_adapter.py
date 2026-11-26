@@ -92,6 +92,12 @@ class YahooFinanceAdapter:
             ],
         )
 
+    def get_bars_sync(self, symbol: str, interval: str = "1d", limit: int = 100) -> MarketDataBatch:
+        """Synchronous wrapper for callers without an event loop."""
+        import asyncio
+
+        return asyncio.run(self.get_bars(symbol, interval, limit))
+
     def _fetch_chart(self, symbol: str, interval: str) -> dict[str, Any]:
         encoded_symbol = urllib.parse.quote(symbol, safe="")
         query = urllib.parse.urlencode({
@@ -100,14 +106,43 @@ class YahooFinanceAdapter:
             "events": "history",
         })
         url = f"https://query1.finance.yahoo.com/v8/finance/chart/{encoded_symbol}?{query}"
-        request = urllib.request.Request(url, headers={"User-Agent": "MARKET-MIND-AI research adapter/1.0"})
-        try:
-            with urllib.request.urlopen(request, timeout=self.timeout_seconds) as response:
-                raw = response.read(8_000_000)
-        except urllib.error.HTTPError as exc:
-            raise RuntimeError(f"Yahoo Finance returned HTTP {exc.code}") from exc
-        except (urllib.error.URLError, TimeoutError) as exc:
-            raise RuntimeError(f"Yahoo Finance request failed: {exc}") from exc
+
+        def fetch() -> dict[str, Any]:
+            request = urllib.request.Request(
+                url, headers={"User-Agent": "MARKET-MIND-AI research adapter/1.0"}
+            )
+            try:
+                with urllib.request.urlopen(request, timeout=self.timeout_seconds) as response:
+                    raw = response.read(8_000_000)
+            except urllib.error.HTTPError as exc:
+                from .provider_adapters import ProviderError
+
+                retry_after = exc.headers.get("Retry-After") if exc.headers else None
+                detail = f"yahoo-chart returned HTTP {exc.code}"
+                if retry_after:
+                    detail += f" (Retry-After: {retry_after}s)"
+                raise ProviderError(detail) from exc
+            except (urllib.error.URLError, TimeoutError) as exc:
+                from .provider_adapters import ProviderError
+
+                raise ProviderError(f"yahoo-chart request failed: {exc}") from exc
+            try:
+                return json.loads(raw.decode("utf-8"))
+            except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                raise RuntimeError("Yahoo Finance returned invalid JSON") from exc
+
+        from .provider_policy import LIMITER
+
+        # Map both Yahoo-based four-market adapters to a pacing policy. The
+        # legacy source name is also accepted for direct adapter use.
+        provider = "yahoo-us-equities" if not (
+            encoded_symbol.endswith(".NS") or encoded_symbol.endswith(".BO")
+            or encoded_symbol.startswith("^NSE") or encoded_symbol.startswith("^BSE")
+        ) else "yahoo-india-nse-bse"
+        cached = LIMITER.call(provider, ("yahoo-chart", url), fetch)
+        if isinstance(cached, dict):
+            return cached
+        raise RuntimeError("Yahoo Finance returned an unexpected response type")
         try:
             data = json.loads(raw.decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:

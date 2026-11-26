@@ -20,11 +20,17 @@ must be confirmed by the external operator.
 | Wasabi | `https://s3.<region>.wasabisys.com` | Verify region string and path-style addressing. |
 | Ceph RGW / Garage | operator endpoint | Verify SigV4 implementation and bucket features. |
 
+Supported by the adapter itself: SigV4 path-style PUT/GET, `--retries` with
+exponential backoff for transient failures only (HTTP 429/5xx and connection
+errors; 4xx auth failures return immediately), `--expect-sha256` verification
+before atomic replacement of a downloaded file, and secret-free JSON results.
+
+The endpoint must be the bucket API root (no base path); object keys must be relative, traversal-free URI paths inside the prefix-scoped grant. Endpoints with userinfo or a base path fail closed before any request is sent.
+
 Not supported by the adapter itself: multipart upload, query-string signing,
-SSE-C/SSE-KMS request headers, object tagging/Lifecycle APIs, retries/backoff,
-bucket creation, deletion/listing, or streaming (the whole file is read into
-memory). Those are provider/operator responsibilities or future work, not
-claimed capabilities.
+SSE-C/SSE-KMS request headers, object tagging/Lifecycle APIs, bucket creation,
+deletion/listing, or streaming (the whole file is read into memory). Those are
+provider/operator responsibilities or future work, not claimed capabilities.
 
 ## 2. Configuration contract and preflight diagnostics
 

@@ -68,6 +68,12 @@ from .landing_page_builder import build_landing_page
 from .markets import market_catalog
 from .instruments import search_instruments
 from .instrument_master import search_instrument_master, sync_reference_catalogue, register_provider_identifier
+from .four_market_terminal import (
+ cached_terminal_snapshot, clear_cache as clear_terminal_cache,
+ summarize_terminal,
+)
+from .market_quotes import MARKET_GROUPS as TERMINAL_MARKET_GROUPS, freshness_legend
+from .provider_adapters import adapter_manifest
 from .pipeline import system_capabilities
 from .news import ingest_news
 from . import social_sources
@@ -82,6 +88,12 @@ from .market_data import (
     SyntheticFixtureAdapter, MarketDataBatch, status_allowed_for_source,
 )
 from .yahoo_finance_adapter import YahooFinanceAdapter
+from .four_market_bars import (
+    IngestionError as FourMarketIngestionError,
+    ingest_bars as ingest_four_market_bars,
+    interval_support as four_market_interval_support,
+)
+from .provider_policy import LIMITER as PROVIDER_LIMITER
 from .market_data_validation import validate_market_data_payload
 from . import market_store
 from .market_events import store_market_events, query_market_events
@@ -89,7 +101,10 @@ from .market_event_quality import diagnose_market_events
 from .agent_network import publish_message, read_messages, network_topology
 from .agent_collaboration import build_collaboration_brief
 from .agent_council_api import router as agent_council_router
-from .trade_flow import build_trade_flow_buckets
+from .trade_flow import (
+    build_trade_flow_buckets, build_market_flow_summary,
+    build_visual_trade_dots, build_liquidation_summary,
+)
 from .cross_market_correlation import build_cross_market_correlation
 from . import watchlist
 from .model_registry import list_model_integrations
@@ -980,6 +995,7 @@ def provider_status():
 
  # A source only counts as live if it is both attested and present as live rows.
  live = sorted(s for s in live_sources if s in attested)
+ adapters = adapter_manifest()["adapters"]
  if live:
   return {
    "status": "live_provider_configured",
@@ -989,7 +1005,14 @@ def provider_status():
     "status": "available",
     "data_status": "synthetic",
     "purpose": "development and integration testing only",
-   }],
+   }, *[{
+    "name": item["name"],
+    "status": "available",
+    "data_status": item["preferred_status"],
+    "market_group": item["market_group"],
+    "requires_attestation": item["requires_attestation"],
+    "purpose": "four-market normalized quote adapter",
+   } for item in adapters]],
    "market_data_note": (
     "Live bars in the local store come from operator-attested public source(s): "
     + ", ".join(live)
@@ -1005,14 +1028,413 @@ def provider_status():
    "status": "available",
    "data_status": "synthetic",
    "purpose": "development and integration testing only",
-  }],
-  "market_data_note": "No live or delayed market-data provider is currently configured.",
+  }, *[{
+   "name": item["name"],
+   "status": "available",
+   "data_status": item["preferred_status"],
+   "market_group": item["market_group"],
+   "requires_attestation": item["requires_attestation"],
+   "purpose": "four-market normalized quote adapter",
+  } for item in adapters]],
+  "market_data_note": (
+   "No live or delayed market-data provider is currently configured. The four "
+   "market adapters are public and unauthenticated; their observations are "
+   "labelled HISTORICAL until an operator attests the exact adapter name."
+  ),
  }
 
 
 @app.get("/api/nodes")
 def nodes():
  return {"nodes":list(NODE_TYPES.values())}
+
+@app.get("/api/terminal/four-market")
+def four_market_terminal(markets: str | None = None, symbols: str | None = None,
+                          refresh: bool = False):
+ """Assemble verified quotes for the four research markets as one board.
+
+ Each quote carries its own source, event timestamp, retrieval time and a
+ status label bound to operator attestation. A provider failure becomes an
+ explicit UNAVAILABLE row: no price is fabricated, interpolated or cached
+ from a previous response.
+ """
+ requested = None
+ if markets:
+  requested = [part.strip().lower() for part in markets.split(",") if part.strip()]
+  invalid = [group for group in requested if group not in TERMINAL_MARKET_GROUPS]
+  if invalid:
+   raise HTTPException(status_code=400, detail=(
+    "markets must be a comma-separated subset of " + ",".join(TERMINAL_MARKET_GROUPS)
+   ))
+ symbol_map: dict[str, list[str]] | None = None
+ if symbols:
+  symbol_map = {}
+  for entry in symbols.split(","):
+   pair = entry.strip()
+   if not pair:
+    continue
+   if ":" not in pair:
+    raise HTTPException(status_code=400,
+     detail="symbols must use market:SYMBOL form, e.g. us:AAPL,india:RELIANCE")
+   group, symbol = (part.strip() for part in pair.split(":", 1))
+   if group not in TERMINAL_MARKET_GROUPS:
+    raise HTTPException(status_code=400, detail=f"unsupported market group: {group}")
+   if not symbol:
+    raise HTTPException(status_code=400, detail="symbol cannot be blank")
+   symbol_map.setdefault(group, []).append(symbol)
+  if sum(len(values) for values in symbol_map.values()) > 40:
+   raise HTTPException(status_code=400, detail="at most 40 symbols may be requested")
+ try:
+  sync_reference_catalogue()
+  catalogue = search_instrument_master(limit=200)["instruments"]
+ except Exception as exc:  # noqa: BLE001 - surfaced, never silent
+  raise HTTPException(status_code=503, detail=(
+   "instrument master unavailable; refusing to serve an unverified board: "
+   + str(exc)
+  )) from exc
+ snapshot = cached_terminal_snapshot(
+  catalogue, market_groups=requested, symbols=symbol_map,
+  attested_sources=attested_data_sources(),
+  ttl_seconds=0 if refresh else 15.0,
+ )
+ return snapshot
+
+@app.get("/api/terminal/four-market/summary")
+def four_market_terminal_summary():
+ """Compact per-market freshness summary for the terminal header strip."""
+ try:
+  sync_reference_catalogue()
+  catalogue = search_instrument_master(limit=200)["instruments"]
+ except Exception as exc:  # noqa: BLE001
+  raise HTTPException(status_code=503, detail=(
+   "instrument master unavailable: " + str(exc)
+  )) from exc
+ snapshot = cached_terminal_snapshot(
+  catalogue, attested_sources=attested_data_sources(),
+ )
+ return summarize_terminal(snapshot)
+
+@app.get("/api/terminal/providers")
+def four_market_providers():
+ """Declared capabilities of the four market adapters and the label legend."""
+ return {
+  "providers": adapter_manifest(),
+  "legend": freshness_legend(),
+  "market_groups": list(TERMINAL_MARKET_GROUPS),
+  "attested_sources": sorted(attested_data_sources()),
+  "credentials_required": False,
+  "execution": {"paper_trading": False, "broker_execution": False, "real_money": False},
+ }
+
+@app.post("/api/terminal/cache/clear")
+def clear_four_market_cache(_principal: Any = Depends(require_user_role("operator"))):
+ """Force the next terminal request to re-fetch from providers."""
+ clear_terminal_cache()
+ return {"cleared": True}
+
+
+@app.get("/api/terminal/bars/intervals")
+def terminal_bar_intervals(market_group: str | None = None):
+ """Declare which candle intervals each market adapter can actually supply."""
+ if market_group is None:
+  return {"intervals": [four_market_interval_support(group)
+                        for group in ("us", "india", "forex", "crypto")],
+          "supported": ["15m", "1h", "4h", "1d"]}
+ try:
+  return four_market_interval_support(market_group)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/terminal/bars/ingest")
+def terminal_ingest_bars(symbol: str, market_group: str,
+                          interval: str = "1d", limit: int = 100,
+                          venue: str = ""):
+ """Fetch and persist normalized OHLCV bars for one four-market instrument.
+
+ The response carries full provenance: source, status label, event and
+ retrieval timestamps, exchange timezone and any provider warnings. No bar is
+ fabricated; an unusable provider response raises an explicit 502.
+ """
+ try:
+  result = ingest_four_market_bars(
+   symbol, market_group, interval, limit, venue,
+  )
+ except (ValueError, FourMarketIngestionError) as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+ except Exception as exc:  # noqa: BLE001 - provider failures are surfaced
+  raise HTTPException(status_code=502, detail=(
+   "four-market provider unavailable or returned invalid data: " + str(exc)
+  )) from exc
+ result["requested"] = {
+  "symbol": symbol, "market_group": market_group,
+  "interval": interval, "limit": limit, "venue": venue or None,
+ }
+ return result
+
+
+@app.get("/api/terminal/bars/history")
+def terminal_bar_history(symbol: str, interval: str = "1d", limit: int = 500):
+ """Read stored OHLCV bars with source/status provenance for the terminal chart."""
+ if not symbol.strip() or len(symbol) > 32:
+  raise HTTPException(status_code=400, detail="symbol must contain 1 to 32 characters")
+ if interval not in ("15m", "1h", "4h", "1d"):
+  raise HTTPException(status_code=400, detail="interval must be one of 15m,1h,4h,1d")
+ if not 1 <= limit <= 5000:
+  raise HTTPException(status_code=400, detail="limit must be between 1 and 5000")
+ payload = market_store.get_bars(symbol, interval, limit)
+ payload["data_status_labels"] = ["LIVE", "DELAYED", "HISTORICAL", "SYNTHETIC", "UNAVAILABLE"]
+ payload["execution"] = {
+  "paper_trading": False, "broker_execution": False, "real_money": False,
+ }
+ return payload
+
+
+@app.get("/api/terminal/provider-policy")
+def terminal_provider_policy():
+ """Declared rate-limit, cache and retry policy. Never claims limit bypass."""
+ return PROVIDER_LIMITER.status()
+
+# ---- Exchange intelligence (extends the existing provider registry) -------
+
+@app.get("/api/intelligence/exchanges")
+def exchange_intelligence_capabilities():
+ """Declared public venue adapters, licensing posture and research boundary."""
+ from .exchange_intelligence import capabilities_manifest, register_policies
+
+ register_policies()
+ return {
+  **capabilities_manifest(),
+  "provider_policy": PROVIDER_LIMITER.status(),
+  "licensing": {
+   "live_claims_require_attestation": True,
+   "unlicensed_sources_cannot_claim_live": True,
+   "tredye_endpoints_used": False,
+  },
+ }
+
+@app.get("/api/intelligence/venue/{venue}")
+def venue_intelligence(venue: str, symbol: str = "BTCUSDT"):
+ """One venue snapshot using the existing quote contract and policy limiter."""
+ from .exchange_intelligence import venue_quote
+ from .provider_adapters import ProviderError
+
+ if venue not in {"okx", "coinbase", "bybit", "kraken", "deribit", "hyperliquid"}:
+  raise HTTPException(status_code=400, detail="unsupported venue")
+ try:
+  quote = venue_quote(venue, symbol)
+ except ProviderError as exc:
+  raise HTTPException(status_code=502, detail=str(exc)) from exc
+ return quote.to_payload()
+
+@app.get("/api/intelligence/okx/derivatives")
+def okx_derivatives_intelligence(symbol: str = "BTC-USDT-SWAP"):
+ """Public OKX funding rate and open interest with event/retrieval timestamps."""
+ from .exchange_intelligence import funding_open_interest
+
+ return funding_open_interest(symbol)
+
+@app.get("/api/intelligence/okx/depth")
+def okx_depth_intelligence(symbol: str = "BTC-USDT", depth: int = 20):
+ """Public OKX depth summary. Resting orders, not executed trades."""
+ from .exchange_intelligence import order_book_summary
+
+ if not 1 <= depth <= 20:
+  raise HTTPException(status_code=400, detail="depth must be between 1 and 20")
+ return order_book_summary(symbol, depth)
+
+@app.get("/api/intelligence/sentiment/fear-greed")
+def fear_greed_intelligence():
+ """Alternative.me Fear & Greed daily index, attributed and timestamped."""
+ from .exchange_intelligence import fear_greed_index
+
+ return fear_greed_index()
+
+@app.get("/api/intelligence/gold")
+def gold_intelligence():
+ """PAX Gold token quote — explicitly not spot or futures gold."""
+ from .exchange_intelligence import gold_token_quote
+
+ quote = gold_token_quote()
+ payload = quote.to_payload()
+ payload["instrument_class"] = "tokenized_gold"
+ payload["data_note"] = (
+  "Exchange-traded tokenized gold, not interchangeable with spot gold or "
+  "gold futures. No synthetic gold price is generated when data is unavailable."
+ )
+ return payload
+
+@app.get("/api/intelligence/order-flow")
+def order_flow_intelligence(interval: str = "1d", limit: int = 200):
+ """Market-flow summary from existing stored microstructure events.
+
+ Extends the existing trade-flow aggregation with notional, relative size and
+ large-trade detection. Reads from the same event store as
+ ``/api/market-data/trade-flow``; no second analytics engine.
+ """
+ if interval not in SUPPORTED_INTERVALS:
+  raise HTTPException(status_code=400, detail="interval must be one of 15m,1h,4h,1d")
+ if not 1 <= limit <= 500:
+  raise HTTPException(status_code=400, detail="limit must be between 1 and 500")
+ try:
+  events = query_market_events(event_type="trade", limit=limit)
+ except (ValueError, Exception) as exc:  # noqa: BLE001
+  raise HTTPException(status_code=503, detail=f"event store unavailable: {exc}") from exc
+ rows = events.get("events", events) if isinstance(events, dict) else events
+ return {
+  "mode": "existing_trade_flow_engine_extension",
+  "summary": build_market_flow_summary(rows, limit=limit),
+  "dots": build_visual_trade_dots(rows, limit=limit),
+  "buckets": build_trade_flow_buckets(rows, bucket_seconds={
+   "15m": 900, "1h": 3600, "4h": 14400, "1d": 86400,
+  }[interval]),
+  "data_note": "Derived from stored events only. No exchange stream is implied.",
+  "execution": {"broker_execution": False, "real_money": False},
+ }
+
+@app.get("/api/intelligence/liquidations")
+def liquidation_intelligence(limit: int = 500):
+ """Liquidation summary from stored liquidation events in the existing store."""
+ if not 1 <= limit <= 5000:
+  raise HTTPException(status_code=400, detail="limit must be between 1 and 5000")
+ try:
+  events = query_market_events(event_type="liquidation", limit=limit)
+ except Exception as exc:  # noqa: BLE001
+  raise HTTPException(status_code=503, detail=f"event store unavailable: {exc}") from exc
+ rows = events.get("events", events) if isinstance(events, dict) else events
+ return build_liquidation_summary(rows, limit=limit)
+
+
+# ---- Broker connection boundary (research-only, credential-free) ----------
+
+@app.get("/api/intelligence/research/topics")
+def intelligence_research_topics():
+ """Existing-agent research topics mapped to existing allowlisted skills."""
+ from .intelligence_research import manifest
+
+ return manifest()
+
+
+@app.get("/api/intelligence/research/skill")
+def intelligence_research_skill(topic: str):
+ """Resolve a research topic to an existing skill; never create a new one."""
+ from .intelligence_research import resolve_skill
+
+ try:
+  return resolve_skill(topic)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/intelligence/research/finding")
+def intelligence_research_finding(request: dict[str, Any]):
+ """Build a finding payload for the existing worker_memory architecture.
+
+ The payload is returned, not persisted here: persistence remains with the
+ existing worker-memory API and ownership rules. No broker credential is
+ accepted, logged or stored.
+ """
+ from .intelligence_research import build_research_finding
+
+ credential_keys = {"token", "password", "secret", "api_key", "access_token", "session"}
+ if credential_keys & {str(key).lower() for key in request}:
+  raise HTTPException(status_code=400, detail=(
+   "credentials are not accepted by this research endpoint"
+  ))
+ try:
+  return build_research_finding(
+   topic=str(request.get("topic") or ""),
+   instrument=str(request.get("instrument") or ""),
+   market=str(request.get("market") or ""),
+   source=str(request.get("source") or ""),
+   event_timestamp=request.get("event_timestamp"),
+   retrieval_timestamp=request.get("retrieval_timestamp"),
+   observed_facts=list(request.get("observed_facts") or []),
+   calculated_indicators=request.get("calculated_indicators"),
+   interpretation=request.get("interpretation"),
+   evidence=list(request.get("evidence") or []),
+   confidence=str(request.get("confidence") or "low"),
+   limitations=list(request.get("limitations") or []),
+  )
+ except (ValueError, TypeError) as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/intelligence/board")
+def intelligence_board():
+ """One board payload combining the existing exchange intelligence outputs."""
+ from .exchange_intelligence import (
+     capabilities_manifest, fear_greed_index, funding_open_interest,
+     gold_token_quote, order_book_summary, register_policies, venue_quote,
+ )
+
+ register_policies()
+ venues = []
+ for venue, symbol in [
+  ("okx", "BTCUSDT"), ("coinbase", "BTCUSDT"), ("bybit", "BTCUSDT"),
+  ("kraken", "XBTUSD"), ("deribit", "BTC-INDEX"), ("hyperliquid", "BTC"),
+ ]:
+  quote = venue_quote(venue, symbol)
+  payload = quote.to_payload()
+  venues.append({
+   "venue": venue, "status": payload["status"], "status_label": payload["status_label"],
+   "last": payload["last"], "source": payload["source"], "reason": payload.get("reason"),
+   "age_seconds": payload["age_seconds"], "stale": payload["stale"],
+  })
+ events = []
+ try:
+  result = query_market_events(event_type="trade", limit=200)
+  events = result.get("events", result) if isinstance(result, dict) else result
+ except Exception:  # noqa: BLE001 - an empty event store is an honest result
+  events = []
+ return {
+  "generated_at": datetime.now(timezone.utc).isoformat(),
+  "mode": "existing_exchange_intelligence_extension",
+  "venues": venues,
+  "funding": funding_open_interest(),
+  "depth": order_book_summary(),
+  "sentiment": fear_greed_index(),
+  "gold": gold_token_quote().to_payload(),
+  "flow": {
+   "summary": build_market_flow_summary(events, limit=200),
+   "dots": build_visual_trade_dots(events, limit=200),
+  },
+  "brokers": broker_connection_status(),
+  "execution": {"broker_execution": False, "real_money": False},
+  "licensing": {
+   "live_claims_require_attestation": True,
+   "tredye_endpoints_used": False,
+   "adapters": len(capabilities_manifest()["adapters"]),
+  },
+ }
+
+
+@app.get("/api/brokers/status")
+def broker_connection_status():
+ """Declare broker integration posture without storing or accepting secrets.
+
+ Indian brokers require official credentials and approvals not present here.
+ This endpoint only reports status and shows clearly labelled sample/historical
+ data when no broker is connected. It never receives tokens or credentials.
+ """
+ return {
+  "brokers": [
+   {"name": name, "connection": "not_connected",
+    "credential_storage": "none", "backend_receives_credentials": False}
+   for name in ("fyers", "upstox", "angel_one", "dhan", "zerodha_kite")
+  ],
+  "mode": "sample_or_historical_data_only",
+  "live_broker_data_available": False,
+  "sample_data_labelled": True,
+  "broker_execution": False,
+  "real_money": False,
+  "note": (
+   "No broker credentials are sent to this backend, stored in shared agent "
+   "memory, logged, or exposed in frontend bundles. Broker APIs require "
+   "official authorization; no connector is enabled. Public NSE/BSE reference "
+   "data from the existing adapter remains clearly attributed."
+  ),
+ }
 
 @app.post("/api/workers/{worker_id}/memory")
 def add_worker_memory(worker_id: str, request: WorkerMemoryRequest):

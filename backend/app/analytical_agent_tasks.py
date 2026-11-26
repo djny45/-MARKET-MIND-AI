@@ -1083,11 +1083,33 @@ def agent_supervisor_status() -> dict:
         timestamp = datetime.fromisoformat(heartbeat["heartbeat_at"])
         age_seconds = max(0.0, (datetime.now(timezone.utc) - timestamp).total_seconds())
         stale_after = max(15.0, float(heartbeat["poll_interval_seconds"]) * 3.0 + 5.0)
+        # A fresh heartbeat is not proof of a live process: after SIGKILL the
+        # last heartbeat can look fresh for whole stale_after window. Check
+        # liveness so operators are not told "healthy" for a dead supervisor.
+        recorded_pid = heartbeat["process_id"]
+        process_alive = False
+        if (isinstance(recorded_pid, int) and not isinstance(recorded_pid, bool)
+                and 0 < recorded_pid <= 2**31 - 1):
+            try:
+                os.kill(recorded_pid, 0)
+                process_alive = True
+            except ProcessLookupError:
+                process_alive = False
+            except OverflowError:
+                process_alive = False
+            except PermissionError:
+                process_alive = True
+            if process_alive:
+                try:
+                    stat = Path(f"/proc/{recorded_pid}/stat").read_text()
+                    process_alive = stat.split(") ", 1)[1].split()[0] != "Z"
+                except (OSError, IndexError):
+                    pass
         if heartbeat["state"] == "failed":
             health = "failed"
         elif heartbeat["state"] == "stopped":
             health = "stopped"
-        elif age_seconds > stale_after:
+        elif age_seconds > stale_after or not process_alive:
             health = "stale"
         elif heartbeat["state"] in ("starting", "running"):
             health = "healthy" if heartbeat["state"] == "running" else "starting"
@@ -1095,7 +1117,8 @@ def agent_supervisor_status() -> dict:
             health = "unknown"
         heartbeat_data = {
             "instance_id": heartbeat["instance_id"],
-            "process_id": heartbeat["process_id"],
+            "process_id": recorded_pid,
+            "process_alive": process_alive,
             "state": heartbeat["state"],
             "heartbeat_at": heartbeat["heartbeat_at"],
             "heartbeat_age_seconds": round(age_seconds, 2),

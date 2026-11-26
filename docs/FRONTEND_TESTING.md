@@ -8,7 +8,7 @@ no live-trading, wallet or order-routing code.
 | Command | Result |
 | --- | --- |
 | `npm test` (node:test, `tests/*.test.mjs`) | **10/10 pass** |
-| `npx -y node@22 ./node_modules/vitest/vitest.mjs run` | **117/117 pass, 19 files** |
+| `npx -y node@22 ./node_modules/vitest/vitest.mjs run` | **127/127 pass, 21 files** |
 | `npx -y node@22 ./node_modules/typescript/bin/tsc -p tsconfig.test.json --noEmit` | **clean** |
 | `npm run build` | **PASS — tsc + esbuild bundle** |
 | `npm audit --omit=dev --audit-level=high` | **0 vulnerabilities** |

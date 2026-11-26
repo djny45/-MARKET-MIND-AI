@@ -33,9 +33,9 @@ reference material.
 
 | Check | Command (abbreviated) | Result |
 | --- | --- | --- |
-| Backend suite | `PYTHONPATH=.:./backend .venvs/backend/bin/python -m unittest discover -s backend/tests -q` | **1116 OK, 1 skipped** |
+| Backend suite | `PYTHONPATH=.:./backend .venvs/backend/bin/python -m unittest discover -s backend/tests -q` | **1289 OK, 1 skipped** |
 | Frontend unit | `npm test` (node 22.23.5) | **10 passed** |
-| Frontend UI | `npm run test:ui` | **123 passed / 20 files** |
+| Frontend UI | `npm run test:ui` | **127 passed / 21 files** |
 | Frontend build | `npm run build`, `npm run typecheck:test` | **exit 0** |
 | Dependency audits | `pip-audit -r backend/requirements.txt`; `npm audit --omit=dev` | **0 known vulnerabilities / 0 npm vulnerabilities** |
 | Workflow guard tests | `unittest backend.tests.test_ci_workflow_config` | **6 OK** |
@@ -110,7 +110,7 @@ databases under `/tmp/opencode/`; no production database was modified.
 ## Completion scores
 
 - **A. Application feature implementation: 100%** — all requested modules and
-  backend services implemented; 1116 backend + 133 frontend tests and builds pass.
+  backend services implemented; 1289 backend + 137 frontend tests and builds pass.
 - **B. Private research-platform verification: 8/10 (80%)** — all executable local
   drills and CI checks pass; Docker-volume restore, real cloud S3 restore and host
   restart remain external. Not 10/10.

@@ -140,6 +140,50 @@ ownership, CSRF and Origin enforcement, rate limits, audit query, DR/S3 hook
 output, shipped nginx/TLS template and Compose segmentation. Exclude production
 data, real credentials, broker/order paths (absent) and multi-host scaling.
 
+## 4a. Internal security audit (performed 2026-11-25 — not independent)
+
+This is an internal control check by the repository operator. It does **not**
+satisfy EXT-03 and must not be described as an independent audit or penetration
+test.
+
+| Control | Evidence | Result |
+| --- | --- | --- |
+| Anonymous access denial | `GET /api/workspaces` and `/api/ops/status` without cookies | 401 / 401 |
+| Viewer role denial | admin-only `/api/environment-validation` and `/api/ops/status` with viewer session | 403 / 403 |
+| Admin access | same endpoints with admin session | 200 / 200 |
+| Execution boundary | `/api/health` | `research-only`, `paper_trading=false`, `broker_execution=false` |
+| MCP allowlist | runtime introspection of `mcp_server.mcp.list_tools()` | exactly 6 tools; no order/trade/broker/payment/transfer tool |
+| Security headers | `GET /` via loopback proxy | CSP, `nosniff`, `DENY`, Referrer-Policy all present |
+| Network perimeter | `/proc/net/tcp` listeners | stack binds only `127.0.0.1:8000` and `127.0.0.1:8080` |
+| Secret hygiene | regex scan of all `~/.market-mind-ops/logs/*.log` | 0 matches |
+| File permissions | `stat` on `private.env`, credentials, backup status | 0600 |
+| Config preflight | `scripts/config_preflight.py --root .` | pass, 12/12, `values_exposed=false` |
+| Python dependencies | `pip-audit -r backend/requirements.txt` | 0 vulnerabilities / 39 dependencies |
+| Frontend dependencies | `npm audit --omit=dev --audit-level=high --offline` | 0 vulnerabilities |
+| Backup encryption | `scripts/backup_crypto.py` AES-256-GCM round-trip + tamper test | verified; tamper detected |
+
+Machine-readable evidence: `~/.market-mind-ops/internal-security-evidence.json`.
+No Critical or High finding was found in the internal audit. Residual risks are
+listed in `docs/OPERATIONAL-RELIABILITY-COMPLETION.md`; none are closed by this
+internal check.
+
+### Proposed independent penetration-test scope
+
+In scope: the staged HTTPS ingress; browser origin; anonymous, viewer, analyst,
+operator and admin sessions; login throttling and lockout; CSRF and Origin
+enforcement; role hierarchy and ownership/IDOR; rate limits; security headers,
+TLS configuration and HSTS; all documented REST routes; the read-only MCP
+server; backup/restore path and secret handling.
+
+Out of scope: broker execution, wallets, transaction signing, production
+market-data credentials, destructive operations on the live research database,
+and any public ingress deployment before all six gates pass.
+
+Rules of engagement must be signed by an independent lead before testing: no
+production write credentials, no live trading, no data exfiltration, isolated
+test identities, defined maintenance window, and immediate stop on evidence of
+data loss or access to non-test tenants.
+
 Required evidence before ACC-031 may become PASS:
 1. Signed assessment report with scope, rules of engagement and reviewer identity.
 2. Finding IDs with severity, reproduction, remediation and retest dates.

@@ -1,3 +1,157 @@
+# FINAL ACCEPTANCE AUDIT — remediation complete 2026-11-25
+
+**Decision: TEST READY for all locally executable acceptance criteria.**
+The exact final commit `b47781aa3df633f9bc969221633e543d28ac877c` has a fully
+green authoritative GitHub Actions run (9/9 check runs, including Backend,
+Frontend, Docker Compose integration, Trivy filesystem scan, container image
+security scan, dependency audit and real-browser responsive tests). All three
+dashboard routes were re-verified with an authenticated Jupyter session, the
+launcher links were fixed and verified, and build artifact recovery was
+confirmed. The three external criteria remain formally deferred (not
+verifiable locally) and are recorded below. No PR was merged, nothing was
+deployed, no file was deleted, and the three legacy files were left untouched.
+
+## Exact revision
+
+| Item | Value |
+| --- | --- |
+| Local HEAD (authoritative, CI-verified) | `b47781aa3df633f9bc969221633e543d28ac877c` |
+| Branch | `feature/alpine-backend-runtime` |
+| Branch tip on `origin` | `b47781aa3df633f9bc969221633e543d28ac877c` (pushed) |
+| GitHub check runs on exact HEAD | **9/9**: 8 `success` + `cubic AI reviewer` `neutral` (non-gating) |
+| Authoritative CI run | `45659867099` family; check-run URLs via `gh api repos/djny45/-MARKET-MIND-AI/commits/b47781aa/check-runs` |
+| Clean verification worktree | `/tmp/opencode/accept-audit` (detached at exact HEAD; only untracked item is a symlink to `frontend/node_modules`) |
+
+### Remediation commits (all pushed; no merge)
+| Commit | Fix |
+| --- | --- |
+| `4135ead6` | Bridge path portability (CI errors), supervisor race-test robustness, launcher link fix |
+| `b47781aa` | CI health smoke assertion aligned with enabled paper trading (`broker_execution` stays false) |
+
+Root causes fixed:
+1. `scripts/jupyter_dashboard_bridge.py` hardcoded `/home/jovyan/-MARKET-MIND-AI/...`
+   template/publish paths, causing 6 errors on CI runners. Now derived from
+   `Path(__file__).resolve().parents[1]` and `Path.home()`, with env overrides.
+2. `test_supervisor_two_process_race.py` asserted the loser's incidental status
+   (`lease_unavailable`), which is timing-dependent on fast runners. Now asserts
+   the real invariant: exactly one process dispatches the one queued task.
+3. `jupyter/launcher.ipynb` used `market_mind_live.html`, which resolves to a
+   404 under the notebook's directory. Now `../../../files/market_mind_live.html`,
+   verified 200 from both `/files/` and `/notebooks/` views.
+4. `.github/workflows/quality.yml` still asserted `paper_trading is False` from
+   before the virtual-portfolio subsystem existed; now asserts `True` while
+   keeping `broker_execution is False` as the safety boundary.
+
+## Commands and results (clean worktree at exact HEAD)
+
+```bash
+git worktree add --detach /tmp/opencode/accept-audit b47781aa3df633f9bc969221633e543d28ac877c
+cd /tmp/opencode/accept-audit
+PYTHONPATH=backend /home/jovyan/-MARKET-MIND-AI/.venvs/backend/bin/python -c "import unittest; r=unittest.TextTestRunner(verbosity=0).run(unittest.defaultTestLoader.discover('backend/tests')); print(r.testsRun, len(r.failures), len(r.errors), len(r.skipped))"
+cd backend && PYTHONPATH=. /home/jovyan/-MARKET-MIND-AI/.venvs/backend/bin/python -m unittest tests.test_jupyter_dashboard_bridge -v
+cd ../frontend && npm test && npm run test:ui && npm run typecheck:test && ./node_modules/.bin/tsc -p tsconfig.json --noEmit && npm run build && npm audit --audit-level=high
+/home/jovyan/-MARKET-MIND-AI/.venvs/backend/bin/pip-audit -r backend/requirements.txt --progress-spinner off
+gh api repos/djny45/-MARKET-MIND-AI/commits/b47781aa/check-runs --jq '.check_runs[] | [.name,.status,(.conclusion // "-")] | @tsv'
+```
+
+| # | Check | Command | Result |
+| --- | --- | --- | --- |
+| 1 | Backend suite, exact HEAD | `unittest discover backend/tests` | **1293 run, 0 failures, 0 errors, 1 skip** |
+| 2 | Dashboard bridge, exact HEAD | `unittest tests.test_jupyter_dashboard_bridge -v` | **9/9 PASS** |
+| 3 | Supervisor race test (was flaky on CI) | 8 repeated runs | **8/8 PASS** |
+| 4 | CI workflow guard tests | `unittest tests.test_ci_workflow_config -q` | **7 PASS** |
+| 5 | Frontend node tests | `npm test` | **10/10 PASS** |
+| 6 | Frontend UI tests | `npm run test:ui` | **127/127 PASS**, 21 files |
+| 7 | Typechecks | `npm run typecheck:test`, `tsc -p tsconfig.json --noEmit` | **PASS** |
+| 8 | Production build | `npm run build` | **PASS** — tsc + esbuild bundle in `frontend/dist` |
+| 9 | npm audit | `npm audit --audit-level=high` | **0 vulnerabilities** |
+| 10 | pip-audit | `pip-audit -r backend/requirements.txt` | **No known vulnerabilities found** |
+| 11 | Health checks | `python ~/.market-mind-ops/health_check.py` (backend venv) | **20/20 PASS** |
+| 12 | Authoritative CI, exact HEAD | `gh api .../commits/b47781aa/check-runs` | **9/9** (8 success + 1 neutral non-gating) |
+
+The requested "1,318 backend tests" figure was a prior-snapshot count from a
+dirty worktree; the authoritative exact-HEAD count is 1293 (the current dirty
+main worktree discovered 1327 at the time of the audit — all green). The 1 skip
+is nginx-binary-absent, not a pass.
+
+## CI check runs on exact HEAD `b47781aa`
+
+| Check | Conclusion |
+| --- | --- |
+| Backend | success |
+| Frontend | success |
+| Docker Compose integration | success |
+| Container image security scan | success |
+| Trivy filesystem security scan | success |
+| Dependency audit | success |
+| Real browser responsive tests | success |
+| Vercel Preview Comments | success |
+| cubic · AI code reviewer | neutral (non-gating) |
+
+This resolves the previous P1 blocker "CI on exact HEAD not verified" and
+supplies authoritative Docker/Trivy results (0 findings at MEDIUM+) on the
+exact audited SHA.
+
+## Authenticated dashboard routes (Jupyter session token)
+
+All three routes returned **HTTP 200** with the dashboard HTML
+(`<title>MARKET-MIND-AI — Private Research Dashboard</title>`), embedded
+snapshot JSON, and dual renderer; snapshot showed 4 priced symbols, 80 open
+positions, 40 virtual orders, 48 virtual trades, realized P&L $19.97,
+`broker_execution=false`, `paper_trading=true`.
+
+| Route | Evidence |
+| --- | --- |
+| `http://127.0.0.1:8080/market_mind_live.html` | 200, dashboard, fresh snapshot |
+| `http://127.0.0.1:8888/user/djny45/proxy/8080/market_mind_live.html?token=...` | 200, dashboard (authenticated) |
+| `http://127.0.0.1:8888/user/djny45/files/market_mind_live.html?token=...` | 200, dashboard (authenticated) |
+
+Launcher validation: repo launcher link `../../../files/market_mind_live.html`
+resolves to the dashboard (200) from both `/files/` and `/notebooks/` views;
+root `/home/jovyan/launcher.ipynb` uses `market_mind_live.html`, which resolves
+to the dashboard (200) from the documented JupyterLab file-browser entry point.
+No launcher file was reverted.
+
+Artifact recovery: `npm run build` deletes `dist/market_mind_live.html` and
+`dist/market_mind_dashboard.js`; the running bridge republishes them on its
+20-second cycle. After the final build, both were again served 200/200 with a
+17:49 timestamp in `frontend/dist`.
+
+## PRs and acceptance
+
+- **PRs: 12 open, none merged by this audit.** Two remediation commits were
+  pushed directly to `feature/alpine-backend-runtime` (no PR created/merged).
+- **Acceptance inventory:** `python3 scripts/external_evidence.py audit` →
+  **37 verified / 3 blocked / 40 total**; `statuses_mutated: false`.
+- **EXT-01 S3 restore (ACC-029): formally deferred.** `docs/S3-VERIFICATION-PACKAGE.md`
+  states `Status: BLOCKED` — preparation only; no bucket, credentials or real
+  cloud restore.
+- **EXT-02 host recovery (ACC-030): formally deferred.** `docs/HOST-RECOVERY-PROCEDURE.md`
+  states `Status: BLOCKED` — preparation only; no systemd/cron/Docker-host or
+  privileged operation.
+- **EXT-03 independent review (ACC-031): blocked** — no independent reviewer or
+  signed go/no-go. (Plus six public-ingress gates G1–G6; 9 open criteria total.)
+
+## Known limitations and remaining blockers
+
+1. Three external criteria remain formally deferred/blocked and require genuine
+   external evidence (S3 restore, host recovery, independent review). These are
+   out of scope for local verification and are not claimed as complete.
+2. The 1 skipped backend test is due to the absent nginx binary.
+3. `jsdom` cannot evaluate CSS media queries; responsive assertions are
+   structural. The real-browser CI job (success) covers actual layout.
+4. Three orphaned legacy files (`~/market_mind_app.js`,
+   `~/market_mind_live_data.js`, `~/market_mind_terminal.html`) were inspected
+   and **left untouched**; no git or code references.
+5. Two transient bridge `TimeoutError`s were observed during `--once` runs;
+   retries succeeded and the running bridge publishes normally.
+
+No unresolved test failures. No PR was merged, nothing was deployed, no file
+was deleted, and no unrelated code was modified for this audit.
+
+---
+---
+
 # FINAL TEST RESULTS — executed 2026-11-23
 
 All results below were produced by commands run in this workspace on branch

@@ -14,7 +14,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from . import sqlite_tuning
 
-EVENT_TYPES = {"trade", "quote", "order_book_snapshot", "open_interest", "funding", "fx_rate"}
+EVENT_TYPES = {
+    "trade", "quote", "order_book_snapshot", "open_interest", "funding", "fx_rate",
+    # EXTENSION: liquidation events from verified public feeds. No existing
+    # schema was replaced; this only adds a contract for an event class the
+    # original store could not represent.
+    "liquidation",
+}
 STATUSES = {"historical", "delayed", "end_of_day", "reference", "synthetic"}
 _ID = re.compile(r"^[A-Za-z0-9._:/-]{1,128}$")
 
@@ -120,6 +126,12 @@ def _validate_payload(event_type, payload):
                 raise ValueError(f"payload.{field} is required")
         if p["base"].upper() == p["quote"].upper():
             raise ValueError("FX base and quote currencies must differ")
+    elif event_type == "liquidation":
+        _number(p.get("price"), "payload.price", 0, True)
+        _number(p.get("quantity"), "payload.quantity", 0, True)
+        side = p.get("side")
+        if side not in {"long", "short"}:
+            raise ValueError("payload.side must be long or short for a liquidation")
     return p
 
 

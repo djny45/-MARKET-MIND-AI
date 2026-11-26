@@ -1,0 +1,20 @@
+{
+  "captured_at": "2026-11-26T14:01:14.093Z",
+  "api_calls": [
+    {
+      "url": "http://127.0.0.1:8011/api/intelligence/board",
+      "status": 200
+    }
+  ],
+  "console_errors": [],
+  "venue_cards": 6,
+  "venue_text": "OKX\nHISTORICAL\n60,831\nSOURCE okx-public\nAGE 0s · STALE FALSE\nCOINBASE\nHISTORICAL\n60,781.695\nSOURCE coinbase-public\nAGE 0s · STALE FALSE\nBYBIT\nHISTORICAL\n60,829.8\nSOURCE bybit-public\nAGE 0s · STALE FALSE\nKRAKEN\nHISTORICAL\n60,752.4\nSOURCE kraken-public\nAGE 0s · STALE FALSE\nDERIBIT\nHISTORICAL\n60,782.21\nSOURCE deribit-public\nAGE 0s · STALE FALSE\nHYPERLIQUID\nHISTORICAL\n60,836.5\nSOURCE hyperliquid-public\nAGE 0s · STALE FALSE",
+  "boundary": "BROKER CONNECTIONS: false · BROKER EXECUTION FALSE · REAL MONEY FALSE\n\nMARKET-MIND-AI is a research and educational analytics platform, not a broker or investment adviser. No SEBI registration or regulatory approval is claimed. Sample, historical and delayed data are labelled explicitly; no broker credentials are stored or sent to this backend or to research agents.\n\nLICENSING: true · TREDYE ENDPOINTS USED false",
+  "legend_labels": [
+    "LIVE",
+    "DELAYED",
+    "HISTORICAL",
+    "SYNTHETIC",
+    "UNAVAILABLE"
+  ]
+}

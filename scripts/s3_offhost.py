@@ -29,13 +29,20 @@ from urllib.parse import urlparse
 from pathlib import Path
 
 
+S3_KEYS = (
+    "MARKET_MIND_S3_ENDPOINT", "MARKET_MIND_S3_BUCKET",
+    "MARKET_MIND_S3_REGION", "MARKET_MIND_S3_ACCESS_KEY",
+    "MARKET_MIND_S3_SECRET_KEY",
+)
+
+
+def _missing_keys() -> list[str]:
+    """Names of required S3 variables that are absent (never their values)."""
+    return [key for key in S3_KEYS if not os.getenv(key, "").strip()]
+
+
 def _settings() -> dict[str, str]:
-    keys = (
-        "MARKET_MIND_S3_ENDPOINT", "MARKET_MIND_S3_BUCKET",
-        "MARKET_MIND_S3_REGION", "MARKET_MIND_S3_ACCESS_KEY",
-        "MARKET_MIND_S3_SECRET_KEY",
-    )
-    missing = [key for key in keys if not os.getenv(key, "").strip()]
+    missing = _missing_keys()
     if missing:
         raise SystemExit(
             "missing S3 environment variables: " + ", ".join(missing) +
@@ -48,7 +55,7 @@ def _settings() -> dict[str, str]:
                 f"{item['variable']}:{item['issue']}" for item in findings
             ) + " (values are never printed)"
         )
-    return {key: os.environ[key].strip() for key in keys}
+    return {key: os.environ[key].strip() for key in S3_KEYS}
 
 
 def _s3_findings() -> list[dict]:
@@ -147,8 +154,17 @@ def main(argv: list[str] | None = None) -> int:
         raise SystemExit("--retry-delay must be between 0 and 5 seconds")
     if args.action == "validate-config":
         findings = _s3_findings()
+        missing = _missing_keys()
+        if missing:
+            # Fail closed: an operator following the EXT-01 entry procedure must
+            # not see "ok" when no S3 configuration exists at all.
+            findings = list(findings) + [{
+                "variable": "MARKET_MIND_S3_*",
+                "issue": "missing_required_variables",
+            }]
         print(json.dumps({
             "status": "failed" if findings else "ok",
+            "missing_variables": missing,
             "findings": findings,
             "values_exposed": False,
         }, sort_keys=True))
@@ -157,6 +173,16 @@ def main(argv: list[str] | None = None) -> int:
     endpoint = settings["MARKET_MIND_S3_ENDPOINT"].rstrip("/")
     bucket = settings["MARKET_MIND_S3_BUCKET"]
     prefix = os.getenv("MARKET_MIND_S3_PREFIX", "market-mind/backups").strip("/")
+    parsed_endpoint = urlparse(endpoint)
+    # Reject userinfo early: a URL like https://user:secret@host would print
+    # the secret in describe-config/dry-run output and corrupt the Host header.
+    if "@" in parsed_endpoint.netloc:
+        raise SystemExit("endpoint must not embed user information (values are never printed)")
+    # Path-style signed requests target /<bucket>/<key> at the endpoint root.
+    # A base path would be sent but not signed, so reject it rather than emit
+    # a request that fails with SignatureDoesNotMatch in the field.
+    if parsed_endpoint.path.strip("/"):
+        raise SystemExit("endpoint must not include a base path (path-style buckets only)")
     if args.action == "describe-config":
         print(json.dumps({
             "endpoint": endpoint, "bucket": bucket, "region": settings["MARKET_MIND_S3_REGION"],
@@ -167,15 +193,31 @@ def main(argv: list[str] | None = None) -> int:
     if not args.file:
         raise SystemExit("--file is required for upload/download")
     key = args.key or f"{prefix}/{Path(args.file).name}"
+    # Key must stay inside the prefix-scoped IAM grant and be a valid URI path
+    # segment sequence. Reject absolute paths, traversal and characters that
+    # change URI meaning. Do not silently strip a leading slash: that would
+    # quietly rewrite an absolute key into a different object outside the grant.
+    if (
+        not key
+        or key.startswith("/")
+        or key.endswith("/")
+        or ".." in key.split("/")
+        or len(key) > 512
+        or any(ch in key for ch in ("?", "#", " ", "\t", "\r", "\n", "\\"))
+        or any(ord(ch) < 33 for ch in key)
+    ):
+        raise SystemExit("unsafe object key (values are never printed)")
     path = f"/{bucket}/{key}"
     url = endpoint + path
     if args.dry_run:
         print(json.dumps({"action": args.action, "file": args.file, "key": key,
                           "url": url, "credentials_exposed": False}, sort_keys=True))
         return 0
-    host = urlparse(endpoint).netloc
-    result: dict = {"action": args.action, "status": 0, "key": key,
-                    "credentials_exposed": False}
+    parsed_endpoint = urlparse(endpoint)
+    host = parsed_endpoint.netloc
+    result: dict = {"action": args.action, "status": 0, "http_status": 0,
+                    "result": "pending", "success": False,
+                    "key": key, "credentials_exposed": False}
     if args.action == "upload":
         payload = Path(args.file).read_bytes()
         status, response_headers, _ = _request(
@@ -194,7 +236,12 @@ def main(argv: list[str] | None = None) -> int:
             expected = (args.expect_sha256 or "").strip().lower()
             actual = hashlib.sha256(payload).hexdigest()
             if expected and actual != expected:
+                # Keep the machine-readable status explicit: a consumer reading
+                # only JSON must never treat a digest mismatch as success.
                 result["status"] = status
+                result["result"] = "sha256_mismatch"
+                result["success"] = False
+                result["http_status"] = status
                 result["sha256_mismatch"] = True
                 result["etag"] = response_headers.get("etag")
                 result["version_id"] = response_headers.get("x-amz-version-id")
@@ -206,6 +253,9 @@ def main(argv: list[str] | None = None) -> int:
             os.replace(temporary, destination)
             result["sha256"] = actual
     result["status"] = status
+    result["result"] = "ok" if 200 <= status < 300 else "failed"
+    result["success"] = 200 <= status < 300
+    result["http_status"] = status
     result["etag"] = response_headers.get("etag")
     result["version_id"] = response_headers.get("x-amz-version-id")
     print(json.dumps(result, sort_keys=True))

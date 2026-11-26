@@ -95,6 +95,18 @@ Never manufacture missing event fields. Keep unknown trade side unknown. Keep ra
 - Existing research-only / no-broker-execution boundary remains intact.
 - CI, backend tests and frontend build pass before merge.
 
-## Explicit non-goals
+
+## Execution log — 2026-11-26
+
+### Implemented in this branch
+- Added `backend/app/order_book_research.py`: deterministic snapshot/delta replay, explicit predecessor-sequence validation, sequence-gap invalidation until a new snapshot, crossed/locked-book rejection, spread and symmetric basis-point depth metrics.
+- Added `backend/tests/test_order_book_research.py`: snapshot replay, level updates/deletes, gap invalidation, snapshot recovery, invalid crossed book and depth-band validation.
+- Extended `backend/app/market_events.py` to accept and validate historical `order_book_delta` and `liquidation` events. Delta payloads preserve `previous_sequence_number`; liquidation records require price, quantity and a buy/sell/unknown side.
+- Extended `backend/tests/test_market_events.py` with delta/liquidation persistence and validation cases.
+- Corrected the order-book depth test expectation to count only levels inside the configured 100 bps band.
+
+### Not yet implemented
+No exchange adapter, live websocket, authenticated provider, production order-book stream, UI panel, funding/OI adapter or NSE data connector has been added. The new replay engine only processes supplied/imported events. CI must pass before treating this slice as validated.
+\n## Explicit non-goals
 
 No broker order placement, private-key handling, transaction signing, automated live trading, market-making execution, or copying of Tredye proprietary code/assets. The supplied reverse-engineering report did not establish Tredye's proprietary aggregation formulas or complete internal implementation; those details must remain documented unknowns.

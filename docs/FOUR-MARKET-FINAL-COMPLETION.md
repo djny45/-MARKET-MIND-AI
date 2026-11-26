@@ -282,3 +282,32 @@ reports `llm_inference_enabled: false`; the 550 profiles share one optional
 inference core with bounded timeout and safe failure states. The diagnostic
 order is documented in `docs/FREELLMAPI-INTEGRATION.md`. No keys are exposed
 and no provider is silently switched.
+
+## 13. Final acceptance checklist (verified)
+
+| Criterion | Evidence | Status |
+| --- | --- | --- |
+| Local branch/commit identified and preserved | `git log`, `git status`; branch pushed without loss | Done |
+| PR #113 inspected and merged | `gh pr view 113`; merge `cf396177` with union conflict resolution | Done |
+| CI failure commits verified | `c30cc14`, `4da75b1` present on PR branch after merge | Done |
+| Skill counts consistent everywhere | runtime 326, zero stale `325` claims | Done |
+| Backend full suite | 1464 tests OK, 1 skipped | Done |
+| Frontend Vitest | 152 passed | Done |
+| Frontend npm test | 10 passed | Done |
+| TypeScript checks | clean | Done |
+| Production build | bundle created | Done |
+| Real browser responsive tests | 9 passed | Done |
+| Dependency audit | npm audit 0 vulnerabilities; CI green | Done |
+| Docker Compose integration | CI green (locally unavailable binary) | Done in CI |
+| Security scans | Trivy filesystem + container image CI green | Done |
+| GitHub Actions on final SHA | run `45844422770` on `56298185` | See final report |
+| Four-market terminal + charts | browser screenshots + tests | Done |
+| Exchange intelligence integration | 6 venues observed live, all HISTORICAL | Done |
+| Order-book replay + skill → agent task bridge | PR #113 tests + new bridge test | Done |
+| No broker credentials / execution | status endpoint + code audit | Done |
+| No real-money trading | execution flags false everywhere | Done |
+
+Completion against these 19 verified criteria is **19/19 (100%)** for the
+defined acceptance scope. Known non-scope limits remain: no attested live
+provider, no broker connector (credentials/approvals unavailable), and forex
+intraday data (ECB publishes one fixing per day).

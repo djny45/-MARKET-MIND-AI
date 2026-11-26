@@ -39,10 +39,10 @@ Runtime verification on this tree:
 | --- | --- |
 | Worker profiles | 550 (`list_workers`) |
 | Departments / specialties | 20 / 28 (partial grid; 20×28=560 is **not** claimed as 550) |
-| Allowlisted skills | 325 available, 0 malformed, 0 duplicate IDs |
+| Allowlisted skills | 326 available, 0 malformed, 0 duplicate IDs |
 | Research-pack sections | 300 uniquely titled entries in one pack SKILL.md |
 | SKILL.md files | 115 total; 89 Vibe Trading files are unregistered reference material |
-| Registry evaluation | `valid=True`, `errors=[]`, catalog 325 |
+| Registry evaluation | `valid=True`, `errors=[]`, catalog 326 |
 | Shared core | `shared_central_intelligence`; profiles are templates, `independent_models=False`, `broker_execution=False` |
 
 Guards: `test_worker_registry.py`, `test_skill_catalog.py`,

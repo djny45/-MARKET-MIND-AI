@@ -10,7 +10,7 @@ were copied. Findings are treated as research leads, not verified APIs.
 
 - `backend/app`: 268 files (134 Python modules)
 - `frontend/src`: 16 files
-- `.agents/skills/**`: existing skill pack (325 skills reported by `/api/skills`)
+- `.agents/skills/**`: existing skill pack (326 skills reported by `/api/skills` after PR #113 registration)
 - `third_party/freqtrade`: vendored reference exchange classes, not wired in
 
 ## Mapping (Phase 14 acceptance table)

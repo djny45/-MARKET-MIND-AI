@@ -20,7 +20,7 @@ class ResearchInventoryClaimTests(unittest.TestCase):
         self.assertEqual(len(workers), 550)
         self.assertEqual(len({worker["department"] for worker in workers}), 20)
         self.assertEqual(len({worker["specialty"] for worker in workers}), 28)
-        self.assertEqual(len(list_skills()), 325)
+        self.assertEqual(len(list_skills()), 326)
         self.assertEqual(len(re.findall(r"^### \d{3}\. ", PACK.read_text(encoding="utf-8"), re.M)), 300)
 
     def test_worker_profiles_share_one_core_and_are_templates(self):
@@ -37,7 +37,7 @@ class ResearchInventoryClaimTests(unittest.TestCase):
         self.assertNotIn("20 departments × 28 specialties", readme)
         self.assertNotIn("550+", readme)
         self.assertNotIn("300+ composable skills", readme)
-        self.assertIn("325 entries", registry_doc)
+        self.assertIn("326 entries", registry_doc)
         self.assertIn("89 of those are Vibe Trading reference skills", registry_doc)
 
 

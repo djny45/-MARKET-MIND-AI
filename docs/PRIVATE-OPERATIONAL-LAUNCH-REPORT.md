@@ -51,7 +51,7 @@ production database and no external service.
 | --- | --- |
 | Registered profiles | `/api/workers?limit=550` → **count 550**; `registry_manifest()` → `agent_count=550`, `department_count=20`, `valid=true`, digest `e4cb69c1e92ef342…`; `/api/analytical-agents/runtime` → `agent_count=550` |
 | Orchestration | `/api/analytical-agent-supervisor/status` → `registered_agent_count=550`, `dispatch_mode=persistent_sqlite_polling`, `status=not_started` (no daemon launched here); `/api/agent-network` → `mode=deterministic_message_bus`; `/api/agent-network/activity` → 200; `/api/analytical-agents/learning-overview` → 200 |
-| Skills | `/api/skills` → **325** available playbooks, `paper_trading=false`, `broker_execution=false`; catalog/integrity/cadence/promotion suites pass |
+| Skills | `/api/skills` → **326** available playbooks, `paper_trading=false`, `broker_execution=false`; catalog/integrity/cadence/promotion suites pass |
 | Memory | per-worker `/api/workers/{id}/memory` → 200 (0 records on the isolated DB); memory, ownership and runtime suites pass |
 | Research | `/api/research/timeline?symbol=BTCUSD` → 200; orchestrator, dashboard, backtest, benchmark and export suites pass |
 | Analytics | `POST /api/analytics/performance` → 200 with computed Sharpe/drawdown/volatility metrics on fixture values |

@@ -56,7 +56,7 @@ Trivy scans were not run locally and are not claimed.
 | `~/.market-mind-ops/health_check.py` | **20/20 PASS** |
 | `~/.market-mind-ops/supervision/status.py` | **HEALTHY**, 4/4 services + supervision loop |
 | `GET /api/health` / `/api/ready` | `research-only`, `paper_trading=false`, `broker_execution=false`, `status=ready` |
-| Agent profiles / skills | 550 / 325 |
+| Agent profiles / skills | 550 / 326 |
 | MCP tools | 6 read-only; no broker/order/payment/transfer tool |
 | `/api/ops/status` | 401 anonymous, 403 viewer, 200 admin |
 

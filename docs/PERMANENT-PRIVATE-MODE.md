@@ -118,6 +118,6 @@ cd /home/jovyan/-MARKET-MIND-AI/backend
 ## 6. Preserved-feature checklist (verify on any restart)
 
 - 550 registered agents (`/api/workers?limit=550` → 550; registry `valid=true`)
-- 325 skills (`/api/skills` → 325)
+- 326 skills (`/api/skills` → 326)
 - memory (`/api/workers/{id}/memory`), research timeline, analytics
   (`/api/analytics/performance`), dashboards (backup/security/providers) all 200

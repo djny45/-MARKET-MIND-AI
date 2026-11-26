@@ -40,14 +40,35 @@ _RAW_INSTRUMENTS = [
     ("ETHUSDT", "Ether / Tether", "digital_assets", "crypto", "Multi-venue", "USDT", "spot_crypto"),
     ("SOLUSD", "Solana / US Dollar", "digital_assets", "crypto", "Multi-venue", "USD", "spot_crypto"),
     ("XAUUSD", "Gold Spot / US Dollar", "commodities", "forex", "OTC", "USD", "spot_metal"),
+    # EXTENSION: venue-native derivative and tokenized-gold contracts from the
+    # Tredye research reference. These are reference identities only — they do
+    # not imply a connected provider, a live feed, or a tradable quote.
+    ("BTC-USDT-SWAP", "Bitcoin / Tether Perpetual Swap", "digital_assets", "crypto", "OKX", "USDT", "perpetual_swap"),
+    ("BTC-USDT", "Bitcoin / Tether Spot", "digital_assets", "crypto", "OKX", "USDT", "spot_crypto"),
+    ("ETH-USDT-SWAP", "Ether / Tether Perpetual Swap", "digital_assets", "crypto", "OKX", "USDT", "perpetual_swap"),
+    ("ETH-USDT", "Ether / Tether Spot", "digital_assets", "crypto", "OKX", "USDT", "spot_crypto"),
+    ("XAU-USDT-SWAP", "Gold / Tether Perpetual Swap", "commodities", "crypto", "OKX", "USDT", "commodity_swap"),
+    ("XAUT-USDT", "Tether Gold / Tether Spot", "commodities", "crypto", "OKX", "USDT", "tokenized_gold"),
+    ("PAXG-USDT", "Pax Gold / Tether Spot", "commodities", "crypto", "OKX", "USDT", "tokenized_gold"),
     ("WTI", "WTI Crude Oil", "commodities", "us", "NYMEX", "USD", "commodity_future"),
     ("BRENT", "Brent Crude Oil", "commodities", "us", "ICE", "USD", "commodity_future"),
 ]
 
+# Derivatives, tokenized instruments and spot metals must never be treated as
+# interchangeable. This explicit map is displayed with any observation.
+_CONTRACT_CLASSES = {
+    "perpetual_swap": "exchange-traded perpetual derivative; not spot",
+    "commodity_swap": "exchange-traded commodity derivative; not spot metal",
+    "tokenized_gold": "exchange-traded token representing gold; not spot or futures",
+    "spot_metal": "spot/reference metal quotation, not an exchange contract",
+    "spot_crypto": "spot reference pair, not a derivative",
+}
+
+
 def _make_instrument(row):
     symbol, name, asset_class, group, venue, currency, instrument_type = row
     return {
-        "instrument_id": f"{group}:{venue.lower().replace(' ', '-') }:{symbol}".replace(":", ":", 1),
+        "instrument_id": f"{group}:{venue.lower().replace(' ', '-')}:{symbol}",
         "symbol": symbol,
         "name": name,
         "market": asset_class,
@@ -55,6 +76,7 @@ def _make_instrument(row):
         "instrument_type": instrument_type,
         "venue": venue,
         "currency": currency,
+        "contract_class": _CONTRACT_CLASSES.get(instrument_type, "reference"),
         "metadata_status": "reference_only",
         "quotes_included": False,
     }

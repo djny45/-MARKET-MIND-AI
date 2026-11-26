@@ -9,9 +9,11 @@ from __future__ import annotations
 import json
 import os
 import socket
+import time
 from urllib.parse import unquote
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+from typing import Any
 
 from .mercury_adapter import configured_mercury, build_mercury_request
 from .freellmapi_adapter import (
@@ -23,6 +25,10 @@ from .freellmapi_adapter import (
 
 CORE_ID = "shared_central_intelligence"
 DEFAULT_TIMEOUT_SECONDS = 8
+# Bounded retry policy for transient transport failures only. No silent
+# provider substitution; deterministic output remains authoritative.
+DEFAULT_RETRIES = 1
+RETRY_DELAY_SECONDS = 0.5
 MAX_INPUT_CHARS = 24_000
 MAX_OUTPUT_CHARS = 8_000
 
@@ -207,20 +213,38 @@ def synthesize_research(research: dict, *, opener=urlopen) -> dict:
     request = Request(endpoint, data=body, headers=headers, method="POST")
     routed_via = None
     fallback_attempts = None
-    try:
-        with opener(request, timeout=DEFAULT_TIMEOUT_SECONDS) as response:
-            response_headers = getattr(response, "headers", None)
-            if response_headers is not None and hasattr(response_headers, "get"):
-                routed_via = response_headers.get("X-Routed-Via") or response_headers.get("x-routed-via")
-                if isinstance(routed_via, str):
-                    routed_via = unquote(routed_via)
-                fallback_attempts = response_headers.get("X-Fallback-Attempts") or response_headers.get("x-fallback-attempts")
-            decoded = json.loads(response.read(MAX_OUTPUT_CHARS * 2).decode("utf-8"))
-    except (HTTPError, URLError, TimeoutError, OSError, ValueError):
+    decoded = None
+    last_error = None
+    attempts = 0
+    for attempt in range(DEFAULT_RETRIES + 1):
+        attempts = attempt + 1
+        try:
+            with opener(request, timeout=DEFAULT_TIMEOUT_SECONDS) as response:
+                response_headers = getattr(response, "headers", None)
+                if response_headers is not None and hasattr(response_headers, "get"):
+                    routed_via = response_headers.get("X-Routed-Via") or response_headers.get("x-routed-via")
+                    if isinstance(routed_via, str):
+                        routed_via = unquote(routed_via)
+                    fallback_attempts = response_headers.get("X-Fallback-Attempts") or response_headers.get("x-fallback-attempts")
+                decoded = json.loads(response.read(MAX_OUTPUT_CHARS * 2).decode("utf-8"))
+            break
+        except (HTTPError, URLError, TimeoutError, OSError, ValueError) as exc:
+            last_error = type(exc).__name__
+            # Only transient transport failures are retried; a malformed
+            # provider response (ValueError from JSON parsing) is terminal.
+            if isinstance(exc, ValueError) or attempt >= DEFAULT_RETRIES:
+                break
+            time.sleep(RETRY_DELAY_SECONDS)
+    if decoded is None:
         return {
             "status": "provider_unavailable", "core_id": CORE_ID,
             "provider": provider_name, "summary": None,
-            "reason": "Shared synthesis provider failed; deterministic report remains authoritative.",
+            "reason": (
+                f"Shared synthesis provider failed after {attempts} bounded "
+                f"attempt(s) ({last_error or 'unknown error'}); deterministic "
+                "report remains authoritative."
+            ),
+            "attempts": attempts,
         }
 
     if not isinstance(decoded, dict):
@@ -257,4 +281,46 @@ def synthesize_research(research: dict, *, opener=urlopen) -> dict:
         "fallback_attempts": fallback_attempts,
         "source": "bounded_supplied_research_only",
         "deterministic_report_authoritative": True,
+    }
+
+
+def check_provider_health(*, opener=urlopen) -> dict[str, Any]:
+    """Active but bounded provider health probe.
+
+    Sends a minimal, non-sensitive request to the configured provider and
+    reports a safe status. It never returns the API key and never claims a
+    successful inference. When no provider is configured it reports
+    ``not_configured`` without any network call.
+    """
+    status = intelligence_core_status()
+    provider = status.get("provider")
+    configured = status.get("configured", False)
+    if not configured:
+        return {
+            "status": "not_configured", "provider": provider,
+            "core_id": CORE_ID, "network_called": False,
+            "note": "Deterministic offline mode remains fully usable.",
+        }
+    # Reuse the existing synthesis path with a minimal bounded payload. This
+    # exercises configuration, endpoint, authentication and timeout together.
+    result = synthesize_research(
+        {"health_probe": True, "note": "bounded connectivity check"},
+        opener=opener,
+    )
+    provider_status = result.get("status")
+    return {
+        "status": (
+            "healthy" if provider_status == "completed"
+            else "degraded" if provider_status in {"provider_unavailable", "invalid_provider_response"}
+            else provider_status or "unknown"
+        ),
+        "provider": provider,
+        "provider_result_status": provider_status,
+        "core_id": CORE_ID,
+        "network_called": True,
+        "attempts": result.get("attempts"),
+        "note": (
+            "Health reflects only connectivity and response validity. "
+            "It does not authenticate model quality or change deterministic outputs."
+        ),
     }

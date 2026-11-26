@@ -107,11 +107,26 @@ _ENDPOINTS: dict[str, tuple[str, str]] = {
     "okx_funding": ("https://www.okx.com/api/v5/public/funding-rate", {"instId": "BTC-USDT-SWAP"}),
     "okx_oi": ("https://www.okx.com/api/v5/public/open-interest", {"instId": "BTC-USDT-SWAP"}),
     "okx_candles": ("https://www.okx.com/api/v5/market/candles", {"instId": "BTC-USDT", "bar": "1D", "limit": "20"}),
+    "okx_mark_price": ("https://www.okx.com/api/v5/public/mark-price", {"instId": "BTC-USDT-SWAP"}),
+    "okx_funding_history": ("https://www.okx.com/api/v5/public/funding-rate-history", {"instId": "BTC-USDT-SWAP", "limit": "20"}),
+    "okx_liquidations": ("https://www.okx.com/api/v5/public/liquidation-orders", {
+        "instType": "SWAP", "instFamily": "BTC-USDT", "state": "filled", "limit": "20",
+    }),
     "coinbase_spot": ("https://api.coinbase.com/v2/prices/BTC-USD/spot", {}),
     "coinbase_usdinr": ("https://api.coinbase.com/v2/exchange-rates", {"currency": "USD"}),
     "bybit_ticker": ("https://api.bybit.com/v5/market/tickers", {"category": "spot", "symbol": "BTCUSDT"}),
     "kraken_ticker": ("https://api.kraken.com/0/public/Ticker", {"pair": "XBTUSD"}),
     "deribit_index": ("https://www.deribit.com/api/v2/public/get_index_price", {"index_name": "btc_usd"}),
+    "deribit_options": ("https://www.deribit.com/api/v2/public/get_instruments", {
+        "currency": "BTC", "kind": "option", "expired": "false",
+    }),
+    "deribit_dvol": ("https://www.deribit.com/api/v2/public/get_volatility_index_data", {
+        "currency": "BTC", "resolution": "1D", "start_timestamp": "1795000000000",
+        "end_timestamp": "1795700000000",
+    }),
+    "deribit_perp": ("https://www.deribit.com/api/v2/public/ticker", {
+        "instrument_name": "BTC-PERPETUAL",
+    }),
     "fear_greed": ("https://api.alternative.me/fng/", {"limit": "1"}),
     "paxg_spot": ("https://api.coingecko.com/api/v3/simple/price", {
         "ids": "pax-gold", "vs_currencies": "usd", "include_last_updated_at": "true",
@@ -485,3 +500,267 @@ def capabilities_manifest() -> dict[str, Any]:
         ),
         "execution": {"broker_execution": False, "real_money": False},
     }
+
+
+# ---------------------------------------------------------------------------
+# EXTENSION: additional verified public research observations.
+# Every function below uses the existing `_fetch` (and therefore the shared
+# policy limiter), returns typed JSON-safe data, and never invents values.
+# ---------------------------------------------------------------------------
+
+def _as_epoch_ms(value: Any, fallback: datetime) -> datetime:
+    try:
+        return datetime.fromtimestamp(int(value) / 1000, tz=timezone.utc)
+    except (TypeError, ValueError, OverflowError):
+        return fallback
+
+
+def okx_mark_price(symbol: str = "BTC-USDT-SWAP") -> dict[str, Any]:
+    """OKX public mark price — a reference value, not an executable quote."""
+    try:
+        row = ((_fetch("okx_mark_price").get("data") or [{}])[0])
+        price = _finite(row.get("markPx"))
+        if price is None:
+            raise ProviderError("okx-public returned no usable mark price")
+        now = datetime.now(timezone.utc)
+        return {
+            "source": "okx-public", "symbol": symbol, "mark_price": price,
+            "event_time": _as_epoch_ms(row.get("ts"), now).isoformat(),
+            "retrieved_at": now.isoformat(), "status": "historical",
+            "status_label": "HISTORICAL",
+            "note": "Mark price is a reference value; not an executable quote.",
+        }
+    except ProviderError as exc:
+        return {"source": "okx-public", "symbol": symbol, "status": "unavailable",
+                "status_label": "UNAVAILABLE", "reason": str(exc),
+                "retrieved_at": datetime.now(timezone.utc).isoformat()}
+
+
+def okx_funding_history(symbol: str = "BTC-USDT-SWAP") -> dict[str, Any]:
+    """Current-period funding-rate history from OKX public REST."""
+    try:
+        rows = _fetch("okx_funding_history").get("data") or []
+        observations = []
+        for row in rows:
+            try:
+                rate = float(row.get("fundingRate"))
+                if not math.isfinite(rate):
+                    continue
+            except (TypeError, ValueError):
+                continue
+            observations.append({
+                "symbol": row.get("instId", symbol),
+                "funding_rate": rate,
+                "funding_time": _as_epoch_ms(
+                    row.get("fundingTime"), datetime.now(timezone.utc)
+                ).isoformat(),
+                "method": row.get("method"),
+            })
+        if not observations:
+            raise ProviderError("okx-public returned no usable funding history")
+        return {
+            "source": "okx-public", "symbol": symbol, "observations": observations,
+            "count": len(observations), "status": "historical",
+            "status_label": "HISTORICAL",
+            "retrieved_at": datetime.now(timezone.utc).isoformat(),
+            "note": "Funding rate is a derivation from the venue, not a price prediction.",
+        }
+    except ProviderError as exc:
+        return {"source": "okx-public", "symbol": symbol, "status": "unavailable",
+                "status_label": "UNAVAILABLE", "reason": str(exc),
+                "retrieved_at": datetime.now(timezone.utc).isoformat()}
+
+
+def okx_liquidations(inst_family: str = "BTC-USDT") -> dict[str, Any]:
+    """Recent filled liquidation orders from OKX public REST."""
+    try:
+        rows = _fetch("okx_liquidations").get("data") or []
+        events = []
+        for row in rows:
+            for detail in row.get("details") or []:
+                price = _finite(detail.get("bkPx"))
+                size = _finite(detail.get("sz"))
+                if price is None or size is None:
+                    continue
+                events.append({
+                    "symbol": row.get("instId", inst_family),
+                    "side": detail.get("posSide"),
+                    "price": price, "size": size,
+                    "notional": round(price * size, 6),
+                    "event_time": _as_epoch_ms(
+                        detail.get("ts"), datetime.now(timezone.utc)
+                    ).isoformat(),
+                })
+        return {
+            "source": "okx-public", "inst_family": inst_family,
+            "events": events[:100], "count": len(events),
+            "status": "historical", "status_label": "HISTORICAL",
+            "retrieved_at": datetime.now(timezone.utc).isoformat(),
+            "note": "Public liquidation feed; not all venue liquidations may be reported.",
+        }
+    except ProviderError as exc:
+        return {"source": "okx-public", "inst_family": inst_family,
+                "status": "unavailable", "status_label": "UNAVAILABLE",
+                "reason": str(exc), "retrieved_at": datetime.now(timezone.utc).isoformat()}
+
+
+def okx_candles(limit: int = 20) -> dict[str, Any]:
+    """Daily OHLC candles from OKX public REST; explicit interval label."""
+    if not 1 <= limit <= 100:
+        raise ValueError("limit must be between 1 and 100")
+    try:
+        rows = _fetch("okx_candles").get("data") or []
+        candles = []
+        for row in rows[:limit]:
+            if not isinstance(row, list) or len(row) < 6:
+                continue
+            bar = []
+            for value in row[:6]:
+                try:
+                    number = float(value)
+                except (TypeError, ValueError):
+                    bar = []
+                    break
+                if not math.isfinite(number):
+                    bar = []
+                    break
+                bar.append(number)
+            if not bar:
+                continue
+            candles.append({
+                "timestamp": datetime.fromtimestamp(bar[0] / 1000, tz=timezone.utc).isoformat(),
+                "open": bar[1], "high": bar[2], "low": bar[3], "close": bar[4],
+                "volume": bar[5],
+            })
+        if not candles:
+            raise ProviderError("okx-public returned no usable candles")
+        return {
+            "source": "okx-public", "symbol": "BTC-USDT", "interval": "1d",
+            "observed_interval": "1D", "candles": candles, "count": len(candles),
+            "status": "historical", "status_label": "HISTORICAL",
+            "retrieved_at": datetime.now(timezone.utc).isoformat(),
+            "note": "Requested 1D candles; interval is provider-supplied, not resampled here.",
+        }
+    except ProviderError as exc:
+        return {"source": "okx-public", "symbol": "BTC-USDT", "status": "unavailable",
+                "status_label": "UNAVAILABLE", "reason": str(exc),
+                "retrieved_at": datetime.now(timezone.utc).isoformat()}
+
+
+def deribit_options_summary(limit: int = 20) -> dict[str, Any]:
+    """Options instrument metadata from Deribit public API (not a chain quote)."""
+    if not 1 <= limit <= 100:
+        raise ValueError("limit must be between 1 and 100")
+    try:
+        rows = _fetch("deribit_options").get("result") or []
+        instruments = [{
+            "instrument_name": row.get("instrument_name"),
+            "kind": row.get("kind"),
+            "strike": row.get("strike"),
+            "option_type": row.get("option_type"),
+            "expiry_timestamp": (
+                datetime.fromtimestamp(row["expiration_timestamp"] / 1000, tz=timezone.utc).isoformat()
+                if row.get("expiration_timestamp") else None
+            ),
+        } for row in rows[:limit] if isinstance(row, dict)]
+        return {
+            "source": "deribit-public", "instruments": instruments,
+            "count": len(instruments), "status": "historical",
+            "status_label": "HISTORICAL",
+            "retrieved_at": datetime.now(timezone.utc).isoformat(),
+            "note": "Instrument metadata only; no implied volatility or bid/ask is claimed.",
+        }
+    except (ProviderError, ValueError, TypeError, OverflowError) as exc:
+        return {"source": "deribit-public", "status": "unavailable",
+                "status_label": "UNAVAILABLE", "reason": str(exc),
+                "retrieved_at": datetime.now(timezone.utc).isoformat()}
+
+
+def deribit_volatility_index() -> dict[str, Any]:
+    """Deribit BTC DVOL index observations from the public API."""
+    try:
+        result = _fetch("deribit_dvol").get("result") or {}
+        rows = result.get("data") or []
+        observations = []
+        for row in rows[:100]:
+            if not isinstance(row, list) or len(row) < 5:
+                continue
+            try:
+                values = [float(value) for value in row[:5]]
+            except (TypeError, ValueError):
+                continue
+            if not all(math.isfinite(value) for value in values):
+                continue
+            observations.append({
+                "timestamp": datetime.fromtimestamp(values[0] / 1000, tz=timezone.utc).isoformat(),
+                "open": values[1], "high": values[2], "low": values[3], "close": values[4],
+            })
+        return {
+            "source": "deribit-public", "index": "BTC DVOL",
+            "observations": observations, "count": len(observations),
+            "status": "historical", "status_label": "HISTORICAL",
+            "retrieved_at": datetime.now(timezone.utc).isoformat(),
+            "note": "Published volatility index, not a model-derived implied vol.",
+        }
+    except (ProviderError, ValueError, TypeError, OverflowError) as exc:
+        return {"source": "deribit-public", "status": "unavailable",
+                "status_label": "UNAVAILABLE", "reason": str(exc),
+                "retrieved_at": datetime.now(timezone.utc).isoformat()}
+
+
+def deribit_perpetual_summary() -> dict[str, Any]:
+    """BTC-PERPETUAL public ticker summary from Deribit."""
+    try:
+        result = _fetch("deribit_perp").get("result") or {}
+        last = _finite(result.get("last_price"))
+        if last is None:
+            raise ProviderError("deribit-public returned no perpetual last price")
+        stats = result.get("stats") or {}
+        return {
+            "source": "deribit-public", "instrument": "BTC-PERPETUAL",
+            "last": last,
+            "price_change": stats.get("price_change"),
+            "volume": stats.get("volume"),
+            "event_time": (
+                datetime.fromtimestamp(result["timestamp"] / 1000, tz=timezone.utc).isoformat()
+                if result.get("timestamp") else None
+            ),
+            "retrieved_at": datetime.now(timezone.utc).isoformat(),
+            "status": "historical", "status_label": "HISTORICAL",
+            "note": "Perpetual ticker summary, not an executable quote.",
+        }
+    except (ProviderError, ValueError, TypeError, OverflowError) as exc:
+        return {"source": "deribit-public", "status": "unavailable",
+                "status_label": "UNAVAILABLE", "reason": str(exc),
+                "retrieved_at": datetime.now(timezone.utc).isoformat()}
+
+
+def coinbase_usd_inr_reference() -> dict[str, Any]:
+    """Coinbase USD/INR reference rate — explicitly NOT an executable FX quote."""
+    try:
+        rates = (_fetch("coinbase_usdinr").get("data") or {}).get("rates") or {}
+        rate = _finite(rates.get("INR"))
+        if rate is None:
+            raise ProviderError("coinbase-public returned no USD/INR reference rate")
+        return {
+            "source": "coinbase-public", "pair": "USD/INR", "rate_type": "reference",
+            "rate": rate,
+            "retrieved_at": datetime.now(timezone.utc).isoformat(),
+            "status": "reference", "status_label": "REFERENCE",
+            "note": "Informational reference rate only; not an executable forex quote.",
+        }
+    except ProviderError as exc:
+        return {"source": "coinbase-public", "pair": "USD/INR", "status": "unavailable",
+                "status_label": "UNAVAILABLE", "reason": str(exc),
+                "retrieved_at": datetime.now(timezone.utc).isoformat()}
+
+
+UNAVAILABLE_EXCHANGE_ENDPOINTS = {
+    "okx_taker_volume": "endpoint returned HTTP 404 during verification",
+    "okx_global_long_short_ratio": "endpoint returned HTTP 404 during verification",
+}
+
+# Register every declared policy at import time. This makes all research
+# functions safe to call directly (not only through the API layer), while the
+# limiter itself remains the single source of pacing/caching enforcement.
+register_policies()

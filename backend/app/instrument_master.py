@@ -45,6 +45,15 @@ def _connect():
             UNIQUE(instrument_id, provider, venue, identifier_type)
         )
     """)
+    # Backward-compatible extension: distinguish spot, derivative and
+    # tokenized instruments. Existing databases gain a nullable column.
+    master_columns = {
+        row["name"] for row in connection.execute("PRAGMA table_info(instrument_master)")
+    }
+    if "contract_class" not in master_columns:
+        connection.execute(
+            "ALTER TABLE instrument_master ADD COLUMN contract_class TEXT DEFAULT 'reference'"
+        )
     connection.execute("CREATE INDEX IF NOT EXISTS idx_instrument_master_symbol ON instrument_master(symbol)")
     connection.execute("CREATE INDEX IF NOT EXISTS idx_instrument_master_group ON instrument_master(market_group, market)")
     connection.execute("PRAGMA foreign_keys=ON")
@@ -58,16 +67,18 @@ def sync_reference_catalogue():
             connection.execute("""
                 INSERT INTO instrument_master (
                     instrument_id, symbol, name, market, market_group,
-                    instrument_type, venue, currency, metadata_status
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'reference_only')
+                    instrument_type, venue, currency, contract_class, metadata_status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'reference_only')
                 ON CONFLICT(instrument_id) DO UPDATE SET
                     symbol=excluded.symbol, name=excluded.name, market=excluded.market,
                     market_group=excluded.market_group, instrument_type=excluded.instrument_type,
                     venue=excluded.venue, currency=excluded.currency,
+                    contract_class=excluded.contract_class,
                     updated_at=CURRENT_TIMESTAMP
             """, (
                 item["instrument_id"], item["symbol"], item["name"], item["market"],
                 item["market_group"], item["instrument_type"], item["venue"], item["currency"],
+                item.get("contract_class", "reference"),
             ))
     return {"seeded_reference_count": len(INSTRUMENTS), "status": "reference_only"}
 
@@ -92,7 +103,8 @@ def search_instrument_master(query="", market_group=None, market=None, limit=50)
     where = " WHERE " + " AND ".join(clauses) if clauses else ""
     with _connect() as connection:
         rows = connection.execute(
-            "SELECT instrument_id, symbol, name, market, market_group, instrument_type, venue, currency, metadata_status "
+            "SELECT instrument_id, symbol, name, market, market_group, instrument_type, "
+            "venue, currency, contract_class, metadata_status "
             "FROM instrument_master" + where + " ORDER BY market_group, market, symbol LIMIT ?",
             (*params, int(limit)),
         ).fetchall()

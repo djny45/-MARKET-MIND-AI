@@ -191,64 +191,6 @@ def build_visual_trade_dots(events, *, limit=200):
         ),
     }
 
-    if not isinstance(bucket_seconds, int) or isinstance(bucket_seconds, bool) or not 1 <= bucket_seconds <= 86400:
-        raise ValueError("bucket_seconds must be between 1 and 86400")
-    if not isinstance(events, list):
-        raise ValueError("events must be a list")
-    buckets = {}
-    for event in events:
-        if event.get("event_type") != "trade":
-            continue
-        payload = event.get("payload") or {}
-        quantity = float(payload.get("quantity"))
-        if not math.isfinite(quantity) or quantity <= 0:
-            raise ValueError("trade quantity must be finite and positive")
-        side = payload.get("side", "unknown")
-        if side not in {"buy", "sell", "unknown"}:
-            side = "unknown"
-        start_epoch = math.floor(_epoch(event["event_time"]) / bucket_seconds) * bucket_seconds
-        bucket = buckets.setdefault(start_epoch, {
-            "trade_count": 0, "total_volume": 0.0, "buy_volume": 0.0,
-            "sell_volume": 0.0, "unknown_volume": 0.0,
-        })
-        bucket["trade_count"] += 1
-        bucket["total_volume"] += quantity
-        bucket[f"{side}_volume"] += quantity
-
-    ordered = []
-    cumulative = 0.0
-    all_classified = all(bucket["unknown_volume"] == 0 for bucket in buckets.values())
-    for start_epoch, bucket in sorted(buckets.items()):
-        known_volume = bucket["buy_volume"] + bucket["sell_volume"]
-        delta = bucket["buy_volume"] - bucket["sell_volume"]
-        coverage = known_volume / bucket["total_volume"] if bucket["total_volume"] else 0.0
-        if all_classified:
-            cumulative += delta
-        ordered.append({
-            "bucket_start": datetime.fromtimestamp(start_epoch, timezone.utc).isoformat(),
-            **{key: round(value, 10) for key, value in bucket.items()},
-            "known_side_volume": round(known_volume, 10),
-            "side_classification_coverage": round(coverage, 6),
-            "known_side_delta": round(delta, 10),
-            "cumulative_volume_delta": round(cumulative, 10) if all_classified else None,
-            "cvd_status": "complete" if all_classified else "unavailable_incomplete_side_classification",
-        })
-
-    sampled = len(events)
-    matched = sampled if total_matching is None else total_matching
-    truncated = limit is not None and matched > sampled
-    return {
-        "bucket_seconds": bucket_seconds,
-        "bucket_count": len(ordered),
-        "trade_events_sampled": sampled,
-        "trade_events_matching": matched,
-        "truncated": truncated,
-        "buckets": ordered,
-        "side_classification": "complete" if all_classified else "partial_or_unknown",
-        "cvd_available": all_classified and bool(ordered),
-        "data_note": "Aggregates imported historical trade events only. Buy/sell side semantics are supplied by the importer; unknown side volume is never imputed. CVD is withheld for the sample if any trade has unknown side.",
-    }
-
 
 def build_trade_flow_buckets(events, bucket_seconds=60, total_matching=None, limit=None):
     """Time-bucketed buy/sell volume and CVD from imported trade events only."""
@@ -308,4 +250,114 @@ def build_trade_flow_buckets(events, bucket_seconds=60, total_matching=None, lim
         "side_classification": "complete" if all_classified else "partial_or_unknown",
         "cvd_available": all_classified and bool(ordered),
         "data_note": "Aggregates imported historical trade events only. Buy/sell side semantics are supplied by the importer; unknown side volume is never imputed. CVD is withheld for the sample if any trade has unknown side.",
+    }
+
+
+def build_taker_volume_summary(events, *, limit=1000):
+    """Taker buy/sell volume from stored trade events where the side is known.
+
+    This is a derivation over supplied events, not an exchange taker-volume
+    feed. Unknown sides are excluded and reported, never imputed.
+    """
+    if not isinstance(events, list):
+        raise ValueError("events must be a list")
+    buy = sell = 0.0
+    buy_count = sell_count = unknown = excluded = 0
+    for event in events[:max(1, min(int(limit), 5000))]:
+        if event.get("event_type") != "trade":
+            continue
+        payload = event.get("payload") or {}
+        price = _finite_positive(payload.get("price"))
+        quantity = _finite_positive(payload.get("quantity"))
+        if price is None or quantity is None:
+            excluded += 1
+            continue
+        notional = price * quantity
+        side = payload.get("side", "unknown")
+        if side == "buy":
+            buy += notional
+            buy_count += 1
+        elif side == "sell":
+            sell += notional
+            sell_count += 1
+        else:
+            unknown += 1
+    total = buy + sell
+    return {
+        "source": "existing_trade_event_store",
+        "taker_buy_notional": round(buy, 6), "taker_sell_notional": round(sell, 6),
+        "taker_buy_count": buy_count, "taker_sell_count": sell_count,
+        "unknown_side_count": unknown, "excluded_events": excluded,
+        "taker_buy_share": round(buy / total, 6) if total else None,
+        "taker_delta": round(buy - sell, 6),
+        "data_note": (
+            "Derived from stored trade events with known side. Not an exchange "
+            "taker-volume feed; no side is inferred from price movement."
+        ),
+    }
+
+
+def build_long_short_ratio(events, *, limit=1000):
+    """Long/short ratio from stored position-ratio observations, if supplied.
+
+    No ratio is inferred from trades or prices. If the store carries no such
+    observation, availability is explicitly unavailable.
+    """
+    if not isinstance(events, list):
+        raise ValueError("events must be a list")
+    rows = []
+    for event in events[:max(1, min(int(limit), 5000))]:
+        payload = event.get("payload") or {}
+        long_value = _finite_positive(payload.get("long_ratio") or payload.get("long_account"))
+        short_value = _finite_positive(payload.get("short_ratio") or payload.get("short_account"))
+        if long_value is None or short_value is None or short_value == 0:
+            continue
+        rows.append({
+            "event_time": event.get("event_time"),
+            "provider": event.get("provider"), "venue": event.get("venue"),
+            "ratio": round(long_value / short_value, 6),
+        })
+    return {
+        "source": "existing_market_event_store",
+        "available": bool(rows), "observations": rows[:100], "count": len(rows),
+        "data_note": (
+            "Only observations explicitly imported from a provider are used. "
+            "No long/short ratio is inferred from trades or price action."
+        ),
+    }
+
+
+def build_basis_summary(funding_events, spot_events, *, limit=500):
+    """Spot-versus-perpetual basis from separately supplied stored series.
+
+    Requires a mark/perp price and a spot price at the same event time. Missing
+    or unaligned observations are reported, never interpolated.
+    """
+    if not isinstance(funding_events, list) or not isinstance(spot_events, list):
+        raise ValueError("both inputs must be lists")
+    spot_by_time = {}
+    for event in spot_events[:max(1, min(int(limit), 5000))]:
+        price = _finite_positive((event.get("payload") or {}).get("price"))
+        if price is not None and event.get("event_time"):
+            spot_by_time[event["event_time"]] = price
+    rows = []
+    for event in funding_events[:max(1, min(int(limit), 5000))]:
+        payload = event.get("payload") or {}
+        mark = _finite_positive(payload.get("mark_price") or payload.get("price"))
+        spot = spot_by_time.get(event.get("event_time"))
+        if mark is None or spot is None or spot == 0:
+            continue
+        basis = mark - spot
+        rows.append({
+            "event_time": event["event_time"], "mark_price": mark,
+            "spot_price": spot, "basis": round(basis, 6),
+            "basis_bps": round(basis / spot * 10000, 4),
+        })
+    return {
+        "source": "existing_market_event_store",
+        "available": bool(rows), "observations": rows[:100], "count": len(rows),
+        "data_note": (
+            "Basis requires time-aligned spot and mark prices from supplied "
+            "events. No price is interpolated and no unaligned pair is used."
+        ),
     }

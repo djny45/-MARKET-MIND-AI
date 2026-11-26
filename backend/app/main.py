@@ -1416,6 +1416,108 @@ def intelligence_research_finding(request: dict[str, Any]):
   raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+@app.get("/api/intelligence/relay/manifest")
+def exchange_relay_manifest():
+ """Declare the fixed-allowlist OKX relay boundary."""
+ from .exchange_relay import manifest
+
+ return manifest()
+
+
+@app.get("/api/intelligence/relay/okx")
+def exchange_relay_okx(request: Request, _principal: Any = Depends(require_user_role("analyst"))):
+ """Same-origin relay for fixed, allowlisted OKX public paths only."""
+ from .exchange_relay import RelayPolicyError, relay, validate_relay_request
+
+ path = request.query_params.get("path", "")
+ params = {key: value for key, value in request.query_params.items() if key != "path"}
+ try:
+  validate_relay_request(path, params)
+  return relay(path, params)
+ except RelayPolicyError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/intelligence/okx/market-structure")
+def okx_market_structure():
+ """Verified OKX public microstructure observations (all HISTORICAL)."""
+ from .exchange_intelligence import (
+  okx_candles, okx_funding_history, okx_liquidations, okx_mark_price,
+  UNAVAILABLE_EXCHANGE_ENDPOINTS,
+ )
+
+ return {
+  "mark_price": okx_mark_price(), "funding_history": okx_funding_history(),
+  "liquidations": okx_liquidations(), "candles": okx_candles(),
+  "unavailable_endpoints": UNAVAILABLE_EXCHANGE_ENDPOINTS,
+  "note": "Public REST snapshots only. No live claim, no fabricated values.",
+  "execution": {"broker_execution": False, "real_money": False},
+ }
+
+
+@app.get("/api/intelligence/deribit/options")
+def deribit_options_research():
+ """Deribit public options metadata, DVOL index and perpetual summary."""
+ from .exchange_intelligence import (
+  deribit_options_summary, deribit_perpetual_summary, deribit_volatility_index,
+ )
+
+ return {
+  "options": deribit_options_summary(),
+  "dvol": deribit_volatility_index(),
+  "perpetual": deribit_perpetual_summary(),
+  "note": "Instrument metadata and published indices only; no IV surface is invented.",
+  "execution": {"broker_execution": False, "real_money": False},
+ }
+
+
+@app.get("/api/intelligence/fx/reference")
+def fx_reference_rate():
+ """Coinbase USD/INR reference rate; explicitly not an executable FX quote."""
+ from .exchange_intelligence import coinbase_usd_inr_reference
+
+ return coinbase_usd_inr_reference()
+
+
+@app.get("/api/intelligence/order-book/replay")
+def order_book_replay(instrument_id: str | None = None,
+                       event_type: str | None = None, depth_bps: float = 100.0,
+                       limit: int = 500):
+ """Deterministically replay stored book snapshots/deltas.
+
+ Uses the existing ``order_book_research.reconstruct_order_book`` library and
+ the existing event store. Sequence gaps are reported, never silently repaired.
+ """
+ from .order_book_research import reconstruct_order_book
+
+ if not 1 <= limit <= 5000:
+  raise HTTPException(status_code=400, detail="limit must be between 1 and 5000")
+ if depth_bps <= 0 or depth_bps > 10000:
+  raise HTTPException(status_code=400, detail="depth_bps must be greater than 0 and at most 10000")
+ try:
+  stored = query_market_events(instrument_id=instrument_id, limit=limit)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+ except Exception as exc:  # noqa: BLE001
+  raise HTTPException(status_code=503, detail=f"event store unavailable: {exc}") from exc
+ events = stored.get("events", stored) if isinstance(stored, dict) else stored
+ if event_type:
+  events = [row for row in events if row.get("event_type") == event_type]
+ try:
+  result = reconstruct_order_book(events, depth_bps=depth_bps)
+ except (ValueError, TypeError) as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+ # The library already computes metrics and returns explicit bids/asks.
+ return {
+  "source": "existing_market_event_store", "replay": result,
+  "data_note": (
+   "Replay is deterministic over supplied records. A sequence gap invalidates "
+   "the book until a fresh snapshot arrives; no missing level is inferred."
+  ),
+  "execution": {"broker_execution": False, "real_money": False},
+ }
+
+
 @app.get("/api/intelligence/board")
 def intelligence_board():
  """One board payload combining the existing exchange intelligence outputs."""
@@ -2305,6 +2407,14 @@ def intelligence_core():
   return intelligence_core_status()
  except IntelligenceCoreError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/intelligence-core/health")
+def intelligence_core_health():
+ """Bounded active provider health check; safe in offline/deterministic mode."""
+ from .intelligence_core import check_provider_health
+
+ return check_provider_health()
 
 
 

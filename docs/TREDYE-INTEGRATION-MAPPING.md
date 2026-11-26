@@ -152,3 +152,43 @@ green again, and one batched request still serves all crypto symbols.
 - Frontend `npm test`: 10 passed.
 - `npm run typecheck:test`: clean.
 - `npm run build`: production bundle created.
+
+---
+
+## Master execution pass — gaps completed (verified)
+
+After the duplication audit, nine genuine gaps were completed by extending
+existing modules only (checklist: `TREDYE-MASTER-EXECUTION-CHECKLIST.md`):
+
+1. **Instrument registry extended** — `instruments.py` now carries the seven
+   canonical USDT derivative/tokenized-gold contracts with explicit
+   `contract_class` semantics; `instrument_master.py` gained a backward-compatible
+   `contract_class` column and persists it. Spot, perpetual swaps, commodity
+   swaps and tokenized gold are never interchangeable.
+2. **Provider research extended** — `exchange_intelligence.py` now exposes OKX
+   mark price, funding history, liquidations and daily candles; Deribit options
+   metadata, DVOL and perpetual summary; Coinbase USD/INR reference rate. All
+   verified live with real responses. OKX taker-volume and global long/short
+   endpoints returned HTTP 404 and are explicitly recorded as unavailable.
+3. **Order-book replay connected** — the existing `order_book_research.py` is
+   now reachable via `GET /api/intelligence/order-book/replay`, preserving
+   sequence-gap invalidation and returning only deterministic results.
+4. **Flow analytics extended** — `trade_flow.py` gained taker-volume,
+   long/short-ratio and time-aligned basis derivations over stored events only.
+5. **Event quality extended** — `market_event_quality.py` gained missing-field
+   and status-aware stale-event diagnostics; no event is repaired.
+6. **Fixed OKX relay** — `exchange_relay.py` is an allowlist-only, fixed-path
+   same-origin relay (no caller URLs, no credentials, no Tredye endpoints),
+   modelled on the existing `browser_research.py` SSRF policy.
+7. **LLM reliability extended** — `intelligence_core.py` now has bounded retry
+   for transient errors and an active `check_provider_health()` exposed via
+   `/api/intelligence-core/health`; offline deterministic mode is unaffected.
+8. **Frontend research views** — `ResearchViews.tsx` adds seven view tabs inside
+   the existing terminal, calling existing backend APIs; no second terminal,
+   chart engine or analytics system.
+9. **Dead code removed** — an unreachable duplicate bucket body in
+   `trade_flow.py` was deleted without changing behavior.
+
+Browser evidence: `docs/external-evidence/screenshots/research-views-options.png`,
+`four-market-master-execution-full.png`, `research-views-evidence.json`
+(7 tabs, real Deribit options payload, 0 console errors).

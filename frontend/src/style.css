@@ -480,3 +480,18 @@ body{min-width:0}
 /* Descriptive volume/volatility strip for the existing chart panel */
 .chart-analytics{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;padding:8px 11px;border:1px solid #26323c;border-radius:5px;background:#0f171e;font:9px 'DM Mono';letter-spacing:.4px;color:#9aa7b3}
 .chart-analytics small{color:#7f8c98;font-size:8px}
+
+/* Market-structure research views (inside the existing terminal) */
+.research-views{flex:none;margin:0 clamp(16px,2.6vw,30px) 30px;padding:14px 16px;border:1px solid #27323c;border-radius:7px;background:#111920;display:grid;gap:12px;color:#cbd6e0}
+.research-views-head{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px}
+.research-views-head>b{font:10px 'DM Mono';letter-spacing:.8px;color:#e3b56b}
+.research-view-tabs{display:flex;flex-wrap:wrap;gap:6px}
+.research-view-tabs button{background:#0d141a;border:1px solid #2c3945;border-radius:4px;color:#8d9aa6;font:9px 'DM Mono';letter-spacing:.4px;padding:6px 8px;cursor:pointer}
+.research-view-tabs button.active{color:#e3b56b;border-color:#9d793e;background:#1a1710}
+.research-view-controls{display:flex;flex-wrap:wrap;gap:10px}
+.research-view-controls label{font:9px 'DM Mono';color:#8593a0;display:grid;gap:4px}
+.research-view-controls input{background:#0d141a;border:1px solid #2c3945;border-radius:4px;padding:6px 8px;color:#dbe4ec;font:10px 'DM Mono'}
+.research-view-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.research-view-actions small{font-size:9px;color:#7f8c98}
+.research-view-result pre{margin:0;max-height:340px;overflow:auto;background:#0d141a;border:1px solid #26323c;border-radius:5px;padding:10px;color:#9fb0be;font:9px/1.5 'DM Mono';white-space:pre-wrap}
+.research-view-result .research-note{margin:0;line-height:1.6}

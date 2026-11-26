@@ -93,3 +93,106 @@ def diagnose_market_events(events):
             "Only the queried event sample is inspected; pagination or a larger limit may be needed for full-history review."
         ]
     }
+
+
+# EXTENSION: field and freshness diagnostics for microstructure events.
+# These report anomalies only; they never repair, drop or synthesize records.
+
+REQUIRED_EVENT_FIELDS = (
+    "event_id", "instrument_id", "event_type", "provider", "venue",
+    "event_time", "received_at", "status", "payload",
+)
+
+PAYLOAD_REQUIREMENTS = {
+    "trade": ("price", "quantity"),
+    "quote": ("bid_price", "ask_price"),
+    "order_book_snapshot": ("bids", "asks"),
+    "order_book_delta": ("previous_sequence_number", "bids", "asks"),
+    "liquidation": ("price", "quantity", "side"),
+    "open_interest": ("value", "unit"),
+    "funding": ("rate", "interval", "settlement_currency"),
+    "fx_rate": ("rate", "base", "quote", "rate_type"),
+}
+
+# Descriptive staleness thresholds in seconds, matching the quote contract.
+EVENT_STALENESS_THRESHOLDS = {
+    "live": 60, "delayed": 900, "end_of_day": 86400,
+    "reference": 7 * 86400, "synthetic": 3600,
+}
+
+
+def diagnose_event_fields(events):
+    """Report missing or malformed required fields without modifying records."""
+    if not isinstance(events, list):
+        raise ValueError("events must be a list")
+    missing, malformed, unknown_types = [], [], []
+    for index, event in enumerate(events):
+        if not isinstance(event, dict):
+            malformed.append({"event_index": index, "reason": "not_an_object"})
+            continue
+        for field in REQUIRED_EVENT_FIELDS:
+            if field not in event or event[field] in (None, ""):
+                missing.append({"event_index": index, "field": field})
+        payload = event.get("payload")
+        if not isinstance(payload, dict):
+            malformed.append({"event_index": index, "field": "payload", "reason": "not_an_object"})
+            continue
+        kind = event.get("event_type")
+        if kind not in PAYLOAD_REQUIREMENTS:
+            unknown_types.append({"event_index": index, "event_type": kind})
+            continue
+        for field in PAYLOAD_REQUIREMENTS[kind]:
+            if field not in payload or payload[field] in (None, ""):
+                missing.append({
+                    "event_index": index, "field": f"payload.{field}",
+                    "event_type": kind,
+                })
+    return {
+        "events_inspected": len(events),
+        "missing_field_count": len(missing),
+        "malformed_count": len(malformed),
+        "unknown_event_type_count": len(unknown_types),
+        "missing_fields": missing[:200],
+        "malformed": malformed[:200],
+        "unknown_event_types": unknown_types[:200],
+        "data_note": "Reports supplied fields only; no field is inferred or filled.",
+    }
+
+
+def diagnose_event_staleness(events, now=None):
+    """Report events whose age exceeds the threshold for their status label."""
+    if not isinstance(events, list):
+        raise ValueError("events must be a list")
+    reference = datetime.now(tz=now.tzinfo) if now and now.tzinfo else datetime.now()
+    reference_epoch = reference.timestamp()
+    stale, unlabelled, fresh = [], [], 0
+    for index, event in enumerate(events):
+        if not isinstance(event, dict):
+            continue
+        status = str(event.get("status") or "").lower()
+        threshold = EVENT_STALENESS_THRESHOLDS.get(status)
+        if threshold is None:
+            unlabelled.append({"event_index": index, "status": status or None})
+            continue
+        event_epoch = _instant(event.get("event_time"))
+        if event_epoch is None:
+            unlabelled.append({"event_index": index, "status": status, "reason": "invalid_event_time"})
+            continue
+        age = max(0, int(reference_epoch - event_epoch))
+        if age > threshold:
+            stale.append({
+                "event_index": index, "status": status,
+                "age_seconds": age, "max_age_seconds": threshold,
+                "event_time": event.get("event_time"),
+            })
+        else:
+            fresh += 1
+    return {
+        "events_inspected": len(events), "fresh_count": fresh,
+        "stale_count": len(stale), "unlabelled_count": len(unlabelled),
+        "stale": stale[:200], "unlabelled": unlabelled[:200],
+        "data_note": (
+            "Staleness is descriptive against the status threshold. It does "
+            "not authenticate a provider or change the event status."
+        ),
+    }

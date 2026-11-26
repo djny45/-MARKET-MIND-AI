@@ -13,6 +13,7 @@ import CoverageTools from './CoverageTools'
 import FourMarketTerminal from './FourMarketTerminal'
 import FourMarketChart from './FourMarketChart'
 import IntelligencePanel from './IntelligencePanel'
+import ResearchViews from './ResearchViews'
 import { PortfolioAnalytics, RiskAnalytics, SystemHealthPanel, ProviderHealthPanel, AuditEventsPanel, BackupStatusPanel, SettingsPanel } from './OperationsPanels'
 import { formatSymbol } from './utils/market.mjs'
 import { apiFetch } from './apiClient'
@@ -585,7 +586,7 @@ export default function App() {
    <div className="sidebar-bottom"><ShieldCheck size={15}/><span>Governed research environment<small>Data provenance · audit trail</small></span></div>
    <AuthPanel api={API} onIdentity={setIdentity}/>
   </aside>
-  {activeTab==='MARKETS'?<section className="terminal-stack"><FourMarketTerminal api={API} onSelectSymbol={(symbol:string)=>{setResearchSymbol(symbol);setActiveTab('RESEARCH')}}/><FourMarketChart api={API}/><IntelligencePanel api={API}/></section>:opsPanel?<section className="overview-area">
+  {activeTab==='MARKETS'?<section className="terminal-stack"><FourMarketTerminal api={API} onSelectSymbol={(symbol:string)=>{setResearchSymbol(symbol);setActiveTab('RESEARCH')}}/><FourMarketChart api={API}/><IntelligencePanel api={API}/><ResearchViews api={API}/></section>:opsPanel?<section className="overview-area">
     <div className="overview-heading"><div><span className="eyebrow">MARKET-MIND-AI / OPERATIONS</span><h1>{activeTab.replace(/_/g,' ')}</h1><p>Live backend status. No synthetic or fabricated values are presented as market data.</p></div></div>
     <div className="coverage-main">{opsPanel}</div>
    </section>:activeTab==='SCREENER'||activeTab==='COVERAGE'?<section className="overview-area">

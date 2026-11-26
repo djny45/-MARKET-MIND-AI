@@ -71,3 +71,31 @@ No 550 new agents, no new skills, no second Zulip adapter, no broker or
 real-money execution. 16/16 = **100% of the defined daily-cycle scope**.
 Known external blockers: no real Zulip server configured (tests use mocks),
 no live licensed provider (all data correctly HISTORICAL/UNAVAILABLE).
+
+## Operational validation evidence (final)
+
+Run against a temporary shared SQLite DB; provider data real where permitted,
+Zulip mocked. Exact evidence: `docs/external-evidence/daily-ops-validation.json`.
+
+| Check | Actual result |
+| --- | --- |
+| Scheduler registered / persistent | `due_cycle()` called inside existing `run_supervisor` loop; state in `daily_cycle_schedule` table; `independent_daemon: false`; 2 polls produced 1 daily cycle |
+| End-to-end cycle | `daily-2026-11-26`, status `completed` |
+| Archive records | 5 (us, india, forex, crypto, gold), revision 1, append-only |
+| SHA-256 integrity | all 64-char hashes valid; parent chain field present |
+| Agent execution | 550 registered, 0 assigned, 0 executed, 0 completed, 0 failed, concurrency 4; 550 profiles ≠ 550 active models |
+| Observations | all five HISTORICAL with correct sources; `data_labels_verified: true` |
+| Missing provider | 4 markets UNAVAILABLE, cycle `partial`, archive still written |
+| Dashboard | `/api/daily/status`, `/api/daily/archive`, `/api/daily/schedule` all HTTP 200 |
+| Zulip | exactly 1 consolidated digest (`messages_sent: 1`); outage → `cycle_status: completed`, `notification: delivery_failed` |
+| Next cycle | `daily-2026-11-27`; missed-cycle recovery recorded in schedule state |
+
+Scheduler is now genuinely registered and persistent across restarts; the
+earlier manual-only state was corrected in this validation pass. Continuous
+operation is evidenced by the supervisor executing a real cycle, not merely by
+the presence of profiles.
+
+Known limitations: no real Zulip server configured (mock delivery only); no
+licensed live provider (all observations correctly HISTORICAL); no broker or
+wallet integration; task execution remains with the existing supervisor rather
+than being triggered by the daily cycle by default.

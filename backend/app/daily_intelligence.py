@@ -485,3 +485,160 @@ def previous_cycle_id(cycle_id_value: str, days: int = 1) -> str:
         tzinfo=timezone.utc
     )
     return cycle_id(date - timedelta(days=days))
+
+
+# ---------------------------------------------------------------------------
+# Persistent daily schedule state (in the EXISTING database, no new daemon).
+# The existing supervisor calls `due_cycle` once per poll; this makes the
+# schedule persistent across restarts and recovers cycles missed while offline.
+# ---------------------------------------------------------------------------
+
+SCHEDULE_SINGLETON = 1
+
+
+def _schedule_db():
+    path = Path(os.getenv("MARKET_MIND_DB", "./data/market_mind.db"))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    db = sqlite_tuning.connect(path, timeout=10)
+    db.row_factory = sqlite3.Row
+    db.execute("""
+        CREATE TABLE IF NOT EXISTS daily_cycle_schedule (
+            singleton_id INTEGER PRIMARY KEY CHECK(singleton_id = 1),
+            enabled INTEGER NOT NULL DEFAULT 1,
+            last_cycle_id TEXT,
+            last_completed_at TEXT,
+            next_cycle_id TEXT,
+            missed_cycles INTEGER NOT NULL DEFAULT 0,
+            updated_at TEXT NOT NULL
+        )
+    """)
+    db.execute(
+        "INSERT OR IGNORE INTO daily_cycle_schedule "
+        "(singleton_id, enabled, updated_at) VALUES (?, 1, ?)",
+        (SCHEDULE_SINGLETON, datetime.now(timezone.utc).isoformat()),
+    )
+    return db
+
+
+def schedule_status() -> dict[str, Any]:
+    """Report persistent schedule state; no secrets, no claims of execution."""
+    db = _schedule_db()
+    try:
+        row = db.execute(
+            "SELECT * FROM daily_cycle_schedule WHERE singleton_id=?",
+            (SCHEDULE_SINGLETON,),
+        ).fetchone()
+    finally:
+        db.close()
+    now = datetime.now(timezone.utc)
+    missed = 0
+    if row["last_cycle_id"]:
+        try:
+            last = datetime.strptime(
+                row["last_cycle_id"].replace("daily-", ""), "%Y-%m-%d"
+            ).replace(tzinfo=timezone.utc)
+            missed = max(0, (now.date() - last.date()).days - 1)
+        except ValueError:
+            missed = 0
+    return {
+        "enabled": bool(row["enabled"]),
+        "last_cycle_id": row["last_cycle_id"],
+        "last_completed_at": row["last_completed_at"],
+        "next_cycle_id": next_scheduled_cycle_id(row["last_cycle_id"]),
+        "missed_cycles_recovered": max(int(row["missed_cycles"]), missed),
+        "trigger": "existing_agent_supervisor_poll",
+        "independent_daemon": False,
+        "updated_at": row["updated_at"],
+    }
+
+
+def next_scheduled_cycle_id(last_cycle_id: str | None) -> str:
+    """Next UTC daily cycle id, derived from the last completed cycle."""
+    today = datetime.now(timezone.utc)
+    if not last_cycle_id:
+        return cycle_id(today)
+    try:
+        last = datetime.strptime(last_cycle_id.replace("daily-", ""), "%Y-%m-%d").replace(
+            tzinfo=timezone.utc
+        )
+    except ValueError:
+        return cycle_id(today)
+    candidate = last + timedelta(days=1)
+    if candidate.date() < today.date():
+        candidate = today
+    return cycle_id(candidate)
+
+
+def due_cycle(*, enqueue_tasks: bool = False, publish_zulip: bool = True) -> dict[str, Any]:
+    """Idempotent daily trigger called by the EXISTING supervisor loop.
+
+    Returns ``{"status": "skipped", ...}`` unless a new UTC cycle is due. A
+    cycle missed while the supervisor was offline is recovered once, recorded
+    as a missed cycle, and never duplicated.
+    """
+    db = _schedule_db()
+    try:
+        row = db.execute(
+            "SELECT * FROM daily_cycle_schedule WHERE singleton_id=?",
+            (SCHEDULE_SINGLETON,),
+        ).fetchone()
+        if not row["enabled"]:
+            return {"status": "disabled"}
+        target = next_scheduled_cycle_id(row["last_cycle_id"])
+        today = cycle_id(datetime.now(timezone.utc))
+        if target > today:
+            return {"status": "skipped", "reason": "not_due", "cycle_id": target}
+        if row["last_cycle_id"] == target:
+            return {"status": "skipped", "reason": "already_completed", "cycle_id": target}
+        now = datetime.now(timezone.utc).isoformat()
+        missed = 0
+        if row["last_cycle_id"]:
+            try:
+                last = datetime.strptime(
+                    row["last_cycle_id"].replace("daily-", ""), "%Y-%m-%d"
+                ).replace(tzinfo=timezone.utc)
+                missed = max(0, (datetime.now(timezone.utc).date() - last.date()).days - 1)
+            except ValueError:
+                missed = 0
+        # Claim the cycle BEFORE running it so concurrent supervisors cannot
+        # both execute the same day. Completion is marked only after success.
+        db.execute(
+            "UPDATE daily_cycle_schedule SET next_cycle_id=?, missed_cycles=?, updated_at=? "
+            "WHERE singleton_id=? AND enabled=1",
+            (target, missed, now, SCHEDULE_SINGLETON),
+        )
+        db.commit()
+    finally:
+        db.close()
+
+    result = run_daily_cycle(
+        date=target.replace("daily-", ""),
+        publish_zulip=publish_zulip, enqueue_tasks=enqueue_tasks,
+    )
+    if result.get("status") in {"completed", "partial"}:
+        db = _schedule_db()
+        try:
+            db.execute(
+                "UPDATE daily_cycle_schedule SET last_cycle_id=?, last_completed_at=?, "
+                "next_cycle_id=NULL, updated_at=? WHERE singleton_id=?",
+                (target, datetime.now(timezone.utc).isoformat(),
+                 datetime.now(timezone.utc).isoformat(), SCHEDULE_SINGLETON),
+            )
+            db.commit()
+        finally:
+            db.close()
+        result["scheduler_claimed"] = True
+    return result
+
+
+def set_schedule_enabled(enabled: bool) -> dict[str, Any]:
+    db = _schedule_db()
+    try:
+        db.execute(
+            "UPDATE daily_cycle_schedule SET enabled=?, updated_at=? WHERE singleton_id=?",
+            (int(bool(enabled)), datetime.now(timezone.utc).isoformat(), SCHEDULE_SINGLETON),
+        )
+        db.commit()
+    finally:
+        db.close()
+    return schedule_status()

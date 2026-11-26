@@ -1353,6 +1353,7 @@ def run_supervisor(
         }
 
     dispatch_results = []
+    daily_cycle_results = []
     cycles = 0
     while not stop_event.is_set() and (max_cycles is None or cycles < max_cycles):
         if not _renew_supervisor_lease(instance_id, lease_token, lease_seconds) or \
@@ -1365,6 +1366,23 @@ def run_supervisor(
                 "cycles": cycles,
                 "dispatch_results": dispatch_results,
             }
+        # OPTIONAL daily research cycle, triggered from this EXISTING loop.
+        # No second daemon, scheduler or polling thread is created. A provider
+        # or Zulip failure inside the cycle is contained by the cycle itself.
+        if os.getenv("MARKET_MIND_DAILY_CYCLE_ENABLED", "true").strip().lower() in {
+            "1", "true", "yes", "on"
+        }:
+            try:
+                from .daily_intelligence import due_cycle
+
+                daily = due_cycle(publish_zulip=True)
+                if daily.get("status") in {"completed", "partial", "duplicate_suppressed"}:
+                    daily_cycle_results.append({
+                        "cycle_id": daily.get("cycle_id"),
+                        "status": daily.get("status"),
+                    })
+            except Exception:  # noqa: BLE001 - research dispatch must continue
+                pass
         try:
             result = dispatch_queued_research_tasks(
                 limit=batch_size, max_concurrency=max_concurrency,
@@ -1392,6 +1410,7 @@ def run_supervisor(
         "recovery": recovery,
         "cycles": cycles,
         "dispatch_results": dispatch_results,
+        "daily_cycle_results": daily_cycle_results,
         "dispatch_mode": "persistent_sqlite_polling_supervisor",
         "queue_storage": "shared_sqlite_database",
     }

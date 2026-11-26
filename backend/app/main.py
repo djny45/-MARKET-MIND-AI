@@ -689,6 +689,22 @@ def backup_status(_principal: Any = Depends(require_user_role("admin"))):
   }
 
 
+@app.get("/api/daily/schedule")
+def daily_schedule(_principal: Any = Depends(require_user_role("operator"))):
+ """Persistent daily schedule state from the existing database."""
+ from .daily_intelligence import schedule_status
+
+ return schedule_status()
+
+
+@app.post("/api/daily/schedule/enable")
+def daily_schedule_enable(request: dict[str, Any],
+                          _principal: Any = Depends(require_user_role("operator"))):
+ from .daily_intelligence import set_schedule_enabled
+
+ return set_schedule_enabled(bool(request.get("enabled", True)))
+
+
 @app.get("/api/daily/status")
 def daily_cycle_status(_principal: Any = Depends(require_user_role("analyst"))):
  """Daily intelligence cycle status and archive summary."""

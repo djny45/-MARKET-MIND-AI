@@ -15,6 +15,7 @@ SOCIAL_RESEARCH_SKILL_ROOT = REPO_ROOT / ".agents" / "skills" / "social-research
 N8N_SKILL_ROOT = REPO_ROOT / ".agents" / "skills" / "n8n-workflow-check"
 AUTOHEDGE_SKILL_ROOT = REPO_ROOT / ".agents" / "skills"
 FREQTRADE_SKILL_ROOT = REPO_ROOT / ".agents" / "skills"
+TREDYE_SKILL_ROOT = REPO_ROOT / ".agents" / "skills" / "tredye-market-structure-research"
 
 SKILL_DESCRIPTIONS = {
     "trader-alerts": "Alert interpretation and notification research.",
@@ -73,6 +74,10 @@ AUTOHEDGE_SKILL_DESCRIPTIONS = {
 
 FREQTRADE_SKILL_DESCRIPTIONS = {
     "freqtrade-backtest-research": "Freqtrade-derived rigorous backtesting methodology: lookahead/recursive checks, fees, walk-forward tuning and reproducibility; paper research only.",
+}
+
+TREDYE_SKILL_DESCRIPTIONS = {
+    "tredye-market-structure-research": "Tredye-inspired multi-venue crypto, gold and NSE market-structure research; provenance-first and no broker execution.",
 }
 
 
@@ -204,7 +209,16 @@ def list_skills():
         }
         for slug, description in FREQTRADE_SKILL_DESCRIPTIONS.items()
     ]
-    return trading + engineering + ui_design + market_data + stooq_data + quant_research + qlib_research + social_research + n8n_automation + autohedge + freqtrade + list_pack_skills()
+    tredye = [{
+        "id": slug,
+        "description": description,
+        "path": ".agents/skills/tredye-market-structure-research/SKILL.md",
+        "available": (TREDYE_SKILL_ROOT / "SKILL.md").is_file(),
+        "mode": "market_structure_research_only",
+        "requires_external_tools": True,
+        "broker_execution": False,
+    } for slug, description in TREDYE_SKILL_DESCRIPTIONS.items()]
+    return trading + engineering + ui_design + market_data + stooq_data + quant_research + qlib_research + social_research + n8n_automation + autohedge + freqtrade + tredye + list_pack_skills()
 
 
 def load_skill(slug: str):
@@ -266,10 +280,15 @@ def load_skill(slug: str):
         description = FREQTRADE_SKILL_DESCRIPTIONS[slug]
         mode = "research_and_paper_only"
         requires_external_tools = False
+    elif slug in TREDYE_SKILL_DESCRIPTIONS:
+        root = TREDYE_SKILL_ROOT
+        description = TREDYE_SKILL_DESCRIPTIONS[slug]
+        mode = "market_structure_research_only"
+        requires_external_tools = True
     else:
         raise KeyError(slug)
 
-    path = root / "SKILL.md" if slug in N8N_SKILL_DESCRIPTIONS or slug in UI_SKILL_DESCRIPTIONS or slug in MARKET_DATA_SKILL_DESCRIPTIONS or slug in STOOQ_SKILL_DESCRIPTIONS or slug in QUANT_RESEARCH_SKILL_DESCRIPTIONS or slug in SOCIAL_RESEARCH_SKILL_DESCRIPTIONS or slug in QLIB_SKILL_DESCRIPTIONS else root / slug / "SKILL.md"
+    path = root / "SKILL.md" if slug in N8N_SKILL_DESCRIPTIONS or slug in UI_SKILL_DESCRIPTIONS or slug in MARKET_DATA_SKILL_DESCRIPTIONS or slug in STOOQ_SKILL_DESCRIPTIONS or slug in QUANT_RESEARCH_SKILL_DESCRIPTIONS or slug in SOCIAL_RESEARCH_SKILL_DESCRIPTIONS or slug in QLIB_SKILL_DESCRIPTIONS or slug in TREDYE_SKILL_DESCRIPTIONS else root / slug / "SKILL.md"
     if not path.is_file():
         raise FileNotFoundError(slug)
     return {

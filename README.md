@@ -125,6 +125,12 @@ cd frontend && npm ci && npm run dev
 
 Full local setup, environment variables and known limits live in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
+A separate Next.js research terminal with a 3D shader stage lives at
+[`landing-pages/motion-ai-3d-terminal/`](landing-pages/motion-ai-3d-terminal/README.md).
+It is independent of the Vite frontend and FastAPI backend; see
+[docs/MOTION-AI-3D-TERMINAL-INTEGRATION.md](docs/MOTION-AI-3D-TERMINAL-INTEGRATION.md)
+for integration details and validation evidence.
+
 ## Status (honest)
 
 This repository documents what is **verified** and what is **blocked**, because an over-claiming research tool is a liability.

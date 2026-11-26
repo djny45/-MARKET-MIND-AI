@@ -7,7 +7,7 @@ class SkillCatalogTests(unittest.TestCase):
     def test_catalog_contains_only_allowlisted_research_skills(self):
         skills = list_skills()
         by_id = {skill["id"]: skill for skill in skills}
-        self.assertEqual(len(skills), 325)
+        self.assertEqual(len(skills), 326)
         self.assertNotIn("trader-broker", by_id)
         self.assertTrue(all(
             skill["mode"] == "research_and_paper_only"
@@ -163,6 +163,20 @@ class SkillCatalogTests(unittest.TestCase):
                 content = load_skill(slug)["content"]
                 for marker in markers:
                     self.assertIn(marker, content)
+
+    def test_tredye_market_structure_skill_is_registered_and_loadable(self):
+        skills = {skill["id"]: skill for skill in list_skills()}
+        slug = "tredye-market-structure-research"
+        self.assertIn(slug, skills)
+        self.assertTrue(skills[slug]["available"])
+        self.assertEqual(skills[slug]["mode"], "market_structure_research_only")
+        self.assertTrue(skills[slug]["requires_external_tools"])
+        self.assertFalse(skills[slug]["broker_execution"])
+        loaded = load_skill(slug)
+        self.assertIn("order-flow", loaded["content"])
+        self.assertIn("Known unknowns", loaded["content"])
+        self.assertEqual(loaded["mode"], "market_structure_research_only")
+        self.assertFalse(loaded["broker_execution"])
 
     def test_freqtrade_backtest_skill_is_allowlisted_and_research_only(self):
         skills = {skill["id"]: skill for skill in list_skills()}

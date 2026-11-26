@@ -466,7 +466,7 @@ jobs:
 
   zulip-notify:
     name: Optional Zulip CI notification
-    needs: [backend, frontend, docker-compose, dependency-audit, trivy-security, container-security, browser]
+    needs: [backend, frontend, container-smoke, dependency-audit, trivy-security, container-security, browser]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5

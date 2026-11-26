@@ -118,7 +118,7 @@ def reconstruct_order_book(events: list[dict[str, Any]], depth_bps: float = 100.
             if not valid or current_sequence is None:
                 gaps.append({"event_index": index, "reason": "delta_without_valid_snapshot", "sequence_number": sequence})
                 continue
-            previous = event.get("previous_sequence_number")
+            previous = event.get("previous_sequence_number", payload.get("previous_sequence_number"))
             if previous != current_sequence or sequence <= current_sequence:
                 gaps.append({
                     "event_index": index,

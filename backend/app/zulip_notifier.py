@@ -415,3 +415,41 @@ def notify_market_message(message: dict[str, Any]) -> dict[str, Any]:
         ))
     except Exception:  # noqa: BLE001
         return {"status": "notification_error", "authoritative_state_unchanged": True}
+
+
+def notify_daily_digest(cycle: dict[str, Any]) -> dict[str, Any]:
+    """Publish ONE consolidated daily research digest via the existing adapter.
+
+    No per-agent messages are generated. The digest is best-effort: a Zulip
+    outage is recorded in the queue and never interrupts the research cycle.
+    """
+    scorecard = cycle.get("quality_scorecard") or {}
+    execution = cycle.get("execution") or {}
+    topics = cycle.get("observation_topics") or {}
+    lines = [
+        f"Daily cycle {cycle.get('cycle_id')} — status {cycle.get('status') or 'in_progress'}",
+        f"Observations: {scorecard.get('usable_observations', 0)} usable, "
+        f"{scorecard.get('unavailable_observations', 0)} unavailable, "
+        f"{scorecard.get('stale_observations', 0)} stale.",
+        f"Agents: {execution.get('agents_executed_tasks', 0)} executed of "
+        f"{execution.get('registered_agents', 0)} registered profiles "
+        "(profiles are not independent models).",
+        f"Tasks: {execution.get('tasks_completed', 0)} completed, "
+        f"{execution.get('tasks_pending', 0)} pending.",
+    ]
+    for group in cycle.get("observations") or []:
+        lines.append(
+            f"{group.get('market_group')}: {group.get('data_status')} "
+            f"({group.get('headline', '')})"
+        )
+    try:
+        return publish(build_message(
+            stream="agent-research", topic="Research-review",
+            message_type="daily_digest", data_status="HISTORICAL",
+            source="existing_daily_intelligence_cycle",
+            content="\n".join(lines)[:MAX_PAYLOAD_CHARS],
+            task_id=cycle.get("cycle_id"),
+            evidence=[cycle.get("cycle_id")],
+        ))
+    except Exception:  # noqa: BLE001 - communication must never break research
+        return {"status": "notification_error", "authoritative_state_unchanged": True}

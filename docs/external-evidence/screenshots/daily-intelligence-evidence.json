@@ -1,0 +1,21 @@
+{
+  "captured_at": "2026-11-26T16:12:43.705Z",
+  "api_calls": [
+    {
+      "url": "http://127.0.0.1:8011/api/daily/archive?limit=20",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:8011/api/daily/run",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:8011/api/daily/archive?limit=20",
+      "status": 200
+    }
+  ],
+  "console_errors": [],
+  "strip": "daily-2026-11-26\nCOMPLETED\nGENERATED 2026-11-26T16:12:42.862095+00:00\nLABELS VERIFIED TRUE\nZULIP DISABLED",
+  "accountability": "REGISTERED 550\nASSIGNED 0\nEXECUTED 0\nCOMPLETED 0\nFAILED 0\nSKIPPED 0\nCONCURRENT —\nTASKS DONE 0\nTASKS PENDING 0",
+  "market_rows": 10
+}

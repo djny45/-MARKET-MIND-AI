@@ -689,6 +689,61 @@ def backup_status(_principal: Any = Depends(require_user_role("admin"))):
   }
 
 
+@app.get("/api/daily/status")
+def daily_cycle_status(_principal: Any = Depends(require_user_role("analyst"))):
+ """Daily intelligence cycle status and archive summary."""
+ from .daily_intelligence import read_archive
+ from .zulip_notifier import status as zulip_status
+
+ archive = read_archive(limit=10)
+ return {
+  "mode": "daily_intelligence_research_cycle",
+  "cycle_version": "1.0.0",
+  "archived_cycles": len({row["cycle_id"] for row in archive["rows"]}),
+  "latest_cycles": archive["rows"][:10],
+  "zulip": zulip_status(),
+  "execution": {"broker_execution": False, "real_money": False},
+ }
+
+
+@app.post("/api/daily/run")
+def daily_cycle_run(request: dict[str, Any] | None = None,
+                    _principal: Any = Depends(require_user_role("operator"))):
+ """Run one bounded daily cycle; task execution remains with existing supervisor."""
+ from .daily_intelligence import run_daily_cycle
+
+ options = request or {}
+ try:
+  return run_daily_cycle(
+   date=options.get("date"),
+   publish_zulip=bool(options.get("publish_zulip", True)),
+   enqueue_tasks=bool(options.get("enqueue_tasks", False)),
+  )
+ except (ValueError, TypeError) as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/daily/archive")
+def daily_cycle_archive(cycle_id: str | None = None, limit: int = 50,
+                        _principal: Any = Depends(require_user_role("analyst"))):
+ """Read append-only daily archive revisions."""
+ from .daily_intelligence import read_archive
+
+ try:
+  return read_archive(cycle_id, limit)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/daily/compare")
+def daily_cycle_compare(cycle_id: str, previous_cycle_id: str,
+                        _principal: Any = Depends(require_user_role("analyst"))):
+ """Compare two archived daily cycles by content hash."""
+ from .daily_intelligence import compare_cycles
+
+ return compare_cycles(cycle_id, previous_cycle_id)
+
+
 @app.get("/api/communication/status")
 def communication_status(_principal: Any = Depends(require_user_role("operator"))):
  """Redacted optional communication-layer status; no credentials exposed."""

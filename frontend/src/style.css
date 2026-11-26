@@ -507,3 +507,23 @@ body{min-width:0}
 .comm-streams b{font:9px 'DM Mono';letter-spacing:.6px;color:#e3b56b}
 .comm-streams small{font:8.5px 'DM Mono';color:#7f8c98;line-height:1.5}
 .comm-panel .research-note{margin:0;line-height:1.6}
+
+/* Daily intelligence research cycle panel */
+.daily-panel{flex:1;min-width:0;overflow:auto;padding:clamp(16px,2.6vw,30px);background:#0e141a;display:grid;gap:14px;align-content:start;color:#cbd6e0}
+.daily-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
+.daily-head h2{margin:6px 0;font-size:18px;color:#e8eef4}
+.daily-head p{margin:0;max-width:78ch;font-size:11px;line-height:1.6;color:#8d9aa6}
+.daily-controls{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap}
+.daily-controls label{font:9px 'DM Mono';color:#8593a0;display:grid;gap:5px}
+.daily-controls input{background:#0d141a;border:1px solid #2c3945;border-radius:4px;padding:8px;color:#dbe4ec;font:10px 'DM Mono'}
+.daily-strip{display:flex;flex-wrap:wrap;gap:8px 16px;padding:10px 12px;border:1px solid #27323c;border-radius:6px;background:#111a21;font:9px 'DM Mono';letter-spacing:.4px;color:#8b98a4}
+.daily-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+.daily-grid>div{border:1px solid #27323c;border-radius:6px;background:#111920;padding:11px;display:grid;gap:8px;align-content:start}
+.daily-grid b{font:10px 'DM Mono';letter-spacing:.7px;color:#e3b56b}
+.daily-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:7px 0;border-bottom:1px solid #202a33;font:9px 'DM Mono';color:#aebbc5}
+.daily-row small{width:100%;color:#7f8c98}
+.daily-stats{display:flex;flex-wrap:wrap;gap:6px 12px;font:9px 'DM Mono';color:#9aa7b3}
+.daily-grid small{font-size:9px;line-height:1.5;color:#7f8c98}
+.daily-archive{border:1px solid #27323c;border-radius:6px;background:#111920;padding:11px}
+.daily-archive summary{font:9px 'DM Mono';letter-spacing:.6px;color:#9aa7b3;cursor:pointer}
+.daily-archive .research-note{margin:8px 0 0}

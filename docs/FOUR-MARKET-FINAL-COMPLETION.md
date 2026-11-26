@@ -231,3 +231,54 @@ Every terminal and chart response declares `paper_trading: false`,
 `broker_execution: false`, `real_money: false`. No provider limit was bypassed:
 the limiter explicitly declares `bypasses_provider_limits: false` and is tested
 to honour `Retry-After`.
+
+---
+
+## 12. Final execution pass (CI remediation + PR #113 integration)
+
+### Branch strategy (evidence)
+
+- `feat/four-market-terminal` at `3ca5e936` was **local only**; `git ls-remote`
+  confirmed it did not exist on `origin`. All local work was committed first
+  (`3be088e6`) and the branch was pushed as a new remote branch, preserving
+  every local change.
+- PR #113 (`research/tredye-analytics-integration`) was fetched and merged
+  (`cf396177`), bringing genuinely new capabilities: deterministic order-book
+  replay with sequence-gap invalidation, liquidation/delta event contracts,
+  and the registered `tredye-market-structure-research` skill. The merge
+  conflict in `market_events.py` was resolved by a **union** of both event-type
+  sets, and the two liquidation validation blocks were consolidated into one
+  accepting both `long/short` and `buy/sell` conventions.
+- The reported fix commits `c30cc14` and `4da75b1` existed on PR #113, not
+  locally. After merging they were verified; additional stale `325` counts
+  were found in `test_research_inventory_claims.py`, `test_skill_cadence.py`
+  and five docs, and corrected to `326` (`cea70e02`). A repo-wide search now
+  finds no stale `325` inventory claim.
+
+### CI verification
+
+- Failed run `45827163041` was on PR commit `ed3bb47` (Backend failure).
+- Run `45842633468` on `e39d1fa` completed **success: 8/8 jobs** (Backend,
+  Frontend, Docker Compose integration, Dependency audit, Trivy filesystem,
+  Container image scan, Real browser responsive tests, and the workflow run).
+- A final run `45844042823` was started against the exact final commit
+  `bda01d4abb01b67b105206c08aa5bdfe53cd7fb1`; its result is recorded in the
+  final report message.
+
+### New capabilities connected in the final pass
+
+- `submit_market_structure_research()` in `intelligence_research.py` loads the
+  registered Tredye skill through the existing allowlisted `skill_catalog`
+  and submits a bounded task through the existing `submit_research_task`
+  queue — no new agent, skill, queue or memory subsystem.
+- `GET /api/terminal/bars/analytics` reuses the existing `indicators.realized_volatility`
+  for volume/volatility summaries, displayed in the existing chart panel.
+
+### LLM provider error finding
+
+"Upstream request failed: Model is unavailable" does not originate in this
+repository: there is no notebook-side model router here. `GET /api/worker-runtime`
+reports `llm_inference_enabled: false`; the 550 profiles share one optional
+inference core with bounded timeout and safe failure states. The diagnostic
+order is documented in `docs/FREELLMAPI-INTEGRATION.md`. No keys are exposed
+and no provider is silently switched.

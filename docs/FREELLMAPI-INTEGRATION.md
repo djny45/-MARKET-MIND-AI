@@ -38,3 +38,34 @@ The legacy `freellmapi` provider remains available for users who explicitly conf
 ## Scope
 
 The Mercury integration is a bounded language-model synthesis layer over **supplied research artifacts**. It does not fetch market data, calculate indicators, train model weights, autonomously apply agent proposals, or execute trades. Provider output is not independently verified; treat it as an analysis draft and verify claims against source evidence.
+
+## 4. Diagnosing "Upstream request failed: Model is unavailable"
+
+That message originates in the **notebook/harness upstream**, not in
+MARKET-MIND-AI. This repository contains no notebook-side model router: the
+550 profiles share one optional inference core (`backend/app/intelligence_core.py`)
+and every workflow node is routed to a deterministic Python handler by default.
+`GET /api/worker-runtime` reports `llm_inference_enabled: false`, so this
+application can never be the source of that upstream error.
+
+Check in this order:
+
+1. **Provider configuration** — `GET /api/intelligence-core` reports the
+   configured provider and model without contacting the provider or exposing
+   the API key. If it reports `provider: not_configured`, the notebook is
+   trying to use a model that this backend has not been configured for.
+2. **Model name** — for Mercury the supported default is `mercury-3`
+   (`INCEPTION_MODEL`). A stale or misspelled model name in the notebook or
+   harness produces "Model is unavailable". Do not silently switch providers.
+3. **Rate limits / quota** — an exhausted provider quota surfaces here as
+   `status: provider_unavailable`; the deterministic report remains
+   authoritative. Re-check the provider dashboard; never log or return keys.
+4. **Notebook service** — if the backend status is healthy but the notebook
+   still reports the error, the failure is in the notebook's own upstream
+   routing and must be fixed in that service's configuration.
+
+`POST /api/intelligence-core/synthesize` uses a bounded timeout, bounded input
+and safe failure statuses (`provider_unavailable`, `invalid_provider_response`).
+It never retries blindly, never changes deterministic calculations, and never
+exposes credentials. The platform remains fully usable in its deterministic
+offline mode without any provider configured.

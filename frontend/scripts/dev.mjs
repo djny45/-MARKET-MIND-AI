@@ -1,7 +1,9 @@
 import { cp, copyFile, mkdir } from 'node:fs/promises'
 import { context } from 'esbuild'
 
-const outdir = 'dist'
+// Keep development output separate from `dist/` so `npm run dev` can never
+// overwrite a production bundle (which build.mjs writes to `dist/`).
+const outdir = 'dist-dev'
 await mkdir(outdir, { recursive: true })
 await copyFile('index.html', `${outdir}/index.html`)
 await cp('public', outdir, { recursive: true, force: true })

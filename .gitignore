@@ -26,6 +26,7 @@ data/
 # Node / frontend build artifacts
 node_modules/
 frontend/dist/
+frontend/dist-dev/
 frontend/.vite/
 npm-debug.log*
 

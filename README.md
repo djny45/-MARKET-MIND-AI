@@ -131,8 +131,8 @@ This repository documents what is **verified** and what is **blocked**, because 
 
 | Area | State |
 | --- | --- |
-| Backend test suite | 1,261 tests passing, 1 skipped (no nginx binary in the container) |
-| Frontend | 10 `node:test` + 127 Vitest tests, 21 UI files, typecheck and production build clean |
+| Backend test suite | 1,536 tests passing, 1 skipped (no nginx binary in the container) |
+| Frontend | 10 `node:test` + 164 Vitest tests, 30 UI files, typecheck and production build clean |
 | Real-browser tests | 9 Playwright checks (desktop/tablet/mobile) in CI |
 | Security scans | `pip-audit`, `npm audit --omit=dev`, Trivy fs/config: clean at MEDIUM+ |
 | Recovery drills | Backup/restore parity, SHA-256 verification, retention, stale-lock and `kill -9` recovery executed; local S3-compatible and fake-Docker drills added (real cloud/volume/host runs still external) |

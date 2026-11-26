@@ -689,6 +689,43 @@ def backup_status(_principal: Any = Depends(require_user_role("admin"))):
   }
 
 
+@app.get("/api/communication/status")
+def communication_status(_principal: Any = Depends(require_user_role("operator"))):
+ """Redacted optional communication-layer status; no credentials exposed."""
+ from .zulip_notifier import status as zulip_status
+
+ return zulip_status()
+
+
+@app.post("/api/communication/notify")
+def communication_notify(request: dict[str, Any],
+                         _principal: Any = Depends(require_user_role("operator"))):
+ """Publish a validated research/ops notification to the optional layer."""
+ from .zulip_notifier import publish_research_update
+
+ try:
+  return publish_research_update(
+   stream=str(request.get("stream") or ""),
+   topic=str(request.get("topic") or ""),
+   message_type=str(request.get("message_type") or "note")[:64],
+   data_status=str(request.get("data_status") or "HISTORICAL"),
+   source=str(request.get("source") or "operator_api")[:120],
+   content=str(request.get("content") or ""),
+   agent_id=request.get("agent_id"), task_id=request.get("task_id"),
+   market=request.get("market"), evidence=list(request.get("evidence") or []),
+  )
+ except (ValueError, TypeError) as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/communication/flush")
+def communication_flush(_principal: Any = Depends(require_user_role("operator"))):
+ """Bounded retry of queued notifications; never blocks research."""
+ from .zulip_notifier import flush_queue
+
+ return flush_queue()
+
+
 @app.get("/api/health")
 def health():
  broker = getattr(app.state, "paper_broker", None)

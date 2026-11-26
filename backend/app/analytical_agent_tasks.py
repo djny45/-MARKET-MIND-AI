@@ -468,6 +468,17 @@ def execute_queued_research_task(task_id: str) -> bool:
                 "WHERE task_id=? AND status='completed'",
                 (_json(result), task_id),
             )
+    # OPTIONAL communication side effect. All authoritative state above is
+    # already committed; a Zulip failure is swallowed and never changes the
+    # task result or its lifecycle.
+    try:
+        from .zulip_notifier import notify_task_result
+
+        notify_task_result({
+            "task_id": task_id, "worker_id": agent_id, "status": status,
+        })
+    except Exception:  # noqa: BLE001 - communication must never break research
+        pass
     return True
 
 def recover_interrupted_research_tasks(stale_after_seconds: int = 900) -> dict:

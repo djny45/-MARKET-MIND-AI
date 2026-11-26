@@ -463,3 +463,25 @@ jobs:
           name: playwright-report
           path: frontend/playwright-report
           if-no-files-found: warn
+
+  zulip-notify:
+    name: Optional Zulip CI notification
+    needs: [backend, frontend, docker-compose, dependency-audit, trivy-security, container-security, browser]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - run: python -m pip install --quiet httpx
+      - name: Publish bounded notification (no-op when unconfigured)
+        env:
+          ZULIP_SITE_URL: ${{ secrets.ZULIP_SITE_URL }}
+          ZULIP_BOT_EMAIL: ${{ secrets.ZULIP_BOT_EMAIL }}
+          ZULIP_API_KEY: ${{ secrets.ZULIP_API_KEY }}
+          CI_CONCLUSION: ${{ needs.backend.result == 'success' && needs.frontend.result == 'success' && needs.browser.result == 'success' && 'success' || 'failure' }}
+        run: python scripts/ci_zulip_notify.py

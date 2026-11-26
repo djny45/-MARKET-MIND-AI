@@ -495,3 +495,15 @@ body{min-width:0}
 .research-view-actions small{font-size:9px;color:#7f8c98}
 .research-view-result pre{margin:0;max-height:340px;overflow:auto;background:#0d141a;border:1px solid #26323c;border-radius:5px;padding:10px;color:#9fb0be;font:9px/1.5 'DM Mono';white-space:pre-wrap}
 .research-view-result .research-note{margin:0;line-height:1.6}
+
+/* Optional Zulip communication status (additive panel, existing design system) */
+.comm-panel{flex:none;margin:0 clamp(16px,2.6vw,30px) 30px;padding:14px 16px;border:1px solid #27323c;border-radius:7px;background:#111920;display:grid;gap:12px;color:#cbd6e0}
+.comm-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
+.comm-head h2{margin:6px 0;font-size:16px;color:#e8eef4}
+.comm-head p{margin:0;max-width:80ch;font-size:11px;line-height:1.6;color:#8d9aa6}
+.comm-strip{display:flex;flex-wrap:wrap;gap:8px 16px;padding:9px 11px;border:1px solid #26323c;border-radius:5px;background:#101820;font:9px 'DM Mono';letter-spacing:.4px;color:#8d9aa6}
+.comm-streams{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:8px}
+.comm-streams>div{border:1px solid #26323c;border-radius:5px;background:#0f171e;padding:9px;display:grid;gap:5px}
+.comm-streams b{font:9px 'DM Mono';letter-spacing:.6px;color:#e3b56b}
+.comm-streams small{font:8.5px 'DM Mono';color:#7f8c98;line-height:1.5}
+.comm-panel .research-note{margin:0;line-height:1.6}

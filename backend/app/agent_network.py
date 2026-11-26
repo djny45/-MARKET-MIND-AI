@@ -74,6 +74,17 @@ def publish_message(message):
             (message_id, agent_id, market_group, topic, instrument_id, published_at,
              json.dumps(refs), quality, json.dumps(payload, sort_keys=True, allow_nan=False)),
         )
+    # OPTIONAL communication side effect. The internal message store above is
+    # authoritative; a Zulip outage can never affect this return value.
+    try:
+        from .zulip_notifier import notify_market_message
+
+        notify_market_message({
+            "agent_id": agent_id, "market_group": market_group,
+            "topic": topic, "source_refs": refs,
+        })
+    except Exception:  # noqa: BLE001 - communication must never break research
+        pass
     return {"message_id": message_id, "agent_id": agent_id, "market_group": market_group,
             "topic": topic, "published_at": published_at, "quality_status": quality,
             "shared_network": "four_market_mesh",

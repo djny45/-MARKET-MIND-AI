@@ -588,18 +588,25 @@ The utility validates source and backup integrity and refuses to overwrite an ex
 
 ## Latest verified CI run
 
-The GitHub Actions quality workflow completes successfully on every push to `main` at `HEAD = 1cea2cb2a5f66784e9ecaddf8ca6c254ca9d248e` (all five jobs PASS; latest run: https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45240410861):
+The GitHub Actions **Quality checks (Version 3.4)** workflow passes all eight
+required jobs on PR #115 (`feature/motion-ai-3d-terminal`, verified at
+`HEAD = 251ab582`) — see the
+[run list for this branch](https://github.com/djny45/-MARKET-MIND-AI/actions/workflows/quality.yml?query=branch%3Afeature%2Fmotion-ai-3d-terminal):
 
-- Backend: passed.
-- Frontend: passed.
-- Dependency audit: passed.
-- Docker Compose integration: passed.
-- Trivy filesystem security scan: passed.
-- Dependency audit: passed.
+- Backend (1,538 unit tests + API smoke test)
+- Frontend (node + Vitest + production build)
+- Docker Compose integration
+- Dependency audit
+- Trivy filesystem security scan (MEDIUM+, `ignore-unfixed=false`)
+- Container image security scan
+- Real browser responsive tests
+- Optional Zulip notification (no-op when unconfigured)
 
-[View the successful GitHub Actions run](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/41621173501).
-
-This verifies the checks defined in the workflow at that commit; it is not a live deployment test or a market-data provider connectivity test. Provider access remains best-effort and broker execution remains disabled.
+Earlier pinned SHA/run references were removed because they described a
+superseded, five-job workflow revision. This verifies the checks defined in the
+workflow at the cited commit; it is not a live deployment test or a
+market-data provider connectivity test. Provider access remains best-effort and
+broker execution remains disabled.
 
 
 - `GET /api/market-data/trade-flow` — historical trade volume/delta buckets with side-coverage diagnostics; CVD is withheld when any sampled trade has unknown side.

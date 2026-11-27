@@ -61,11 +61,22 @@ Run from `landing-pages/motion-ai-3d-terminal/`:
 | `npm run typecheck` (`tsc --noEmit`) | **PASS**, no output |
 | `npm run lint` (`eslint .`) | **PASS**, no output |
 | `npm run build` (`next build`) | **PASS**, exit 0, BUILD_ID `pjYakZmMf0hqVoDXjQgrC` |
-| `npm audit --omit=dev` | **1 moderate** (Next.js 16.4.2 cache advisory), 0 high, 0 critical |
+| `npm audit --omit=dev` | **0 vulnerabilities** (production dependencies) |
+| `npm audit` (incl. dev) | 4 moderate, all in dev-only `esbuild@0.18.20` nested under `drizzle-kit` via `@esbuild-kit/esm-loader` |
 
-The build prints an upgrade reminder for Next.js 16.4.2. The pinned version was
-preserved per the integration instructions; the reminder does not fail the
-build on retry. An upgrade should be authorised separately.
+### Next.js security remediation (2026-11-27)
+
+The initial import pinned `next` / `eslint-config-next` at **16.4.2**, which
+Trivy flagged with **7 MEDIUM CVEs** (CVE-2026-119346/347/348/349/350/351 and
+CVE-2026-119790 — cookie/header disclosure, SVG DoS, HTTP response
+desynchronisation, cache-key and fallback-shell poisoning, and a cross-request
+cache-dedup race). All are fixed in **16.4.5+**. Both packages were upgraded to
+**16.4.6** and the lockfile regenerated with `npm install` (never hand-edited).
+Post-upgrade: `npm audit --omit=dev` reports **0**; the remaining 4 moderate
+findings are dev-only transitive `esbuild` copies that Trivy's lockfile scan
+excludes by default (it suppresses development dependencies) and are not
+shipped in the production bundle. Typecheck, lint and `next build` all pass on
+16.4.6 (routes unchanged).
 
 ### Built routes
 

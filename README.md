@@ -137,7 +137,7 @@ This repository documents what is **verified** and what is **blocked**, because 
 
 | Area | State |
 | --- | --- |
-| Backend test suite | 1,536 tests passing, 1 skipped (no nginx binary in the container) |
+| Backend test suite | 1,538 tests passing, 1 skipped (no nginx binary in the container) |
 | Frontend | 10 `node:test` + 164 Vitest tests, 30 UI files, typecheck and production build clean |
 | Real-browser tests | 9 Playwright checks (desktop/tablet/mobile) in CI |
 | Security scans | `pip-audit`, `npm audit --omit=dev`, Trivy fs/config: clean at MEDIUM+ |
@@ -441,6 +441,7 @@ For manual setup, see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 | GET | `/api/research/timeframes` | Optional multi-timeframe comparison across stored 15m, 1h, 4h and 1d bars |
 | GET | `/api/research/export` | Download provenance-preserving historical evidence JSON with SHA-256 integrity metadata |
 | POST | `/api/research/compare-exports` | Compare two compatible historical evidence bundles |
+| POST | `/api/workflows/execute` | Execute a directed research graph |
 
 Deep terminal report (single or multi-timeframe):
 
@@ -453,7 +454,6 @@ PYTHONPATH=. python terminal_chart_report.py --symbol BTCUSD --mode single --int
 ```
 
 The deep report adds structural data-quality diagnostics, optional cross-asset correlation and market-breadth summaries from exact timestamp matches, and a consolidated `dashboard` summary. It does not infer freshness or missing exchange sessions without provider-specific schedules. See [deep analysis guide](docs/DEEP-ANALYSIS.md).
-| POST | `/api/workflows/execute` | Execute a directed research graph |
 
 ## Repository structure
 
@@ -505,6 +505,14 @@ The adapter is best-effort. A successful parse verifies CSV normalization only; 
 ## Security
 
 Do not commit API keys, tokens, broker credentials, or private datasets. Use environment variables or a managed secret store. Report security issues privately using [SECURITY.md](SECURITY.md).
+
+The API starts in **research-only** mode: `/api/health` reports
+`paper_trading: false` and `broker_execution: false`, and neither paper-trading
+routes nor a simulated execution loop are registered. The optional virtual
+portfolio subsystem requires an explicit `MM_PAPER_ENABLED=1` opt-in (see
+`.env.example`); it remains virtual-only and never places real orders. No
+broker connectivity, wallet keys, transaction signing or real-money trading
+exists in this repository.
 
 ## Disclaimer
 

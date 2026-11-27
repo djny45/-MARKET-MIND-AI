@@ -168,10 +168,14 @@ wallet keys, transaction signing, autonomous live trading and live market-making
 
 ## Known limitations / remaining issues
 
-- The ZIP pins **Next.js 16.4.2**, which npm reports as one **moderate** advisory
-  (cache/information-disclosure issues). Per integration instructions the pinned
-  version was preserved; `npm run build` compiles and generates all routes but
-  exits non-zero with an upgrade reminder. Upgrade when approved.
+- The original ZIP pin of **Next.js 16.4.2** carried **7 MEDIUM** advisories
+  (cookie/header disclosure, SVG DoS, HTTP response desync, cache-key and
+  fallback-shell poisoning, cross-request cache dedup race). `next` and
+  `eslint-config-next` are now pinned to **16.4.6** (fixed in 16.4.5+):
+  `npm audit --omit=dev` reports 0 production vulnerabilities and
+  `npm run build` exits cleanly with all routes generated. The remaining
+  dev-only `esbuild` advisories under `drizzle-kit` are not shipped in the
+  production bundle.
 - No PostgreSQL instance was available during validation, so the simulated
   engine's database seeding path was not exercised against a real database;
   the app was verified in its documented database-less fallback state.

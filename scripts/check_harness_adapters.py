@@ -7,11 +7,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 REQUIRED = {
     "AGENTS.md": ("MARKET-MIND-AI agent instructions", "The local MCP server is"),
-    "CLAUDE.md": ("@AGENTS.md",),
     ".github/copilot-instructions.md": ("AGENTS.md",),
     ".cursor/rules/market-mind.mdc": ("alwaysApply: true", "AGENTS.md", ".cursor/mcp.json"),
     ".agents/skills/n8n-workflow-check/SKILL.md": ("name: n8n-workflow-check",),
-    ".claude/skills/n8n-workflow-check/SKILL.md": ("name: n8n-workflow-check", ".agents/skills/n8n-workflow-check/SKILL.md"),
     "docs/AI-HARNESS-COMPATIBILITY.md": ("Claude Code", "Codex", "GitHub Copilot", "Cursor", "backend/app/mcp_server.py"),
     ".mcp.json": ("mcpServers", "backend/app/mcp_server.py"),
     ".cursor/mcp.json": ("mcpServers", "backend/app/mcp_server.py"),

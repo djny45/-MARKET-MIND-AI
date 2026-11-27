@@ -29,9 +29,7 @@ function BootFallback() {
         </div>
         <h1 className="mt-4 font-mono text-lg tracking-[0.16em] text-iris uppercase">Market mind core booting</h1>
         <p className="mt-2 font-mono text-[10.5px] leading-relaxed tracking-[0.06em] text-muted">
-          The 550-agent swarm is provisioning its Postgres memory. Refresh in a moment — the terminal will sync
-          automatically once the agent grid is online.
-        </p>
+          The terminal database is not configured yet. The research backend is reachable, but persistent terminal storage must be provisioned separately before market panels and agent activity can load. This preview does not display verified live market prices.</p>
         <div className="mt-4 flex items-center justify-center gap-2 font-mono text-[9px] tracking-[0.14em] text-muted uppercase">
           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-iris" />
           awaiting database handshake

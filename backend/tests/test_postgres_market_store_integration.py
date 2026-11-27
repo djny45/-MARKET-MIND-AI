@@ -34,6 +34,21 @@ class PostgresMarketStoreIntegrationTests(unittest.TestCase):
                 cursor.execute("DELETE FROM market_bars WHERE symbol=%s", (cls.symbol,))
 
     def test_migrate_write_read_lineage_audit_and_readiness(self):
+        # Keep repeated CI attempts deterministic if a prior run was interrupted.
+        import psycopg
+        with psycopg.connect(self.dsn) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "DELETE FROM market_ingestion_audit_events WHERE symbol=%s",
+                    (self.symbol,),
+                )
+                cursor.execute("DELETE FROM market_bars WHERE symbol=%s", (self.symbol,))
+
+        repeated_migration = apply_market_data_schema(self.environ)
+        self.assertEqual(
+            repeated_migration, {"status": "ready", "applied_version": 1}
+        )
+
         batch = MarketDataBatch(
             symbol=self.symbol,
             interval="1d",
@@ -66,6 +81,14 @@ class PostgresMarketStoreIntegrationTests(unittest.TestCase):
         audit = store.get_audit_events(self.symbol, "1d", environ=self.environ)
         self.assertEqual(audit["count"], 1)
         self.assertEqual(audit["events"][0]["event_type"], "market_data_batch_stored")
+
+        overview = store.get_market_overview(environ=self.environ)
+        matching = [
+            item for item in overview["coverage"]
+            if item["symbol"] == self.symbol and item["interval"] == "1d"
+        ]
+        self.assertEqual(len(matching), 1)
+        self.assertEqual(matching[0]["observation_count"], 1)
 
         readiness = store.database_readiness(environ=self.environ)
         self.assertEqual(readiness["status"], "ready")

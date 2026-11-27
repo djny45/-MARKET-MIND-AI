@@ -1,0 +1,45 @@
+name: PostgreSQL market-store tests
+
+on:
+  push:
+    branches:
+      - feat/postgres-market-store-foundation
+  pull_request:
+    branches:
+      - feature/motion-ai-3d-terminal
+      - feat/postgres-market-store-foundation
+    paths:
+      - "backend/app/postgres.py"
+      - "backend/app/postgres_market_migrations.py"
+      - "backend/app/postgres_market_store.py"
+      - "backend/app/agent_council_api.py"
+      - "backend/tests/test_postgres*.py"
+      - "backend/requirements.txt"
+      - ".github/workflows/postgres-market-store-tests.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  postgres-market-store:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Install backend dependencies
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+      - name: Run PostgreSQL adapter and readiness unit tests
+        working-directory: backend
+        env:
+          PYTHONPATH: .
+        run: python -m unittest discover -s tests -p "test_postgres*.py" -v

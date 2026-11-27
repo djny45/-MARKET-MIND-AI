@@ -156,7 +156,7 @@ Exact commands, transcripts and blockers: [PROJECT_STATUS.md](PROJECT_STATUS.md)
 | --- | --- |
 | Understand the system | [ARCHITECTURE.md](docs/ARCHITECTURE.md) · [FINAL_ARCHITECTURE.md](FINAL_ARCHITECTURE.md) · [decisions](docs/ARCHITECTURE_DECISIONS.md) |
 | Build a workflow | [WORKFLOW-GUIDE.md](docs/WORKFLOW-GUIDE.md) · [FOUR-MARKET-PLATFORM.md](docs/FOUR-MARKET-PLATFORM.md) |
-| Run it yourself | [DEVELOPMENT.md](docs/DEVELOPMENT.md) · [PRODUCTION-DEPLOYMENT.md](docs/PRODUCTION-DEPLOYMENT.md) |
+| Run it yourself | [DEVELOPMENT.md](docs/DEVELOPMENT.md) · [PRODUCTION-DEPLOYMENT.md](docs/PRODUCTION-DEPLOYMENT.md) · [Motion AI 3D terminal deployment](landing-pages/motion-ai-3d-terminal/DEPLOYMENT.md) |
 | Trust the numbers | [ALGORITHMS.md](docs/ALGORITHMS.md) · [PERFORMANCE.md](docs/PERFORMANCE.md) · [MARKET_DATA_LICENSING.md](docs/MARKET_DATA_LICENSING.md) |
 | Operate it | [BACKUP_RECOVERY_DRILL.md](docs/BACKUP_RECOVERY_DRILL.md) · [RECOVERY_DRILL_EVIDENCE.md](docs/RECOVERY_DRILL_EVIDENCE.md) · [OPERABILITY-HARDENING.md](docs/OPERABILITY-HARDENING.md) |
 | Review security | [SECURITY.md](SECURITY.md) · [SECURITY_AUDIT.md](SECURITY_AUDIT.md) · [PUBLIC-EXPOSURE-HARDENING.md](docs/PUBLIC-EXPOSURE-HARDENING.md) |

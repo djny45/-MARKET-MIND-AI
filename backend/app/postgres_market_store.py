@@ -104,7 +104,7 @@ def get_bars(symbol: str, interval: str, limit: int = 500, *,
                 """
                 SELECT timestamp, open, high, low, close, volume, status, source, retrieved_at
                 FROM market_bars WHERE symbol=%s AND interval=%s
-                ORDER BY timestamp DESC LIMIT %s
+                ORDER BY timestamp DESC, source DESC LIMIT %s
                 """,
                 (normalized_symbol, interval, safe_limit),
             )

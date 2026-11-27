@@ -133,7 +133,7 @@ def get_bars(symbol: str, interval: str, limit: int = 500) -> dict:
                    status, source, retrieved_at
             FROM market_bars
             WHERE symbol=? AND interval=?
-            ORDER BY timestamp DESC LIMIT ?
+            ORDER BY timestamp DESC, source DESC LIMIT ?
         """, (symbol.strip().upper(), interval, safe_limit)).fetchall()
     observations = [dict(row) for row in reversed(rows)]
     sources = sorted({item["source"] for item in observations})

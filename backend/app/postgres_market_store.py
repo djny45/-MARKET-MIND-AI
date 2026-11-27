@@ -214,7 +214,7 @@ def get_market_overview(limit: int = 200, *, environ: dict[str, str] | None = No
     return {
         "status": "stored_data_overview", "instrument_interval_count": len(coverage),
         "coverage": coverage, "limit": safe_limit,
-        "data_note": "This view summarizes locally stored observations only. It is not a live quote, complete universe, market-wide ranking, or freshness guarantee.",
+        "data_note": "This view summarizes stored observations only. It is not a live quote, complete universe, market-wide ranking, or freshness guarantee.",
     }
 
 
@@ -230,12 +230,30 @@ def database_readiness(*, environ: dict[str, str] | None = None, connect: Any = 
                 version = int(version_row[0]) if version_row else 0
                 cursor.execute("SELECT 1")
                 cursor.fetchone()
-        present = bool(table and table[0])
+                present = bool(table and table[0])
+                if not present or version < 1:
+                    return {
+                        "status": "not_ready", "reachable": True, "writable": False,
+                        "market_bars_schema": present, "schema_version": version,
+                    }
+                # Exercise INSERT privileges using a reserved probe key, then roll
+                # back so no readiness record persists in the market dataset.
+                cursor.execute(
+                    """
+                    INSERT INTO market_bars (
+                        symbol, interval, timestamp, open, high, low, close, volume,
+                        status, source, retrieved_at
+                    ) VALUES (
+                        '__READINESS_PROBE__', '1d', TIMESTAMPTZ '2000-01-01 00:00:00+00',
+                        1, 1, 1, 1, 0, 'unavailable', '__readiness_probe__',
+                        CURRENT_TIMESTAMP
+                    ) ON CONFLICT (symbol, interval, timestamp, source) DO NOTHING
+                    """
+                )
+                connection.rollback()
         return {
-            "status": "ready" if present and version >= 1 else "not_ready",
-            "reachable": True, "writable": False,
-            "market_bars_schema": present, "schema_version": version,
-            "note": "A read-only schema probe does not establish write permission.",
+            "status": "ready", "reachable": True, "writable": True,
+            "market_bars_schema": True, "schema_version": version,
         }
     except Exception as exc:
         return {

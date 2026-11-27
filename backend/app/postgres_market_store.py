@@ -225,12 +225,12 @@ def database_readiness(*, environ: dict[str, str] | None = None, connect: Any = 
             with connection.cursor() as cursor:
                 cursor.execute("SELECT to_regclass('public.market_bars')")
                 table = cursor.fetchone()
-                cursor.execute("SELECT COALESCE(MAX(version), 0) FROM schema_migrations")
+                cursor.execute("SELECT COALESCE(MAX(version), 0) AS schema_version FROM schema_migrations")
                 version_row = cursor.fetchone()
-                version = int(version_row[0]) if version_row else 0
+                version = int(version_row["schema_version"]) if version_row else 0
                 cursor.execute("SELECT 1")
                 cursor.fetchone()
-                present = bool(table and table[0])
+                present = bool(table and table.get("to_regclass"))
                 if not present or version < 1:
                     return {
                         "status": "not_ready", "reachable": True, "writable": False,

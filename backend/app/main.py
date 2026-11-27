@@ -135,7 +135,10 @@ async def lifespan(app: FastAPI):
   metadata={"strict_mode": report["strict_mode"], "issue_count": len(report["issues"])},
  )
  recover_stale_tasks_on_startup()
- _init_paper_trading(app)
+ # The platform policy is research-only: do not initialize virtual portfolios,
+ # register paper-trading routes, or start a simulated execution loop.
+ app.state.paper_broker = None
+ app.state.paper_trader = None
  yield
 
 
@@ -799,12 +802,8 @@ def communication_flush(_principal: Any = Depends(require_user_role("operator"))
 
 @app.get("/api/health")
 def health():
- broker = getattr(app.state, "paper_broker", None)
- from .paper_trading.reports import portfolio_summary
- paper = portfolio_summary(broker.store) if broker is not None else {}
  return {"status":"ok","service":"market-mind-ai","mode":"research-only",
-  "paper_trading":True,"broker_execution":False,
-  **({"paper": paper} if paper else {})}
+  "paper_trading":False,"broker_execution":False}
 
 
 @app.get("/api/ops/status")

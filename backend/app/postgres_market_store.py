@@ -223,14 +223,23 @@ def database_readiness(*, environ: dict[str, str] | None = None, connect: Any = 
     try:
         with _connection(environ, connect=connect) as connection:
             with connection.cursor() as cursor:
-                cursor.execute("SELECT to_regclass('public.market_bars')")
-                table = cursor.fetchone()
+                cursor.execute("SELECT 1")
+                cursor.fetchone()
+                cursor.execute(
+                    "SELECT to_regclass('public.schema_migrations') AS migrations_table, "
+                    "to_regclass('public.market_bars') AS market_bars_table"
+                )
+                schema_tables = cursor.fetchone() or {}
+                migrations_present = bool(schema_tables.get("migrations_table"))
+                present = bool(schema_tables.get("market_bars_table"))
+                if not migrations_present:
+                    return {
+                        "status": "not_ready", "reachable": True, "writable": False,
+                        "market_bars_schema": present, "schema_version": 0,
+                    }
                 cursor.execute("SELECT COALESCE(MAX(version), 0) AS schema_version FROM schema_migrations")
                 version_row = cursor.fetchone()
                 version = int(version_row["schema_version"]) if version_row else 0
-                cursor.execute("SELECT 1")
-                cursor.fetchone()
-                present = bool(table and table.get("to_regclass"))
                 if not present or version < 1:
                     return {
                         "status": "not_ready", "reachable": True, "writable": False,

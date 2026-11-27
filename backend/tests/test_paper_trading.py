@@ -4,6 +4,7 @@ import sqlite3
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -20,7 +21,7 @@ class PaperConfigTests(unittest.TestCase):
         self.assertFalse(cfg.enabled)
 
     def test_environment_does_not_enable_virtual_execution_by_default(self):
-        with unittest.mock.patch.dict(os.environ, {}, clear=True):
+        with patch.dict(os.environ, {}, clear=True):
             self.assertFalse(VirtualCapitalConfig.from_env().enabled)
         self.assertEqual(cfg.registered_agents, 550)
         self.assertEqual(cfg.initial_capital_per_agent, 500.0)

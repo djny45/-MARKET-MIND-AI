@@ -483,5 +483,5 @@ jobs:
           ZULIP_SITE_URL: ${{ secrets.ZULIP_SITE_URL }}
           ZULIP_BOT_EMAIL: ${{ secrets.ZULIP_BOT_EMAIL }}
           ZULIP_API_KEY: ${{ secrets.ZULIP_API_KEY }}
-          CI_CONCLUSION: ${{ needs.backend.result == 'success' && needs.frontend.result == 'success' && needs.browser.result == 'success' && 'success' || 'failure' }}
+          CI_CONCLUSION: ${{ needs.backend.result == 'success' && needs.frontend.result == 'success' && needs.browser.result == 'success' && needs.container-smoke.result == 'success' && needs.dependency-audit.result == 'success' && needs.trivy-security.result == 'success' && needs.container-security.result == 'success' && 'success' || 'failure' }}
         run: python scripts/ci_zulip_notify.py

@@ -26,12 +26,18 @@ connection string — it is a secret and must never be committed.
 ```bash
 cd landing-pages/motion-ai-3d-terminal
 npm ci
+# Option A: apply the schema directly (development / first deploy)
 DATABASE_URL='postgresql://...' npx drizzle-kit push
+
+# Option B: apply the committed, reproducible migration (recommended for prod)
+DATABASE_URL='postgresql://...' npx drizzle-kit migrate
 ```
 
 `drizzle.config.ts` reads `DATABASE_URL` from the environment (or `.env.local`
 for local use) and **fails closed** if it is missing — it will never silently
-target the old hardcoded localhost URL from the original ZIP.
+target the old hardcoded localhost URL from the original ZIP. The committed
+`drizzle/0000_initial_schema.sql` was generated from `src/db/schema.ts` and
+verified with `drizzle-kit generate` ("No schema changes, nothing to migrate").
 
 ### 3. Configure the Vercel project
 

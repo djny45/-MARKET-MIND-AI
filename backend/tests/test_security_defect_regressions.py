@@ -18,7 +18,7 @@ from app.auth_session_store import initialize_auth_store, purge_expired_sessions
 from app.distributed_rate_limit import _LocalWindow
 from app.main import app
 from app.rate_limit import RateLimitMiddleware
-from app.user_session_middleware import _origin_allowed
+from app.user_session_middleware import UserSessionAuthMiddleware, _origin_allowed
 
 
 class _MiddlewareCase(unittest.IsolatedAsyncioTestCase):
@@ -54,6 +54,12 @@ class SecurityRegressions(_MiddlewareCase):
             self.assertFalse(_origin_allowed(scope))
             scope["headers"].append((b"origin", b"https://app.example"))
             self.assertTrue(_origin_allowed(scope))
+
+    async def test_bearer_only_mode_denies_viewer_access_to_ops_status(self):
+        middleware = UserSessionAuthMiddleware(None)
+        env = {"API_AUTH_REQUIRED": "true", "MARKET_MIND_USER_AUTH": "false"}
+        with patch.dict(os.environ, env, clear=False):
+            self.assertEqual(await self._call(middleware, path="/api/ops/status"), 403)
 
     async def test_rate_limit_denials_are_audited(self):
         audit_log.clear()

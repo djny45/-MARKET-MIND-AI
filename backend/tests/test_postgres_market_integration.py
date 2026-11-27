@@ -48,6 +48,11 @@ class PostgresMarketStoreIntegrationTests(unittest.TestCase):
             ],
         )
         try:
+            # Re-applying the versioned migration must be safe and leave the
+            # schema at the same version rather than duplicating objects.
+            repeated_migration = apply_market_data_schema(self.environ)
+            self.assertEqual(repeated_migration, {"status": "ready", "applied_version": 1})
+
             stored = store.store_batch(batch, environ=self.environ)
             self.assertEqual(stored["stored"], 2)
 

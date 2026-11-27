@@ -84,6 +84,7 @@ from .market_data import (
 from .yahoo_finance_adapter import YahooFinanceAdapter
 from .market_data_validation import validate_market_data_payload
 from . import market_store
+from .postgres import postgres_readiness
 from .market_events import store_market_events, query_market_events
 from .market_event_quality import diagnose_market_events
 from .agent_network import publish_message, read_messages, network_topology
@@ -610,6 +611,12 @@ def backup_status(_principal: Any = Depends(require_user_role("admin"))):
 def health():
  return {"status":"ok","service":"market-mind-ai","mode":"research-only",
   "paper_trading":False,"broker_execution":False}
+
+@app.get("/api/postgres-readiness")
+def postgres_database_readiness(_actor: Any = Depends(require_user_role("admin"))):
+ """Report PostgreSQL connectivity without exposing connection details."""
+ return postgres_readiness()
+
 
 @app.get("/api/environment-validation")
 def environment_validation(_actor: Any = Depends(require_user_role("admin"))):

@@ -56,8 +56,8 @@ class VirtualCapitalConfig:
     @classmethod
     def from_env(cls) -> "VirtualCapitalConfig":
         cfg = cls()
-        if os.getenv("MM_PAPER_ENABLED", "").lower() in {"0", "false", "off"}:
-            cfg.enabled = False
+        # Explicit opt-in is required; unset/unknown values remain disabled.
+        cfg.enabled = os.getenv("MM_PAPER_ENABLED", "").strip().lower() in {"1", "true", "yes", "on"}
         return cfg
 
     def database_path(self) -> str:

@@ -130,7 +130,7 @@ export function TerminalShell({ initialSnapshot }: { initialSnapshot: MarketSnap
         consensus: payload.consensus.length > 0 ? payload.consensus : previous.consensus,
         asOf: new Date().toISOString(),
       }));
-      setConnection("live");
+      setConnection("simulated");
     } catch (error) {
       console.error(error);
     } finally {

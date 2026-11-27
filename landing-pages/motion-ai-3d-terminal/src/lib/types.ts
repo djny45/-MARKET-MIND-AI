@@ -84,7 +84,11 @@ export type AgentStats = {
   aggregatePnl: number;
 };
 
+/** Origin label shown in the UI: database-backed simulation or synthetic demo. */
+export type DataOrigin = "database-simulated" | "demo-synthetic";
+
 export type MarketSnapshot = {
+  dataOrigin: DataOrigin;
   asOf: string;
   instruments: InstrumentView[];
   sessions: {

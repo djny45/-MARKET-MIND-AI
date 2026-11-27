@@ -25,7 +25,7 @@ was modified. Run commands **from this directory**, not the repository root.
 
 ```text
 src/app/
-  page.tsx                 server bootstrap -> TerminalShell or fallback screen
+  page.tsx                 server bootstrap -> TerminalShell (DB or labelled demo mode)
   layout.tsx               metadata, global CSS
   globals.css              design system (dark, iris/aqua, mono)
   icon.svg

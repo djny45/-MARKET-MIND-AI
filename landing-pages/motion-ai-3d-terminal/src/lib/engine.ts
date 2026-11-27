@@ -524,6 +524,7 @@ export async function getSnapshot(): Promise<MarketSnapshot> {
     );
 
   return {
+    dataOrigin: "database-simulated",
     asOf: new Date().toISOString(),
     instruments: instrumentViews,
     sessions: marketSessions(),

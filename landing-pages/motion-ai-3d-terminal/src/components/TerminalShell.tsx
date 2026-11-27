@@ -31,7 +31,13 @@ function formatZone(date: Date, zone: string): string {
   }).format(date);
 }
 
-export function TerminalShell({ initialSnapshot }: { initialSnapshot: MarketSnapshot }) {
+export function TerminalShell({
+  initialSnapshot,
+  demoReason = null,
+}: {
+  initialSnapshot: MarketSnapshot;
+  demoReason?: string | null;
+}) {
   const [snapshot, setSnapshot] = useState<MarketSnapshot>(initialSnapshot);
   const [selectedSymbol, setSelectedSymbol] = useState(
     initialSnapshot.instruments.find((item) => item.market === "gold")?.symbol ??
@@ -279,6 +285,15 @@ export function TerminalShell({ initialSnapshot }: { initialSnapshot: MarketSnap
         <TickerTape instruments={snapshot.instruments} />
       </header>
 
+      {demoReason !== null && (
+        <div
+          role="status"
+          className="sticky top-[57px] z-30 border-b border-amber-400/30 bg-amber-400/10 px-3 py-2 text-center font-mono text-[9px] uppercase tracking-[0.14em] text-amber-200"
+        >
+          read-only demo mode · database unavailable · synthetic sample data · not live market data
+        </div>
+      )}
+
       <main className="mx-auto max-w-[1720px] space-y-3 px-3 py-3 lg:px-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
@@ -362,7 +377,7 @@ export function TerminalShell({ initialSnapshot }: { initialSnapshot: MarketSnap
 
         <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-line/60 py-3 font-mono text-[8.5px] tracking-[0.12em] text-muted/70 uppercase">
           <span>
-            market mind ai · simulated market data · 550 generated agent profiles · <span className="text-muted/50">not verified performance · not investment advice</span>
+            market mind ai · {demoReason !== null ? "synthetic demo data (no database)" : "simulated market data"} · 550 generated agent profiles · <span className="text-muted/50">not live data · not verified performance · not investment advice</span>
           </span>
           <span className="flex items-center gap-2">
             <span className="text-mint/80">{snapshot.agents.total.toLocaleString()} agents</span>

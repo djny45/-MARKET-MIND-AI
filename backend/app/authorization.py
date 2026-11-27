@@ -44,6 +44,7 @@ SENSITIVE_ROUTE_POLICY: tuple[tuple[re.Pattern[str], str, str], ...] = (
     (re.compile(r"^/api/backup(?:/|$)"), "admin", "backup_restore"),
     (re.compile(r"^/api/restore(?:/|$)"), "admin", "backup_restore"),
     (re.compile(r"^/api/security(?:/|$)"), "operator", "audit_logs"),
+    (re.compile(r"^/api/ops/status/?$"), "operator", "operations_status"),
     (
         re.compile(r"^/api/workers/[^/]+/memory/[^/]+/review/?$"),
         "operator",

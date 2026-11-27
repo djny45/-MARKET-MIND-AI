@@ -39,7 +39,8 @@ class VirtualCapitalConfig:
     db_filename: str = "paper_trading.db"
 
     # -- live trading loop ------------------------------------------------------------
-    enabled: bool = True
+    # Disabled by default; the repository policy is research-only.
+    enabled: bool = False
     symbols: tuple[str, ...] = ("BTCUSD", "ETHUSD", "SOLUSD", "BNBUSD")
     interval_seconds: float = 60.0
     market_interval: str = "15m"

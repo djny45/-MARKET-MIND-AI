@@ -5,6 +5,7 @@ from typing import Any
 
 from .agent_council import run_agent_council, run_agent_batch
 from .agent_council_review import review_council_outputs
+from .postgres import postgres_readiness
 
 router = APIRouter()
 
@@ -24,6 +25,12 @@ class AgentBatchRequest(BaseModel):
 
 class AgentCouncilReviewRequest(BaseModel):
     council_result: dict[str, Any]
+
+
+@router.get("/api/postgres-readiness")
+def postgres_readiness_api():
+    """Read-only PostgreSQL connectivity probe; does not run migrations."""
+    return postgres_readiness()
 
 
 @router.post("/api/agent-council/run")

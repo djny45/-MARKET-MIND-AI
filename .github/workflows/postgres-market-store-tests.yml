@@ -54,7 +54,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
-      - name: Run PostgreSQL adapter and readiness unit tests
+      - name: Run PostgreSQL migration, adapter, API and integration tests
         working-directory: backend
         env:
           PYTHONPATH: .

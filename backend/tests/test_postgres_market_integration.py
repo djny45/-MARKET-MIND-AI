@@ -47,6 +47,10 @@ class PostgresMarketStoreIntegrationTests(unittest.TestCase):
                 ),
             ],
         )
+        secondary_batch = batch.model_copy(update={
+            "status": DataStatus.HISTORICAL,
+            "source": "secondary-test-fixture",
+        })
         try:
             # Re-applying the versioned migration must be safe and leave the
             # schema at the same version rather than duplicating objects.
@@ -55,23 +59,38 @@ class PostgresMarketStoreIntegrationTests(unittest.TestCase):
 
             stored = store.store_batch(batch, environ=self.environ)
             self.assertEqual(stored["stored"], 2)
+            secondary_stored = store.store_batch(secondary_batch, environ=self.environ)
+            self.assertEqual(secondary_stored["stored"], 2)
 
             history = store.get_bars(symbol, "1h", 10, environ=self.environ)
-            self.assertEqual(history["count"], 2)
-            self.assertEqual(history["bars"][0]["close"], 103.0)
-            self.assertEqual(history["bars"][1]["close"], 107.0)
-            self.assertEqual(history["sources"], ["integration-test-fixture"])
+            self.assertEqual(history["count"], 4)
+            self.assertEqual(history["source"], "mixed")
+            self.assertEqual(history["status"], "mixed")
+            self.assertEqual(history["sources"], ["integration-test-fixture", "secondary-test-fixture"])
+            self.assertEqual(history["timestamp_count"], 2)
+            self.assertEqual(history["duplicate_timestamp_observations"], 2)
+            self.assertEqual(history["bars"][0]["timestamp"], history["bars"][1]["timestamp"])
 
             lineage = store.get_data_lineage(symbol, "1h", environ=self.environ)
-            self.assertEqual(lineage["observation_count"], 2)
-            self.assertEqual(lineage["lineage"][0]["source"], "integration-test-fixture")
+            self.assertEqual(lineage["observation_count"], 4)
+            self.assertEqual(
+                {entry["source"]: entry["observation_count"] for entry in lineage["lineage"]},
+                {"integration-test-fixture": 2, "secondary-test-fixture": 2},
+            )
 
             audit = store.get_audit_events(symbol, "1h", environ=self.environ)
-            self.assertEqual(audit["count"], 1)
-            self.assertEqual(audit["events"][0]["observation_count"], 2)
+            self.assertEqual(audit["count"], 2)
+            self.assertEqual({event["source"] for event in audit["events"]}, {
+                "integration-test-fixture", "secondary-test-fixture",
+            })
 
             overview = store.get_market_overview(environ=self.environ)
-            self.assertTrue(any(item["symbol"] == symbol for item in overview["coverage"]))
+            coverage = next(item for item in overview["coverage"] if item["symbol"] == symbol)
+            self.assertEqual(coverage["observation_count"], 4)
+            self.assertEqual(coverage["distinct_timestamp_count"], 2)
+            self.assertEqual(coverage["source_count"], 2)
+            self.assertEqual(coverage["sources"], ["integration-test-fixture", "secondary-test-fixture"])
+            self.assertEqual(coverage["statuses"], ["historical", "synthetic"])
 
             readiness = store.database_readiness(environ=self.environ)
             self.assertEqual(readiness["status"], "ready")

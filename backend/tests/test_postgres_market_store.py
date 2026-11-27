@@ -76,7 +76,7 @@ class PostgresMarketStoreTests(unittest.TestCase):
         self.assertEqual(result["bars"][1]["timestamp"], newer.isoformat())
 
     def test_readiness_rolls_back_write_probe(self):
-        cursor = FakeCursor(fetchone_values=[{"to_regclass": "market_bars"}, {"schema_version": 1}, {"?column?": 1}])
+        cursor = FakeCursor(fetchone_values=[{"?column?": 1}, {"migrations_table": "schema_migrations", "market_bars_table": "market_bars"}, {"schema_version": 1}])
         connection = FakeConnection(cursor)
         result = store.database_readiness(
             environ={"DATABASE_URL": "postgresql://test/db"},

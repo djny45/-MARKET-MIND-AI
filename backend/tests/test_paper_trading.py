@@ -22,10 +22,11 @@ class PaperConfigTests(unittest.TestCase):
 
     def test_environment_does_not_enable_virtual_execution_by_default(self):
         with patch.dict(os.environ, {}, clear=True):
-            self.assertFalse(VirtualCapitalConfig.from_env().enabled)
-        self.assertEqual(cfg.registered_agents, 550)
-        self.assertEqual(cfg.initial_capital_per_agent, 500.0)
-        self.assertEqual(cfg.total_virtual_capital, 275000.0)
+            cfg = VirtualCapitalConfig.from_env()
+            self.assertFalse(cfg.enabled)
+            self.assertEqual(cfg.registered_agents, 550)
+            self.assertEqual(cfg.initial_capital_per_agent, 500.0)
+            self.assertEqual(cfg.total_virtual_capital, 275000.0)
 
     def test_total_is_agents_times_capital(self):
         cfg = VirtualCapitalConfig(registered_agents=10, total_virtual_capital=5000.0)

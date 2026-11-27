@@ -40,6 +40,10 @@ async function getJson(path: string, signal?: AbortSignal): Promise<unknown> {
     const headers: Record<string, string> = { Accept: "application/json" };
     const token = process.env.MARKET_MIND_API_TOKEN?.trim();
     if (token) headers.Authorization = `Bearer ${token}`;
+    // Allow this server-side read-only probe to reach the protected Vercel preview.
+    // The secret is stored only in the landing project environment, never sent to browsers.
+    const vercelBypass = process.env.MARKET_MIND_VERCEL_BYPASS?.trim();
+    if (vercelBypass) headers["x-vercel-protection-bypass"] = vercelBypass;
     const response = await fetch(`${BASE}${path}`, {
       headers,
       cache: "no-store",

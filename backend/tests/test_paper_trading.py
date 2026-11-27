@@ -17,6 +17,11 @@ from app.paper_trading.store import PaperTradeStore
 class PaperConfigTests(unittest.TestCase):
     def test_defaults_validate(self):
         cfg = VirtualCapitalConfig()
+        self.assertFalse(cfg.enabled)
+
+    def test_environment_does_not_enable_virtual_execution_by_default(self):
+        with unittest.mock.patch.dict(os.environ, {}, clear=True):
+            self.assertFalse(VirtualCapitalConfig.from_env().enabled)
         self.assertEqual(cfg.registered_agents, 550)
         self.assertEqual(cfg.initial_capital_per_agent, 500.0)
         self.assertEqual(cfg.total_virtual_capital, 275000.0)

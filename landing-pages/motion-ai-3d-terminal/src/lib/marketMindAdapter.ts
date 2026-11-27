@@ -4,7 +4,7 @@
  * This is deliberately separate from the vendored simulated engine. It is
  * disabled unless MARKET_MIND_API_URL is set; the landing page stays fully
  * runnable on its own. Only documented, read-only endpoints are used:
- *   GET /api/health, /api/terminal/providers, /api/workers,
+ *   GET /api/health, /api/providers/status, /api/workers,
  *       /api/daily/status, /api/daily/schedule
  *
  * No broker, order-routing, wallet or trading endpoint is referenced.
@@ -70,8 +70,8 @@ export async function probeMarketMindBackend(signal?: AbortSignal): Promise<Back
     const health = asRecord(await getJson("/api/health", signal));
     if (!health || health.status !== "ok") throw new Error("backend_unhealthy");
     const [workers, providers] = await Promise.all([
-      getJson("/api/workers?limit=1", signal).catch(() => null),
-      getJson("/api/terminal/providers", signal).catch(() => null),
+      getJson("/api/workers", signal).catch(() => null),
+      getJson("/api/providers/status", signal).catch(() => null),
     ]);
     const workerRecord = asRecord(workers);
     const providerRecord = asRecord(providers);
@@ -79,9 +79,13 @@ export async function probeMarketMindBackend(signal?: AbortSignal): Promise<Back
       status: "connected",
       checkedAt,
       workers: typeof workerRecord?.count === "number" ? workerRecord.count : undefined,
-      providers: Array.isArray(providerRecord?.providers)
-        ? (providerRecord.providers as unknown[]).filter((p): p is string => typeof p === "string")
-        : undefined,
+      providers: Array.isArray(providerRecord?.live_providers)
+        ? (providerRecord.live_providers as unknown[]).filter((p): p is string => typeof p === "string")
+        : Array.isArray(providerRecord?.available_adapters)
+          ? (providerRecord.available_adapters as unknown[])
+              .map((item) => asRecord(item)?.name)
+              .filter((name): name is string => typeof name === "string")
+          : undefined,
       dataOrigin: "market-mind-backend",
     };
   } catch (error) {

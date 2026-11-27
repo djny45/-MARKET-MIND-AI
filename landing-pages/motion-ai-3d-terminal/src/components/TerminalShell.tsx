@@ -43,7 +43,7 @@ export function TerminalShell({ initialSnapshot }: { initialSnapshot: MarketSnap
   const [autoScan, setAutoScan] = useState(true);
   const [drawerAgent, setDrawerAgent] = useState<number | null>(null);
   const [now, setNow] = useState<Date | null>(null);
-  const [connection, setConnection] = useState<"live" | "stale" | "offline">("live");
+  const [connection, setConnection] = useState<"simulated" | "stale" | "offline">("simulated");
   const [backend, setBackend] = useState<BackendSnapshot | null>(null);
   const scanningRef = useRef(false);
 
@@ -72,10 +72,10 @@ export function TerminalShell({ initialSnapshot }: { initialSnapshot: MarketSnap
         const payload = (await response.json()) as MarketSnapshot;
         if (cancelled) return;
         setSnapshot(payload);
-        setConnection("live");
+        setConnection("simulated");
       } catch (error) {
         if ((error as Error).name === "AbortError" || cancelled) return;
-        setConnection((current) => (current === "live" ? "stale" : "offline"));
+        setConnection((current) => (current === "simulated" ? "stale" : "offline"));
       }
     };
 
@@ -251,12 +251,12 @@ export function TerminalShell({ initialSnapshot }: { initialSnapshot: MarketSnap
                 <span
                   className="h-1.5 w-1.5 rounded-full"
                   style={{
-                    background: connection === "live" ? "#5fe6a6" : connection === "stale" ? "#a78bfa" : "#fd7f95",
-                    boxShadow: `0 0 8px ${connection === "live" ? "#5fe6a6" : "#a78bfa"}`,
+                    background: connection === "simulated" ? "#a78bfa" : connection === "stale" ? "#a78bfa" : "#fd7f95",
+                    boxShadow: `0 0 8px ${connection === "simulated" ? "#a78bfa" : "#a78bfa"}`,
                   }}
                 />
                 <span className="font-mono text-[8.5px] tracking-[0.14em] text-muted uppercase">
-                  {connection === "live" ? "feed live" : connection === "stale" ? "resyncing" : "offline"}
+                  {connection === "simulated" ? "simulated feed" : connection === "stale" ? "resyncing" : "offline"}
                 </span>
               </div>
               <div className="hidden rounded-sm border border-line/70 bg-panel/70 px-2 py-1 sm:block">
@@ -283,10 +283,10 @@ export function TerminalShell({ initialSnapshot }: { initialSnapshot: MarketSnap
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <span className="rounded-sm border border-iris/30 bg-iris/[0.07] px-1.5 py-[2px] font-mono text-[8.5px] tracking-[0.16em] text-iris uppercase">
-              terminal · live desk
+              research · simulated data
             </span>
             <span className="font-mono text-[8.5px] tracking-[0.12em] text-muted uppercase">
-              gold · forex · usa · india · 550 autonomous agents
+              gold · forex · usa · india · 550 generated profiles
             </span>
           </div>
           <div className="flex items-center gap-2 font-mono text-[8.5px] tracking-[0.1em] text-muted uppercase">

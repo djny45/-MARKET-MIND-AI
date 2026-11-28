@@ -120,3 +120,19 @@ Required: exit code 0, no boot fallback, full terminal served, explicit
 - `verify-deployed.mjs` has not returned exit code 0 after promotion.
 - TLS, network segmentation, or independent penetration testing is incomplete
   before public exposure.
+
+## Gate evidence refresh — 2026-11-28, exact head `95816bf9`
+
+| Gate | Evidence | State |
+| --- | --- | --- |
+| Exact-SHA CI | Runs `46144041103`, `46144047078` — all required jobs SUCCESS on `95816bf9` | PASS |
+| Backend suite | Local `1546 tests OK, 1 skipped` | PASS |
+| Terminal harness | `verify-terminal.mjs` 46/46; `verify-unreachable-db.mjs` 21/21, exit 0 | PASS |
+| Independent review | `reviewDecision` empty; no `APPROVED` review from a non-author; `sagarvsvyas5691` is GitHub 404 | BLOCKED — owner must name an existing reviewer or accept the recorded private-use waiver |
+| Vercel preview | All four project checks fail `api-deployments-free-per-day`; no deployment for exact SHA | BLOCKED — account quota must reset; owner Vercel auth required |
+| Browser inspection | No browser binary, camofox REST down, Vercel MCP unauthenticated | BLOCKED — owner must provide authenticated browser tooling |
+| `DATABASE_URL` | Absent from private env; ADR-006 hold intact; intended state is unset for this release | CORRECT (hold) |
+| `verify-deployed.mjs` | Not run against production; no authorized target | BLOCKED until promotion prerequisites pass |
+| G1–G6 external | `ingress-gate-evidence.json`: 0/6 passed, `public_ingress_enabled: false` | BLOCKED — external human evidence required |
+
+Owner action is required for the review, Vercel quota/auth, browser tooling, and all six external gates. No agent action can clear them without credentials, an existing reviewer account, or signed external evidence.

@@ -173,7 +173,15 @@ app.include_router(agent_council_router)
 
 
 def _init_paper_trading(app: FastAPI) -> None:
- """Initialize the 550 virtual portfolios and mount paper-trading routes."""
+ """Initialize the virtual-paper subsystem only after explicit opt-in."""
+ from .paper_trading.config import VirtualCapitalConfig
+
+ config = VirtualCapitalConfig.from_env()
+ if not config.enabled:
+  app.state.paper_broker = None
+  app.state.paper_trader = None
+  return
+
  try:
   from .paper_trading.api import register_paper_routes
   from .paper_trading.engine import VirtualBroker

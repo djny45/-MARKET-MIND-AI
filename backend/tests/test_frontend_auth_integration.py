@@ -36,6 +36,19 @@ class DualAuthIntegrationTests(unittest.TestCase):
     def tearDown(self):
         login_guard.GUARD.reset()
 
+
+    def test_bearer_only_sensitive_ops_status_is_denied(self):
+        # Bearer authentication is service-level viewer access. It must not
+        # satisfy the operator role required by /api/ops/status.
+        env = dict(self.env, MARKET_MIND_USER_AUTH="false")
+        client = TestClient(app)
+        with patch.dict(os.environ, env, clear=False):
+            response = client.get(
+                "/api/ops/status",
+                headers={"Authorization": f"Bearer {env['API_AUTH_TOKEN']}"},
+            )
+        self.assertEqual(response.status_code, 403, response.text)
+
     def test_session_routes_bypass_bearer_but_other_routes_do_not(self):
         client = TestClient(app)
         with patch.dict(os.environ, self.env, clear=False):

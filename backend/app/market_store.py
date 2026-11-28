@@ -32,6 +32,7 @@ def _connect():
             status TEXT NOT NULL,
             source TEXT NOT NULL,
             retrieved_at TEXT NOT NULL,
+            provider_symbol TEXT,
             PRIMARY KEY (symbol, interval, timestamp, source)
         )
     """)
@@ -62,13 +63,22 @@ def _connect():
     version = connection.execute(
         "SELECT COALESCE(MAX(version), 0) FROM schema_migrations"
     ).fetchone()[0]
-    if version > 1:
+    if version > 2:
         connection.close()
         raise sqlite3.DatabaseError("database_schema_version_is_newer_than_this_application")
     if version < 1:
         connection.execute(
             "INSERT INTO schema_migrations(version, applied_at) VALUES (?, ?)",
             (1, datetime.now(timezone.utc).isoformat()),
+        )
+        version = 1
+    columns = {row["name"] for row in connection.execute("PRAGMA table_info(market_bars)")}
+    if "provider_symbol" not in columns:
+        connection.execute("ALTER TABLE market_bars ADD COLUMN provider_symbol TEXT")
+    if version < 2:
+        connection.execute(
+            "INSERT INTO schema_migrations(version, applied_at) VALUES (?, ?)",
+            (2, datetime.now(timezone.utc).isoformat()),
         )
     connection.execute(
         "CREATE INDEX IF NOT EXISTS idx_market_bars_lookup "
@@ -84,7 +94,7 @@ def store_batch(batch: MarketDataBatch) -> dict:
         (
             batch.symbol.upper(), batch.interval, bar.timestamp.isoformat(),
             bar.open, bar.high, bar.low, bar.close, bar.volume,
-            batch.status.value, batch.source, batch.retrieved_at.isoformat(),
+            batch.status.value, batch.source, batch.retrieved_at.isoformat(), batch.provider_symbol,
         )
         for bar in batch.bars
     ]
@@ -92,12 +102,13 @@ def store_batch(batch: MarketDataBatch) -> dict:
         connection.executemany("""
             INSERT INTO market_bars (
                 symbol, interval, timestamp, open, high, low, close, volume,
-                status, source, retrieved_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                status, source, retrieved_at, provider_symbol
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(symbol, interval, timestamp, source) DO UPDATE SET
                 open=excluded.open, high=excluded.high, low=excluded.low,
                 close=excluded.close, volume=excluded.volume,
-                status=excluded.status, retrieved_at=excluded.retrieved_at
+                status=excluded.status, retrieved_at=excluded.retrieved_at,
+                provider_symbol=excluded.provider_symbol
         """, rows)
         connection.execute("""
             INSERT INTO audit_events (
@@ -130,7 +141,7 @@ def get_bars(symbol: str, interval: str, limit: int = 500) -> dict:
     with _connect() as connection:
         rows = connection.execute("""
             SELECT timestamp, open, high, low, close, volume,
-                   status, source, retrieved_at
+                   status, source, retrieved_at, provider_symbol
             FROM market_bars
             WHERE symbol=? AND interval=?
             ORDER BY timestamp DESC LIMIT ?
@@ -259,19 +270,19 @@ def get_data_lineage(symbol: str, interval: str, limit: int = 5000) -> dict:
     safe_limit = max(1, min(int(limit), 5000))
     with _connect() as connection:
         rows = connection.execute("""
-            SELECT source, status, COUNT(*) AS observation_count,
+            SELECT source, provider_symbol, status, COUNT(*) AS observation_count,
                    MIN(timestamp) AS first_timestamp,
                    MAX(timestamp) AS last_timestamp,
                    MAX(retrieved_at) AS latest_retrieval
             FROM (
-                SELECT source, status, timestamp, retrieved_at
+                SELECT source, provider_symbol, status, timestamp, retrieved_at
                 FROM market_bars
                 WHERE symbol=? AND interval=?
                 ORDER BY timestamp DESC
                 LIMIT ?
             )
-            GROUP BY source, status
-            ORDER BY source, status
+            GROUP BY source, provider_symbol, status
+            ORDER BY source, provider_symbol, status
         """, (symbol.strip().upper(), interval, safe_limit)).fetchall()
     entries = [dict(row) for row in rows]
     return {

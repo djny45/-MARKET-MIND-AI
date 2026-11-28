@@ -72,7 +72,7 @@ class MarketStoreTests(unittest.IsolatedAsyncioTestCase):
                     version = connection.execute(
                         "SELECT MAX(version) FROM schema_migrations"
                     ).fetchone()[0]
-                self.assertEqual(version, 1)
+                self.assertEqual(version, 2)
 
     async def test_local_market_overview_summarizes_stored_coverage(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -88,6 +88,60 @@ class MarketStoreTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(btc_row["observation_count"], 3)
                 self.assertEqual(btc_row["statuses"], ["synthetic"])
                 self.assertIn("not a live quote", overview["data_note"])
+
+
+    async def test_store_and_read_preserves_provider_symbol(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.dict(os.environ, {"MARKET_MIND_DB": os.path.join(directory, "test.sqlite")}):
+                batch = await SyntheticFixtureAdapter().get_bars("XAGUSD", "1d", 2)
+                batch = batch.model_copy(update={"provider_symbol": "SI=F"})
+                store_batch(batch)
+                saved = get_bars("XAGUSD", "1d", 10)
+                self.assertEqual(saved["count"], 2)
+                self.assertEqual({bar["provider_symbol"] for bar in saved["bars"]}, {"SI=F"})
+                lineage = get_data_lineage("XAGUSD", "1d")
+                self.assertEqual(lineage["lineage"][0]["provider_symbol"], "SI=F")
+
+    def test_existing_v1_database_migrates_provider_symbol_and_preserves_rows(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database = os.path.join(directory, "existing.sqlite")
+            import sqlite3
+            with sqlite3.connect(database) as connection:
+                connection.execute("""
+                    CREATE TABLE market_bars (
+                        symbol TEXT NOT NULL, interval TEXT NOT NULL, timestamp TEXT NOT NULL,
+                        open REAL NOT NULL, high REAL NOT NULL, low REAL NOT NULL,
+                        close REAL NOT NULL, volume REAL NOT NULL, status TEXT NOT NULL,
+                        source TEXT NOT NULL, retrieved_at TEXT NOT NULL,
+                        PRIMARY KEY (symbol, interval, timestamp, source)
+                    )
+                """)
+                connection.execute("""
+                    CREATE TABLE schema_migrations (
+                        version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL
+                    )
+                """)
+                connection.execute(
+                    "INSERT INTO schema_migrations(version, applied_at) VALUES (1, '2026-01-01T00:00:00+00:00')"
+                )
+                connection.execute("""
+                    INSERT INTO market_bars (
+                        symbol, interval, timestamp, open, high, low, close, volume,
+                        status, source, retrieved_at
+                    ) VALUES ('XAGUSD', '1d', '2026-01-01T00:00:00+00:00',
+                              10, 11, 9, 10.5, 100, 'historical',
+                              'yahoo-finance-chart', '2026-01-02T00:00:00+00:00')
+                """)
+            with patch.dict(os.environ, {"MARKET_MIND_DB": database}):
+                saved = get_bars("XAGUSD", "1d")
+            with sqlite3.connect(database) as connection:
+                columns = {row[1] for row in connection.execute("PRAGMA table_info(market_bars)")}
+                version = connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0]
+            self.assertIn("provider_symbol", columns)
+            self.assertEqual(version, 2)
+            self.assertEqual(saved["count"], 1)
+            self.assertEqual(saved["bars"][0]["close"], 10.5)
+            self.assertIsNone(saved["bars"][0]["provider_symbol"])
 
     def test_unknown_symbol_returns_empty_history(self):
         with tempfile.TemporaryDirectory() as directory:

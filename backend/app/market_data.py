@@ -114,6 +114,7 @@ class MarketDataBatch(BaseModel):
     interval: str = Field(min_length=1, max_length=16)
     status: DataStatus
     source: str = Field(min_length=1, max_length=80)
+    provider_symbol: str | None = Field(default=None, min_length=1, max_length=64)
     retrieved_at: datetime
     bars: list[OHLCVBar] = Field(max_length=5000)
     warnings: list[str] = Field(default_factory=list)
@@ -132,6 +133,16 @@ class MarketDataBatch(BaseModel):
         if value not in {"15m", "1h", "4h", "1d"}:
             raise ValueError("interval must be one of 15m, 1h, 4h, 1d")
         return value
+
+    @field_validator("provider_symbol")
+    @classmethod
+    def normalize_provider_symbol(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("provider_symbol cannot be blank")
+        return normalized
 
     @field_validator("source")
     @classmethod

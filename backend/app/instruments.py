@@ -40,6 +40,12 @@ _RAW_INSTRUMENTS = [
     ("ETHUSDT", "Ether / Tether", "digital_assets", "crypto", "Multi-venue", "USDT", "spot_crypto"),
     ("SOLUSD", "Solana / US Dollar", "digital_assets", "crypto", "Multi-venue", "USD", "spot_crypto"),
     ("XAUUSD", "Gold Spot / US Dollar", "commodities", "forex", "OTC", "USD", "spot_metal"),
+    # Seven-market commodity reference identities. Curated metadata only; no
+    # quote, entitlement or ingestion is implied by these rows.
+    ("XAGUSD", "Silver Spot / US Dollar", "commodities", "silver", "OTC", "USD", "spot_metal"),
+    ("MCXGOLD", "MCX Gold Futures", "commodities", "gold", "MCX", "INR", "future"),
+    ("MCXSILVER", "MCX Silver Futures", "commodities", "silver", "MCX", "INR", "future"),
+    ("MCXCRUDE", "MCX Crude Oil Futures", "commodities", "crude", "MCX", "INR", "future"),
     # EXTENSION: venue-native derivative and tokenized-gold contracts from the
     # Tredye research reference. These are reference identities only — they do
     # not imply a connected provider, a live feed, or a tradable quote.

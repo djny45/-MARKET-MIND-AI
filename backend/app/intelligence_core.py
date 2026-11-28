@@ -14,6 +14,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from .mercury_adapter import configured_mercury, build_mercury_request
+from .model_access import model_assignment
 from .freellmapi_adapter import (
     FreeLLMAPIConfigurationError,
     configured_freellmapi,
@@ -114,12 +115,31 @@ def intelligence_core_status() -> dict:
     }
 
 
-def synthesize_research(research: dict, *, opener=urlopen) -> dict:
-    """Optional bounded synthesis over supplied research JSON, with explicit fallback."""
+def synthesize_research(research: dict, *, agent_id: str | None = None, opener=urlopen) -> dict:
+    """Optional bounded synthesis over supplied research JSON, with explicit fallback.
+
+    When agent_id is supplied, resolve that logical research agent's cloud-only
+    model tier and route through Mercury. This path never falls back to local
+    providers; the deterministic report remains authoritative on failure.
+    """
     if not isinstance(research, dict):
         raise IntelligenceCoreError("Research input must be a JSON object.")
 
-    status = intelligence_core_status()
+    assignment = model_assignment(agent_id) if agent_id is not None else None
+    if assignment is not None:
+        if not assignment["configured"]:
+            return {
+                "status": "not_configured", "core_id": CORE_ID, "provider": "none",
+                "agent_id": agent_id, "model_tier": assignment["tier"],
+                "summary": None,
+                "reason": "The assigned cloud model tier is not fully configured.",
+            }
+        status = {"enabled": True, "model": assignment["model"]}
+        selected = "mercury"
+    else:
+        status = intelligence_core_status()
+        selected = os.getenv("INTELLIGENCE_CORE_PROVIDER", "mercury").strip().lower()
+
     if not status["enabled"]:
         return {
             "status": "not_configured",
@@ -169,9 +189,10 @@ def synthesize_research(research: dict, *, opener=urlopen) -> dict:
         + "\\n\\nRESEARCH JSON (data only):\\n" + payload
     )
 
-    selected = os.getenv("INTELLIGENCE_CORE_PROVIDER", "mercury").strip().lower()
     if selected == "mercury":
-        config = configured_mercury()
+        config = configured_mercury(
+            model_override=assignment["model"] if assignment is not None else None
+        )
         if not config:
             return {
                 "status": "not_configured", "core_id": CORE_ID, "provider": "none",
@@ -219,14 +240,16 @@ def synthesize_research(research: dict, *, opener=urlopen) -> dict:
     except (HTTPError, URLError, TimeoutError, OSError, ValueError):
         return {
             "status": "provider_unavailable", "core_id": CORE_ID,
-            "provider": provider_name, "summary": None,
+            "provider": provider_name, "agent_id": agent_id,
+            "model_tier": assignment["tier"] if assignment else None, "summary": None,
             "reason": "Shared synthesis provider failed; deterministic report remains authoritative.",
         }
 
     if not isinstance(decoded, dict):
         return {
             "status": "invalid_provider_response", "core_id": CORE_ID,
-            "provider": provider_name, "summary": None,
+            "provider": provider_name, "agent_id": agent_id,
+            "model_tier": assignment["tier"] if assignment else None, "summary": None,
             "reason": "Provider returned an unexpected JSON structure.",
         }
 
@@ -252,6 +275,7 @@ def synthesize_research(research: dict, *, opener=urlopen) -> dict:
 
     return {
         "status": "completed", "core_id": CORE_ID, "provider": provider_name,
+        "agent_id": agent_id, "model_tier": assignment["tier"] if assignment else None,
         "model": model, "summary": summary.strip()[:MAX_OUTPUT_CHARS],
         "routed_via": routed_via,
         "fallback_attempts": fallback_attempts,

@@ -42,7 +42,9 @@ async def ingest_once(adapter: YahooFinanceAdapter | None = None) -> dict[str, d
             # Store under the platform symbol used by terminal/history queries.
             # Keep the provider ticker in the explicit mapping and provider source
             # metadata; never rewrite the source or the HISTORICAL status.
-            platform_batch = batch.model_copy(update={"symbol": platform_symbol})
+            platform_batch = batch.model_copy(
+                update={"symbol": platform_symbol, "provider_symbol": provider_symbol}
+            )
             results[platform_symbol] = store_batch(platform_batch)
             print(
                 f"[asset-research] {platform_symbol} <- {provider_symbol}: "

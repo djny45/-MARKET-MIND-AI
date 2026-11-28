@@ -89,6 +89,29 @@ class MarketStoreTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(btc_row["statuses"], ["synthetic"])
                 self.assertIn("not a live quote", overview["data_note"])
 
+
+    async def test_store_and_read_preserves_provider_symbol(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.dict(os.environ, {"MARKET_MIND_DB": os.path.join(directory, "test.sqlite")}):
+                batch = await SyntheticFixtureAdapter().get_bars("XAGUSD", "1d", 2)
+                batch = batch.model_copy(update={"provider_symbol": "SI=F"})
+                store_batch(batch)
+                saved = get_bars("XAGUSD", "1d", 10)
+                self.assertEqual(saved["count"], 2)
+                self.assertEqual({bar["provider_symbol"] for bar in saved["bars"]}, {"SI=F"})
+
+    async def test_existing_database_migrates_provider_symbol_column(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database = os.path.join(directory, "existing.sqlite")
+            with patch.dict(os.environ, {"MARKET_MIND_DB": database}):
+                get_bars("BTCUSD", "1d")
+                import sqlite3
+                with sqlite3.connect(database) as connection:
+                    columns = {row[1] for row in connection.execute("PRAGMA table_info(market_bars)")}
+                    version = connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0]
+                self.assertIn("provider_symbol", columns)
+                self.assertEqual(version, 2)
+
     def test_unknown_symbol_returns_empty_history(self):
         with tempfile.TemporaryDirectory() as directory:
             with patch.dict(os.environ, {"MARKET_MIND_DB": os.path.join(directory, "test.sqlite")}):

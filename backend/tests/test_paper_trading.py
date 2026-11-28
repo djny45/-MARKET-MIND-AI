@@ -16,6 +16,20 @@ from app.paper_trading.store import PaperTradeStore
 
 
 class PaperConfigTests(unittest.TestCase):
+    def test_live_loop_is_disabled_by_default(self):
+        with patch.dict(os.environ, {}, clear=True):
+            cfg = VirtualCapitalConfig.from_env()
+            self.assertFalse(cfg.enabled)
+
+    def test_live_loop_requires_explicit_opt_in(self):
+        for value in ("1", "true", "yes", "on"):
+            with self.subTest(value=value), patch.dict(os.environ, {"MM_PAPER_ENABLED": value}, clear=True):
+                self.assertTrue(VirtualCapitalConfig.from_env().enabled)
+        for value in ("", "false", "0", "random"):
+            with self.subTest(value=value), patch.dict(os.environ, {"MM_PAPER_ENABLED": value}, clear=True):
+                self.assertFalse(VirtualCapitalConfig.from_env().enabled)
+
+
     def test_defaults_validate(self):
         cfg = VirtualCapitalConfig()
         self.assertFalse(cfg.enabled)

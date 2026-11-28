@@ -12,9 +12,7 @@ verified.**
 - PR: [#115](https://github.com/djny45/-MARKET-MIND-AI/pull/115)
 - Current PR head: use the live head SHA displayed on [PR #115](https://github.com/djny45/-MARKET-MIND-AI/pull/115). This checklist is a snapshot; the final merge candidate is whatever exact SHA is shown there after all commits settle.
 - Branch: `feature/motion-ai-3d-terminal`
-- Latest full validation: workflow-dispatch run
-  [46126943376](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/46126943376)
-  — this run tested the dependency/lockfile commit before the latest checklist refresh. It is not final evidence for the current head; require a fresh complete run on the exact live PR head.
+- Latest complete validation before this checklist refresh: commit `838e8d4646b5c081dccffdf7f8a51486597a7568`, workflow run [46127166017](https://github.com/djny45/-MARKET-MIND-AI/actions/runs/46127166017). Backend, Frontend, browser, Docker Compose, dependency audit, Trivy filesystem, container-image security, and optional Zulip notification all completed successfully. This documentation-only refresh creates a new PR head, so require a fresh complete run on the exact live head before merge.
 - Verified dependency state committed in `0f05658d`:
   - Active app uses `drizzle-orm@1.0.0-rc.6` and
     `drizzle-kit@1.0.0-rc.6`.

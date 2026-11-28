@@ -53,7 +53,7 @@ src/components/
 src/lib/
   agents.ts                AGENT_COUNT = 550, 12 specialist roles, generator
   engine.ts                simulated intelligence engine, seeded from Drizzle
-  market.ts                4 markets + instrument definitions (unmodified)
+  market.ts                7 markets (gold/silver/crude/FX/US/India/crypto) + instruments
   scene.ts, types.ts, ui.ts
   marketMindAdapter.ts     OPTIONAL typed read-only backend client
 src/db/

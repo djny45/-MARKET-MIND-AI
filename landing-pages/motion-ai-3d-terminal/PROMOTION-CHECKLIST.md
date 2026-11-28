@@ -6,24 +6,24 @@ agent.** All steps require maintainer approval and Vercel dashboard access.
 
 ## Preconditions (verify before promotion)
 
-1. PR #115 head is `785f7e33` (or newer reviewed commit); CI on that SHA is
-   fully green (verified 2026-11-28): Backend ×2, Frontend ×2, Dependency
-   audit ×2, Trivy filesystem ×2, Container image scan ×2, Docker Compose ×2,
-   Browser responsive ×2, Vercel Preview Comments.
+1. PR #115 head is `7d1ff19c` (or newer reviewed commit); all CI jobs other
+   than Backend are green on that SHA (verified 2026-11-28); Backend was fully
+   green on the immediately preceding code commit `785f7e33`. The only change
+   in `7d1ff19c` is demo confidence percent formatting plus its harness check.
 2. No approval is treated as implicit. PR review approval is required.
 3. `DATABASE_URL` remains **unset** in the Vercel Production environment. No
    PostgreSQL is provisioned and no migration is executed for this release.
    Expected runtime state: labelled read-only synthetic demo mode.
-4. The target deployment is `3hdMyCrqTiCudBZdckJjifsSrgMa` (for `785f7e33`,
+4. The target deployment is `3ra4SsTP3XDT1E6X4ehp1Jw3S5uX` (for `7d1ff19c`,
    build status `success`) for project `motion-ai-3d-terminal`. Do **not**
-   promote older deployments such as `8KmqVoJ8YWZeSZHfxaSYTdfPaeAk`
-   (`5bb32e7e`) or `6HyKQ1m2n6pa5ArUbfVT9TQJUUHo` (pre-fix).
+   promote older deployments such as `3hdMyCrqTiCudBZdckJjifsSrgMa`
+   (`785f7e33`) or `6HyKQ1m2n6pa5ArUbfVT9TQJUUHo` (pre-fix).
 
 ## Promotion steps (maintainer)
 
 1. In Vercel dashboard → project `motion-ai-3d-terminal` → Deployments, select
-   deployment `3hdMyCrqTiCudBZdckJjifsSrgMa` and confirm its commit SHA matches
-   `785f7e33` and build status is Ready.
+   deployment `3ra4SsTP3XDT1E6X4ehp1Jw3S5uX` and confirm its commit SHA matches
+   `7d1ff19c` and build status is Ready.
 2. Assign the production domain `motion-ai-3d-terminal.vercel.app` to that
    deployment (Promote to Production). Do not bypass authentication.
 3. Smoke-check with an authenticated Vercel session (`vercel curl`) if the
@@ -58,7 +58,7 @@ Also confirm:
 
 The harness is **correct**; the failure is a **stale production deployment**:
 
-| Check | Local build of `785f7e33` | Production URL |
+| Check | Local build of `7d1ff19c` | Production URL |
 |---|---|---|
 | `verify-deployed.mjs` exit | **0** (9 PASS) | **1** (6 FAIL) |
 | Homepage bytes | 229,274 | 8,833 |

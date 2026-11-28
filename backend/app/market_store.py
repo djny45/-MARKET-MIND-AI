@@ -270,19 +270,19 @@ def get_data_lineage(symbol: str, interval: str, limit: int = 5000) -> dict:
     safe_limit = max(1, min(int(limit), 5000))
     with _connect() as connection:
         rows = connection.execute("""
-            SELECT source, status, COUNT(*) AS observation_count,
+            SELECT source, provider_symbol, status, COUNT(*) AS observation_count,
                    MIN(timestamp) AS first_timestamp,
                    MAX(timestamp) AS last_timestamp,
                    MAX(retrieved_at) AS latest_retrieval
             FROM (
-                SELECT source, status, timestamp, retrieved_at
+                SELECT source, provider_symbol, status, timestamp, retrieved_at
                 FROM market_bars
                 WHERE symbol=? AND interval=?
                 ORDER BY timestamp DESC
                 LIMIT ?
             )
-            GROUP BY source, status
-            ORDER BY source, status
+            GROUP BY source, provider_symbol, status
+            ORDER BY source, provider_symbol, status
         """, (symbol.strip().upper(), interval, safe_limit)).fetchall()
     entries = [dict(row) for row in rows]
     return {

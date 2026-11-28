@@ -42,10 +42,12 @@ _RAW_INSTRUMENTS = [
     ("XAUUSD", "Gold Spot / US Dollar", "commodities", "forex", "OTC", "USD", "spot_metal"),
     # Seven-market commodity reference identities. Curated metadata only; no
     # quote, entitlement or ingestion is implied by these rows.
-    ("XAGUSD", "Silver Spot / US Dollar", "commodities", "silver", "OTC", "USD", "spot_metal"),
-    ("MCXGOLD", "MCX Gold Futures", "commodities", "gold", "MCX", "INR", "future"),
-    ("MCXSILVER", "MCX Silver Futures", "commodities", "silver", "MCX", "INR", "future"),
-    ("MCXCRUDE", "MCX Crude Oil Futures", "commodities", "crude", "MCX", "INR", "future"),
+    # market_group keeps the legacy four-domain partition used by existing
+    # validators; the seven-market view is reported separately in markets.py.
+    ("XAGUSD", "Silver Spot / US Dollar", "commodities", "forex", "OTC", "USD", "spot_metal"),
+    ("MCXGOLD", "MCX Gold Futures", "commodities", "us", "MCX", "INR", "future"),
+    ("MCXSILVER", "MCX Silver Futures", "commodities", "us", "MCX", "INR", "future"),
+    ("MCXCRUDE", "MCX Crude Oil Futures", "commodities", "us", "MCX", "INR", "future"),
     # EXTENSION: venue-native derivative and tokenized-gold contracts from the
     # Tredye research reference. These are reference identities only — they do
     # not imply a connected provider, a live feed, or a tradable quote.

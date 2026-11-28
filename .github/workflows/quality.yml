@@ -465,7 +465,20 @@ jobs:
             exit 0
           fi
           git commit -m "chore(deps): sync patched terminal lockfiles"
-          git push origin "HEAD:${PR_BRANCH}"
+          pushed=0
+          for attempt in 1 2 3; do
+            git fetch origin "${PR_BRANCH}"
+            git rebase FETCH_HEAD
+            if git push origin "HEAD:${PR_BRANCH}"; then
+              pushed=1
+              break
+            fi
+            echo "Branch advanced during lockfile push; retrying fast-forward rebase (${attempt}/3)."
+          done
+          if [ "$pushed" -ne 1 ]; then
+            echo "Could not safely push regenerated lockfiles after three non-forced attempts."
+            exit 1
+          fi
           gh workflow run quality.yml --ref "${PR_BRANCH}"
 
   trivy-security:

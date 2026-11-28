@@ -51,3 +51,40 @@ Promotion requires: (a) PR review approvals; (b) PR #115 merged if production
 tracks main; (c) #117/#118 merged only if their scope is in this release;
 (d) maintainer promotes deployment `3ra4SsTP3XDT1E6X4ehp1Jw3S5uX`; (e)
 `verify-deployed.mjs` exits 0. None of (a)–(e) has been performed by the agent.
+
+## Addendum — 2026-11-28 (current state supersedes the snapshot above)
+
+The sections above are a dated snapshot. Current verified state:
+
+- PR #115 head: `58db13c33a6315f85f0e38301ff58e6aabfb5710`; state OPEN,
+  MERGEABLE, `reviewDecision` empty. It includes read-only synthetic crypto
+  panels and an opt-in local research-bars bridge
+  (`MARKET_MIND_RESEARCH_DB`, see README). `DATABASE_URL` is still unset.
+- CI on the exact head: two complete workflow runs, all required jobs SUCCESS —
+  https://github.com/djny45/-MARKET-MIND-AI/actions/runs/46139007843 and
+  https://github.com/djny45/-MARKET-MIND-AI/actions/runs/46139002180.
+  Jobs: Backend, Frontend, Docker Compose integration, Dependency audit,
+  Trivy filesystem, Container image security scan, Real browser responsive
+  tests, Optional Zulip notification. `cubic` is an automated neutral check,
+  not independent approval.
+- Local verification on that head: `verify-terminal.mjs` **45/45** with the
+  research bridge disabled and **46/46** with it enabled (real
+  `binance-public` 15m research bars, provenance-labelled);
+  `verify-unreachable-db.mjs` **21/21**; typecheck, lint, build, `npm audit`,
+  `drizzle-kit check` and doc links all exit 0.
+
+### Owner-accepted exception — independent review gate
+
+Owner `djny45` stated on 2026-11-28 that this is a **private, sole-operator
+research project** and that no collaborator or independent reviewer is
+required or desired. The owner therefore **waives**, for local private use
+only, the formal independent `APPROVED` review gate recorded in
+`PROMOTION-CHECKLIST.md`. This is an owner decision, **not** evidence that an
+independent review occurred: no such review exists and none is claimed.
+
+The waiver does **not** authorize merge, production promotion, public ingress,
+`DATABASE_URL`, or any financial-execution capability. All other release gates
+— exact-head READY Vercel preview (blocked by account rate limit), authenticated
+browser inspection, `verify-deployed.mjs` exit 0, and the 0/6 external
+hardening gates — remain unresolved. **Final decision: HOLD** for production;
+the project is ready only for private, local, research-only use.

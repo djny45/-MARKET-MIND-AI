@@ -93,6 +93,7 @@ npm run dev                     # http://localhost:3000
 | `MARKET_MIND_API_URL` | No | Optional FastAPI backend base URL. Empty = fully self-contained local demo. |
 | `MARKET_MIND_API_TOKEN` | No | Optional bearer token for a backend that requires it. Never commit. |
 | `MARKET_MIND_API_TIMEOUT_MS` | No | Backend probe timeout, default 5000 ms. |
+| `MARKET_MIND_RESEARCH_DB` | No | Explicit path to a local backend SQLite DB for operator-attested `binance-public` research bars. Separate from `DATABASE_URL`; read-only, off by default. Never use in a public deployment. |
 
 ## PostgreSQL setup and Drizzle migrations
 
@@ -130,6 +131,7 @@ Verify the unreachable-database regression:
 | POST | `/api/scan` | `{ count }` | `runSwarmScan()`; generates simulated signals |
 | GET | `/api/health` | — | Actual PostgreSQL state |
 | GET | `/api/backend` | — | Optional backend probe status (never secrets) |
+| GET | `/api/research-bars` | `symbols` (comma list) | Opt-in read-only `binance-public` research bars; `dataOrigin: "binance-public-research"`, with `retrievedAt` and a `stale` flag. Disabled unless `MARKET_MIND_RESEARCH_DB` is set. Not live/execution-grade data. |
 
 ## Optional MARKET-MIND-AI backend adapter
 
@@ -140,6 +142,19 @@ environment only, and reports `disabled | connected | unavailable |
 authentication_required`. The header shows this status honestly. It creates no
 duplicate agents and no duplicate market data; the local simulation and the
 backend remain clearly separated via `dataOrigin`.
+
+## Optional local research bars (opt-in, private use only)
+
+If you set `MARKET_MIND_RESEARCH_DB` to the path of the backend SQLite database,
+`GET /api/research-bars` reads only rows with `source='binance-public'` and
+`status='live'` (BTC/ETH/SOL/BNB 15m bars) and a small strip shows them with
+source, bar timestamp, retrieval time and a staleness warning. This is a
+**read-only, server-side** bridge: it never writes, never exposes the file path,
+and is disabled by default. These are publicly sourced **research bars, not a
+licensed real-time feed and not execution-grade prices**. Do not enable this in
+a public deployment; it is intended for a private, single-operator research
+environment that has accepted the source terms. It is independent of
+`DATABASE_URL`, which remains unset for the demo-mode release.
 
 ## Shader integration
 

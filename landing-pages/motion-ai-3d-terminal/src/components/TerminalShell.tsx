@@ -14,6 +14,8 @@ import { FOCUS_COLOR, formatSignedPct } from "@/lib/ui";
 import { formatCompact, formatPrice, type MarketKey } from "@/lib/market";
 import type { InstrumentView, MarketSnapshot, SignalView } from "@/lib/types";
 import type { BackendSnapshot } from "@/lib/marketMindAdapter";
+import { ResearchBarStrip } from "@/components/panels/ResearchBarStrip";
+import type { ResearchBarsResult } from "@/lib/researchBars";
 
 const CLOCKS = [
   { label: "NEW YORK", zone: "America/New_York" },
@@ -56,6 +58,7 @@ export function TerminalShell({
   const [now, setNow] = useState<Date | null>(null);
   const [connection, setConnection] = useState<"simulated" | "stale" | "offline">("simulated");
   const [backend, setBackend] = useState<BackendSnapshot | null>(null);
+  const [researchBars, setResearchBars] = useState<ResearchBarsResult | null>(null);
   const scanningRef = useRef(false);
 
   const selectedInstrument = useMemo(
@@ -118,6 +121,26 @@ export function TerminalShell({
         }
       } catch {
         /* backend status is informational; never break the terminal */
+      }
+    };
+    void check();
+    const timer = setInterval(() => void check(), 30_000);
+    return () => {
+      cancelled = true;
+      controller.abort();
+      clearInterval(timer);
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+    const check = async () => {
+      try {
+        const response = await fetch("/api/research-bars", { signal: controller.signal, cache: "no-store" });
+        if (response.ok && !cancelled) setResearchBars((await response.json()) as ResearchBarsResult);
+      } catch {
+        /* optional research feed; never break the terminal */
       }
     };
     void check();
@@ -327,6 +350,8 @@ export function TerminalShell({
             <span className="text-iris/80">market mind core v4.2.1</span>
           </div>
         </div>
+
+        {researchBars ? <ResearchBarStrip data={researchBars} /> : null}
 
         <MarketStrip
           sessions={snapshot.sessions}

@@ -77,6 +77,17 @@ async function main() {
     );
   }
 
+  // Optional research bars: disabled by default, never live/execution-grade.
+  const research = await json("/api/research-bars");
+  check("research-bars endpoint HTTP 200", research.status === 200, `status=${research.status}`);
+  check("research-bars declares provenance", research.body?.dataOrigin === "binance-public-research", `origin=${research.body?.dataOrigin}`);
+  if (research.body?.enabled === false) {
+    check("research bars disabled without opt-in env", research.body.available === false && research.body.bars.length === 0);
+  } else {
+    check("research bars carry source and timestamps", research.body.bars.every((b) => b.source === "binance-public" && b.status === "live" && b.retrievedAt && b.timestamp));
+    check("research bars report freshness and stale flag", typeof research.body.freshnessMinutes === "number" && typeof research.body.stale === "boolean");
+  }
+
   // 3. Health must never falsely claim a connection.
   const health = await json("/api/health");
   check(

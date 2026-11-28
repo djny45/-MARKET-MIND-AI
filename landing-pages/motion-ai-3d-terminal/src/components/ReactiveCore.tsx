@@ -35,6 +35,7 @@ export function ReactiveCore({
   scanning,
   autoScan,
   onToggleAutoScan,
+  demoMode = false,
 }: {
   instrument: InstrumentView | undefined;
   stats: AgentStats;
@@ -46,6 +47,7 @@ export function ReactiveCore({
   scanning: boolean;
   autoScan: boolean;
   onToggleAutoScan: () => void;
+  demoMode?: boolean;
 }) {
   const accent = FOCUS_COLOR[selectedMarket] ?? "#f6c76b";
 
@@ -107,7 +109,7 @@ export function ReactiveCore({
               </span>
             </div>
             <p className="mt-1 font-mono text-[9px] tracking-[0.15em] text-muted uppercase">
-              {stats.total.toLocaleString()} agents driving one shader
+              {stats.total.toLocaleString()} generated profiles driving one shader
               <span className="text-iris"> · {Math.round(energy * 100)}% energy</span>
             </p>
           </div>
@@ -148,7 +150,7 @@ export function ReactiveCore({
         {/* ── agent lattice: every one of the 550, tinted per desk ──────── */}
         <div className="pointer-events-none absolute inset-x-3.5 bottom-[74px]">
           <div className="mb-1 flex items-center justify-between font-mono text-[8px] tracking-[0.14em] text-muted/80 uppercase">
-            <span>agent lattice · {visibleLattice.length} live nodes</span>
+            <span>agent lattice · {visibleLattice.length} generated profiles</span>
             <span className="text-aqua/80">desk tinted</span>
           </div>
           <div
@@ -174,7 +176,7 @@ export function ReactiveCore({
         <div className="absolute inset-x-0 bottom-0 flex flex-wrap items-center justify-between gap-2 border-t border-line/60 bg-void/70 px-3.5 py-2 backdrop-blur-md">
           <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1">
             <Metric label="speed" value={`${speed.toFixed(2)}×`} color="#a78bfa" />
-            <Metric label="online" value={stats.total.toLocaleString()} color="#f6c76b" />
+            <Metric label="profiles" value={stats.total.toLocaleString()} color="#f6c76b" />
             <Metric label="working" value={working.toString()} color="#5fe6a6" />
             <Metric label="debating" value={stats.debating.toString()} color="#c4b5fd" />
             <Metric label="signals" value={signals.length.toString()} color="#4fe6d8" />
@@ -199,7 +201,7 @@ export function ReactiveCore({
               disabled={scanning}
               className="rounded-sm border border-iris/50 bg-iris/10 px-2 py-1 font-mono text-[9px] tracking-[0.12em] text-iris uppercase transition-colors hover:bg-iris/20 disabled:opacity-50"
             >
-              {scanning ? "scanning…" : "run scan"}
+              {scanning ? "scanning…" : demoMode ? "simulate scan" : "run scan"}
             </button>
           </div>
         </div>

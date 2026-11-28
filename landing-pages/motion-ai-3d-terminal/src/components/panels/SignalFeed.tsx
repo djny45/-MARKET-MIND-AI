@@ -13,6 +13,7 @@ export function SignalFeed({
   scanning,
   autoScan,
   onToggleAutoScan,
+  demoMode = false,
 }: {
   signals: SignalView[];
   onOpenAgent: (id: number) => void;
@@ -20,6 +21,7 @@ export function SignalFeed({
   scanning: boolean;
   autoScan: boolean;
   onToggleAutoScan: () => void;
+  demoMode?: boolean;
 }) {
   const [filter, setFilter] = useState<"all" | MarketKey>("all");
   const visible = useMemo(
@@ -52,7 +54,7 @@ export function SignalFeed({
               disabled={scanning}
               className="rounded-sm border border-iris/40 bg-iris/10 px-1.5 py-[2px] font-mono text-[8.5px] tracking-[0.12em] text-iris uppercase transition-colors hover:bg-iris/20 disabled:opacity-50"
             >
-              {scanning ? "…" : "scan"}
+              {scanning ? "…" : demoMode ? "simulate" : "scan"}
             </button>
           </div>
         }

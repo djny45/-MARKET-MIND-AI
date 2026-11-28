@@ -55,6 +55,13 @@ async function main() {
   if (origin === "demo-synthetic") {
     check("demo mode is flagged in API", market.body?.demo === true, `demo=${market.body?.demo}`);
     check("demo banner is rendered", html.includes("read-only demo mode"));
+    // Honesty: in demo mode no control may claim a real swarm deployment,
+    // and generated profiles must not be presented as live-running agents.
+    check("no false swarm-deploy control in demo mode", !html.includes("deploy swarm"), "found literal 'deploy swarm'");
+    check("scan controls labelled as simulated", html.includes("simulate swarm") && html.includes("simulate scan"), "missing simulate labels");
+    check("agent lattice labelled as generated profiles", html.includes("generated profiles"), "missing generated-profile disclosure");
+    check("no false 'live nodes' claim", !html.includes("live nodes"), "found literal 'live nodes'");
+    check("no false 'agents online' claim", !html.includes("agents online"), "found literal 'agents online'");
     const confidences = (market.body?.signals ?? []).map((signal) => signal.confidence);
     check(
       "signal confidence uses the percent contract (UI renders N%)",

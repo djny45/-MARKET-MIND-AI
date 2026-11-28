@@ -294,7 +294,7 @@ export function TerminalShell({
                 disabled={scanning}
                 className="group relative overflow-hidden rounded-sm border border-iris/50 bg-gradient-to-b from-iris/20 to-iris/5 px-2.5 py-[7px] font-mono text-[9px] tracking-[0.16em] text-iris-bright uppercase transition-all hover:border-iris hover:shadow-[0_0_24px_-6px_rgba(242,196,107,0.6)] disabled:opacity-60"
               >
-                {scanning ? "swarm scanning…" : "deploy swarm"}
+                {scanning ? "scanning…" : demoReason !== null ? "simulate swarm" : "deploy swarm"}
               </button>
             </div>
           </div>
@@ -360,6 +360,7 @@ export function TerminalShell({
               scanning={scanning}
               autoScan={autoScan}
               onToggleAutoScan={() => setAutoScan((value) => !value)}
+              demoMode={demoReason !== null}
             />
             <CoreTelemetry
               stats={snapshot.agents}
@@ -385,6 +386,7 @@ export function TerminalShell({
               scanning={scanning}
               autoScan={autoScan}
               onToggleAutoScan={() => setAutoScan((value) => !value)}
+              demoMode={demoReason !== null}
             />
           </div>
           <div className="col-span-12 lg:col-span-7">
@@ -397,7 +399,7 @@ export function TerminalShell({
             market mind ai · {demoReason !== null ? "synthetic demo data (no database)" : "simulated market data"} · {(snapshot.agents.active + snapshot.agents.scanning + snapshot.agents.debating).toLocaleString()} online / {snapshot.agents.total.toLocaleString()} generated profiles · <span className="text-muted/50">not live data · not verified performance · not investment advice</span>
           </span>
           <span className="flex items-center gap-2">
-            <span className="text-mint/80">{(snapshot.agents.active + snapshot.agents.scanning + snapshot.agents.debating).toLocaleString()} agents online</span>
+            <span className="text-mint/80">{(snapshot.agents.active + snapshot.agents.scanning + snapshot.agents.debating).toLocaleString()} simulated online states</span>
             <span className="text-line-bright">/</span>
             <span className="text-aqua/80">{snapshot.agents.totalSignals.toLocaleString()} signals logged</span>
             <span className="text-line-bright">/</span>

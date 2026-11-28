@@ -6,22 +6,24 @@ agent.** All steps require maintainer approval and Vercel dashboard access.
 
 ## Preconditions (verify before promotion)
 
-1. PR #115 head is `5bb32e7e` (or newer reviewed commit); CI on that SHA is
-   fully green: Backend, Frontend, Dependency audit, Trivy filesystem,
-   Container image scan, Docker Compose integration, Browser responsive tests.
+1. PR #115 head is `785f7e33` (or newer reviewed commit); CI on that SHA is
+   fully green (verified 2026-11-28): Backend ×2, Frontend ×2, Dependency
+   audit ×2, Trivy filesystem ×2, Container image scan ×2, Docker Compose ×2,
+   Browser responsive ×2, Vercel Preview Comments.
 2. No approval is treated as implicit. PR review approval is required.
 3. `DATABASE_URL` remains **unset** in the Vercel Production environment. No
    PostgreSQL is provisioned and no migration is executed for this release.
    Expected runtime state: labelled read-only synthetic demo mode.
-4. The target deployment is `8KmqVoJ8YWZeSZHfxaSYTdfPaeAk` (for `5bb32e7e`)
-   for project `motion-ai-3d-terminal`. Do **not** promote an older deployment
-   such as `6HyKQ1m2n6pa5ArUbfVT9TQJUUHo`.
+4. The target deployment is `3hdMyCrqTiCudBZdckJjifsSrgMa` (for `785f7e33`,
+   build status `success`) for project `motion-ai-3d-terminal`. Do **not**
+   promote older deployments such as `8KmqVoJ8YWZeSZHfxaSYTdfPaeAk`
+   (`5bb32e7e`) or `6HyKQ1m2n6pa5ArUbfVT9TQJUUHo` (pre-fix).
 
 ## Promotion steps (maintainer)
 
 1. In Vercel dashboard → project `motion-ai-3d-terminal` → Deployments, select
-   deployment `8KmqVoJ8YWZeSZHfxaSYTdfPaeAk` and confirm its commit SHA matches
-   `5bb32e7e` and build status is Ready.
+   deployment `3hdMyCrqTiCudBZdckJjifsSrgMa` and confirm its commit SHA matches
+   `785f7e33` and build status is Ready.
 2. Assign the production domain `motion-ai-3d-terminal.vercel.app` to that
    deployment (Promote to Production). Do not bypass authentication.
 3. Smoke-check with an authenticated Vercel session (`vercel curl`) if the
@@ -51,6 +53,21 @@ Also confirm:
    integration build the revert; confirm with `verify-deployed.mjs`.
 3. No database rollback is needed: no migrations ran and no production data was
    modified. Keep `DATABASE_URL` unset throughout.
+
+## Why `verify-deployed.mjs` exited 1 (diagnosis, 2026-11-28)
+
+The harness is **correct**; the failure is a **stale production deployment**:
+
+| Check | Local build of `785f7e33` | Production URL |
+|---|---|---|
+| `verify-deployed.mjs` exit | **0** (9 PASS) | **1** (6 FAIL) |
+| Homepage bytes | 229,274 | 8,833 |
+| Boot screen string | absent | `awaiting database handshake` present |
+| `/api/market` | 200, `dataOrigin=demo-synthetic` | 500 `market_unavailable` |
+| `/api/health` keys | `database, demoMode, agents, ...` | old `database, detail, ok` only |
+
+The six production failures are exactly the old-build markers. Therefore the
+remedy is promotion of the verified deployment, not a code or harness change.
 
 ## Known limitations
 

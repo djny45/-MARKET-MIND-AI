@@ -380,7 +380,30 @@ jobs:
           npm run typecheck
           npm run lint
           npm run build
-          node scripts/verify-terminal.mjs
+          # verify-terminal.mjs exercises a running production server on port 3123.
+          # Start the built Next.js server explicitly and always clean it up.
+          node node_modules/next/dist/bin/next start -p 3123 > /tmp/market-mind-terminal.log 2>&1 &
+          server_pid=$!
+          cleanup_terminal_server() {
+            kill "$server_pid" 2>/dev/null || true
+            wait "$server_pid" 2>/dev/null || true
+          }
+          trap cleanup_terminal_server EXIT
+          ready=0
+          for attempt in $(seq 1 40); do
+            if curl --fail --silent http://127.0.0.1:3123/icon.svg >/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 0.5
+          done
+          if [ "$ready" -ne 1 ]; then
+            cat /tmp/market-mind-terminal.log
+            exit 1
+          fi
+          BASE_URL=http://127.0.0.1:3123 node scripts/verify-terminal.mjs
+          cleanup_terminal_server
+          trap - EXIT
           node scripts/verify-unreachable-db.mjs
 
       - name: Upload converted Drizzle v1 migration history

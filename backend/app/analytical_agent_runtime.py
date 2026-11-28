@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 from .workers import list_workers
+from .model_access import model_assignment, model_tier_manifest
 
 CORE_ID = "shared_central_intelligence"
 WORKERS = {item["id"]: item for item in list_workers()}
@@ -44,6 +45,7 @@ def brain_config(worker_id: str) -> dict:
         "brain_context_sha256": digest,
         "memory_namespace": worker["memory_namespace"],
         "intelligence_core": CORE_ID,
+        "model_access": model_assignment(worker_id),
         "model_topology": "individual_agent_context_shared_inference_provider",
         "independent_model": False,
         "research_scope": "supplied_and_configured_research_data_only",
@@ -58,7 +60,8 @@ def runtime_manifest() -> dict:
         "agent_count": len(WORKERS),
         "departments": departments,
         "agent_brains": "distinct_role_context_and_namespace",
-        "inference": "shared_core_provider",
+        "inference": "shared_cloud_provider_with_premium_and_standard_tiers",
+        "model_tiers": model_tier_manifest(),
         "persistent_memory": "worker_scoped_sqlite_evidence_notes",
         "research": "assigned_tasks_over_supplied_or_configured_data",
         "learning": "feedback_records_and_reviewable_improvement_proposals",

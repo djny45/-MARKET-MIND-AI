@@ -396,7 +396,7 @@ def execute_queued_research_task(task_id: str) -> bool:
             "constraints": ["Use supplied data only.", "Distinguish facts, assumptions, and unknowns.",
                            "Do not invent missing market data.", "No trade execution or investment certainty."],
         }
-        synthesis = synthesize_research(payload)
+        synthesis = synthesize_research(payload, agent_id=agent_id)
         task_data = task_input.get("data")
         evaluation = None
         evaluation_status = "not_requested_or_missing_structured_claims"
@@ -579,7 +579,7 @@ def submit_research_task(agent_id: str, brief: str, data: dict | list | None = N
                        "Do not invent missing market data.", "No trade execution or investment certainty."],
     }
     try:
-        synthesis = synthesize_research(research_payload)
+        synthesis = synthesize_research(research_payload, agent_id=agent_id)
         result = {
             "agent_id": agent_id,
             "brain_context_sha256": brain["brain_context_sha256"],

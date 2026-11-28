@@ -55,7 +55,7 @@ def run_agent_council(agent_ids: list[str], brief: str, data: dict | list | None
                 "Do not provide trade execution instructions or claim investment certainty.",
             ],
         }
-        synthesis = synthesize_research(member_input)
+        synthesis = synthesize_research(member_input, agent_id=agent_id)
         members.append({
             "agent_id": agent_id,
             "agent_name": brain["agent_name"],

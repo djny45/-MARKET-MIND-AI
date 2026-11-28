@@ -287,5 +287,63 @@ class SharedIntelligenceCoreTests(unittest.TestCase):
         self.assertTrue(result["reason"])
 
 
+    def test_agent_tier_routes_to_mercury_and_uses_assigned_model(self):
+        import json
+        from unittest.mock import Mock
+
+        env = {
+            "INTELLIGENCE_CORE_ENABLED": "true",
+            "INTELLIGENCE_CORE_PROVIDER": "ollama",
+            "OLLAMA_BASE_URL": "http://127.0.0.1:11434",
+            "MARKET_MIND_MODEL_PROVIDER": "mercury",
+            "MARKET_MIND_PREMIUM_MODEL": "premium-research-model",
+            "MARKET_MIND_BASIC_MODEL": "standard-research-model",
+            "INCEPTION_API_KEY": "test-secret",
+        }
+        response = Mock()
+        response.read.return_value = json.dumps({
+            "choices": [{"message": {"content": "Agent-routed research summary"}}]
+        }).encode("utf-8")
+        response.headers = {}
+        response.__enter__ = Mock(return_value=response)
+        response.__exit__ = Mock(return_value=False)
+        opener = Mock(return_value=response)
+
+        with patch.dict(os.environ, env, clear=True):
+            result = synthesize_research(
+                {"facts": ["source-backed fact"]},
+                agent_id="worker_001",
+                opener=opener,
+            )
+
+        request = opener.call_args.args[0]
+        sent = json.loads(request.data.decode("utf-8"))
+        self.assertEqual(request.full_url, "https://api.inceptionlabs.ai/v1/chat/completions")
+        self.assertEqual(sent["model"], "premium-research-model")
+        self.assertEqual(result["agent_id"], "worker_001")
+        self.assertEqual(result["model_tier"], "premium")
+        self.assertEqual(result["provider"], "inceptionlabs_mercury")
+        self.assertEqual(result["status"], "completed")
+
+    def test_agent_tier_never_falls_back_to_local_provider_when_unconfigured(self):
+        from unittest.mock import Mock
+
+        env = {
+            "INTELLIGENCE_CORE_ENABLED": "true",
+            "INTELLIGENCE_CORE_PROVIDER": "ollama",
+            "OLLAMA_BASE_URL": "http://127.0.0.1:11434",
+            "MARKET_MIND_MODEL_PROVIDER": "mercury",
+            "INCEPTION_API_KEY": "test-secret",
+        }
+        opener = Mock()
+        with patch.dict(os.environ, env, clear=True):
+            result = synthesize_research(
+                {"facts": []}, agent_id="worker_021", opener=opener
+            )
+        self.assertEqual(result["status"], "not_configured")
+        self.assertEqual(result["model_tier"], "standard")
+        opener.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()

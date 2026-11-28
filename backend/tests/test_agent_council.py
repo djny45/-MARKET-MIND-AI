@@ -43,5 +43,20 @@ class AgentCouncilTests(unittest.TestCase):
             run_agent_council(["worker_001"], "x" * 4001)
 
 
+    def test_council_passes_each_member_id_to_shared_core(self):
+        with patch("app.agent_council.synthesize_research", return_value={
+            "status": "completed", "summary": "Evidence-limited analysis"
+        }) as synthesize:
+            result = run_agent_council(
+                ["worker_001", "worker_021"], "Compare supplied metrics", {"a": 1}
+            )
+        self.assertEqual(synthesize.call_count, 2)
+        self.assertEqual(
+            [call.kwargs["agent_id"] for call in synthesize.call_args_list],
+            ["worker_001", "worker_021"],
+        )
+        self.assertEqual(result["agent_count_with_analysis"], 2)
+
+
 if __name__ == "__main__":
     unittest.main()

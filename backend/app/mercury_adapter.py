@@ -11,13 +11,13 @@ API_ENDPOINT = "https://api.inceptionlabs.ai/v1/chat/completions"
 DEFAULT_MODEL = "mercury-3"
 
 
-def configured_mercury() -> tuple[str, str] | None:
+def configured_mercury(model_override: str | None = None) -> tuple[str, str] | None:
     """Return (API key, model) when Mercury is enabled and configured."""
     enabled = os.getenv("INTELLIGENCE_CORE_ENABLED", "false").strip().lower() == "true"
     provider = os.getenv("INTELLIGENCE_CORE_PROVIDER", "mercury").strip().lower()
     api_key = os.getenv("INCEPTION_API_KEY", "").strip()
-    model = os.getenv("INCEPTION_MODEL", DEFAULT_MODEL).strip() or DEFAULT_MODEL
-    if provider != "mercury" or not enabled or not api_key:
+    model = (model_override or os.getenv("INCEPTION_MODEL", DEFAULT_MODEL)).strip() or DEFAULT_MODEL
+    if (provider != "mercury" and model_override is None) or not enabled or not api_key:
         return None
     return api_key, model
 

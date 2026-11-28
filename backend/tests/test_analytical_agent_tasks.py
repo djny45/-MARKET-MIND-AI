@@ -131,7 +131,7 @@ class AnalyticalAgentTaskTests(unittest.TestCase):
             },
         )
 
-        def reclaim_during_synthesis(_payload):
+        def reclaim_during_synthesis(_payload, *, agent_id=None):
             with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
                 db.execute(
                     "UPDATE analytical_agent_tasks SET status='queued',execution_token=NULL "

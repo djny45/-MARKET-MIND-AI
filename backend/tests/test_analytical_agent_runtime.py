@@ -40,6 +40,15 @@ class AnalyticalAgentRuntimeApiTests(unittest.TestCase):
         self.assertNotEqual(first["brain_context_sha256"], second["brain_context_sha256"])
         self.assertEqual(first["memory_namespace"], "workers/worker_001")
         self.assertFalse(first["independent_model"])
+        self.assertEqual(first["model_access"]["tier"], "premium")
+        self.assertEqual(second["model_access"]["tier"], "premium")
+
+    def test_standard_agent_receives_basic_cloud_model_tier(self):
+        from app.analytical_agent_runtime import brain_config
+        result = brain_config("worker_021")
+        self.assertEqual(result["model_access"]["tier"], "standard")
+        self.assertEqual(result["model_access"]["provider"], "mercury")
+        self.assertFalse(result["model_access"]["inference_enabled"])
 
     def test_unknown_agent_brain_is_rejected(self):
         with self.assertRaises(HTTPException) as error:

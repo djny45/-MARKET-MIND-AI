@@ -55,6 +55,12 @@ async function main() {
   if (origin === "demo-synthetic") {
     check("demo mode is flagged in API", market.body?.demo === true, `demo=${market.body?.demo}`);
     check("demo banner is rendered", html.includes("read-only demo mode"));
+    const confidences = (market.body?.signals ?? []).map((signal) => signal.confidence);
+    check(
+      "signal confidence uses the percent contract (UI renders N%)",
+      confidences.length > 0 && confidences.every((value) => typeof value === "number" && value >= 50 && value <= 100),
+      `sample=${confidences.slice(0, 3).join(",")}`,
+    );
   }
 
   // 3. Health must never falsely claim a connection.

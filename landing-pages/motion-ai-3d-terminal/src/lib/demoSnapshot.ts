@@ -151,7 +151,9 @@ function signalViews(
       symbol: instrument.symbol,
       market: instrument.market,
       direction,
-      confidence: Number((0.52 + rand() * 0.44).toFixed(3)),
+      // Percent (52–96), matching the DB-backed SignalView contract and the
+      // UI's `{confidence}%` / Meter rendering (0–100 range).
+      confidence: Math.min(98, 52 + Math.round(rand() * 44)),
       timeframe: TIMEFRAMES[i % TIMEFRAMES.length],
       rationale,
       entry: instrument.price,

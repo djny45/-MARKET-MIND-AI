@@ -11,15 +11,12 @@ for (const file of [".env.local", ".env"]) {
 }
 
 const url = process.env.DATABASE_URL?.trim();
-if (!url) {
-  throw new Error(
-    "DATABASE_URL is required for drizzle-kit. Set it in the environment " +
-      "(or in .env.local for local development) to your PostgreSQL connection string.",
-  );
-}
 
+// Migration-history operations such as "drizzle-kit up" and "check" are local
+// file operations and must work without a database. Database-writing commands
+// still require a real DATABASE_URL and will fail closed when it is absent.
 export default defineConfig({
   dialect: "postgresql",
   schema: "./src/db/schema.ts",
-  dbCredentials: { url },
+  ...(url ? { dbCredentials: { url } } : {}),
 });

@@ -237,6 +237,7 @@ jobs:
           path: |
             frontend/frontend-dependency-tree.txt
             frontend/frontend-npm-audit.json
+            active-next-npm-audit.json
           if-no-files-found: warn
 
   container-smoke:
@@ -359,12 +360,19 @@ jobs:
           npm install --ignore-scripts
           npm audit --audit-level=high
 
+      - name: Audit active Next.js terminal dependencies
+        working-directory: landing-pages/motion-ai-3d-terminal
+        run: |
+          npm ci --ignore-scripts
+          npm audit --audit-level=moderate
+
       - name: Capture dependency audit diagnostics
         if: failure()
         run: |
           pip-audit -r backend/requirements.txt --progress-spinner off --format json > backend-pip-audit.json 2>&1 || true
           cd frontend
           npm audit --json > frontend-npm-audit.json 2>&1 || true
+          (cd landing-pages/motion-ai-3d-terminal && npm audit --json > ../../active-next-npm-audit.json 2>&1) || true
 
       - name: Upload dependency audit diagnostics
         if: failure()

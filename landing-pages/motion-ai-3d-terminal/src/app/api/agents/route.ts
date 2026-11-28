@@ -1,3 +1,4 @@
+import { isDatabaseConfigured, withDatabaseTimeout } from "@/db";
 import { buildDemoAgentDirectory } from "@/lib/demoSnapshot";
 import { listAgents } from "@/lib/engine";
 
@@ -13,8 +14,11 @@ export async function GET(request: Request) {
     page: Number(url.searchParams.get("page") ?? "1") || 1,
     perPage: Number(url.searchParams.get("perPage") ?? "12") || 12,
   };
+  if (!isDatabaseConfigured()) {
+    return Response.json(buildDemoAgentDirectory(query), { headers: { "Cache-Control": "no-store" } });
+  }
   try {
-    const result = await listAgents(query);
+    const result = await withDatabaseTimeout(listAgents(query));
     return Response.json(
       { ...result, dataOrigin: "database-simulated" },
       { headers: { "Cache-Control": "no-store" } },

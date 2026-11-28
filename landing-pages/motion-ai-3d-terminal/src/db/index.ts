@@ -42,13 +42,16 @@ export function getPool(): Pool {
     const budget = Number.isFinite(DATABASE_TIMEOUT_MS) && DATABASE_TIMEOUT_MS > 0
       ? DATABASE_TIMEOUT_MS
       : 4000;
-    globalForDb.__arenaNextJsPostgresqlPool = new Pool({
+    const pool = new Pool({
       connectionString: url,
       connectionTimeoutMillis: budget,
       query_timeout: budget,
       idleTimeoutMillis: 10_000,
       max: 4,
     });
+    // pg emits idle-client errors; without a listener Node can crash on them.
+    pool.on("error", (error) => console.warn("pg pool error:", error.message));
+    globalForDb.__arenaNextJsPostgresqlPool = pool;
   }
   return globalForDb.__arenaNextJsPostgresqlPool;
 }

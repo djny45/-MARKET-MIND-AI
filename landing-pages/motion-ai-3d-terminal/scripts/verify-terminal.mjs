@@ -126,11 +126,14 @@ async function main() {
   check("online count is reported separately from profile total", online > 0 && online <= (stats.total ?? 0), `online=${online}/${stats.total}`);
   check("UI labels profiles, not autonomous agents", html.includes("PROFILES") || html.includes("profiles"));
 
-  // 7. Refresh/recovery: the market payload carries enough state for the
-  // client to update its demo banner on each poll (no stale SSR-only labels).
+  // 7. Refresh/recovery: each poll payload must carry enough state for the
+  // client to re-derive its demo banner (TerminalShell sets demoReason from
+  // dataOrigin), otherwise a DB state change would leave a stale label.
+  check("snapshot carries dataOrigin for live demo-state sync", origin === "database-simulated" || origin === "demo-synthetic");
   check(
-    "snapshot carries dataOrigin for live demo-state sync",
-    origin === "database-simulated" || origin === "demo-synthetic",
+    "demo flag is consistent with data origin",
+    origin === "demo-synthetic" ? market.body?.demo === true : market.body?.demo !== true,
+    `origin=${origin} demo=${market.body?.demo}`,
   );
 
   if (failures.length > 0) {

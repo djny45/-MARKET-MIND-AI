@@ -89,7 +89,7 @@ npm run dev                     # http://localhost:3000
 | Variable | Required | Purpose |
 | --- | --- | --- |
 | `DATABASE_URL` | No | PostgreSQL connection string. If unset/unreachable the app still boots in labelled read-only synthetic demo mode; `/api/health` reports the real state and data endpoints return HTTP 200 with `dataOrigin: "demo-synthetic"`. |
-| `DATABASE_TIMEOUT_MS` | No | Hard deadline for each database attempt (default 4000 ms). Prevents an unreachable database from hanging the page forever. |
+| `DATABASE_TIMEOUT_MS` | No | Hard deadline for every browser-facing database request (default 4000 ms), applied by `withDatabaseTimeout()` on all data routes. Prevents an unreachable database from hanging the page forever. |
 | `MARKET_MIND_API_URL` | No | Optional FastAPI backend base URL. Empty = fully self-contained local demo. |
 | `MARKET_MIND_API_TOKEN` | No | Optional bearer token for a backend that requires it. Never commit. |
 | `MARKET_MIND_API_TIMEOUT_MS` | No | Backend probe timeout, default 5000 ms. |

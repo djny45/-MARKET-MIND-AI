@@ -48,8 +48,9 @@ old build's lack of a fallback. The app itself builds and runs.
 | `npm run build` (clean) | pass |
 | `npm run typecheck` | pass |
 | `npm run lint` | pass |
-| `node scripts/verify-terminal.mjs` (DB absent) | **32/32 pass** |
-| `node scripts/verify-unreachable-db.mjs` (black-holed DB) | **9/9 pass**, 3.0–3.2 s per request |
+| `node scripts/verify-terminal.mjs` (DB absent) | **33/33 pass** |
+| `node scripts/verify-unreachable-db.mjs` (black-holed DB) | **21/21 pass** across `/`, `/api/market`, `/api/health`, `/api/agents`, `/api/agents/1`, `/api/signals`, `POST /api/scan`; ~3.0–3.2 s per request |
+| Connection accepted then stalled (local TCP black hole, `DATABASE_TIMEOUT_MS=2500`) | `/api/market` 200 / `/api/health` 503 / `/api/agents/1` 200, all settle in ~2.5 s with demo labels |
 | Backend unavailable (`MARKET_MIND_API_URL` bogus) | `/api/backend` → `status: "unavailable"`, homepage still renders full terminal |
 | Demo homepage | HTTP 200, ~229 KB, banner present, no boot screen |
 | `/api/health` | HTTP 503, `database: unconfigured`, `demoMode: true`, no secrets |
@@ -67,6 +68,14 @@ seeding or migration was run.
   policy also states public deployment is not authorized without approval.
 - No Vercel token/bypass exists in this environment; the Vercel preview check
   for the PR is protected by Vercel Authentication.
+- **Vercel configuration check:** the production URL's `/api/health` reports
+  `database: "unconfigured"`, so `DATABASE_URL` is absent from the Vercel
+  **Production** environment for the project whose root directory is
+  `landing-pages/motion-ai-3d-terminal`. No Vercel API token, no `.vercel/`
+  project link and no Vercel Postgres/storage integration is present in this
+  workspace, so no authorized database integration could be attached and no
+  connection string could be configured. No value was printed or invented.
+  The app is intentionally left in labelled demo mode.
 - Promote the verified commit of PR #115 (`feature/motion-ai-3d-terminal`) in
   the Vercel dashboard, then re-run:
   `node scripts/verify-deployed.mjs https://motion-ai-3d-terminal.vercel.app`

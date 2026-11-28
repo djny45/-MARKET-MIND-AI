@@ -1,3 +1,4 @@
+import { isDatabaseConfigured, withDatabaseTimeout } from "@/db";
 import { buildDemoSnapshot } from "@/lib/demoSnapshot";
 import { runSwarmScan } from "@/lib/engine";
 
@@ -12,8 +13,20 @@ export async function POST(request: Request) {
     // body is optional
   }
 
+  if (!isDatabaseConfigured()) {
+    const snapshot = buildDemoSnapshot();
+    return Response.json(
+      {
+        signals: snapshot.signals.slice(0, Math.min(10, Math.max(1, count))),
+        consensus: snapshot.consensus,
+        dataOrigin: "demo-synthetic",
+        demo: true,
+      },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  }
   try {
-    const result = await runSwarmScan(count);
+    const result = await withDatabaseTimeout(runSwarmScan(count));
     return Response.json(
       { ...result, dataOrigin: "database-simulated" },
       { headers: { "Cache-Control": "no-store" } },

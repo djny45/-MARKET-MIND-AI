@@ -72,6 +72,8 @@ export const ROLES: { name: string; specialty: string[] }[] = [
 
 const FOCUS_WEIGHTS: { focus: MarketKey | "macro"; weight: number }[] = [
   { focus: "gold", weight: 120 },
+  { focus: "silver", weight: 80 },
+  { focus: "crude", weight: 90 },
   { focus: "forex", weight: 130 },
   { focus: "us", weight: 140 },
   { focus: "india", weight: 130 },
@@ -234,6 +236,20 @@ export const RATIONALE_FRAGMENTS: Record<MarketKey | "macro", string[]> = {
     "MCX premium widened against COMEX; import duty desk sees physical demand into the evening.",
     "Silver/gold ratio compressing, dealer gamma pins spot above the weekly value area.",
     "ETF inflows accelerated for a third session; central-bank bid absorbed the Asia dump.",
+  ],
+  silver: [
+    "Gold/silver ratio holding the 84 handle; research fixture, not a live ratio.",
+    "MCX silver premium to COMEX widened in the synthetic demo tape.",
+    "Solar-demand proxy is illustrative only; no verified industrial data is used.",
+    "Silver beta to gold compressed in the generated scene; no execution signal implied.",
+    "Precious-metal correlation derived from deterministic demo candles, not live prices.",
+  ],
+  crude: [
+    "WTI/Brent spread remains inside the synthetic research band; no live curve data.",
+    "EIA inventory proxy is illustrative only, generated from the demo PRNG.",
+    "MCX crude in INR reflects a static demo anchor, not a live conversion.",
+    "Energy seasonality view uses generated candles, not verified historical revisions.",
+    "Crude research panel is read-only and labelled demo-synthetic throughout.",
   ],
   forex: [
     "EUR/USD defending the weekly VWAP while rate-differential flow turns positive.",

@@ -53,6 +53,8 @@ async function main() {
   check("market snapshot has 550 agents", market.body?.agents?.total === 550, `total=${market.body?.agents?.total}`);
   check("market snapshot has signals", Array.isArray(market.body?.signals) && market.body.signals.length > 0);
   const markets = new Set((market.body?.instruments ?? []).map((item) => item.market));
+  const requiredMarkets = ["gold", "silver", "crude", "forex", "us", "india", "crypto"];
+  check("all seven markets present", requiredMarkets.every((m) => markets.has(m)), `markets=${[...markets].join(",")}`);
   check("crypto research panel is present", markets.has("crypto"), `markets=${[...markets].join(",")}`);
   check("crypto instruments are synthetic-labelled", (market.body?.instruments ?? [])
     .filter((item) => item.market === "crypto")

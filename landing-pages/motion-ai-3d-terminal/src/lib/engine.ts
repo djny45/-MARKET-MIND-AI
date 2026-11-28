@@ -162,7 +162,7 @@ async function seedDatabase(): Promise<void> {
 
   const [signalCount] = await db.select({ count: sql<number>`count(*)::int` }).from(signals);
   if (signalCount.count < 12) {
-    for (const market of ["gold", "forex", "us", "india", "crypto"] as MarketKey[]) {
+    for (const market of ["gold", "silver", "crude", "forex", "us", "india", "crypto"] as MarketKey[]) {
       await createSignals(4, market);
     }
   }

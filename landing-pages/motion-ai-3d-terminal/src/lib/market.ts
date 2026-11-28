@@ -1,4 +1,4 @@
-export type MarketKey = "gold" | "forex" | "us" | "india" | "crypto";
+export type MarketKey = "gold" | "silver" | "crude" | "forex" | "us" | "india" | "crypto";
 
 export type MarketMeta = {
   key: MarketKey;
@@ -12,11 +12,27 @@ export type MarketMeta = {
 export const MARKETS: MarketMeta[] = [
   {
     key: "gold",
-    label: "Gold & Metals",
+    label: "Gold",
     short: "GOLD",
     timezoneLabel: "XAU / COMEX / MCX",
     accent: "#F2C46B",
-    description: "Spot bullion, silver and MCX contracts",
+    description: "Spot bullion and MCX gold contracts",
+  },
+  {
+    key: "silver",
+    label: "Silver",
+    short: "SILVER",
+    timezoneLabel: "XAG / COMEX / MCX",
+    accent: "#C7D0DB",
+    description: "Spot silver, MCX silver and the gold/silver ratio",
+  },
+  {
+    key: "crude",
+    label: "Crude Oil",
+    short: "CRUDE",
+    timezoneLabel: "WTI / BRENT / MCX",
+    accent: "#E07A5F",
+    description: "WTI, Brent and MCX crude research panels",
   },
   {
     key: "forex",
@@ -58,7 +74,7 @@ export const MARKET_MAP: Record<MarketKey, MarketMeta> = MARKETS.reduce(
 );
 
 export function isMarketKey(value: string | null | undefined): value is MarketKey {
-  return value === "gold" || value === "forex" || value === "us" || value === "india" || value === "crypto";
+  return ["gold", "silver", "crude", "forex", "us", "india", "crypto"].includes(value ?? "");
 }
 
 export type InstrumentDefinition = {
@@ -90,7 +106,7 @@ export const INSTRUMENT_DEFINITIONS: InstrumentDefinition[] = [
   {
     symbol: "XAG/USD",
     name: "Silver Spot",
-    market: "gold",
+    market: "silver",
     kind: "spot",
     currency: "USD",
     unit: "per troy oz",
@@ -98,6 +114,54 @@ export const INSTRUMENT_DEFINITIONS: InstrumentDefinition[] = [
     basePrice: 31.42,
     volatility: 0.0018,
     volumeBase: 96_000,
+  },
+  {
+    symbol: "MCX:SILVER",
+    name: "MCX Silver Mar",
+    market: "silver",
+    kind: "future",
+    currency: "INR",
+    unit: "per kg",
+    decimals: 0,
+    basePrice: 92_450,
+    volatility: 0.0021,
+    volumeBase: 38_000,
+  },
+  {
+    symbol: "WTI",
+    name: "WTI Crude",
+    market: "crude",
+    kind: "future",
+    currency: "USD",
+    unit: "per barrel",
+    decimals: 2,
+    basePrice: 71.35,
+    volatility: 0.0026,
+    volumeBase: 214_000,
+  },
+  {
+    symbol: "BRENT",
+    name: "Brent Crude",
+    market: "crude",
+    kind: "future",
+    currency: "USD",
+    unit: "per barrel",
+    decimals: 2,
+    basePrice: 74.82,
+    volatility: 0.0024,
+    volumeBase: 186_000,
+  },
+  {
+    symbol: "MCX:CRUDE",
+    name: "MCX Crude",
+    market: "crude",
+    kind: "future",
+    currency: "INR",
+    unit: "per barrel",
+    decimals: 1,
+    basePrice: 6_124.5,
+    volatility: 0.0027,
+    volumeBase: 74_000,
   },
   {
     symbol: "MCX:GOLD",
@@ -263,6 +327,8 @@ type SessionWindow = {
 
 const SESSION_WINDOWS: Record<MarketKey, SessionWindow> = {
   gold: { open: 23 * 60, close: 21 * 60, weekdayOnly: false },
+  silver: { open: 23 * 60, close: 21 * 60, weekdayOnly: false },
+  crude: { open: 23 * 60, close: 21 * 60, weekdayOnly: false },
   forex: { open: 22 * 60, close: 21 * 60, weekdayOnly: false },
   us: { open: 14 * 60 + 30, close: 21 * 60, weekdayOnly: true },
   india: { open: 3 * 60 + 45, close: 10 * 60, weekdayOnly: true },

@@ -14,6 +14,8 @@ export const AMBER = "#f6c76b";
 
 export const FOCUS_COLOR: Record<string, string> = {
   gold: AMBER,
+  silver: "#C7D0DB",
+  crude: "#E07A5F",
   forex: AQUA,
   us: "#7fa6ff",
   india: MINT,
@@ -31,6 +33,8 @@ export const STATUS_COLOR: Record<string, string> = {
 
 export function focusLabel(focus: MarketKey | "macro"): string {
   if (focus === "gold") return "GOLD";
+  if (focus === "silver") return "SILVER";
+  if (focus === "crude") return "CRUDE";
   if (focus === "forex") return "FX";
   if (focus === "us") return "USA";
   if (focus === "india") return "INDIA";

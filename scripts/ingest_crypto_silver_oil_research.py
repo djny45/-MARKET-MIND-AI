@@ -71,9 +71,16 @@ async def run(poll_seconds: int, once: bool) -> int:
             pass
 
     while not stopping.is_set():
-        await ingest_once()
+        results = await ingest_once()
         if once:
-            break
+            # A one-shot run is successful only when at least one observation
+            # was persisted. Per-symbol failures remain isolated in the result.
+            stored_count = sum(
+                item.get("stored", 0)
+                for item in results.values()
+                if isinstance(item, dict)
+            )
+            return 0 if stored_count > 0 else 1
         try:
             await asyncio.wait_for(stopping.wait(), timeout=poll_seconds)
         except asyncio.TimeoutError:

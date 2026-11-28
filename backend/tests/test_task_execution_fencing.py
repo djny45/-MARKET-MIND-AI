@@ -32,7 +32,7 @@ class ResearchTaskExecutionFencingTests(unittest.TestCase):
         queued = enqueue_research_task("worker_041", "exercise stale execution fencing")
         calls = {"count": 0, "new_attempt_result": None}
 
-        def overlapping_synthesis(_payload):
+        def overlapping_synthesis(_payload, *, agent_id=None):
             calls["count"] += 1
             if calls["count"] == 1:
                 stale = (datetime.now(timezone.utc) - timedelta(seconds=1200)).isoformat()

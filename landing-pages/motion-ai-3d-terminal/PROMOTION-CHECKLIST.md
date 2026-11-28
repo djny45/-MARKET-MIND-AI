@@ -1,64 +1,100 @@
 # Production promotion checklist — Motion AI 3D terminal
 
-Status: **HOLD — not authorized for promotion until release gates below are green.**
+Scope: promote the verified demo-mode dashboard build to
+`https://motion-ai-3d-terminal.vercel.app`. **No promotion is performed by the
+agent.** All steps require maintainer approval and Vercel dashboard access.
 
-## Current release candidate
+## Preconditions (verify before promotion)
 
-- PR: https://github.com/djny45/-MARKET-MIND-AI/pull/115
-- Candidate branch: `feature/motion-ai-3d-terminal`
-- Current candidate baseline: `f083767ecfeb296908c7cd64449339319452d613`
-- Candidate Vercel deployment: `dpl_9Vv9SpPqrxDpeZUdk4F5edgLaRnB`
-- Candidate preview URL: https://motion-ai-3d-terminal-l6uu52mcl-djny45s-projects.vercel.app
-- Preview status: READY; deployment is associated with the candidate commit.
-- Production deployment: `dpl_H6PQ6EAmrWjk44UJpTgbeMaRVrGi`, commit `6166a7d588ea03b016394492caabc244c4b17fd3`.
-- `DATABASE_URL`: intentionally unset; no PostgreSQL provisioning or migration is authorized by this release.
+1. PR #115 head is `7d1ff19c` (or newer reviewed commit); all CI jobs other
+   than Backend are green on that SHA (verified 2026-11-28); Backend was fully
+   green on the immediately preceding code commit `785f7e33`. The only change
+   in `7d1ff19c` is demo confidence percent formatting plus its harness check.
+2. No approval is treated as implicit. PR review approval is required.
+3. `DATABASE_URL` remains **unset** in the Vercel Production environment. No
+   PostgreSQL is provisioned and no migration is executed for this release.
+   Expected runtime state: labelled read-only synthetic demo mode.
+4. The target deployment is `3ra4SsTP3XDT1E6X4ehp1Jw3S5uX` (for `7d1ff19c`,
+   build status `success`) for project `motion-ai-3d-terminal`. Do **not**
+   promote older deployments such as `3hdMyCrqTiCudBZdckJjifsSrgMa`
+   (`785f7e33`) or `6HyKQ1m2n6pa5ArUbfVT9TQJUUHo` (pre-fix).
 
-## Required gates
+## Promotion steps (maintainer)
 
-1. Resolve the active terminal dependency audit finding. The isolated audit found four moderate advisories through the active app's Drizzle Kit dependency chain:
-   `drizzle-kit@0.31.10 -> @esbuild-kit/esm-loader@2.6.5 -> @esbuild-kit/core-utils@3.3.2 -> esbuild@0.18.20`.
-   Do not suppress audit findings, apply `npm audit fix --force`, or downgrade Drizzle Kit to 0.18.1. The proposed upgrade to Drizzle Kit 1.0 RC is not accepted until the package lock is regenerated reproducibly and TypeScript, lint, build, CLI configuration, and tests pass. Maintain a dedicated remediation PR until then.
-2. PR #115 must receive a formal `APPROVED` GitHub review from an authorized reviewer. A COMMENTED review or a positive comment is not approval.
-3. All required checks must be completed successfully on the final PR head. No pending/running checks and no failed audit/security jobs.
-4. Complete authorized maintainer review of PRs #117 and #118; assess the planned order (#117 schema foundation before #118 parity tests) and obtain required approvals before either merge. These PRs are currently drafts and not part of this UI release's promotion gate unless the release scope changes.
-5. A maintainer must open the Vercel preview using the project's authenticated Vercel SSO session and visually verify the application. Do not bypass SSO.
-6. Confirm the target candidate's exact commit SHA and Vercel READY state immediately before promotion.
-7. Confirm `DATABASE_URL` remains unset in Vercel Production. The candidate is expected to operate in explicitly labelled synthetic demo mode without a database; this release does not claim PostgreSQL persistence readiness.
-8. Promote only after the above preconditions are satisfied and explicit operator approval for the production action is present.
+1. In Vercel dashboard → project `motion-ai-3d-terminal` → Deployments, select
+   deployment `3ra4SsTP3XDT1E6X4ehp1Jw3S5uX` and confirm its commit SHA matches
+   `7d1ff19c` and build status is Ready.
+2. Assign the production domain `motion-ai-3d-terminal.vercel.app` to that
+   deployment (Promote to Production). Do not bypass authentication.
+3. Smoke-check with an authenticated Vercel session (`vercel curl`) if the
+   project is password-protected.
 
-## Promotion procedure
-
-In the Vercel dashboard, project `motion-ai-3d-terminal` -> Deployments:
-- Select the exact approved, READY deployment for the final approved commit.
-- Confirm Git branch, full commit SHA, project and target domain.
-- Assign `motion-ai-3d-terminal.vercel.app` using the standard Promote to Production action.
-- Do not use deployment protection bypass or change database settings.
-
-## Post-promotion verification (required; exit code 0)
-
-From `landing-pages/motion-ai-3d-terminal`:
+## Post-promotion verification (required, exit 0)
 
 ```bash
+cd landing-pages/motion-ai-3d-terminal
 node scripts/verify-deployed.mjs https://motion-ai-3d-terminal.vercel.app
 ```
 
-Require all nine checks to pass. Confirm:
-- Homepage is the full terminal, not the old boot screen.
-- Demo/synthetic data is clearly labelled.
-- `/api/market` returns HTTP 200 with `dataOrigin: demo-synthetic`.
-- `/api/health` honestly reports database unconfigured and demo mode.
-- `/api/backend` reports disabled/unavailable when no backend is configured.
-- No brokerage execution, live order routing, wallet signing, or autonomous-agent claims are introduced.
+Expected: 9 PASS, including no boot screen, full terminal (>100 KB), demo
+banner, `/api/market` HTTP 200 with `dataOrigin: demo-synthetic`, and honest
+`/api/health` (`database: unconfigured`, `ok: false`).
 
-## Rollback
+Also confirm:
+- Header/footer say "generated profiles"/"online", not "550 autonomous agents".
+- `/api/backend` reports `disabled`/`unavailable`, never false "connected".
 
-If post-promotion verification fails, immediately use Vercel dashboard to restore the recorded prior production deployment:
-`dpl_H6PQ6EAmrWjk44UJpTgbeMaRVrGi`.
-Then record the failure, preserve deployment logs, and open a corrective PR. No database rollback is expected because this release does not provision a database or run migrations.
+## Rollback plan
 
-## Known external blockers / non-claims
+1. If verification fails, reassign the production domain to the previously
+   serving deployment (`6HyKQ1m2n6pa5ArUbfVT9TQJUUHo`) — record its ID before
+   promoting. This restores the old boot screen but avoids an unverified state.
+2. Alternatively, revert PR #115 merge commit on `main` and let the Vercel Git
+   integration build the revert; confirm with `verify-deployed.mjs`.
+3. No database rollback is needed: no migrations ran and no production data was
+   modified. Keep `DATABASE_URL` unset throughout.
 
-- Visual inspection is inaccessible to the agent without maintainer Vercel SSO. This is an operator action.
-- TLS ingress, firewall/network segmentation, real off-host backup/restore, production process-kill recovery drill, and independent penetration testing remain external operational hardening tasks.
-- Full PostgreSQL migration of the wider research backend is not included. Keep `DATABASE_URL` unset until a real PostgreSQL service is intentionally provisioned and separately approved.
-- No production release is claimed while any required gate is pending or failed.
+## Why `verify-deployed.mjs` exited 1 (diagnosis, 2026-11-28)
+
+The harness is **correct**; the failure is a **stale production deployment**:
+
+| Check | Local build of `7d1ff19c` | Production URL |
+|---|---|---|
+| `verify-deployed.mjs` exit | **0** (9 PASS) | **1** (6 FAIL) |
+| Homepage bytes | 229,274 | 8,833 |
+| Boot screen string | absent | `awaiting database handshake` present |
+| `/api/market` | 200, `dataOrigin=demo-synthetic` | 500 `market_unavailable` |
+| `/api/health` keys | `database, demoMode, agents, ...` | old `database, detail, ok` only |
+
+The six production failures are exactly the old-build markers. Therefore the
+remedy is promotion of the verified deployment, not a code or harness change.
+
+## Exact commands (maintainer, after approval)
+
+```bash
+# 0. Confirm the authorized deployment and commit
+#    https://vercel.com/djny45s-projects/motion-ai-3d-terminal/3ra4SsTP3XDT1E6X4ehp1Jw3S5uX
+#    Deployment ID: 3ra4SsTP3XDT1E6X4ehp1Jw3S5uX  Commit: 7d1ff19c
+
+# 1. Promote from the Vercel dashboard (no CLI token available in the agent
+#    environment; do not bypass SSO): project motion-ai-3d-terminal →
+#    Deployments → ...3ra4SsTP3XDT1E6X4ehp1Jw3S5uX → Promote to Production.
+
+# 2. Verify production (must exit 0, 9 PASS)
+cd landing-pages/motion-ai-3d-terminal
+node scripts/verify-deployed.mjs https://motion-ai-3d-terminal.vercel.app
+
+# 3a. Rollback — reassign the production domain in the Vercel dashboard to
+#     the previously serving deployment:
+#     6HyKQ1m2n6pa5ArUbfVT9TQJUUHo
+# 3b. Alternative rollback — revert the PR #115 merge on main and let the
+#     Vercel Git integration rebuild, then repeat step 2.
+# No database rollback: DATABASE_URL stays unset and no data was modified.
+```
+
+## Known limitations
+
+- Preview deployments are protected by Vercel Authentication; no SSO bypass
+  was attempted by the agent. Visual preview inspection requires a maintainer.
+- The full PostgreSQL persistence migration is out of scope; only market-data
+  schema foundation (PR #117) and parity tests (PR #118) exist.

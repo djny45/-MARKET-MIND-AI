@@ -93,7 +93,7 @@ export async function databaseSchemaReady(): Promise<boolean> {
 export const db: NodePgDatabase = new Proxy({} as NodePgDatabase, {
   get(_target, property, receiver) {
     if (!globalForDb.__arenaNextJsPostgresqlDb) {
-      globalForDb.__arenaNextJsPostgresqlDb = drizzle(getPool());
+      globalForDb.__arenaNextJsPostgresqlDb = drizzle({ client: getPool() });
     }
     const value = Reflect.get(globalForDb.__arenaNextJsPostgresqlDb, property, receiver);
     return typeof value === "function" ? value.bind(globalForDb.__arenaNextJsPostgresqlDb) : value;

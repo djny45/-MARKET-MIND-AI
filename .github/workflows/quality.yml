@@ -370,12 +370,21 @@ jobs:
           npm ci --ignore-scripts
           npm audit --audit-level=moderate
           npx drizzle-kit --version
-          original_sql_sha=$(sha256sum drizzle/0000_initial_schema.sql | cut -d' ' -f1)
-          npx drizzle-kit up
-          converted_sql=$(find drizzle -type f -name migration.sql -print -quit)
-          test -n "$converted_sql"
-          converted_sql_sha=$(sha256sum "$converted_sql" | cut -d' ' -f1)
-          test "$original_sql_sha" = "$converted_sql_sha"
+          if [ -f drizzle/0000_initial_schema.sql ]; then
+            # First conversion: require byte-for-byte preservation of the SQL.
+            original_sql_sha=$(sha256sum drizzle/0000_initial_schema.sql | cut -d' ' -f1)
+            npx drizzle-kit up
+            converted_sql=$(find drizzle -type f -name migration.sql -print -quit)
+            test -n "$converted_sql"
+            converted_sql_sha=$(sha256sum "$converted_sql" | cut -d' ' -f1)
+            test "$original_sql_sha" = "$converted_sql_sha"
+          else
+            # Repeat validation: the original file was renamed by "up" and the
+            # generated lockfile/migration history is already committed.
+            converted_sql=$(find drizzle -mindepth 2 -type f -name migration.sql -print -quit)
+            test -n "$converted_sql"
+            test -f "$(dirname "$converted_sql")/snapshot.json"
+          fi
           npx drizzle-kit check
           npm run typecheck
           npm run lint

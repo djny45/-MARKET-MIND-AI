@@ -363,6 +363,14 @@ jobs:
       - name: Audit active Next.js terminal dependencies
         working-directory: landing-pages/motion-ai-3d-terminal
         run: |
+          npm install --package-lock-only --ignore-scripts
+          npm ci --ignore-scripts
+          npm audit --audit-level=moderate
+
+      - name: Audit imported terminal dependency snapshot
+        working-directory: landing-pages/motion-ai-3d-terminal-import
+        run: |
+          npm install --package-lock-only --ignore-scripts
           npm ci --ignore-scripts
           npm audit --audit-level=moderate
 
@@ -370,9 +378,9 @@ jobs:
         if: failure()
         run: |
           pip-audit -r backend/requirements.txt --progress-spinner off --format json > backend-pip-audit.json 2>&1 || true
-          cd frontend
-          npm audit --json > frontend-npm-audit.json 2>&1 || true
-          (cd landing-pages/motion-ai-3d-terminal && npm audit --json > ../../active-next-npm-audit.json 2>&1) || true
+          (cd frontend && npm audit --json > frontend-npm-audit.json 2>&1) || true
+          (cd landing-pages/motion-ai-3d-terminal && npm audit --json > ../active-next-npm-audit.json 2>&1) || true
+          (cd landing-pages/motion-ai-3d-terminal-import && npm audit --json > ../imported-next-npm-audit.json 2>&1) || true
 
       - name: Upload dependency audit diagnostics
         if: failure()
@@ -382,6 +390,18 @@ jobs:
           path: |
             backend-pip-audit.json
             frontend/frontend-npm-audit.json
+            landing-pages/active-next-npm-audit.json
+            landing-pages/imported-next-npm-audit.json
+          if-no-files-found: warn
+
+      - name: Upload regenerated terminal lockfiles
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: terminal-lockfiles
+          path: |
+            landing-pages/motion-ai-3d-terminal/package-lock.json
+            landing-pages/motion-ai-3d-terminal-import/package-lock.json
           if-no-files-found: warn
 
   trivy-security:

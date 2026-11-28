@@ -69,6 +69,29 @@ The harness is **correct**; the failure is a **stale production deployment**:
 The six production failures are exactly the old-build markers. Therefore the
 remedy is promotion of the verified deployment, not a code or harness change.
 
+## Exact commands (maintainer, after approval)
+
+```bash
+# 0. Confirm the authorized deployment and commit
+#    https://vercel.com/djny45s-projects/motion-ai-3d-terminal/3ra4SsTP3XDT1E6X4ehp1Jw3S5uX
+#    Deployment ID: 3ra4SsTP3XDT1E6X4ehp1Jw3S5uX  Commit: 7d1ff19c
+
+# 1. Promote from the Vercel dashboard (no CLI token available in the agent
+#    environment; do not bypass SSO): project motion-ai-3d-terminal →
+#    Deployments → ...3ra4SsTP3XDT1E6X4ehp1Jw3S5uX → Promote to Production.
+
+# 2. Verify production (must exit 0, 9 PASS)
+cd landing-pages/motion-ai-3d-terminal
+node scripts/verify-deployed.mjs https://motion-ai-3d-terminal.vercel.app
+
+# 3a. Rollback — reassign the production domain in the Vercel dashboard to
+#     the previously serving deployment:
+#     6HyKQ1m2n6pa5ArUbfVT9TQJUUHo
+# 3b. Alternative rollback — revert the PR #115 merge on main and let the
+#     Vercel Git integration rebuild, then repeat step 2.
+# No database rollback: DATABASE_URL stays unset and no data was modified.
+```
+
 ## Known limitations
 
 - Preview deployments are protected by Vercel Authentication; no SSO bypass

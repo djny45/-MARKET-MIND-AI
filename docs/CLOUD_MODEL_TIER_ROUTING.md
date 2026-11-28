@@ -8,7 +8,7 @@ MARKET-MIND-AI assigns model tiers to its 550 logical research-agent profiles:
 - `worker_021` through `worker_550`: standard tier (530 specialist profiles).
 
 Both tiers use the configured cloud provider. Local inference providers are not accepted by
-`backend/app/model_access.py`.
+`backend/app/model_access.py` for agent-scoped synthesis.
 
 ## Configuration
 
@@ -25,11 +25,21 @@ This repository does not assume that a particular basic/premium model ID is avai
 
 ## Current implementation boundary
 
-The tier resolver and agent brain metadata are implemented and tested. They report whether
-configuration values are present without returning secrets. This slice does **not** claim
-that 550 agents are running, that cloud API credentials are installed, or that tier-specific
-inference has passed an end-to-end provider health check. The shared inference request path
-must pass the agent ID into the gateway before model assignments become active at runtime.
+The tier resolver, agent brain metadata, and agent-ID-aware shared synthesis path are implemented.
+Research-task execution and council synthesis pass each logical agent ID to the shared core;
+agent-scoped requests resolve the corresponding tier and target the fixed Mercury HTTPS endpoint.
+When the tier configuration is incomplete, or the provider request fails, synthesis returns a
+non-success status and leaves the deterministic research report authoritative. It does not
+fall back to Ollama or FreeLLMAPI for an agent-scoped request.
 
-No local model server, broker execution, order placement, or autonomous financial execution
-is part of this design. Research tasks remain educational and evidence-grounded.
+Configuration readiness only reports the presence of settings. This repository does **not**
+establish that deployment credentials are installed, model IDs are supported by the provider,
+provider health has been verified, or end-to-end cloud inference is operational. Those require
+deployment-side configuration and a successful, controlled provider verification.
+
+The non-agent-scoped compatibility path may still use the separately configured shared provider;
+the cloud-only tier guarantee described above applies to calls that supply a registered
+`agent_id`.
+
+No broker execution, order placement, or autonomous financial execution is part of this design.
+Research tasks remain educational and evidence-grounded.

@@ -360,16 +360,33 @@ jobs:
           npm install --ignore-scripts
           npm audit --audit-level=high
 
-      - name: Audit active Next.js terminal dependencies
+      - name: Audit and validate active Next.js terminal dependencies
         working-directory: landing-pages/motion-ai-3d-terminal
         run: |
           npm install --package-lock-only --ignore-scripts --no-audit --no-fund
           npm ci --ignore-scripts
           npm audit --audit-level=moderate
           npx drizzle-kit --version
+          original_sql_sha=$(sha256sum drizzle/0000_initial_schema.sql | cut -d' ' -f1)
+          npx drizzle-kit up
+          converted_sql=$(find drizzle -type f -name migration.sql -print -quit)
+          test -n "$converted_sql"
+          converted_sql_sha=$(sha256sum "$converted_sql" | cut -d' ' -f1)
+          test "$original_sql_sha" = "$converted_sql_sha"
+          npx drizzle-kit check
           npm run typecheck
           npm run lint
           npm run build
+          node scripts/verify-terminal.mjs
+          node scripts/verify-unreachable-db.mjs
+
+      - name: Upload converted Drizzle v1 migration history
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: drizzle-v1-migration-history
+          path: landing-pages/motion-ai-3d-terminal/drizzle
+          if-no-files-found: error
 
       - name: Audit imported terminal dependency snapshot
         working-directory: landing-pages/motion-ai-3d-terminal-import

@@ -39,6 +39,19 @@ class ResearchFeedCollectorTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(stored_batch.status.value, "historical")
         self.assertEqual(result["BTCUSD"]["stored"], 1)
 
+    async def test_one_shot_returns_failure_when_no_symbol_stores_bars(self):
+        unavailable = {symbol: {"status": "unavailable"} for symbol in collector.SYMBOLS}
+        with patch.object(collector, "ingest_once", new=AsyncMock(return_value=unavailable)):
+            self.assertEqual(await collector.run(poll_seconds=900, once=True), 1)
+
+    async def test_one_shot_succeeds_when_at_least_one_symbol_stores_bars(self):
+        results = {
+            "BTCUSD": {"stored": 12},
+            "ETHUSD": {"status": "unavailable"},
+        }
+        with patch.object(collector, "ingest_once", new=AsyncMock(return_value=results)):
+            self.assertEqual(await collector.run(poll_seconds=900, once=True), 0)
+
     async def test_provider_failure_is_isolated_per_symbol(self):
         adapter = SimpleNamespace(get_bars=AsyncMock(side_effect=[
             RuntimeError("provider unavailable"),

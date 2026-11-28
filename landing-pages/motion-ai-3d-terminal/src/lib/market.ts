@@ -1,4 +1,4 @@
-export type MarketKey = "gold" | "forex" | "us" | "india";
+export type MarketKey = "gold" | "forex" | "us" | "india" | "crypto";
 
 export type MarketMeta = {
   key: MarketKey;
@@ -42,6 +42,14 @@ export const MARKETS: MarketMeta[] = [
     accent: "#5BE39A",
     description: "Nifty, Sensex and Bank Nifty",
   },
+  {
+    key: "crypto",
+    label: "Crypto (Research)",
+    short: "CRYPTO",
+    timezoneLabel: "24/7 SPOT",
+    accent: "#F7931A",
+    description: "Synthetic BTC/ETH spot research panels — not live prices",
+  },
 ];
 
 export const MARKET_MAP: Record<MarketKey, MarketMeta> = MARKETS.reduce(
@@ -50,7 +58,7 @@ export const MARKET_MAP: Record<MarketKey, MarketMeta> = MARKETS.reduce(
 );
 
 export function isMarketKey(value: string | null | undefined): value is MarketKey {
-  return value === "gold" || value === "forex" || value === "us" || value === "india";
+  return value === "gold" || value === "forex" || value === "us" || value === "india" || value === "crypto";
 }
 
 export type InstrumentDefinition = {
@@ -211,6 +219,32 @@ export const INSTRUMENT_DEFINITIONS: InstrumentDefinition[] = [
     volatility: 0.0015,
     volumeBase: 168_000,
   },
+  // Synthetic crypto research panels. Base prices are static demo anchors,
+  // not live quotes; the terminal labels all values demo-synthetic.
+  {
+    symbol: "BTC/USD",
+    name: "Bitcoin (Synthetic)",
+    market: "crypto",
+    kind: "spot",
+    currency: "USD",
+    unit: "per BTC",
+    decimals: 2,
+    basePrice: 96_420.5,
+    volatility: 0.0028,
+    volumeBase: 128_000,
+  },
+  {
+    symbol: "ETH/USD",
+    name: "Ethereum (Synthetic)",
+    market: "crypto",
+    kind: "spot",
+    currency: "USD",
+    unit: "per ETH",
+    decimals: 2,
+    basePrice: 3_412.75,
+    volatility: 0.0034,
+    volumeBase: 96_000,
+  },
 ];
 
 export type MarketSession = {
@@ -232,6 +266,7 @@ const SESSION_WINDOWS: Record<MarketKey, SessionWindow> = {
   forex: { open: 22 * 60, close: 21 * 60, weekdayOnly: false },
   us: { open: 14 * 60 + 30, close: 21 * 60, weekdayOnly: true },
   india: { open: 3 * 60 + 45, close: 10 * 60, weekdayOnly: true },
+  crypto: { open: 0, close: 24 * 60, weekdayOnly: false },
 };
 
 function pad(value: number): string {
@@ -250,6 +285,16 @@ export function marketSessions(now: Date = new Date()): MarketSession[] {
   return MARKETS.map((market) => {
     const window = SESSION_WINDOWS[market.key];
     const weekend = day === 6 || day === 0;
+
+    if (market.key === "crypto") {
+      // Crypto spot trades continuously; no exchange-hours claim is made.
+      return {
+        market: market.key,
+        status: "open" as const,
+        label: "24/7",
+        detail: "continuous synthetic research panel",
+      } satisfies MarketSession;
+    }
 
     if (window.weekdayOnly) {
       const open = !weekend && utcMinutes >= window.open && utcMinutes < window.close;

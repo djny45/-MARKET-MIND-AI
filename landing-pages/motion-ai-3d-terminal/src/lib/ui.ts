@@ -17,6 +17,7 @@ export const FOCUS_COLOR: Record<string, string> = {
   forex: AQUA,
   us: "#7fa6ff",
   india: MINT,
+  crypto: "#F7931A",
   macro: "#c4b5fd",
 };
 
@@ -33,6 +34,7 @@ export function focusLabel(focus: MarketKey | "macro"): string {
   if (focus === "forex") return "FX";
   if (focus === "us") return "USA";
   if (focus === "india") return "INDIA";
+  if (focus === "crypto") return "CRYPTO";
   return "MACRO";
 }
 

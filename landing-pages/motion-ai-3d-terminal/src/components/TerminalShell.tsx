@@ -318,7 +318,7 @@ export function TerminalShell({
               research · simulated data
             </span>
             <span className="font-mono text-[8.5px] tracking-[0.12em] text-muted uppercase">
-              gold · forex · usa · india · 550 generated profiles
+              gold · forex · usa · india · crypto · 550 generated profiles
             </span>
           </div>
           <div className="flex items-center gap-2 font-mono text-[8.5px] tracking-[0.1em] text-muted uppercase">

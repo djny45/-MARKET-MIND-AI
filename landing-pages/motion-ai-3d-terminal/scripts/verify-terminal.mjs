@@ -52,6 +52,13 @@ async function main() {
   check("market snapshot has instruments", Array.isArray(market.body?.instruments) && market.body.instruments.length > 0);
   check("market snapshot has 550 agents", market.body?.agents?.total === 550, `total=${market.body?.agents?.total}`);
   check("market snapshot has signals", Array.isArray(market.body?.signals) && market.body.signals.length > 0);
+  const markets = new Set((market.body?.instruments ?? []).map((item) => item.market));
+  check("crypto research panel is present", markets.has("crypto"), `markets=${[...markets].join(",")}`);
+  check("crypto instruments are synthetic-labelled", (market.body?.instruments ?? [])
+    .filter((item) => item.market === "crypto")
+    .every((item) => /synthetic/i.test(item.name)), "crypto instrument names lack synthetic label");
+  check("crypto session is continuous research panel", (market.body?.sessions ?? [])
+    .some((session) => session.market === "crypto" && session.status === "open" && session.label === "24/7"), "no 24/7 crypto session");
   if (origin === "demo-synthetic") {
     check("demo mode is flagged in API", market.body?.demo === true, `demo=${market.body?.demo}`);
     check("demo banner is rendered", html.includes("read-only demo mode"));

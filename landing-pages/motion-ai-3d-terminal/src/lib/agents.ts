@@ -75,6 +75,7 @@ const FOCUS_WEIGHTS: { focus: MarketKey | "macro"; weight: number }[] = [
   { focus: "forex", weight: 130 },
   { focus: "us", weight: 140 },
   { focus: "india", weight: 130 },
+  { focus: "crypto", weight: 90 },
   { focus: "macro", weight: 30 },
 ];
 
@@ -254,6 +255,13 @@ export const RATIONALE_FRAGMENTS: Record<MarketKey | "macro", string[]> = {
     "Sensex rel-strength vs MSCI EM hints at domestic SIP flow absorption.",
     "Midcap momentum broadening; small-cap hedge ratio at a two-month low.",
     "VIX compressed under 13 — breakout expansion likely above 24,250.",
+  ],
+  crypto: [
+    "Synthetic BTC spot holds the session VWAP; research-only momentum flag flipped neutral.",
+    "ETH/BTC ratio stabilises in the demo fixture; no live order-book data is used.",
+    "Funding-rate proxy is illustrative only — generated from the deterministic demo PRNG.",
+    "Crypto desk signal derived from synthetic candles; never a live execution recommendation.",
+    "24/7 research panel: values are simulated and labelled demo-synthetic throughout.",
   ],
   macro: [
     "Cross-asset correlation matrix flipped: gold and equities bidding together, dollar lagging.",

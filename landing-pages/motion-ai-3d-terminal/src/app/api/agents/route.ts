@@ -19,7 +19,10 @@ export async function GET(request: Request) {
       { ...result, dataOrigin: "database-simulated" },
       { headers: { "Cache-Control": "no-store" } },
     );
-  } catch {
+  } catch (error) {
+    // Keep the terminal usable, but make the fallback visible in server logs
+    // so a real query defect is not silently masked as "demo mode".
+    console.warn("agent directory fell back to demo data:", error instanceof Error ? error.message : error);
     return Response.json(buildDemoAgentDirectory(query), {
       headers: { "Cache-Control": "no-store" },
     });

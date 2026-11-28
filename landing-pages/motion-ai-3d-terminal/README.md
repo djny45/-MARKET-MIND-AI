@@ -88,7 +88,8 @@ npm run dev                     # http://localhost:3000
 
 | Variable | Required | Purpose |
 | --- | --- | --- |
-| `DATABASE_URL` | No | PostgreSQL connection string. If unset the app still boots; `/api/health` reports `database=unconfigured` and data endpoints return an explicit error. |
+| `DATABASE_URL` | No | PostgreSQL connection string. If unset/unreachable the app still boots in labelled read-only synthetic demo mode; `/api/health` reports the real state and data endpoints return HTTP 200 with `dataOrigin: "demo-synthetic"`. |
+| `DATABASE_TIMEOUT_MS` | No | Hard deadline for each database attempt (default 4000 ms). Prevents an unreachable database from hanging the page forever. |
 | `MARKET_MIND_API_URL` | No | Optional FastAPI backend base URL. Empty = fully self-contained local demo. |
 | `MARKET_MIND_API_TOKEN` | No | Optional bearer token for a backend that requires it. Never commit. |
 | `MARKET_MIND_API_TIMEOUT_MS` | No | Backend probe timeout, default 5000 ms. |
@@ -109,9 +110,14 @@ npx drizzle-kit migrate
 ```
 
 Health check: `curl -s http://localhost:3000/api/health`
-returns `{"ok":true,"database":"connected"}` only when `select 1` succeeds.
-Without a database it returns HTTP 503 with `database:"unconfigured"` or
-`"unavailable"` — it never falsely reports a connection.
+returns `{"ok":true,"database":"connected"}` only when `select 1` and a
+read-only schema check succeed. Without a database it returns HTTP 503 with
+`database:"unconfigured"`, `"unavailable"` or `"schema-incomplete"` — it never
+falsely reports a connection. Agent-grid readiness is reported separately in
+the `agents` field. Database attempts are bounded by `DATABASE_TIMEOUT_MS`.
+
+Verify the unreachable-database regression:
+`node scripts/verify-unreachable-db.mjs` (no credentials used or written).
 
 ## API endpoints
 

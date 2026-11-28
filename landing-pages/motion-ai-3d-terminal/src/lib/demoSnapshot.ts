@@ -158,7 +158,7 @@ function signalViews(
       target: Number((instrument.price * (1 + (direction === "bearish" ? -1 : 1) * 0.006)).toFixed(instrument.decimals)),
       stop: Number((instrument.price * (1 + (direction === "bearish" ? 1 : -1) * 0.003)).toFixed(instrument.decimals)),
       createdAt: new Date(Date.now() - i * 120_000).toISOString(),
-      agentId: seed.codename.length,
+      agentId: (i % 550) + 1,
       codename: seed.codename,
       role: seed.role,
       focus: seed.focus,
@@ -190,10 +190,6 @@ function consensus(signals: SignalView[]): ConsensusView[] {
   });
 }
 
-/**
- * Build a complete, clearly-labelled synthetic snapshot for demo mode.
- * Deterministic: identical input seeds produce identical output.
- */
 /** Synthetic agent directory rows in the same shape as listAgents(). */
 export function buildDemoAgentDirectory(query: {
   q?: string;

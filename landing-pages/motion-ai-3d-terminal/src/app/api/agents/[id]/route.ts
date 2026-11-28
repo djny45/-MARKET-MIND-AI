@@ -14,7 +14,8 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     const detail = await getAgentDetail(agentId);
     if (!detail) return Response.json({ error: "not_found" }, { status: 404 });
     return Response.json({ ...detail, dataOrigin: "database-simulated" }, { headers: { "Cache-Control": "no-store" } });
-  } catch {
+  } catch (error) {
+    console.warn("agent detail fell back to demo data:", error instanceof Error ? error.message : error);
     const detail = buildDemoAgentDetail(agentId);
     if (!detail) return Response.json({ error: "not_found" }, { status: 404 });
     return Response.json(detail, { headers: { "Cache-Control": "no-store" } });

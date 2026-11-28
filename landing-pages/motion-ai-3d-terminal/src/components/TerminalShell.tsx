@@ -33,12 +33,17 @@ function formatZone(date: Date, zone: string): string {
 
 export function TerminalShell({
   initialSnapshot,
-  demoReason = null,
+  demoReason: demoReasonProp = null,
 }: {
   initialSnapshot: MarketSnapshot;
   demoReason?: string | null;
 }) {
   const [snapshot, setSnapshot] = useState<MarketSnapshot>(initialSnapshot);
+  // Derived from the live payload so a refresh/recovery that changes the
+  // database state also changes the banner and footer — never stale labels.
+  const [demoReason, setDemoReason] = useState<string | null>(
+    initialSnapshot.dataOrigin === "demo-synthetic" ? (demoReasonProp ?? "database unavailable") : null,
+  );
   const [selectedSymbol, setSelectedSymbol] = useState(
     initialSnapshot.instruments.find((item) => item.market === "gold")?.symbol ??
       initialSnapshot.instruments[0]?.symbol ??
@@ -75,9 +80,15 @@ export function TerminalShell({
       try {
         const response = await fetch("/api/market", { signal: controller.signal, cache: "no-store" });
         if (!response.ok) throw new Error("snapshot failed");
-        const payload = (await response.json()) as MarketSnapshot;
+        const payload = (await response.json()) as MarketSnapshot & { demo?: boolean; demoReason?: string | null };
         if (cancelled) return;
         setSnapshot(payload);
+        // Keep the demo banner and data-origin labels in sync with each poll.
+        setDemoReason(
+          payload.dataOrigin === "demo-synthetic"
+            ? (payload.demoReason ?? "database unavailable")
+            : null,
+        );
         setConnection("simulated");
       } catch (error) {
         if ((error as Error).name === "AbortError" || cancelled) return;
@@ -244,13 +255,13 @@ export function TerminalShell({
                   backend {backend?.status ?? "checking"}
                 </span>
               </div>
-              <div className="hidden items-center gap-1.5 rounded-sm border border-line/70 bg-panel/70 px-2 py-1 sm:flex">
+              <div className="hidden items-center gap-1.5 rounded-sm border border-line/70 bg-panel/70 px-2 py-1 sm:flex" title="Only active, scanning and debating profiles count as online. The rest are generated profiles, not autonomous agents.">
                 <span className="relative flex h-1.5 w-1.5">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-mint opacity-70" />
                   <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-mint" />
                 </span>
                 <span className="font-mono text-[9px] tracking-[0.12em] text-ink/80">
-                  {snapshot.agents.total.toLocaleString()} AGENTS
+                  {(snapshot.agents.active + snapshot.agents.scanning + snapshot.agents.debating).toLocaleString()} ONLINE / {snapshot.agents.total.toLocaleString()} PROFILES
                 </span>
               </div>
               <div className="hidden items-center gap-1.5 rounded-sm border border-line/70 bg-panel/70 px-2 py-1 md:flex">
@@ -262,7 +273,13 @@ export function TerminalShell({
                   }}
                 />
                 <span className="font-mono text-[8.5px] tracking-[0.14em] text-muted uppercase">
-                  {connection === "simulated" ? "simulated feed" : connection === "stale" ? "resyncing" : "offline"}
+                  {demoReason !== null
+                    ? "demo feed · synthetic"
+                    : connection === "simulated"
+                      ? "simulated feed"
+                      : connection === "stale"
+                        ? "resyncing"
+                        : "offline"}
                 </span>
               </div>
               <div className="hidden rounded-sm border border-line/70 bg-panel/70 px-2 py-1 sm:block">
@@ -377,10 +394,10 @@ export function TerminalShell({
 
         <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-line/60 py-3 font-mono text-[8.5px] tracking-[0.12em] text-muted/70 uppercase">
           <span>
-            market mind ai · {demoReason !== null ? "synthetic demo data (no database)" : "simulated market data"} · 550 generated agent profiles · <span className="text-muted/50">not live data · not verified performance · not investment advice</span>
+            market mind ai · {demoReason !== null ? "synthetic demo data (no database)" : "simulated market data"} · {(snapshot.agents.active + snapshot.agents.scanning + snapshot.agents.debating).toLocaleString()} online / {snapshot.agents.total.toLocaleString()} generated profiles · <span className="text-muted/50">not live data · not verified performance · not investment advice</span>
           </span>
           <span className="flex items-center gap-2">
-            <span className="text-mint/80">{snapshot.agents.total.toLocaleString()} agents</span>
+            <span className="text-mint/80">{(snapshot.agents.active + snapshot.agents.scanning + snapshot.agents.debating).toLocaleString()} agents online</span>
             <span className="text-line-bright">/</span>
             <span className="text-aqua/80">{snapshot.agents.totalSignals.toLocaleString()} signals logged</span>
             <span className="text-line-bright">/</span>

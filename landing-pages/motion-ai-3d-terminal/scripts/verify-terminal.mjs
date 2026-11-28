@@ -59,13 +59,34 @@ async function main() {
 
   // 3. Health must never falsely claim a connection.
   const health = await json("/api/health");
+  check(
+    "health reports known database state",
+    ["connected", "unconfigured", "unavailable", "schema-incomplete"].includes(health.body?.database),
+    `database=${health.body?.database}`,
+  );
+  check(
+    "health separates agent-grid readiness from database",
+    health.body?.agents && typeof health.body.agents.ready === "boolean" && typeof health.body.agents.source === "string",
+  );
   if (health.body?.database === "connected") {
     check("connected health reports no demo mode", health.body.demoMode === false);
+    check("connected health reports agent count", typeof health.body.agents.count === "number", `count=${health.body.agents.count}`);
+    check(
+      "agent-grid readiness matches agent count",
+      health.body.agents.ready === ((health.body.agents.count ?? 0) > 0),
+      `ready=${health.body.agents.ready} count=${health.body.agents.count}`,
+    );
   } else {
     check("unconfigured/unavailable health is 503", health.status === 503, `status=${health.status}`);
     check("health reports demo mode", health.body?.demoMode === true);
     check("health includes remediation", typeof health.body?.remediation === "string");
     check("health does not claim ok", health.body?.ok === false);
+  }
+  if (typeof health.body?.detail === "string") {
+    check("health detail exposes no credentials", !/(password|postgres:\/\/|@[0-9]+\.[0-9]+\.[0-9]+)/i.test(health.body.detail));
+  }
+  if (market.body?.demoReason) {
+    check("demo reason exposes no credentials", !/(password|postgres:\/\/|@[0-9]+\.[0-9]+\.[0-9]+)/i.test(market.body.demoReason));
   }
 
   // 4. Other API contracts stay usable in demo mode.
@@ -93,6 +114,24 @@ async function main() {
   // 5. Optional backend probe must remain informational (never an error).
   const backend = await json("/api/backend");
   check("backend probe HTTP 200", backend.status === 200);
+  check(
+    "backend probe reports a valid status (backend unavailable is allowed)",
+    ["disabled", "connected", "unavailable", "authentication_required"].includes(backend.body?.status),
+    `status=${backend.body?.status}`,
+  );
+
+  // 6. Honest counts: online agents are a subset of generated profiles.
+  const stats = market.body?.agents ?? {};
+  const online = (stats.active ?? 0) + (stats.scanning ?? 0) + (stats.debating ?? 0);
+  check("online count is reported separately from profile total", online > 0 && online <= (stats.total ?? 0), `online=${online}/${stats.total}`);
+  check("UI labels profiles, not autonomous agents", html.includes("PROFILES") || html.includes("profiles"));
+
+  // 7. Refresh/recovery: the market payload carries enough state for the
+  // client to update its demo banner on each poll (no stale SSR-only labels).
+  check(
+    "snapshot carries dataOrigin for live demo-state sync",
+    origin === "database-simulated" || origin === "demo-synthetic",
+  );
 
   if (failures.length > 0) {
     console.error(`\n${failures.length} check(s) failed.`);

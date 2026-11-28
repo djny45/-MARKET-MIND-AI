@@ -41,7 +41,10 @@ async function main() {
 
   if (failures.length) {
     console.error(`\n${failures.length} check(s) failed — deployment is STALE.`);
-    console.error("Promote Vercel deployment EVTnbLZpRQnf3cYStQQLYpxi4aP4 (commit 9ad8ecc3) to production, or merge PR #115 if production tracks main.");
+    console.error(
+      process.env.PROMOTE_HINT ??
+        "Promote the latest verified commit of feature/motion-ai-3d-terminal in the Vercel dashboard, or merge PR #115 if production tracks main.",
+    );
     process.exit(1);
   }
   console.log("\nDeployment is serving the fixed build.");

@@ -11,6 +11,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const { snapshot, demo, reason } = await loadSnapshot();
   return Response.json(
+    // reason is a fixed, non-sensitive string; detailed errors stay in server logs.
     { ...snapshot, demo, demoReason: reason },
     { headers: { "Cache-Control": "no-store, max-age=0" } },
   );

@@ -1,66 +1,83 @@
 # Deployment status — terminal database initialization fix
 
-## Root cause
+## Exact root cause
 
-`src/app/page.tsx` called `getSnapshot()`, which throws when `DATABASE_URL`
-is absent. The route caught the error and rendered `BootFallback`, so the
-Vercel deployment showed only "awaiting database handshake". Every data API
-(`/api/market`, `/api/agents`, `/api/signals`, `/api/scan`) returned HTTP 500.
-The app itself built correctly; the missing DB was not configured in the
-Vercel project environment.
+Two independent defects produced the stuck screen:
 
-## Fix (commit `63f51297`, branch `feature/motion-ai-3d-terminal`)
+1. **Stale production deployment.** The live URL
+   `https://motion-ai-3d-terminal.vercel.app` serves an **old build** whose
+   `src/app/page.tsx` caught the missing-`DATABASE_URL` error and rendered
+   `BootFallback` ("MARKET MIND CORE BOOTING" / "AWAITING DATABASE HANDSHAKE").
+   Evidence as of 2026-11-28: `/` is 8.8 KB with the boot screen; `/api/market`
+   returns HTTP 500 `market_unavailable`; `/api/health` returns the old payload
+   without `demoMode`. The fixed code is committed at branch
+   `feature/motion-ai-3d-terminal` but has not been promoted to production.
+2. **Unbounded database wait (found and fixed in this pass).** With
+   `DATABASE_URL` set but unreachable, `new Pool({ connectionString })`
+   defaults to `connectionTimeoutMillis: 0` (infinite) and no query timeout.
+   `Promise.race`-less `loadSnapshot()` blocked forever, so the fixed build
+   would still have hung on a dead database. Reproduced locally against
+   `203.0.113.1:5432`: requests did not settle even after 40 seconds.
 
-- Deterministic read-only synthetic demo adapter (`src/lib/demoSnapshot.ts`)
-  reuses the existing 550-agent generator and instrument definitions.
-- `src/lib/snapshot.ts` tries the DB-backed engine and falls back to the
-  labelled demo snapshot. Homepage now always renders the full terminal.
-- Every snapshot/API payload carries an explicit
-  `dataOrigin: "database-simulated" | "demo-synthetic"`.
-- An amber banner and footer explicitly state "read-only demo mode · database
-  unavailable · synthetic sample data · not live market data".
-- `/api/health` reports `database: "unconfigured"`, `demoMode: true`, a
-  remediation hint, and HTTP 503 — it never claims connectivity and exposes
-  no secrets.
-- All data APIs degrade to labelled synthetic responses; `/api/scan` stays
-  read-only in demo mode. No writes, brokers, real-money paths or migrations.
+The failed dependency is **PostgreSQL connectivity/configuration in the Vercel
+project** (`DATABASE_URL` is unset on the deployed project) combined with the
+old build's lack of a fallback. The app itself builds and runs.
 
-## Verification (executed locally)
+## Fix
+
+- Lazy Drizzle/`pg` proxy (existing adapter) with bounded
+  `connectionTimeoutMillis`, `query_timeout`, `idleTimeoutMillis` and `max`.
+- `withDatabaseTimeout()` hard deadline (`DATABASE_TIMEOUT_MS`, default 4000 ms)
+  plus one bounded retry; demo fallback always wins after the deadline.
+- Read-only schema probe (`information_schema.tables`) — no migrations, no
+  writes, no production data modification. `/api/health` reports database
+  readiness separately from agent-grid readiness (read-only agent count).
+- `/api/health` and `/api/market` return fixed, non-sensitive diagnostics;
+  detailed errors go to server logs only.
+- Client demo labelling derives from each poll's `dataOrigin`, so refresh or
+  recovery cannot leave a stale banner.
+- Honest counts: "online" = active + scanning + debating profiles; total is
+  labelled as generated profiles, not 550 autonomous agents.
+- Agent routes log fallback reasons so real query defects are not masked.
+- Expanded verification harnesses (see below).
+
+## Verification (executed locally, 2026-11-28)
 
 | Check | Result |
 |---|---|
-| `npm run build` | pass |
+| `npm run build` (clean) | pass |
 | `npm run typecheck` | pass |
 | `npm run lint` | pass |
-| `node scripts/verify-terminal.mjs` (DB absent) | **24/24 checks pass** |
-| Demo homepage | HTTP 200, full terminal, demo banner present |
-| `/api/health` | HTTP 503, `demoMode: true`, honest diagnostic |
-| `/api/market` | HTTP 200, `dataOrigin: demo-synthetic`, 12 instruments, 550 agents, 16 signals |
+| `node scripts/verify-terminal.mjs` (DB absent) | **32/32 pass** |
+| `node scripts/verify-unreachable-db.mjs` (black-holed DB) | **9/9 pass**, 3.0–3.2 s per request |
+| Backend unavailable (`MARKET_MIND_API_URL` bogus) | `/api/backend` → `status: "unavailable"`, homepage still renders full terminal |
+| Demo homepage | HTTP 200, ~229 KB, banner present, no boot screen |
+| `/api/health` | HTTP 503, `database: unconfigured`, `demoMode: true`, no secrets |
+| Live deployed `node scripts/verify-deployed.mjs` | **6 failures** — confirms production is stale |
 
-## Deployment
+Scenarios not executable here: a real empty PostgreSQL database and a real
+database-backed agent service (no Postgres binaries or credentials in this
+environment, and starting one would require provisioning). The code reports
+these states read-only via `schema-incomplete` / `agents.ready: false`, and no
+seeding or migration was run.
 
-- Live URL checked: <https://motion-ai-3d-terminal.vercel.app>
-- At verification time the live site still served the **old** build:
-  `/api/market` returned no `dataOrigin`, and `/` still showed
-  "awaiting database handshake". The GitHub PR head is `63f51297` and the
-  Vercel check for the terminal still references the earlier deployment
-  `BRdLgn5Xe7pLTk1CsE8wBxxdnvTH`, so the new commit has not been promoted yet.
-- No manual Vercel deploy was triggered: no Vercel API token is available in
-  this environment, and the task requires respecting deployment quota and
-  approval. Do not repeatedly trigger failing workflows.
+## Deployment (blocked — operator action required)
 
-## Maintainer actions
+- Per operator decision, **no deploy was triggered** in this pass; the repo
+  policy also states public deployment is not authorized without approval.
+- No Vercel token/bypass exists in this environment; the Vercel preview check
+  for the PR is protected by Vercel Authentication.
+- Promote the verified commit of PR #115 (`feature/motion-ai-3d-terminal`) in
+  the Vercel dashboard, then re-run:
+  `node scripts/verify-deployed.mjs https://motion-ai-3d-terminal.vercel.app`
+  Expected: boot fallback absent, demo banner present, `/api/market` 200 with
+  `dataOrigin: demo-synthetic`.
+- Keep `DATABASE_URL` unset unless a real PostgreSQL instance is provisioned.
+  Applying the committed Drizzle migration remains a separate, approved DB
+  action and was NOT performed.
 
-1. Let the Vercel Git integration deploy PR #115 head `63f51297` (or approve
-   the pending deployment in the Vercel dashboard). Quota/approval required.
-2. Verify <https://motion-ai-3d-terminal.vercel.app/> shows the demo banner
-   and `/api/market` returns `dataOrigin: "demo-synthetic"`.
-3. Optional: provision `DATABASE_URL` and apply the committed Drizzle
-   migration for persistent simulation. This is a production DB action and
-   was NOT run here.
+## Documentation updated
 
-## Unrelated blocker observed
-
-Backend pytest collection needs `fastapi` and other deps not installed in the
-current environment (`ModuleNotFoundError: fastapi`). This is pre-existing
-and unrelated to the frontend fix; no new dependencies were installed.
+`README.md` now documents the bounded timeout, honest health semantics and the
+unreachable-DB regression script. `scripts/verify-deployed.mjs` no longer
+hard-codes stale deployment IDs.

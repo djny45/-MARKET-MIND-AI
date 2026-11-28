@@ -4,6 +4,22 @@ import { runSwarmScan } from "@/lib/engine";
 
 export const dynamic = "force-dynamic";
 
+const NO_STORE = { headers: { "Cache-Control": "no-store" } };
+
+function demoScan(count: number) {
+  // Read-only demo: no persistence, no writes. Clearly labelled synthetic.
+  const snapshot = buildDemoSnapshot();
+  return Response.json(
+    {
+      signals: snapshot.signals.slice(0, Math.min(10, Math.max(1, count))),
+      consensus: snapshot.consensus,
+      dataOrigin: "demo-synthetic",
+      demo: true,
+    },
+    NO_STORE,
+  );
+}
+
 export async function POST(request: Request) {
   let count = 4;
   try {
@@ -13,35 +29,11 @@ export async function POST(request: Request) {
     // body is optional
   }
 
-  if (!isDatabaseConfigured()) {
-    const snapshot = buildDemoSnapshot();
-    return Response.json(
-      {
-        signals: snapshot.signals.slice(0, Math.min(10, Math.max(1, count))),
-        consensus: snapshot.consensus,
-        dataOrigin: "demo-synthetic",
-        demo: true,
-      },
-      { headers: { "Cache-Control": "no-store" } },
-    );
-  }
+  if (!isDatabaseConfigured()) return demoScan(count);
   try {
     const result = await withDatabaseTimeout(runSwarmScan(count));
-    return Response.json(
-      { ...result, dataOrigin: "database-simulated" },
-      { headers: { "Cache-Control": "no-store" } },
-    );
+    return Response.json({ ...result, dataOrigin: "database-simulated" }, NO_STORE);
   } catch {
-    // Read-only demo: no persistence, no writes. Clearly labelled synthetic.
-    const snapshot = buildDemoSnapshot();
-    return Response.json(
-      {
-        signals: snapshot.signals.slice(0, Math.min(10, Math.max(1, count))),
-        consensus: snapshot.consensus,
-        dataOrigin: "demo-synthetic",
-        demo: true,
-      },
-      { headers: { "Cache-Control": "no-store" } },
-    );
+    return demoScan(count);
   }
 }

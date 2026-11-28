@@ -17,7 +17,7 @@ def configured_mercury(model_override: str | None = None) -> tuple[str, str] | N
     provider = os.getenv("INTELLIGENCE_CORE_PROVIDER", "mercury").strip().lower()
     api_key = os.getenv("INCEPTION_API_KEY", "").strip()
     model = (model_override or os.getenv("INCEPTION_MODEL", DEFAULT_MODEL)).strip() or DEFAULT_MODEL
-    if provider != "mercury" or not enabled or not api_key:
+    if (provider != "mercury" and model_override is None) or not enabled or not api_key:
         return None
     return api_key, model
 

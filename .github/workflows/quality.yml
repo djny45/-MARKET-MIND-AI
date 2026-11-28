@@ -460,6 +460,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add landing-pages/motion-ai-3d-terminal/package-lock.json landing-pages/motion-ai-3d-terminal-import/package-lock.json
+          # Drizzle v1's offline "up" command also converts the tracked
+          # migration-history files; stage additions, modifications and deletions
+          # so the following rebase has a clean worktree.
+          git add -A landing-pages/motion-ai-3d-terminal/drizzle/
           if git diff --cached --quiet; then
             echo "Generated lockfiles already match the committed lockfiles."
             exit 0

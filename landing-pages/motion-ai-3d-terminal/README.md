@@ -18,8 +18,12 @@ frontend/                              <-- existing MARKET-MIND-AI Vite UI (unto
 backend/                               <-- existing FastAPI research backend (untouched)
 ```
 
-No existing frontend, backend, agent registry, skill, database or hosting file
-was modified. Run commands **from this directory**, not the repository root.
+This app is self-contained at runtime. It does not require the backend to run.
+Seven-market work added a metadata-only coverage report and reference entries
+to the shared backend instrument catalogue (`backend/app/markets.py`,
+`backend/app/instruments.py`); no existing frontend, hosting or production
+configuration was changed. Run commands **from this directory**, not the
+repository root.
 
 ## Architecture
 
@@ -58,6 +62,17 @@ src/db/
 src/shaders/               vendored ThreeUI sources (see README there)
 tools/raw-loader.cjs       Turbopack ?raw loader for shader HTML
 ```
+
+## Seven-market research coverage
+
+The terminal renders seven research desks from one synthetic registry:
+**gold, silver, crude, forex, USA, India and crypto** (18 instruments, seven
+session calendars). Silver adds XAG/MCX-silver instruments and the gold/silver
+ratio rationale; crude adds WTI, Brent and MCX-crude. All values are
+deterministic `demo-synthetic` fixtures — not live prices, not trading signals.
+The backend reports the same seven-market taxonomy at `GET /api/markets` under
+`seven_market_coverage`; its entries are reference metadata only, with no
+quote, entitlement or ingestion implied.
 
 ## Features preserved from the source ZIP
 

@@ -21,12 +21,14 @@ class ResearchFeedCollectorTests(unittest.IsolatedAsyncioTestCase):
             interval="15m",
             status=SimpleNamespace(value="historical"),
             source="yahoo-finance-chart",
+            provider_symbol=None,
             bars=[object()],
             model_copy=lambda update: SimpleNamespace(
                 symbol=update["symbol"],
                 interval="15m",
                 status=SimpleNamespace(value="historical"),
                 source="yahoo-finance-chart",
+                provider_symbol=update.get("provider_symbol"),
                 bars=[object()],
             ),
         )
@@ -39,6 +41,7 @@ class ResearchFeedCollectorTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(stored_batch.symbol, "BTCUSD")
         self.assertEqual(stored_batch.source, "yahoo-finance-chart")
         self.assertEqual(stored_batch.status.value, "historical")
+        self.assertEqual(stored_batch.provider_symbol, "BTC-USD")
         self.assertEqual(result["BTCUSD"]["stored"], 1)
 
     async def test_one_shot_returns_failure_when_no_symbol_stores_bars(self):

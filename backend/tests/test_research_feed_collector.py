@@ -33,7 +33,9 @@ class ResearchFeedCollectorTests(unittest.IsolatedAsyncioTestCase):
         adapter = SimpleNamespace(get_bars=AsyncMock(return_value=batch))
         with patch.object(collector, "store_batch", return_value={"stored": 1}) as store:
             result = await collector.ingest_once(adapter)
-        stored_batch = store.call_args.args[0]
+        # The fake adapter returns the same BTC-USD batch for every requested
+        # provider ticker. Assert the first write, not the final loop iteration.
+        stored_batch = store.call_args_list[0].args[0]
         self.assertEqual(stored_batch.symbol, "BTCUSD")
         self.assertEqual(stored_batch.source, "yahoo-finance-chart")
         self.assertEqual(stored_batch.status.value, "historical")

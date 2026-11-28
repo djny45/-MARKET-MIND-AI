@@ -1,14 +1,17 @@
 {
-  "generated_at": "2026-11-23",
-  "source": "origin/main b770a51cb1bc8ee3639996a9efebceb4ae477ef9",
+  "generated_at": "2026-11-24",
+  "source": "verified 2026-11-24 on branch feature/phase3-external-prep (final head recorded in final report)",
   "counts": {
     "api_routes": 147,
-    "backend_modules": 118,
-    "backend_test_modules": 155,
-    "frontend_ui_test_files": 19,
+    "backend_modules": 121,
+    "backend_test_modules": 181,
+    "frontend_ui_test_files": 21,
     "analytical_worker_configs": 550,
     "auth_routes": 6,
-    "ownership_claim_sites": 8
+    "ownership_claim_sites": 8,
+    "acceptance_items": 40,
+    "feature_inventory": 26,
+    "previous_unsupported_feature_claim": "28/28 (not backed by the module inventory; corrected to 26/26)"
   },
   "status_legend": {
     "verified": "implemented and covered by an executed test",
@@ -17,33 +20,317 @@
     "blocked": "requires owner/operator/external action"
   },
   "acceptance_matrix": [
-    {"feature":"Per-user authentication","implementation":"backend/app/user_auth.py; /api/auth/login|logout|me","missing":"none in-scope","tests":"test_user_auth.py, test_user_auth_api.py","status":"verified"},
-    {"feature":"Four-role authorization","implementation":"backend/app/authorization.py; SENSITIVE_ROUTE_POLICY; bearer downgrade to viewer","missing":"none in-scope","tests":"test_authorization.py (SharedBearerPrivilegeTests)","status":"verified"},
-    {"feature":"Resource ownership","implementation":"SQLite-backed resource_ownership table; unknown refs denied","missing":"none in-scope","tests":"test_authorization.py (DurableOwnershipTests)","status":"verified"},
-    {"feature":"Session CSRF/rotation/expiry","implementation":"user_auth.py, auth_session_store.py, user_session_middleware.py","missing":"none in-scope","tests":"test_user_auth.py, test_authorization.py","status":"verified"},
-    {"feature":"Strict environment validation","implementation":"backend/app/env_validation.py; origin_required()","missing":"none in-scope","tests":"test_env_validation.py","status":"verified"},
-    {"feature":"Trusted proxy and rate limiting","implementation":"rate_limit.py, distributed_rate_limit.py","missing":"ingress limits are operator work","tests":"test_rate_limit.py, test_distributed_rate_limit.py","status":"verified"},
-    {"feature":"Audit events and redaction","implementation":"backend/app/audit_events.py","missing":"none in-scope","tests":"test_audit_events.py","status":"verified"},
-    {"feature":"Frontend auth UI","implementation":"frontend/src/AuthPanel.tsx","missing":"none in-scope","tests":"tests/ui/auth-panel.test.tsx","status":"verified"},
-    {"feature":"Role-aware navigation/access denied","implementation":"App.tsx sideTabs/selectTab","missing":"none in-scope","tests":"app.general-fixes.test.tsx","status":"verified"},
-    {"feature":"Observation screener","implementation":"frontend/src/CoverageTools.tsx","missing":"none in-scope","tests":"coverage-tools.test.tsx","status":"verified"},
-    {"feature":"Coverage heatmap","implementation":"frontend/src/CoverageTools.tsx","missing":"none in-scope","tests":"coverage-tools.test.tsx","status":"verified"},
-    {"feature":"Help dialog/news errors/watchlist states","implementation":"App.tsx","missing":"none in-scope","tests":"app.general-fixes.test.tsx, app.news.test.tsx","status":"verified"},
-    {"feature":"Responsive browser verification","implementation":"Playwright chromium desktop/tablet/mobile projects; wrapped side-tabs and mobile header fixes","missing":"CI job blocked by owner workflow scope","tests":"tests/e2e/responsive.spec.ts (9 pass locally)","status":"verified"},
-    {"feature":"550 worker registry","implementation":"backend/app/workers.py; worker_registry.py","missing":"none in-scope; shared-core templates not independent models","tests":"test_worker_registry.py, test_worker_skills.py","status":"verified"},
-    {"feature":"Skill allowlist and integrity","implementation":"skill_catalog.py, skill_integrity.py","missing":"none in-scope","tests":"test_skill_catalog.py, test_skill_integrity.py","status":"verified"},
-    {"feature":"Worker memory isolation","implementation":"backend/app/worker_memory.py","missing":"per-user ownership is separate and in-memory","tests":"test_worker_memory.py","status":"partial"},
-    {"feature":"Task ownership fencing","implementation":"analytical_agent_tasks.py execution_token CAS; PR #8 port","missing":"none in-scope","tests":"test_analytical_agent_tasks.py, test_agent_supervisor.py","status":"verified"},
-    {"feature":"Supervisor lease-loss handling","implementation":"heartbeat lease columns, CAS renewal, dispatch revalidation","missing":"two-process contention test (ADR-0001)","tests":"test_agent_supervisor.py (3 lease tests)","status":"verified"},
-    {"feature":"Market-data provenance/freshness","implementation":"market_data.py, provider_health.py, data_licensing_gate.py","missing":"licensed live provider; cryptographic attestation","tests":"test_market_data.py, test_market_data_store_api.py, test_provider_health.py","status":"partial"},
-    {"feature":"Historical research/backtesting","implementation":"backend research modules + CLI","missing":"none in-scope","tests":"test_historical_research.py","status":"verified"},
-    {"feature":"Backup/restore and DR scripts","implementation":"scripts/backup_orchestrator.py, restore_orchestrator.py, migration_rollback.py","missing":"S3 adapter, Docker volume restore, host drills","tests":"test_recovery_drills.py, test_backup_database.py","status":"partial"},
-    {"feature":"Trivy CI full scope","implementation":"local scan vuln,misconfig,secret MEDIUM+; workflow patch on security/trivy-ci-scope","missing":"owner workflow scope to land workflow change","tests":"test_ci_workflow_config.py (isolated branch)","status":"blocked"},
-    {"feature":"Container/runtime integration","implementation":"docker-compose.yml, Dockerfiles, health checks","missing":"no local docker; CI authoritative","tests":"GitHub Actions Docker Compose job","status":"verified"},
-    {"feature":"Imported execution code inert","implementation":"third_party excluded; no brokerage paths","missing":"none in-scope","tests":"test_skill_integrity.py, test_mcp_server.py","status":"verified"}
+    {
+      "feature": "Per-user authentication",
+      "implementation": "backend/app/user_auth.py; /api/auth/login|logout|me",
+      "missing": "none in-scope",
+      "tests": "test_user_auth.py, test_user_auth_api.py",
+      "status": "verified",
+      "id": "ACC-001"
+    },
+    {
+      "feature": "Four-role authorization",
+      "implementation": "backend/app/authorization.py; SENSITIVE_ROUTE_POLICY; bearer downgrade to viewer",
+      "missing": "none in-scope",
+      "tests": "test_authorization.py (SharedBearerPrivilegeTests)",
+      "status": "verified",
+      "id": "ACC-002"
+    },
+    {
+      "feature": "Resource ownership",
+      "implementation": "SQLite-backed resource_ownership table; unknown refs denied",
+      "missing": "none in-scope",
+      "tests": "test_authorization.py (DurableOwnershipTests)",
+      "status": "verified",
+      "id": "ACC-003"
+    },
+    {
+      "feature": "Session CSRF/rotation/expiry",
+      "implementation": "user_auth.py, auth_session_store.py, user_session_middleware.py",
+      "missing": "none in-scope",
+      "tests": "test_user_auth.py, test_authorization.py",
+      "status": "verified",
+      "id": "ACC-004"
+    },
+    {
+      "feature": "Strict environment validation",
+      "implementation": "backend/app/env_validation.py; origin_required()",
+      "missing": "none in-scope",
+      "tests": "test_env_validation.py",
+      "status": "verified",
+      "id": "ACC-005"
+    },
+    {
+      "feature": "Trusted proxy and rate limiting",
+      "implementation": "rate_limit.py, distributed_rate_limit.py",
+      "missing": "ingress limits are operator work",
+      "tests": "test_rate_limit.py, test_distributed_rate_limit.py",
+      "status": "verified",
+      "id": "ACC-006"
+    },
+    {
+      "feature": "Audit events and redaction",
+      "implementation": "backend/app/audit_events.py",
+      "missing": "none in-scope",
+      "tests": "test_audit_events.py",
+      "status": "verified",
+      "id": "ACC-007"
+    },
+    {
+      "feature": "Frontend auth UI",
+      "implementation": "frontend/src/AuthPanel.tsx",
+      "missing": "none in-scope",
+      "tests": "tests/ui/auth-panel.test.tsx",
+      "status": "verified",
+      "id": "ACC-008"
+    },
+    {
+      "feature": "Role-aware navigation/access denied",
+      "implementation": "App.tsx sideTabs/selectTab",
+      "missing": "none in-scope",
+      "tests": "app.general-fixes.test.tsx",
+      "status": "verified",
+      "id": "ACC-009"
+    },
+    {
+      "feature": "Observation screener",
+      "implementation": "frontend/src/CoverageTools.tsx",
+      "missing": "none in-scope",
+      "tests": "coverage-tools.test.tsx",
+      "status": "verified",
+      "id": "ACC-010"
+    },
+    {
+      "feature": "Coverage heatmap",
+      "implementation": "frontend/src/CoverageTools.tsx",
+      "missing": "none in-scope",
+      "tests": "coverage-tools.test.tsx",
+      "status": "verified",
+      "id": "ACC-011"
+    },
+    {
+      "feature": "Help dialog/news errors/watchlist states",
+      "implementation": "App.tsx",
+      "missing": "none in-scope",
+      "tests": "app.general-fixes.test.tsx, app.news.test.tsx",
+      "status": "verified",
+      "id": "ACC-012"
+    },
+    {
+      "feature": "Responsive browser verification",
+      "implementation": "Playwright chromium desktop/tablet/mobile projects; wrapped side-tabs and mobile header fixes",
+      "missing": "none in-scope; real browser CI job present and passing",
+      "tests": "tests/e2e/responsive.spec.ts (9 pass); CI run 45367456403",
+      "status": "verified",
+      "id": "ACC-013"
+    },
+    {
+      "feature": "550 worker registry",
+      "implementation": "backend/app/workers.py; worker_registry.py",
+      "missing": "none in-scope; shared-core templates not independent models",
+      "tests": "test_worker_registry.py, test_worker_skills.py",
+      "status": "verified",
+      "id": "ACC-014"
+    },
+    {
+      "feature": "Skill allowlist and integrity",
+      "implementation": "skill_catalog.py, skill_integrity.py",
+      "missing": "none in-scope",
+      "tests": "test_skill_catalog.py, test_skill_integrity.py",
+      "status": "verified",
+      "id": "ACC-015"
+    },
+    {
+      "feature": "Worker memory isolation and durable ownership",
+      "implementation": "backend/app/worker_memory.py",
+      "missing": "none in-scope; ownership is SQLite-durable with an in-process cache",
+      "tests": "test_worker_memory.py, test_worker_memory_ownership.py (3), test_authorization.py",
+      "status": "verified",
+      "id": "ACC-016"
+    },
+    {
+      "feature": "Task ownership fencing",
+      "implementation": "analytical_agent_tasks.py execution_token CAS; PR #8 port",
+      "missing": "none in-scope",
+      "tests": "test_analytical_agent_tasks.py, test_agent_supervisor.py",
+      "status": "verified",
+      "id": "ACC-017"
+    },
+    {
+      "feature": "Supervisor lease-loss handling",
+      "implementation": "heartbeat lease columns, CAS renewal, dispatch revalidation",
+      "missing": "multi-host coordinator and crash/restart volume test remain design-gated",
+      "tests": "test_agent_supervisor.py (3 lease tests), test_supervisor_two_process_race.py (2-process single-host race)",
+      "status": "verified",
+      "id": "ACC-018"
+    },
+    {
+      "feature": "Market-data provenance, staleness and provider health",
+      "implementation": "market_data.py, provider_health.py, data_licensing_gate.py",
+      "missing": "licensed live provider and cryptographic provider attestation remain external/public gates",
+      "tests": "test_research_provenance_verification.py (6), test_market_data.py, test_provider_health.py",
+      "status": "verified",
+      "id": "ACC-019"
+    },
+    {
+      "feature": "Historical research/backtesting",
+      "implementation": "backend research modules + CLI",
+      "missing": "none in-scope",
+      "tests": "test_run_historical_research_walk_forward.py, test_run_multi_symbol_research.py",
+      "status": "verified",
+      "id": "ACC-020"
+    },
+    {
+      "feature": "Local backup, restore and recovery reporting",
+      "implementation": "scripts/backup_orchestrator.py, restore_orchestrator.py, migration_rollback.py",
+      "missing": "external cloud, volume and host drills are tracked by ACC-029..031",
+      "tests": "test_recovery_drills.py (20), test_recovery_report.py (6)",
+      "status": "verified",
+      "id": "ACC-021"
+    },
+    {
+      "feature": "Trivy CI full scope",
+      "implementation": ".github/workflows/quality.yml trivy-security job (fs vuln,misconfig,secret + config, MEDIUM+)",
+      "missing": "none in-scope; CI run 45268550062 on 1a13bfe2 passed all 6 jobs",
+      "tests": "test_ci_workflow_config.py; GitHub Actions trivy-security job",
+      "status": "verified",
+      "id": "ACC-022"
+    },
+    {
+      "feature": "Container/runtime integration",
+      "implementation": "docker-compose.yml, Dockerfiles, health checks",
+      "missing": "no local docker; CI authoritative",
+      "tests": "GitHub Actions Docker Compose job",
+      "status": "verified",
+      "id": "ACC-023"
+    },
+    {
+      "feature": "Imported execution code inert",
+      "implementation": "third_party excluded; no brokerage paths",
+      "missing": "none in-scope",
+      "tests": "test_skill_integrity.py, test_mcp_server.py",
+      "status": "verified",
+      "id": "ACC-024"
+    },
+    {
+      "feature": "S3 adapter contract and integrity (local)",
+      "implementation": "scripts/s3_offhost.py SigV4 PUT/GET with env-only credentials",
+      "missing": "real bucket/credentials are tracked by ACC-029",
+      "tests": "test_s3_offhost.py (2), test_s3_offhost_integration.py (8, fake S3)",
+      "status": "verified",
+      "id": "ACC-025"
+    },
+    {
+      "feature": "Docker volume drill contracts and local integration",
+      "implementation": "scripts/docker_volume_drill.py with plan default, explicit --apply, separate target volume",
+      "missing": "real Docker host execution is tracked by ACC-030",
+      "tests": "test_docker_volume_drill.py (8, fake Docker shim; mock-based contract tests)",
+      "status": "verified",
+      "id": "ACC-026"
+    },
+    {
+      "feature": "DR secret hygiene",
+      "implementation": "dr_common.redact_secrets applied to hook output, manifests and webhook details",
+      "missing": "none in-scope",
+      "tests": "test_dr_secret_hygiene.py (3 tests)",
+      "status": "verified",
+      "id": "ACC-027"
+    },
+    {
+      "feature": "Dual-auth browser integration",
+      "implementation": "session routes authoritative when per-user auth enabled; same-origin CSRF fetch wrapper",
+      "missing": "real TLS ingress and proxy hop count unverified",
+      "tests": "test_frontend_auth_integration.py (1), tests/ui/api-client.test.ts (4)",
+      "status": "verified",
+      "id": "ACC-028"
+    },
+    {
+      "feature": "Real cloud S3 restore using authorized infrastructure (EXT-01)",
+      "implementation": "none",
+      "missing": "endpoint, bucket, scoped credentials, clean-host restore evidence",
+      "tests": "not run; external operator procedure in docs/EXTERNAL-VERIFICATION-CHECKLIST.md",
+      "status": "blocked",
+      "id": "ACC-029",
+      "supporting_evidence": [
+        "docs/S3-VERIFICATION-PACKAGE.md (preparation, not a real restore)",
+        "docs/EXTERNAL-VERIFICATION-CHECKLIST.md § EXT-01 (exact procedure and rollback)",
+        "scripts/s3_offhost.py, scripts/backup_orchestrator.py, scripts/restore_orchestrator.py (contract tests only)",
+        "docs/external-evidence/EXT-01.json (pending intake template)"
+      ],
+      "evidence_bundle": "docs/external-evidence/EXT-01.json",
+      "evidence_status": "template_pending_external",
+      "external_verification": "not_claimed",
+      "closure_requires": "Authorized S3 endpoint/bucket/scoped credentials and an operator-supplied bundle that passes scripts/external_evidence.py validate"
+    },
+    {
+      "feature": "Real host service installation, restart and recovery drill (EXT-02)",
+      "implementation": "operator script with dry-run default",
+      "missing": "authorized host, root/cron/systemd access, controlled restart evidence; includes Docker volume sub-drill",
+      "tests": "not run; external operator procedure in docs/EXTERNAL-VERIFICATION-CHECKLIST.md",
+      "status": "blocked",
+      "id": "ACC-030",
+      "supporting_evidence": [
+        "docs/HOST-RECOVERY-PROCEDURE.md (read-only runbook, not a host drill)",
+        "docs/EXTERNAL-VERIFICATION-CHECKLIST.md § EXT-02 (exact procedure and rollback)",
+        "scripts/install_schedule.py, scripts/service_restart_recovery.py, scripts/docker_volume_drill.py (contract tests only)",
+        "docs/external-evidence/EXT-02.json (pending intake template)"
+      ],
+      "evidence_bundle": "docs/external-evidence/EXT-02.json",
+      "evidence_status": "template_pending_external",
+      "external_verification": "not_claimed",
+      "closure_requires": "Root/systemd/crontab access on an authorized host and an operator-supplied bundle that passes scripts/external_evidence.py validate"
+    },
+    {
+      "feature": "Independent security review, penetration testing and formal sign-off (EXT-03)",
+      "implementation": "config generators and recovery hook only",
+      "missing": "independent reviewer, signed report, go/no-go decision",
+      "tests": "not run; external operator procedure in docs/EXTERNAL-VERIFICATION-CHECKLIST.md",
+      "status": "blocked",
+      "id": "ACC-031",
+      "supporting_evidence": [
+        "docs/SECURITY-REVIEW-PACKAGE.md (review package, not an independent review)",
+        "docs/EXTERNAL-VERIFICATION-CHECKLIST.md § EXT-03 (scope and sign-off requirements)",
+        "SECURITY_AUDIT.md and CI scan results (internal evidence only, no self-certification)",
+        "docs/external-evidence/EXT-03.json (pending intake template)"
+      ],
+      "evidence_bundle": "docs/external-evidence/EXT-03.json",
+      "evidence_status": "template_pending_external",
+      "external_verification": "not_claimed",
+      "closure_requires": "Independent reviewer's signed report and go/no-go decision, captured in an operator-supplied bundle that passes scripts/external_evidence.py validate"
+    },
+    {
+      "feature": "Host schedule installation scaffolding",
+      "implementation": "scripts/install_schedule.py: plan default, apply to chosen dir, systemd/cron generation without privileged calls",
+      "missing": "actual host install is tracked by ACC-030",
+      "tests": "test_install_schedule.py (7)",
+      "status": "verified",
+      "id": "ACC-032"
+    },
+    {
+      "feature": "Deployment config, TLS and ingress preflight",
+      "implementation": "scripts/config_preflight.py plus nginx/map and Compose segmentation guards",
+      "missing": "external TLS scan and pentest are tracked by ACC-031",
+      "tests": "test_config_preflight.py (7), test_ingress_config.py (14, 1 skip)",
+      "status": "verified",
+      "id": "ACC-033"
+    }
   ],
   "frontend_module_inventory": {
-    "implemented_tabs": ["OVERVIEW","WORKFLOW","AGENT_NETWORK","AGENT_POSITIONS","LEARNING","WORKERS","RUNS","SCREENER","COVERAGE","NEWS","RESEARCH","VALIDATION","WATCHLIST"],
+    "implemented_tabs": [
+      "OVERVIEW",
+      "WORKFLOW",
+      "AGENT_NETWORK",
+      "AGENT_POSITIONS",
+      "LEARNING",
+      "WORKERS",
+      "RUNS",
+      "SCREENER",
+      "COVERAGE",
+      "NEWS",
+      "RESEARCH",
+      "VALIDATION",
+      "WATCHLIST"
+    ],
     "implemented_inside_tabs": {
       "Market overview dashboard": "OVERVIEW",
       "Global market search": "header instrument search",
@@ -72,18 +359,165 @@
     "note": "All 26 requested frontend modules are implemented or covered inside a tab and connected to real backend services."
   },
   "operations_matrix": [
-    {"feature":"Portfolio research & performance analytics","implementation":"operations/PortfolioAnalytics -> POST /api/analytics/performance","missing":"none in-scope","tests":"tests/ui/operations-panels.test.tsx","status":"verified"},
-    {"feature":"Risk analytics","implementation":"operations/RiskAnalytics -> drawdown, volatility, Sharpe/Sortino","missing":"none in-scope","tests":"tests/ui/operations-panels.test.tsx","status":"verified"},
-    {"feature":"System health dashboard","implementation":"operations/SystemHealthPanel -> health, readiness, supervisor","missing":"none in-scope","tests":"tests/ui/operations-panels.test.tsx","status":"verified"},
-    {"feature":"Provider health","implementation":"operations/ProviderHealthPanel -> /api/providers/status","missing":"licensed live provider","tests":"tests/ui/operations-panels.test.tsx","status":"verified"},
-    {"feature":"Audit & security events","implementation":"operations/AuditEventsPanel -> operator-gated endpoint","missing":"none in-scope","tests":"tests/ui/operations-panels.test.tsx","status":"verified"},
-    {"feature":"Backup & recovery status","implementation":"GET /api/backup/status (admin) + operations panel","missing":"host/S3 drills are operator work","tests":"test_authorization.py, tests/ui/operations-panels.test.tsx","status":"verified"},
-    {"feature":"Settings & configuration","implementation":"operations/SettingsPanel -> non-secret server checks","missing":"none in-scope","tests":"tests/ui/operations-panels.test.tsx","status":"verified"}
+    {
+      "feature": "Portfolio research & performance analytics",
+      "implementation": "operations/PortfolioAnalytics -> POST /api/analytics/performance",
+      "missing": "none in-scope",
+      "tests": "tests/ui/operations-panels.test.tsx",
+      "status": "verified",
+      "id": "OPS-001"
+    },
+    {
+      "feature": "Risk analytics",
+      "implementation": "operations/RiskAnalytics -> drawdown, volatility, Sharpe/Sortino",
+      "missing": "none in-scope",
+      "tests": "tests/ui/operations-panels.test.tsx",
+      "status": "verified",
+      "id": "OPS-002"
+    },
+    {
+      "feature": "System health dashboard",
+      "implementation": "operations/SystemHealthPanel -> health, readiness, supervisor",
+      "missing": "none in-scope",
+      "tests": "tests/ui/operations-panels.test.tsx",
+      "status": "verified",
+      "id": "OPS-003"
+    },
+    {
+      "feature": "Provider health",
+      "implementation": "operations/ProviderHealthPanel -> /api/providers/status",
+      "missing": "licensed live provider",
+      "tests": "tests/ui/operations-panels.test.tsx",
+      "status": "verified",
+      "id": "OPS-004"
+    },
+    {
+      "feature": "Audit & security events",
+      "implementation": "operations/AuditEventsPanel -> operator-gated endpoint",
+      "missing": "none in-scope",
+      "tests": "tests/ui/operations-panels.test.tsx",
+      "status": "verified",
+      "id": "OPS-005"
+    },
+    {
+      "feature": "Backup & recovery status",
+      "implementation": "GET /api/backup/status (admin) + operations panel",
+      "missing": "host/S3 drills are operator work",
+      "tests": "test_authorization.py, tests/ui/operations-panels.test.tsx",
+      "status": "verified",
+      "id": "OPS-006"
+    },
+    {
+      "feature": "Settings & configuration",
+      "implementation": "operations/SettingsPanel -> non-secret server checks",
+      "missing": "none in-scope",
+      "tests": "tests/ui/operations-panels.test.tsx",
+      "status": "verified",
+      "id": "OPS-007"
+    }
   ],
   "external_blockers": [
-    "GitHub OAuth workflow scope for .github/workflows changes and PR #76",
-    "TLS ingress, network segmentation, ingress rate limits, independent penetration test",
-    "Real S3 credentials, Docker host and host init/process-kill drills",
-    "Licensed live market-data provider and legal/licensing review"
-  ]
+    "EXT-01 real cloud S3 restore with authorized credentials and bucket",
+    "EXT-02 real host service install/restart/recovery (incl. Docker volume sub-drill)",
+    "EXT-03 independent security review, penetration test and formal sign-off",
+    "licensed live market-data provider and legal/licensing review (public gate)"
+  ],
+  "reference_documents": {
+    "ACC-029": "docs/S3-VERIFICATION-PACKAGE.md",
+    "ACC-030": "docs/HOST-RECOVERY-PROCEDURE.md",
+    "ACC-031": "docs/SECURITY-REVIEW-PACKAGE.md",
+    "external_procedures": "docs/EXTERNAL-VERIFICATION-CHECKLIST.md",
+    "engineering_audit": "docs/FINAL-ENGINEERING-AUDIT.md"
+  },
+  "pr_102_review": {
+    "automated_findings": 33,
+    "genuine_findings_fixed": [
+      "systemd EnvironmentFile directives and boot activation",
+      "calendar timer for Persistent=true",
+      "symlink-safe writes and broader protected paths",
+      "Compose host-network/privilege/new-port preflight",
+      "applied ingress limit assertions",
+      "recovery evidence pairing/state-dir/artifact validation",
+      "in-container volume fingerprint parity",
+      "GET signature verification in fake S3",
+      "external checklist command corrections"
+    ],
+    "delivery": "fix(audit) commit on stacked feature/phase3-external-prep branch"
+  },
+  "final_pr_review": {
+    "prs": [
+      {
+        "number": 100,
+        "head": "2f3db51dc79a",
+        "ci_run": 45346939072,
+        "state": "OPEN",
+        "result": "all 6 jobs PASS"
+      },
+      {
+        "number": 102,
+        "head": "e69530045225",
+        "ci_run": 45353077146,
+        "state": "OPEN",
+        "result": "all 6 jobs PASS"
+      },
+      {
+        "number": 103,
+        "head": "2daaab4181e3",
+        "ci_run": 45359903577,
+        "state": "OPEN",
+        "result": "all 6 jobs PASS"
+      }
+    ],
+    "merge_conflicts": "none (stacked branches, MERGEABLE)",
+    "automated_findings": 33,
+    "confirmed_fixes_in_final_branch": [
+      "failed upload could be finalized by resume",
+      "migration rollback left stale WAL/SHM sidecars",
+      "login lockout could be bypassed when every key was actively locked",
+      "AgentNetwork fell back to a cross-origin localhost URL and showed 550+",
+      "provider_health report(now) mixed clocks",
+      "S3 adapter did not enforce config validation; no retries, metadata, atomic/digest-verified download",
+      "restore overwrite had no rollback snapshot or failed report",
+      "fingerprint parity was count-only and Docker snippet diverged",
+      "recovery runs had no journal/lock or interrupted-run flag",
+      "host preflight did not validate referenced scripts",
+      "cron fields and calendar expressions were not fully validated",
+      "config preflight rejected IPv6 loopback and accepted protocol-relative CSRF URLs",
+      "FK parity compares violation sets, not absence of violations",
+      "WAL-safe pre-restore snapshot and guaranteed failed report",
+      "interrupted recovery journal blocks evidence_complete",
+      "host preflight loads audited install_schedule from --root",
+      "benign upload outcomes remain in the journal",
+      "retry_upload/FK/Journal gating regressions added",
+      "single-host supervisor lease: conditional acquisition, fenced heartbeats/release, expired-renewal rejection, in-dispatch renewal",
+      "Redis/local limiter transition mirrors local window to prevent 2x allowance",
+      "login requires application/json and rejects explicit cross-site Origin while preserving API clients",
+      "CI container image scanning with fail-closed Trivy and SARIF artifacts",
+      "multi-host assessment documents proposal and test strategy without claiming support"
+    ],
+    "scope": "all 40 checks unchanged: 37 PASS, 0 PARTIAL, 3 BLOCKED"
+  },
+  "container_scan": {
+    "status": "PASS",
+    "run": 45420717539,
+    "head": "8785e468ad5eef997f973f1128f1e380261262c1",
+    "backend": {
+      "high": 0,
+      "medium": 0,
+      "critical": 0,
+      "low_or_unknown": 0
+    },
+    "frontend": {
+      "high": 0,
+      "medium": 0,
+      "critical": 0,
+      "low_or_unknown": 0
+    },
+    "base_image": "python:3.12.16-alpine3.24",
+    "settings": "Trivy v0.70.0 image scan, severity MEDIUM,HIGH,CRITICAL, ignore-unfixed=false, exit-code=1, no ignore file",
+    "verified_packages_scanned": "OS family alpine 3.24.4, 38 OS packages plus Python packages enumerated",
+    "remediation": "backend moved from python:3.12-slim (Debian 13, 137 MEDIUM+ findings with 0 fixable) to a pinned Alpine 3.12.16 multi-stage runtime with runtime pip/setuptools removed and apk upgrade; frontend pinned to patched nginx 1.31.7",
+    "suppressed": false,
+    "evidence": "docs/CONTAINER-SCAN-FINDINGS.md"
+  }
 }

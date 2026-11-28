@@ -1,0 +1,31 @@
+{
+  "captured_at": "2026-11-26T12:51:42.057Z",
+  "viewport": "1600x1050",
+  "api_calls": [
+    {
+      "url": "http://127.0.0.1:8011/api/terminal/bars/intervals",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:8011/api/terminal/four-market",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:8011/api/terminal/bars/ingest?symbol=AAPL&market_group=us&interval=1d&limit=200&venue=NASDAQ",
+      "status": 200
+    }
+  ],
+  "console_errors": [],
+  "market_panels": 4,
+  "quote_rows": 17,
+  "legend_labels": [
+    "LIVE",
+    "DELAYED",
+    "HISTORICAL",
+    "SYNTHETIC",
+    "UNAVAILABLE"
+  ],
+  "chart_provenance": "HISTORICAL\n200 CANDLES\nSOURCE yahoo-us-equities\n1d\n2026-02-11T14:30:00+00:00 → 2026-11-25T14:30:00+00:00\nRETRIEVED 2026-11-26T12:51:40.435533+00:00\nEXCHANGE TZ America/New_York\nBROKER FALSE\nREAL MONEY FALSE",
+  "chart_candles_rendered": 7,
+  "header_strip": "17 USABLE / 17 ROWS\n0 UNAVAILABLE\n0 STALE\nGENERATED 2026-11-26T12:50:27.408768+00:00\nFRESH FETCH\nNO ATTESTED SOURCE — LIVE/DELAYED UNAVAILABLE"
+}

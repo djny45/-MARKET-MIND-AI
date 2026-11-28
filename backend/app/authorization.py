@@ -7,7 +7,8 @@ The model is deliberately small and deny-by-default:
 * Sensitive global endpoints have an explicit minimum role (see
   ``SENSITIVE_ROUTE_POLICY``).
 * User-owned resources (watchlists, saved layouts, research runs/tasks and
-  memory items) are tracked in a thread-safe in-memory registry. A user may
+  memory items) are tracked by ``OwnershipRegistry``: a thread-safe in-process
+  cache backed by the durable ``resource_ownership`` SQLite table. A user may
   only read or mutate their own resource; admins retain an explicit override.
 
 The project keeps local development open by default: the integration layer
@@ -43,6 +44,7 @@ SENSITIVE_ROUTE_POLICY: tuple[tuple[re.Pattern[str], str, str], ...] = (
     (re.compile(r"^/api/backup(?:/|$)"), "admin", "backup_restore"),
     (re.compile(r"^/api/restore(?:/|$)"), "admin", "backup_restore"),
     (re.compile(r"^/api/security(?:/|$)"), "operator", "audit_logs"),
+    (re.compile(r"^/api/ops/status/?$"), "operator", "operations_status"),
     (
         re.compile(r"^/api/workers/[^/]+/memory/[^/]+/review/?$"),
         "operator",
@@ -314,8 +316,29 @@ def authorize(
     return AuthorizationDecision(True, "allowed", minimum)
 
 
+# Routes that are allowed to mutate state with only a ``viewer`` session.
+# These are either session lifecycle operations (login/logout) or write paths
+# whose only effect is on the caller's own resource, which is separately
+# gated by ``OwnershipRegistry`` / ``enforce_ownership`` in the handler.
+VIEWER_WRITE_ALLOWLIST: tuple[re.Pattern[str], ...] = (
+    re.compile(r"^/api/auth/logout/?$"),
+    re.compile(r"^/api/watchlist(?:/|$)"),
+    re.compile(r"^/api/workspaces(?:/|$)"),
+)
+
+
 def required_role_for_path(path: str, method: str = "GET") -> tuple[str, str] | None:
-    """Return ``(minimum_role, category)`` for a sensitive global route."""
+    """Return ``(minimum_role, category)`` for a protected global route.
+
+    The policy is deny-by-default for state changes: any ``POST``/``PUT``/
+    ``PATCH``/``DELETE`` under ``/api/`` requires at least ``analyst`` unless
+    the path is in ``VIEWER_WRITE_ALLOWLIST``. The explicit
+    :data:`SENSITIVE_ROUTE_POLICY` patterns are checked first so they can raise
+    the requirement to ``operator`` or ``admin``.
+
+    Read-only routes return ``None`` here and rely on the session check in the
+    middleware; that is intentional — ``viewer`` is a read role.
+    """
     if not isinstance(path, str):
         return None
     upper_method = method.upper() if isinstance(method, str) else "GET"
@@ -323,8 +346,10 @@ def required_role_for_path(path: str, method: str = "GET") -> tuple[str, str] | 
         if pattern.match(path):
             # Read-only admin listings stay admin-only; no method weakens the
             # required role. This keeps the policy simple and deny-by-default.
-            del upper_method
             return role, category
+    if upper_method in {"POST", "PUT", "PATCH", "DELETE"} and path.startswith("/api/"):
+        if not any(pattern.match(path) for pattern in VIEWER_WRITE_ALLOWLIST):
+            return "analyst", "state_change"
     return None
 
 

@@ -23,7 +23,7 @@ from pathlib import Path
 
 from dr_common import (
     REPO_ROOT, DrError, DrLock, atomic_write_json, env_int, iso_now, positive_int,
-    readonly_uri, send_alert, utcstamp,
+    readonly_uri, redact_secrets, send_alert, utcstamp,
 )
 
 
@@ -109,33 +109,63 @@ def requeue_interrupted_tasks(config: RecoveryConfig) -> dict:
                 return {"status": "ok", "recovery": payload}
             break
     raise DrError(
-        "task_recovery_failed:" + (completed.stderr.strip()[-300:] or str(completed.returncode))
+        "task_recovery_failed:" + redact_secrets(
+            completed.stderr.strip()[-300:] or str(completed.returncode)
+        )
     )
+
+
+RECOVERY_JOURNAL = "recovery-journal.json"
+
+
+def _write_journal(config: RecoveryConfig, phase: str, status: str, **extra) -> None:
+    config.state_dir.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(config.state_dir / RECOVERY_JOURNAL, {
+        "status": status, "phase": phase, "updated_at": iso_now(), **extra,
+    })
 
 
 def run_recovery(config: RecoveryConfig) -> dict:
-    stale_locks = DrLock(config.state_dir, "backup").stale_count()
-    integrity = database_integrity(config.db)
-    if integrity["status"] != "ok":
-        raise DrError("database_integrity_failed:" + str(integrity.get("integrity")))
-    tasks = {"status": "skipped"}
-    if not config.skip_tasks:
-        tasks = requeue_interrupted_tasks(config)
-    report = {
-        "status": "recovered",
-        "checked_at": iso_now(),
-        "database": str(config.db),
-        "stale_dr_locks_removed": stale_locks,
-        "database_integrity": integrity,
-        "interrupted_task_recovery": tasks,
-        "stale_after_seconds": config.stale_after,
-        "mode": "explicit_requeue_no_dispatch",
-    }
     config.state_dir.mkdir(parents=True, exist_ok=True)
-    atomic_write_json(
-        config.state_dir / f"restart-recovery-{utcstamp()}.json", report
-    )
-    return report
+    with DrLock(config.state_dir, "recovery"):
+        _write_journal(config, "started", "in_progress")
+        try:
+            stale_locks = DrLock(config.state_dir, "backup").stale_count()
+            _write_journal(config, "locks_cleared", "in_progress",
+                           stale_dr_locks_removed=stale_locks)
+            integrity = database_integrity(config.db)
+            if integrity["status"] != "ok":
+                raise DrError("database_integrity_failed:" + str(integrity.get("integrity")))
+            _write_journal(config, "integrity", "in_progress")
+            tasks = {"status": "skipped"}
+            if not config.skip_tasks:
+                tasks = requeue_interrupted_tasks(config)
+            _write_journal(config, "requeue", "in_progress")
+            report = {
+                "status": "recovered",
+                "checked_at": iso_now(),
+                "database": str(config.db),
+                "stale_dr_locks_removed": stale_locks,
+                "database_integrity": integrity,
+                "interrupted_task_recovery": tasks,
+                "stale_after_seconds": config.stale_after,
+                "mode": "explicit_requeue_no_dispatch",
+            }
+            atomic_write_json(
+                config.state_dir / f"restart-recovery-{utcstamp()}.json", report
+            )
+            _write_journal(config, "reported", "completed")
+            return report
+        except DrError as exc:
+            failed = {
+                "status": "failed", "error_type": type(exc).__name__,
+                "error": str(exc), "failed_at": iso_now(),
+            }
+            atomic_write_json(
+                config.state_dir / f"restart-recovery-{utcstamp()}.json", failed
+            )
+            _write_journal(config, "failed", "failed")
+            raise
 
 
 def _parser() -> argparse.ArgumentParser:

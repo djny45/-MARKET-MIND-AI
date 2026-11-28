@@ -262,7 +262,8 @@ class RecoveryDrillTests(unittest.TestCase):
             (self.root / "state" / "backup-journal.json").read_text()
         )
         self.assertEqual(journal["status"], "in_progress")
-        self.assertEqual(journal["upload"]["status"], "failed")
+        self.assertNotEqual(journal.get("phase"), "prune")
+        self.assertNotIn("upload", journal, "a failed upload must not advance the journal")
 
     def test_interrupted_run_requires_explicit_resume(self):
         make_database(self.root / "market.db")
@@ -385,6 +386,10 @@ class RecoveryDrillTests(unittest.TestCase):
             connection.execute("INSERT INTO migration_marker VALUES (1, 'failed migration')")
         committed = commit(config)
         self.assertEqual(committed["status"], "committed")
+        stale_wal = Path(str(target) + "-wal")
+        stale_shm = Path(str(target) + "-shm")
+        stale_wal.write_bytes(b"stale-wal")
+        stale_shm.write_bytes(b"stale-shm")
         with self.assertRaisesRegex(dr_common.DrError, "rollback_plan_not_armed"):
             rollback(config)
 
@@ -400,6 +405,8 @@ class RecoveryDrillTests(unittest.TestCase):
             ).fetchone()[0], 0)
             self.assertEqual(connection.execute("PRAGMA integrity_check").fetchone()[0], "ok")
         self.assertTrue(Path(result["failed_migration_snapshot"]).is_file())
+        self.assertFalse(stale_wal.exists())
+        self.assertFalse(stale_shm.exists())
 
     def test_restart_recovery_clears_stale_locks_and_requeues_tasks(self):
         db = make_database(self.root / "market.db", rows=1)

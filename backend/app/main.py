@@ -68,6 +68,12 @@ from .landing_page_builder import build_landing_page
 from .markets import market_catalog
 from .instruments import search_instruments
 from .instrument_master import search_instrument_master, sync_reference_catalogue, register_provider_identifier
+from .four_market_terminal import (
+ cached_terminal_snapshot, clear_cache as clear_terminal_cache,
+ summarize_terminal,
+)
+from .market_quotes import MARKET_GROUPS as TERMINAL_MARKET_GROUPS, freshness_legend
+from .provider_adapters import adapter_manifest
 from .pipeline import system_capabilities
 from .news import ingest_news
 from . import social_sources
@@ -82,6 +88,12 @@ from .market_data import (
     SyntheticFixtureAdapter, MarketDataBatch, status_allowed_for_source,
 )
 from .yahoo_finance_adapter import YahooFinanceAdapter
+from .four_market_bars import (
+    IngestionError as FourMarketIngestionError,
+    ingest_bars as ingest_four_market_bars,
+    interval_support as four_market_interval_support,
+)
+from .provider_policy import LIMITER as PROVIDER_LIMITER
 from .market_data_validation import validate_market_data_payload
 from . import market_store
 from .market_events import store_market_events, query_market_events
@@ -89,7 +101,10 @@ from .market_event_quality import diagnose_market_events
 from .agent_network import publish_message, read_messages, network_topology
 from .agent_collaboration import build_collaboration_brief
 from .agent_council_api import router as agent_council_router
-from .trade_flow import build_trade_flow_buckets
+from .trade_flow import (
+    build_trade_flow_buckets, build_market_flow_summary,
+    build_visual_trade_dots, build_liquidation_summary,
+)
 from .cross_market_correlation import build_cross_market_correlation
 from . import watchlist
 from .model_registry import list_model_integrations
@@ -120,6 +135,10 @@ async def lifespan(app: FastAPI):
   metadata={"strict_mode": report["strict_mode"], "issue_count": len(report["issues"])},
  )
  recover_stale_tasks_on_startup()
+ # The platform policy is research-only: do not initialize virtual portfolios,
+ # register paper-trading routes, or start a simulated execution loop.
+ app.state.paper_broker = None
+ app.state.paper_trader = None
  yield
 
 
@@ -130,9 +149,12 @@ app = FastAPI(
  lifespan=lifespan,
 )
 app.add_middleware(ResearchAPIAuthMiddleware)
+# Starlette runs the most recently added middleware first. Rate limiting must
+# wrap session enforcement so rejected auth/CSRF/origin attempts are counted;
+# health/ready and OPTIONS remain exempt inside both limiters.
+app.add_middleware(UserSessionAuthMiddleware)
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(DistributedRateLimitMiddleware)
-app.add_middleware(UserSessionAuthMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 # Keep browser origins explicit using a comma-separated allowlist.
 _frontend_origins = [
@@ -148,6 +170,38 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(agent_council_router)
+
+
+def _init_paper_trading(app: FastAPI) -> None:
+ """Initialize the virtual-paper subsystem only after explicit opt-in."""
+ from .paper_trading.config import VirtualCapitalConfig
+
+ config = VirtualCapitalConfig.from_env()
+ if not config.enabled:
+  app.state.paper_broker = None
+  app.state.paper_trader = None
+  return
+
+ try:
+  from .paper_trading.api import register_paper_routes
+  from .paper_trading.engine import VirtualBroker
+  from .paper_trading.live import LivePaperTrader
+
+  broker = VirtualBroker()
+  broker.initialize_all_portfolios()
+  app.state.paper_broker = broker
+  app.state.paper_trader = None
+  register_paper_routes(app, broker)
+  try:
+   trader = LivePaperTrader(broker)
+   trader.start()
+   app.state.paper_trader = trader
+  except Exception:
+   app.state.paper_trader = None  # never let trading-loop startup kill the API
+ except Exception:
+  # Paper trading must never take down the research API.
+  app.state.paper_broker = None
+  app.state.paper_trader = None
 
 
 def recover_stale_tasks_on_startup():
@@ -502,12 +556,16 @@ async def login(request: Request):
   raise HTTPException(status_code=400, detail="Invalid JSON body") from exc
  if not isinstance(body, dict):
   raise HTTPException(status_code=400, detail="Invalid login body")
+ content_type = request.headers.get("content-type", "").split(";", 1)[0].strip().lower()
+ if content_type != "application/json":
+  raise HTTPException(status_code=415, detail="Content-Type must be application/json")
  username = str(body.get("username", ""))
  client = client_ip(request)
  allowed, retry_after = login_guard.check_login(username, client)
  if not allowed:
-  audit_log.record("authentication", None, "/api/auth/login", "login", "throttled",
-                   metadata={"retry_after_seconds": retry_after})
+  audit_log.record("authentication", safe_actor({"username": username, "role": "unauthenticated"}),
+                   "/api/auth/login", "login", "throttled",
+                   metadata={"attempted_username": username, "retry_after_seconds": retry_after})
   raise HTTPException(
    status_code=429,
    detail="Too many failed login attempts; retry later",
@@ -516,8 +574,10 @@ async def login(request: Request):
  identity = user_auth.authenticate(username, str(body.get("password", "")))
  if identity is None:
   outcome = login_guard.record_login_failure(username, client)
-  audit_log.record("authentication", None, "/api/auth/login", "login", "denied",
-                   metadata={"failures": outcome["failures"],
+  audit_log.record("authentication", safe_actor({"username": username, "role": "unauthenticated"}),
+                   "/api/auth/login", "login", "denied",
+                   metadata={"attempted_username": username,
+                             "failures": outcome["failures"],
                              "locked_for_seconds": outcome["locked_for"]})
   raise HTTPException(status_code=401, detail="Invalid credentials")
  login_guard.record_login_success(username, client)
@@ -585,31 +645,266 @@ def system_configuration(_principal: Any = Depends(require_user_role("admin"))):
  return validate_environment()
 
 
+DEFAULT_BACKUP_MAX_AGE_SECONDS = 90000
+
+
+def _backup_max_age_seconds() -> int:
+  """Return the configured backup freshness threshold (seconds).
+
+  Invalid or non-positive values fall back to the default so a malformed
+  operator setting cannot silently make every backup look fresh.
+  """
+  try:
+   value = int(os.getenv("MARKET_MIND_BACKUP_MAX_AGE_SECONDS", DEFAULT_BACKUP_MAX_AGE_SECONDS))
+  except (TypeError, ValueError):
+   return DEFAULT_BACKUP_MAX_AGE_SECONDS
+  return value if 1 <= value <= 31536000 else DEFAULT_BACKUP_MAX_AGE_SECONDS
+
+
 @app.get("/api/backup/status")
 def backup_status(_principal: Any = Depends(require_user_role("admin"))):
-  """Report non-secret backup inventory; no restore or secret values are exposed."""
+  """Report non-secret backup inventory and freshness; no restore or secret values."""
   directory = Path(os.getenv("MARKET_MIND_BACKUP_DIR", "./data/backups"))
+  paths = sorted(directory.glob("*.db")) if directory.is_dir() else []
   backups = []
-  if directory.is_dir():
-   for path in sorted(directory.glob("*.db"))[:50]:
-    backups.append({
-     "name": path.name,
-     "bytes": path.stat().st_size,
-     "sha256_sidecar": path.with_suffix(path.suffix + ".sha256").is_file(),
-     "manifest": path.with_suffix(path.suffix + ".json").is_file(),
-    })
+  for path in paths[:50]:
+   backups.append({
+    "name": path.name,
+    "bytes": path.stat().st_size,
+    "sha256_sidecar": path.with_suffix(path.suffix + ".sha256").is_file(),
+    "manifest": path.with_suffix(path.suffix + ".json").is_file(),
+   })
+  max_age_seconds = _backup_max_age_seconds()
+  newest_mtime = max((path.stat().st_mtime for path in paths), default=None)
+  newest_age_seconds = (
+   max(0, int(datetime.now(timezone.utc).timestamp() - newest_mtime))
+   if newest_mtime is not None else None
+  )
+  if newest_age_seconds is None:
+   state = "never_run"
+  elif newest_age_seconds > max_age_seconds:
+   state = "stale"
+  else:
+   state = "ok"
   return {
-   "status": "ok", "directory": str(directory),
-   "backup_count": len(list(directory.glob("*.db"))) if directory.is_dir() else 0,
+   "status": "missing" if state == "never_run" else state,
+   "directory": str(directory),
+   "backup_count": len(paths),
+   "freshness": {
+    "state": state,
+    "newest_age_seconds": newest_age_seconds,
+    "max_age_seconds": max_age_seconds,
+   },
    "backups": backups,
-   "note": "Inventory only; integrity verification requires the local recovery scripts.",
+   "note": "Inventory and file-mtime freshness only; integrity verification requires local recovery scripts.",
   }
+
+
+@app.get("/api/daily/schedule")
+def daily_schedule(_principal: Any = Depends(require_user_role("operator"))):
+ """Persistent daily schedule state from the existing database."""
+ from .daily_intelligence import schedule_status
+
+ return schedule_status()
+
+
+@app.post("/api/daily/schedule/enable")
+def daily_schedule_enable(request: dict[str, Any],
+                          _principal: Any = Depends(require_user_role("operator"))):
+ from .daily_intelligence import set_schedule_enabled
+
+ return set_schedule_enabled(bool(request.get("enabled", True)))
+
+
+@app.get("/api/daily/status")
+def daily_cycle_status(_principal: Any = Depends(require_user_role("analyst"))):
+ """Daily intelligence cycle status and archive summary."""
+ from .daily_intelligence import read_archive
+ from .zulip_notifier import status as zulip_status
+
+ archive = read_archive(limit=10)
+ return {
+  "mode": "daily_intelligence_research_cycle",
+  "cycle_version": "1.0.0",
+  "archived_cycles": len({row["cycle_id"] for row in archive["rows"]}),
+  "latest_cycles": archive["rows"][:10],
+  "zulip": zulip_status(),
+  "execution": {"broker_execution": False, "real_money": False},
+ }
+
+
+@app.post("/api/daily/run")
+def daily_cycle_run(request: dict[str, Any] | None = None,
+                    _principal: Any = Depends(require_user_role("operator"))):
+ """Run one bounded daily cycle; task execution remains with existing supervisor."""
+ from .daily_intelligence import run_daily_cycle
+
+ options = request or {}
+ try:
+  return run_daily_cycle(
+   date=options.get("date"),
+   publish_zulip=bool(options.get("publish_zulip", True)),
+   enqueue_tasks=bool(options.get("enqueue_tasks", False)),
+  )
+ except (ValueError, TypeError) as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/daily/archive")
+def daily_cycle_archive(cycle_id: str | None = None, limit: int = 50,
+                        _principal: Any = Depends(require_user_role("analyst"))):
+ """Read append-only daily archive revisions."""
+ from .daily_intelligence import read_archive
+
+ try:
+  return read_archive(cycle_id, limit)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/daily/compare")
+def daily_cycle_compare(cycle_id: str, previous_cycle_id: str,
+                        _principal: Any = Depends(require_user_role("analyst"))):
+ """Compare two archived daily cycles by content hash."""
+ from .daily_intelligence import compare_cycles
+
+ return compare_cycles(cycle_id, previous_cycle_id)
+
+
+@app.get("/api/communication/status")
+def communication_status(_principal: Any = Depends(require_user_role("operator"))):
+ """Redacted optional communication-layer status; no credentials exposed."""
+ from .zulip_notifier import status as zulip_status
+
+ return zulip_status()
+
+
+@app.post("/api/communication/notify")
+def communication_notify(request: dict[str, Any],
+                         _principal: Any = Depends(require_user_role("operator"))):
+ """Publish a validated research/ops notification to the optional layer."""
+ from .zulip_notifier import publish_research_update
+
+ try:
+  return publish_research_update(
+   stream=str(request.get("stream") or ""),
+   topic=str(request.get("topic") or ""),
+   message_type=str(request.get("message_type") or "note")[:64],
+   data_status=str(request.get("data_status") or "HISTORICAL"),
+   source=str(request.get("source") or "operator_api")[:120],
+   content=str(request.get("content") or ""),
+   agent_id=request.get("agent_id"), task_id=request.get("task_id"),
+   market=request.get("market"), evidence=list(request.get("evidence") or []),
+  )
+ except (ValueError, TypeError) as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/communication/flush")
+def communication_flush(_principal: Any = Depends(require_user_role("operator"))):
+ """Bounded retry of queued notifications; never blocks research."""
+ from .zulip_notifier import flush_queue
+
+ return flush_queue()
 
 
 @app.get("/api/health")
 def health():
  return {"status":"ok","service":"market-mind-ai","mode":"research-only",
   "paper_trading":False,"broker_execution":False}
+
+
+@app.get("/api/ops/status")
+def ops_status(_principal: Any = Depends(require_user_role("operator"))):
+ """Report local operational health without secrets or host command execution.
+
+ Read-only: inspects the local ops directory (PID files, backup status file)
+ plus the persisted supervisor heartbeat. It never shells out, never returns
+ file contents, and never exposes credentials.
+ """
+ import shutil
+ from pathlib import Path as _Path
+
+ ops_dir = _Path(os.getenv("MARKET_MIND_OPS_DIR", "/home/jovyan/.market-mind-ops"))
+ run_dir = ops_dir / "run"
+
+ def _valid_pid(pid: int) -> bool:
+  return isinstance(pid, int) and not isinstance(pid, bool) and 0 < pid <= 2**31 - 1
+
+ def _alive(pid: int) -> bool:
+  if not _valid_pid(pid):
+   return False
+  try:
+   os.kill(pid, 0)
+  except ProcessLookupError:
+   return False
+  except PermissionError:
+   return True
+  except OverflowError:
+   return False
+  try:
+   state = (_Path(f"/proc/{pid}/stat").read_text().split(") ", 1)[1].split()[0])
+   return state != "Z"
+  except (OSError, IndexError):
+   return True
+
+ services = {}
+ for name in ("backend", "proxy", "supervisor", "backup_scheduler"):
+  pid_file = run_dir / f"{name}.pid"
+  pid = None
+  if pid_file.is_file():
+   try:
+    candidate = int(pid_file.read_text().strip())
+    pid = candidate if _valid_pid(candidate) else None
+   except (ValueError, OSError):
+    pid = None
+  services[name] = {"pid": pid, "running": bool(pid) and _alive(pid)}
+
+ loop_pid = None
+ lock = run_dir / "supervisor-loop.lock"
+ if lock.is_file():
+  try:
+   candidate = int(lock.read_text().strip())
+   loop_pid = candidate if _valid_pid(candidate) else None
+  except (ValueError, OSError):
+   loop_pid = None
+ if loop_pid is not None and not _alive(loop_pid):
+  loop_pid = None
+
+ backups = {"status": "unknown"}
+ status_file = ops_dir / "backups" / "scheduler-status.json"
+ if status_file.is_file():
+  try:
+   payload = json.loads(status_file.read_text())
+   backups = {
+    "status": payload.get("status"),
+    "run_at": payload.get("run_at"),
+    "restore_verified": (payload.get("restore_test") or {}).get("status") == "verified",
+   }
+  except (ValueError, OSError):
+   backups = {"status": "unreadable"}
+
+ disk = {}
+ try:
+  total, used, free = shutil.disk_usage(str(ops_dir))
+  disk = {"used_pct": round(used / total * 100, 1), "free_gb": round(free / 1024**3, 1)}
+ except OSError:
+  disk = {}
+
+ supervisor = agent_supervisor_status()
+ return {
+  "services": services,
+  "supervision_loop_pid": loop_pid,
+  "backups": backups,
+  "supervisor": {
+   "health": supervisor.get("supervisor_health"),
+   "status_counts": supervisor.get("status_counts"),
+   "heartbeat_age_seconds": (supervisor.get("supervisor_heartbeat") or {}).get("heartbeat_age_seconds"),
+  },
+  "disk": disk,
+  "execution": {"paper_trading": False, "broker_execution": False},
+  "secret_values_exposed": False,
+ }
 
 @app.get("/api/environment-validation")
 def environment_validation(_actor: Any = Depends(require_user_role("admin"))):
@@ -772,7 +1067,17 @@ def readiness():
   "status": "ready" if ready else "not_ready",
   "service": "market-mind-ai",
   "checks": checks,
-  "execution": {"paper_trading": False, "broker_execution": False},
+  # `paper_trading`/`broker_execution` are the stable execution-boundary
+  # contract: both stay False because no real order ever reaches a broker and
+  # no real money moves. The virtual simulation that is actually running is
+  # reported separately as `paper_trading_simulated`, and /api/health carries
+  # the live paper-engine state.
+  "execution": {
+   "paper_trading": False,
+   "broker_execution": False,
+   "paper_trading_simulated": True,
+   "real_money": False,
+  },
  }
  if not ready:
   raise HTTPException(status_code=503, detail={
@@ -783,7 +1088,53 @@ def readiness():
 
 @app.get("/api/providers/status")
 def provider_status():
- """Describe implemented provider availability without implying live connectivity."""
+ """Describe implemented provider availability without implying live connectivity.
+
+ This used to assert "no live provider" unconditionally. That stopped being
+ true once the attested public feed (``MARKET_MIND_ATTESTED_DATA_SOURCES``)
+ began storing live bars, and a hardcoded claim that contradicts the stored
+ data is worse than no claim at all. Report what is actually attested and in
+ the store, and stay conservative when nothing is attested.
+ """
+ attested = sorted(attested_data_sources())
+ live_sources: set[str] = set()
+ try:
+  with market_store._connect() as connection:
+   live_sources = {
+    row["source"] for row in connection.execute(
+     "SELECT DISTINCT source FROM market_bars WHERE status = 'live'")
+    if row["source"]
+   }
+ except Exception:
+  live_sources = set()
+
+ # A source only counts as live if it is both attested and present as live rows.
+ live = sorted(s for s in live_sources if s in attested)
+ adapters = adapter_manifest()["adapters"]
+ if live:
+  return {
+   "status": "live_provider_configured",
+   "live_providers": live,
+   "available_adapters": [{
+    "name": SyntheticFixtureAdapter.name,
+    "status": "available",
+    "data_status": "synthetic",
+    "purpose": "development and integration testing only",
+   }, *[{
+    "name": item["name"],
+    "status": "available",
+    "data_status": item["preferred_status"],
+    "market_group": item["market_group"],
+    "requires_attestation": item["requires_attestation"],
+    "purpose": "four-market normalized quote adapter",
+   } for item in adapters]],
+   "market_data_note": (
+    "Live bars in the local store come from operator-attested public source(s): "
+    + ", ".join(live)
+    + ". These are public exchange endpoints, not a licensed real-time feed; "
+    "no redistribution or execution-grade guarantee is implied."
+   ),
+  }
  return {
   "status": "no_live_provider_configured",
   "live_providers": [],
@@ -792,14 +1143,571 @@ def provider_status():
    "status": "available",
    "data_status": "synthetic",
    "purpose": "development and integration testing only",
-  }],
-  "market_data_note": "No live or delayed market-data provider is currently configured.",
+  }, *[{
+   "name": item["name"],
+   "status": "available",
+   "data_status": item["preferred_status"],
+   "market_group": item["market_group"],
+   "requires_attestation": item["requires_attestation"],
+   "purpose": "four-market normalized quote adapter",
+  } for item in adapters]],
+  "market_data_note": (
+   "No live or delayed market-data provider is currently configured. The four "
+   "market adapters are public and unauthenticated; their observations are "
+   "labelled HISTORICAL until an operator attests the exact adapter name."
+  ),
  }
 
 
 @app.get("/api/nodes")
 def nodes():
  return {"nodes":list(NODE_TYPES.values())}
+
+@app.get("/api/terminal/four-market")
+def four_market_terminal(markets: str | None = None, symbols: str | None = None,
+                          refresh: bool = False):
+ """Assemble verified quotes for the four research markets as one board.
+
+ Each quote carries its own source, event timestamp, retrieval time and a
+ status label bound to operator attestation. A provider failure becomes an
+ explicit UNAVAILABLE row: no price is fabricated, interpolated or cached
+ from a previous response.
+ """
+ requested = None
+ if markets:
+  requested = [part.strip().lower() for part in markets.split(",") if part.strip()]
+  invalid = [group for group in requested if group not in TERMINAL_MARKET_GROUPS]
+  if invalid:
+   raise HTTPException(status_code=400, detail=(
+    "markets must be a comma-separated subset of " + ",".join(TERMINAL_MARKET_GROUPS)
+   ))
+ symbol_map: dict[str, list[str]] | None = None
+ if symbols:
+  symbol_map = {}
+  for entry in symbols.split(","):
+   pair = entry.strip()
+   if not pair:
+    continue
+   if ":" not in pair:
+    raise HTTPException(status_code=400,
+     detail="symbols must use market:SYMBOL form, e.g. us:AAPL,india:RELIANCE")
+   group, symbol = (part.strip() for part in pair.split(":", 1))
+   if group not in TERMINAL_MARKET_GROUPS:
+    raise HTTPException(status_code=400, detail=f"unsupported market group: {group}")
+   if not symbol:
+    raise HTTPException(status_code=400, detail="symbol cannot be blank")
+   symbol_map.setdefault(group, []).append(symbol)
+  if sum(len(values) for values in symbol_map.values()) > 40:
+   raise HTTPException(status_code=400, detail="at most 40 symbols may be requested")
+ try:
+  sync_reference_catalogue()
+  catalogue = search_instrument_master(limit=200)["instruments"]
+ except Exception as exc:  # noqa: BLE001 - surfaced, never silent
+  raise HTTPException(status_code=503, detail=(
+   "instrument master unavailable; refusing to serve an unverified board: "
+   + str(exc)
+  )) from exc
+ snapshot = cached_terminal_snapshot(
+  catalogue, market_groups=requested, symbols=symbol_map,
+  attested_sources=attested_data_sources(),
+  ttl_seconds=0 if refresh else 15.0,
+ )
+ return snapshot
+
+@app.get("/api/terminal/four-market/summary")
+def four_market_terminal_summary():
+ """Compact per-market freshness summary for the terminal header strip."""
+ try:
+  sync_reference_catalogue()
+  catalogue = search_instrument_master(limit=200)["instruments"]
+ except Exception as exc:  # noqa: BLE001
+  raise HTTPException(status_code=503, detail=(
+   "instrument master unavailable: " + str(exc)
+  )) from exc
+ snapshot = cached_terminal_snapshot(
+  catalogue, attested_sources=attested_data_sources(),
+ )
+ return summarize_terminal(snapshot)
+
+@app.get("/api/terminal/providers")
+def four_market_providers():
+ """Declared capabilities of the four market adapters and the label legend."""
+ return {
+  "providers": adapter_manifest(),
+  "legend": freshness_legend(),
+  "market_groups": list(TERMINAL_MARKET_GROUPS),
+  "attested_sources": sorted(attested_data_sources()),
+  "credentials_required": False,
+  "execution": {"paper_trading": False, "broker_execution": False, "real_money": False},
+ }
+
+@app.post("/api/terminal/cache/clear")
+def clear_four_market_cache(_principal: Any = Depends(require_user_role("operator"))):
+ """Force the next terminal request to re-fetch from providers."""
+ clear_terminal_cache()
+ return {"cleared": True}
+
+
+@app.get("/api/terminal/bars/intervals")
+def terminal_bar_intervals(market_group: str | None = None):
+ """Declare which candle intervals each market adapter can actually supply."""
+ if market_group is None:
+  return {"intervals": [four_market_interval_support(group)
+                        for group in ("us", "india", "forex", "crypto")],
+          "supported": ["15m", "1h", "4h", "1d"]}
+ try:
+  return four_market_interval_support(market_group)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/terminal/bars/ingest")
+def terminal_ingest_bars(symbol: str, market_group: str,
+                          interval: str = "1d", limit: int = 100,
+                          venue: str = ""):
+ """Fetch and persist normalized OHLCV bars for one four-market instrument.
+
+ The response carries full provenance: source, status label, event and
+ retrieval timestamps, exchange timezone and any provider warnings. No bar is
+ fabricated; an unusable provider response raises an explicit 502.
+ """
+ try:
+  result = ingest_four_market_bars(
+   symbol, market_group, interval, limit, venue,
+  )
+ except (ValueError, FourMarketIngestionError) as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+ except Exception as exc:  # noqa: BLE001 - provider failures are surfaced
+  raise HTTPException(status_code=502, detail=(
+   "four-market provider unavailable or returned invalid data: " + str(exc)
+  )) from exc
+ result["requested"] = {
+  "symbol": symbol, "market_group": market_group,
+  "interval": interval, "limit": limit, "venue": venue or None,
+ }
+ return result
+
+
+@app.get("/api/terminal/bars/analytics")
+def terminal_bar_analytics(symbol: str, interval: str = "1d", limit: int = 200):
+    """Volume and volatility summary from stored bars, using existing indicators."""
+    from .indicators import realized_volatility
+
+    if not symbol.strip() or len(symbol) > 32:
+        raise HTTPException(status_code=400, detail="symbol must contain 1 to 32 characters")
+    if interval not in ("15m", "1h", "4h", "1d"):
+        raise HTTPException(status_code=400, detail="interval must be one of 15m,1h,4h,1d")
+    if not 1 <= limit <= 5000:
+        raise HTTPException(status_code=400, detail="limit must be between 1 and 5000")
+    history = market_store.get_bars(symbol, interval, limit)
+    closes = [bar["close"] for bar in history["bars"] if bar.get("close")]
+    volumes = [bar["volume"] for bar in history["bars"] if bar.get("volume")]
+    average_volume = sum(volumes) / len(volumes) if volumes else None
+    return {
+        "symbol": symbol.upper(), "interval": interval,
+        "observation_count": history["count"],
+        "source": history["source"], "status": history["status"],
+        "realized_volatility": realized_volatility(closes) if len(closes) >= 2 else None,
+        "average_volume": average_volume,
+        "max_volume": max(volumes) if volumes else None,
+        "volume_note": (
+            "Volume=0 may mean the provider did not supply volume. "
+            "Realized volatility is descriptive, not a forecast."
+        ),
+        "execution": {"broker_execution": False, "real_money": False},
+    }
+
+
+@app.get("/api/terminal/bars/history")
+def terminal_bar_history(symbol: str, interval: str = "1d", limit: int = 500):
+ """Read stored OHLCV bars with source/status provenance for the terminal chart."""
+ if not symbol.strip() or len(symbol) > 32:
+  raise HTTPException(status_code=400, detail="symbol must contain 1 to 32 characters")
+ if interval not in ("15m", "1h", "4h", "1d"):
+  raise HTTPException(status_code=400, detail="interval must be one of 15m,1h,4h,1d")
+ if not 1 <= limit <= 5000:
+  raise HTTPException(status_code=400, detail="limit must be between 1 and 5000")
+ payload = market_store.get_bars(symbol, interval, limit)
+ payload["data_status_labels"] = ["LIVE", "DELAYED", "HISTORICAL", "SYNTHETIC", "UNAVAILABLE"]
+ payload["execution"] = {
+  "paper_trading": False, "broker_execution": False, "real_money": False,
+ }
+ return payload
+
+
+@app.get("/api/terminal/provider-policy")
+def terminal_provider_policy():
+ """Declared rate-limit, cache and retry policy. Never claims limit bypass."""
+ return PROVIDER_LIMITER.status()
+
+# ---- Exchange intelligence (extends the existing provider registry) -------
+
+@app.get("/api/intelligence/exchanges")
+def exchange_intelligence_capabilities():
+ """Declared public venue adapters, licensing posture and research boundary."""
+ from .exchange_intelligence import capabilities_manifest, register_policies
+
+ register_policies()
+ return {
+  **capabilities_manifest(),
+  "provider_policy": PROVIDER_LIMITER.status(),
+  "licensing": {
+   "live_claims_require_attestation": True,
+   "unlicensed_sources_cannot_claim_live": True,
+   "tredye_endpoints_used": False,
+  },
+ }
+
+@app.get("/api/intelligence/venue/{venue}")
+def venue_intelligence(venue: str, symbol: str = "BTCUSDT"):
+ """One venue snapshot using the existing quote contract and policy limiter."""
+ from .exchange_intelligence import venue_quote
+ from .provider_adapters import ProviderError
+
+ if venue not in {"okx", "coinbase", "bybit", "kraken", "deribit", "hyperliquid"}:
+  raise HTTPException(status_code=400, detail="unsupported venue")
+ try:
+  quote = venue_quote(venue, symbol)
+ except ProviderError as exc:
+  raise HTTPException(status_code=502, detail=str(exc)) from exc
+ return quote.to_payload()
+
+@app.get("/api/intelligence/okx/derivatives")
+def okx_derivatives_intelligence(symbol: str = "BTC-USDT-SWAP"):
+ """Public OKX funding rate and open interest with event/retrieval timestamps."""
+ from .exchange_intelligence import funding_open_interest
+
+ return funding_open_interest(symbol)
+
+@app.get("/api/intelligence/okx/depth")
+def okx_depth_intelligence(symbol: str = "BTC-USDT", depth: int = 20):
+ """Public OKX depth summary. Resting orders, not executed trades."""
+ from .exchange_intelligence import order_book_summary
+
+ if not 1 <= depth <= 20:
+  raise HTTPException(status_code=400, detail="depth must be between 1 and 20")
+ return order_book_summary(symbol, depth)
+
+@app.get("/api/intelligence/sentiment/fear-greed")
+def fear_greed_intelligence():
+ """Alternative.me Fear & Greed daily index, attributed and timestamped."""
+ from .exchange_intelligence import fear_greed_index
+
+ return fear_greed_index()
+
+@app.get("/api/intelligence/gold")
+def gold_intelligence():
+ """PAX Gold token quote — explicitly not spot or futures gold."""
+ from .exchange_intelligence import gold_token_quote
+
+ quote = gold_token_quote()
+ payload = quote.to_payload()
+ payload["instrument_class"] = "tokenized_gold"
+ payload["data_note"] = (
+  "Exchange-traded tokenized gold, not interchangeable with spot gold or "
+  "gold futures. No synthetic gold price is generated when data is unavailable."
+ )
+ return payload
+
+@app.get("/api/intelligence/order-flow")
+def order_flow_intelligence(interval: str = "1d", limit: int = 200):
+ """Market-flow summary from existing stored microstructure events.
+
+ Extends the existing trade-flow aggregation with notional, relative size and
+ large-trade detection. Reads from the same event store as
+ ``/api/market-data/trade-flow``; no second analytics engine.
+ """
+ if interval not in SUPPORTED_INTERVALS:
+  raise HTTPException(status_code=400, detail="interval must be one of 15m,1h,4h,1d")
+ if not 1 <= limit <= 500:
+  raise HTTPException(status_code=400, detail="limit must be between 1 and 500")
+ try:
+  events = query_market_events(event_type="trade", limit=limit)
+ except (ValueError, Exception) as exc:  # noqa: BLE001
+  raise HTTPException(status_code=503, detail=f"event store unavailable: {exc}") from exc
+ rows = events.get("events", events) if isinstance(events, dict) else events
+ return {
+  "mode": "existing_trade_flow_engine_extension",
+  "summary": build_market_flow_summary(rows, limit=limit),
+  "dots": build_visual_trade_dots(rows, limit=limit),
+  "buckets": build_trade_flow_buckets(rows, bucket_seconds={
+   "15m": 900, "1h": 3600, "4h": 14400, "1d": 86400,
+  }[interval]),
+  "data_note": "Derived from stored events only. No exchange stream is implied.",
+  "execution": {"broker_execution": False, "real_money": False},
+ }
+
+@app.get("/api/intelligence/liquidations")
+def liquidation_intelligence(limit: int = 500):
+ """Liquidation summary from stored liquidation events in the existing store."""
+ if not 1 <= limit <= 5000:
+  raise HTTPException(status_code=400, detail="limit must be between 1 and 5000")
+ try:
+  events = query_market_events(event_type="liquidation", limit=limit)
+ except Exception as exc:  # noqa: BLE001
+  raise HTTPException(status_code=503, detail=f"event store unavailable: {exc}") from exc
+ rows = events.get("events", events) if isinstance(events, dict) else events
+ return build_liquidation_summary(rows, limit=limit)
+
+
+# ---- Broker connection boundary (research-only, credential-free) ----------
+
+@app.post("/api/intelligence/research/task")
+def intelligence_research_task(request: dict[str, Any]):
+    """Submit a market-structure research task to the EXISTING agent system."""
+    from .intelligence_research import submit_market_structure_research
+
+    credential_keys = {"token", "password", "secret", "api_key", "access_token", "session"}
+    if credential_keys & {str(key).lower() for key in request}:
+        raise HTTPException(status_code=400, detail="credentials are not accepted")
+    try:
+        return submit_market_structure_research(
+            agent_id=str(request.get("agent_id") or ""),
+            instrument=str(request.get("instrument") or ""),
+            market=str(request.get("market") or ""),
+            source=str(request.get("source") or ""),
+            event_timestamp=request.get("event_timestamp"),
+            retrieval_timestamp=request.get("retrieval_timestamp"),
+            observed_facts=list(request.get("observed_facts") or []),
+            calculated_indicators=request.get("calculated_indicators"),
+            interpretation=request.get("interpretation"),
+            limitations=list(request.get("limitations") or []),
+            confidence=str(request.get("confidence") or "low"),
+        )
+    except (ValueError, TypeError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/intelligence/research/topics")
+def intelligence_research_topics():
+ """Existing-agent research topics mapped to existing allowlisted skills."""
+ from .intelligence_research import manifest
+
+ return manifest()
+
+
+@app.get("/api/intelligence/research/skill")
+def intelligence_research_skill(topic: str):
+ """Resolve a research topic to an existing skill; never create a new one."""
+ from .intelligence_research import resolve_skill
+
+ try:
+  return resolve_skill(topic)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/intelligence/research/finding")
+def intelligence_research_finding(request: dict[str, Any]):
+ """Build a finding payload for the existing worker_memory architecture.
+
+ The payload is returned, not persisted here: persistence remains with the
+ existing worker-memory API and ownership rules. No broker credential is
+ accepted, logged or stored.
+ """
+ from .intelligence_research import build_research_finding
+
+ credential_keys = {"token", "password", "secret", "api_key", "access_token", "session"}
+ if credential_keys & {str(key).lower() for key in request}:
+  raise HTTPException(status_code=400, detail=(
+   "credentials are not accepted by this research endpoint"
+  ))
+ try:
+  return build_research_finding(
+   topic=str(request.get("topic") or ""),
+   instrument=str(request.get("instrument") or ""),
+   market=str(request.get("market") or ""),
+   source=str(request.get("source") or ""),
+   event_timestamp=request.get("event_timestamp"),
+   retrieval_timestamp=request.get("retrieval_timestamp"),
+   observed_facts=list(request.get("observed_facts") or []),
+   calculated_indicators=request.get("calculated_indicators"),
+   interpretation=request.get("interpretation"),
+   evidence=list(request.get("evidence") or []),
+   confidence=str(request.get("confidence") or "low"),
+   limitations=list(request.get("limitations") or []),
+  )
+ except (ValueError, TypeError) as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/intelligence/relay/manifest")
+def exchange_relay_manifest():
+ """Declare the fixed-allowlist OKX relay boundary."""
+ from .exchange_relay import manifest
+
+ return manifest()
+
+
+@app.get("/api/intelligence/relay/okx")
+def exchange_relay_okx(request: Request, _principal: Any = Depends(require_user_role("analyst"))):
+ """Same-origin relay for fixed, allowlisted OKX public paths only."""
+ from .exchange_relay import RelayPolicyError, relay, validate_relay_request
+
+ path = request.query_params.get("path", "")
+ params = {key: value for key, value in request.query_params.items() if key != "path"}
+ try:
+  validate_relay_request(path, params)
+  return relay(path, params)
+ except RelayPolicyError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/intelligence/okx/market-structure")
+def okx_market_structure():
+ """Verified OKX public microstructure observations (all HISTORICAL)."""
+ from .exchange_intelligence import (
+  okx_candles, okx_funding_history, okx_liquidations, okx_mark_price,
+  UNAVAILABLE_EXCHANGE_ENDPOINTS,
+ )
+
+ return {
+  "mark_price": okx_mark_price(), "funding_history": okx_funding_history(),
+  "liquidations": okx_liquidations(), "candles": okx_candles(),
+  "unavailable_endpoints": UNAVAILABLE_EXCHANGE_ENDPOINTS,
+  "note": "Public REST snapshots only. No live claim, no fabricated values.",
+  "execution": {"broker_execution": False, "real_money": False},
+ }
+
+
+@app.get("/api/intelligence/deribit/options")
+def deribit_options_research():
+ """Deribit public options metadata, DVOL index and perpetual summary."""
+ from .exchange_intelligence import (
+  deribit_options_summary, deribit_perpetual_summary, deribit_volatility_index,
+ )
+
+ return {
+  "options": deribit_options_summary(),
+  "dvol": deribit_volatility_index(),
+  "perpetual": deribit_perpetual_summary(),
+  "note": "Instrument metadata and published indices only; no IV surface is invented.",
+  "execution": {"broker_execution": False, "real_money": False},
+ }
+
+
+@app.get("/api/intelligence/fx/reference")
+def fx_reference_rate():
+ """Coinbase USD/INR reference rate; explicitly not an executable FX quote."""
+ from .exchange_intelligence import coinbase_usd_inr_reference
+
+ return coinbase_usd_inr_reference()
+
+
+@app.get("/api/intelligence/order-book/replay")
+def order_book_replay(instrument_id: str | None = None,
+                       event_type: str | None = None, depth_bps: float = 100.0,
+                       limit: int = 500):
+ """Deterministically replay stored book snapshots/deltas.
+
+ Uses the existing ``order_book_research.reconstruct_order_book`` library and
+ the existing event store. Sequence gaps are reported, never silently repaired.
+ """
+ from .order_book_research import reconstruct_order_book
+
+ if not 1 <= limit <= 5000:
+  raise HTTPException(status_code=400, detail="limit must be between 1 and 5000")
+ if depth_bps <= 0 or depth_bps > 10000:
+  raise HTTPException(status_code=400, detail="depth_bps must be greater than 0 and at most 10000")
+ try:
+  stored = query_market_events(instrument_id=instrument_id, limit=limit)
+ except ValueError as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+ except Exception as exc:  # noqa: BLE001
+  raise HTTPException(status_code=503, detail=f"event store unavailable: {exc}") from exc
+ events = stored.get("events", stored) if isinstance(stored, dict) else stored
+ if event_type:
+  events = [row for row in events if row.get("event_type") == event_type]
+ try:
+  result = reconstruct_order_book(events, depth_bps=depth_bps)
+ except (ValueError, TypeError) as exc:
+  raise HTTPException(status_code=400, detail=str(exc)) from exc
+ # The library already computes metrics and returns explicit bids/asks.
+ return {
+  "source": "existing_market_event_store", "replay": result,
+  "data_note": (
+   "Replay is deterministic over supplied records. A sequence gap invalidates "
+   "the book until a fresh snapshot arrives; no missing level is inferred."
+  ),
+  "execution": {"broker_execution": False, "real_money": False},
+ }
+
+
+@app.get("/api/intelligence/board")
+def intelligence_board():
+ """One board payload combining the existing exchange intelligence outputs."""
+ from .exchange_intelligence import (
+     capabilities_manifest, fear_greed_index, funding_open_interest,
+     gold_token_quote, order_book_summary, register_policies, venue_quote,
+ )
+
+ register_policies()
+ venues = []
+ for venue, symbol in [
+  ("okx", "BTCUSDT"), ("coinbase", "BTCUSDT"), ("bybit", "BTCUSDT"),
+  ("kraken", "XBTUSD"), ("deribit", "BTC-INDEX"), ("hyperliquid", "BTC"),
+ ]:
+  quote = venue_quote(venue, symbol)
+  payload = quote.to_payload()
+  venues.append({
+   "venue": venue, "status": payload["status"], "status_label": payload["status_label"],
+   "last": payload["last"], "source": payload["source"], "reason": payload.get("reason"),
+   "age_seconds": payload["age_seconds"], "stale": payload["stale"],
+  })
+ events = []
+ try:
+  result = query_market_events(event_type="trade", limit=200)
+  events = result.get("events", result) if isinstance(result, dict) else result
+ except Exception:  # noqa: BLE001 - an empty event store is an honest result
+  events = []
+ return {
+  "generated_at": datetime.now(timezone.utc).isoformat(),
+  "mode": "existing_exchange_intelligence_extension",
+  "venues": venues,
+  "funding": funding_open_interest(),
+  "depth": order_book_summary(),
+  "sentiment": fear_greed_index(),
+  "gold": gold_token_quote().to_payload(),
+  "flow": {
+   "summary": build_market_flow_summary(events, limit=200),
+   "dots": build_visual_trade_dots(events, limit=200),
+  },
+  "brokers": broker_connection_status(),
+  "execution": {"broker_execution": False, "real_money": False},
+  "licensing": {
+   "live_claims_require_attestation": True,
+   "tredye_endpoints_used": False,
+   "adapters": len(capabilities_manifest()["adapters"]),
+  },
+ }
+
+
+@app.get("/api/brokers/status")
+def broker_connection_status():
+ """Declare broker integration posture without storing or accepting secrets.
+
+ Indian brokers require official credentials and approvals not present here.
+ This endpoint only reports status and shows clearly labelled sample/historical
+ data when no broker is connected. It never receives tokens or credentials.
+ """
+ return {
+  "brokers": [
+   {"name": name, "connection": "not_connected",
+    "credential_storage": "none", "backend_receives_credentials": False}
+   for name in ("fyers", "upstox", "angel_one", "dhan", "zerodha_kite")
+  ],
+  "mode": "sample_or_historical_data_only",
+  "live_broker_data_available": False,
+  "sample_data_labelled": True,
+  "broker_execution": False,
+  "real_money": False,
+  "note": (
+   "No broker credentials are sent to this backend, stored in shared agent "
+   "memory, logged, or exposed in frontend bundles. Broker APIs require "
+   "official authorization; no connector is enabled. Public NSE/BSE reference "
+   "data from the existing adapter remains clearly attributed."
+  ),
+ }
 
 @app.post("/api/workers/{worker_id}/memory")
 def add_worker_memory(worker_id: str, request: WorkerMemoryRequest):
@@ -1614,6 +2522,14 @@ def intelligence_core():
   return intelligence_core_status()
  except IntelligenceCoreError as exc:
   raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/intelligence-core/health")
+def intelligence_core_health():
+ """Bounded active provider health check; safe in offline/deterministic mode."""
+ from .intelligence_core import check_provider_health
+
+ return check_provider_health()
 
 
 

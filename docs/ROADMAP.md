@@ -93,12 +93,15 @@ Implemented the first per-agent brain and governed learning lifecycle scaffold. 
 - [x] Validate baseline schemas before processing benchmark cases or claims.
 - [x] Disclose skipped offline benchmark comparisons; skipped comparisons are not evidence of a pass.
 
-## Durable queue and supervisor coordination milestone (design only)
+## Durable queue and supervisor coordination milestone (partially implemented)
 
-Ported from PR #39. This is a design milestone, not an implementation claim. The supported runtime remains one backend + one supervisor sharing one SQLite database on one host.
+Ported from PR #39. The supported runtime remains one backend + one supervisor
+sharing one SQLite database on one host. The single-host lease mechanics are
+implemented; broker abstraction and multi-host tests remain open. See
+`docs/MULTI-HOST-ARCHITECTURE-ASSESSMENT.md`.
 
 - [ ] Introduce a queue-provider protocol while retaining SQLite as the default single-host adapter.
-- [ ] Add exclusive supervisor lease acquisition, renewal, generation fencing and safe release before startup recovery or dispatch.
+- [x] Add exclusive supervisor lease acquisition, renewal, generation fencing and safe release before startup recovery or dispatch (single-host SQLite).
 - [ ] Add provider contract tests and two-independent-process supervisor contention tests.
 - [ ] Add migration compatibility tests for existing task and audit records.
 - [ ] Add process-kill/restart tests against a persistent database volume.

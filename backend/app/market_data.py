@@ -15,6 +15,11 @@ class DataStatus(str, Enum):
     DELAYED = "delayed"
     HISTORICAL = "historical"
     SYNTHETIC = "synthetic"
+    # "No usable observation" is a first-class state, not an error and not a
+    # zero price. A provider that is unreachable, unlicensed or not attested
+    # must be able to say so instead of forcing callers to invent a HISTORICAL
+    # or SYNTHETIC label for data that does not exist.
+    UNAVAILABLE = "unavailable"
 
 
 def status_allowed_for_source(
@@ -25,10 +30,15 @@ def status_allowed_for_source(
     Live/delayed claims require an operator-attested source. Synthetic data
     must use the reserved synthetic fixture source. Historical and synthetic
     labels may be supplied by a researcher with an arbitrary source name.
+    UNAVAILABLE is always permitted: refusing to claim data is never a
+    provenance violation, and it is the only honest label when a feed cannot
+    be used.
     """
     normalized = source.strip().lower() if isinstance(source, str) else ""
     if not normalized:
         return False
+    if status is DataStatus.UNAVAILABLE:
+        return True
     if status in (DataStatus.LIVE, DataStatus.DELAYED):
         return normalized in attested_sources
     if normalized == "synthetic-fixture":

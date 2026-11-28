@@ -1,0 +1,47 @@
+{
+  "captured_at": "2026-11-26T11:10:13.352Z",
+  "viewport": "1600x1000",
+  "url": "http://127.0.0.1:8012/index.html",
+  "api_calls": [
+    {
+      "url": "http://127.0.0.1:8011/api/terminal/four-market",
+      "status": 200
+    }
+  ],
+  "console_errors": [],
+  "visible_market_panels": 4,
+  "visible_quote_rows": 17,
+  "status_badges": [
+    "HISTORICAL",
+    "HISTORICAL",
+    "HISTORICAL",
+    "HISTORICAL",
+    "HISTORICAL",
+    "HISTORICAL",
+    "HISTORICAL",
+    "HISTORICAL",
+    "HISTORICAL",
+    "HISTORICAL",
+    "HISTORICAL",
+    "HISTORICAL",
+    "HISTORICAL",
+    "HISTORICAL",
+    "HISTORICAL",
+    "HISTORICAL",
+    "HISTORICAL",
+    "LIVE",
+    "DELAYED",
+    "HISTORICAL",
+    "SYNTHETIC",
+    "UNAVAILABLE"
+  ],
+  "status_labels_rendered": [
+    "LIVE",
+    "DELAYED",
+    "HISTORICAL",
+    "SYNTHETIC",
+    "UNAVAILABLE"
+  ],
+  "headline": "United States · India · Forex · Crypto",
+  "strip": "17 USABLE / 17 ROWS0 UNAVAILABLE0 STALEGENERATED 2026-11-26T11:09:58.498159+00:00FRESH FETCHNO ATTESTED SOURCE — LIVE/DELAYED UNAVAILABLE"
+}

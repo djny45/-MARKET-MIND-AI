@@ -1,0 +1,13 @@
+{
+  "captured_at": "2026-11-26T15:49:15.631Z",
+  "api_calls": [
+    {
+      "url": "http://127.0.0.1:8011/api/communication/status",
+      "status": 200
+    }
+  ],
+  "console_errors": [],
+  "strip": "NOT CONFIGURED\nPENDING 0\nSENT 0\nLAST SYNC never\nCREDENTIALS EXPOSED FALSE\nBROKER EXECUTION FALSE",
+  "streams": "MARKET DATA\nUS-stocks · India-NSE-BSE · Forex · Cryptocurrency · Gold · Provider-health · Data-quality\nAGENT RESEARCH\nResearch-assignments · Research-results · Agent-findings · Cross-market-analysis · Research-review · Agent-errors\nSYSTEM OPERATIONS\nBackend-health · Frontend-health · Worker-status · Database-health · Memory-system · Service-recovery\nCI TESTING\nGitHub-Actions · Backend-tests · Frontend-tests · Security-scans · Build-results · Release-readiness\nRISK GOVERNANCE\nData-provenance · Permission-events · Security-alerts · Audit-events · Policy-violations",
+  "terminal_visible": true
+}

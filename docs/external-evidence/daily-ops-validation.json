@@ -1,0 +1,133 @@
+{
+  "scheduler_before": {
+    "enabled": true,
+    "last_cycle_id": null,
+    "last_completed_at": null,
+    "next_cycle_id": "daily-2026-11-26",
+    "missed_cycles_recovered": 0,
+    "trigger": "existing_agent_supervisor_poll",
+    "independent_daemon": false,
+    "updated_at": "2026-11-26T16:43:39.240975+00:00"
+  },
+  "supervisor_integration": "due_cycle called inside existing run_supervisor loop",
+  "supervisor_result": {
+    "status": "cycle_limit_reached",
+    "cycles": 2,
+    "daily_cycle_results": [
+      {
+        "cycle_id": "daily-2026-11-26",
+        "status": "completed"
+      }
+    ]
+  },
+  "cycle_id": "daily-2026-11-26",
+  "archive": {
+    "count": 5,
+    "markets": [
+      "crypto",
+      "forex",
+      "gold",
+      "india",
+      "us"
+    ],
+    "revisions": [
+      1
+    ],
+    "sha256_integrity_shape_ok": true,
+    "append_only": true
+  },
+  "agent_accounting": {
+    "registered": 550,
+    "assigned": 0,
+    "executed": 0,
+    "completed": 0,
+    "failed": 0,
+    "skipped": 0,
+    "concurrency": 4,
+    "tasks_completed": 0,
+    "tasks_pending": 0,
+    "registered_vs_executed": "550 registered vs 0 executed",
+    "registry_count_verified": 550,
+    "skill_count_verified": 326
+  },
+  "observations": [
+    {
+      "market": "india",
+      "data_status": "historical",
+      "status_label": "HISTORICAL",
+      "source": "yahoo-india-nse-bse",
+      "market_freshness": "fresh"
+    },
+    {
+      "market": "us",
+      "data_status": "historical",
+      "status_label": "HISTORICAL",
+      "source": "yahoo-us-equities",
+      "market_freshness": "fresh"
+    },
+    {
+      "market": "crypto",
+      "data_status": "historical",
+      "status_label": "HISTORICAL",
+      "source": "coingecko-public",
+      "market_freshness": "fresh"
+    },
+    {
+      "market": "forex",
+      "data_status": "historical",
+      "status_label": "HISTORICAL",
+      "source": "ecb-reference-rates",
+      "market_freshness": "fresh"
+    },
+    {
+      "market": "gold",
+      "data_status": "historical",
+      "status_label": "HISTORICAL",
+      "source": "coingecko-gold-token",
+      "market_freshness": null
+    }
+  ],
+  "labels_verified": true,
+  "provider_failure": {
+    "status": "partial",
+    "unavailable_markets": [
+      "india",
+      "us",
+      "crypto",
+      "forex"
+    ],
+    "archive_written": 5
+  },
+  "dashboard": {
+    "status_endpoint": 200,
+    "archive_endpoint": 200,
+    "schedule_endpoint": 200
+  },
+  "zulip": {
+    "delivery_status": "sent",
+    "messages_sent": 1,
+    "consolidated": true
+  },
+  "zulip_outage": {
+    "cycle_status": "completed",
+    "notification": "delivery_failed",
+    "research_continued": true
+  },
+  "schedule_after": {
+    "enabled": true,
+    "last_cycle_id": "daily-2026-11-26",
+    "last_completed_at": "2026-11-26T16:43:47.762321+00:00",
+    "next_cycle_id": "daily-2026-11-27",
+    "missed_cycles_recovered": 0,
+    "trigger": "existing_agent_supervisor_poll",
+    "independent_daemon": false,
+    "updated_at": "2026-11-26T16:43:47.762324+00:00"
+  },
+  "next_cycle": "daily-2026-11-27",
+  "missed_cycle_recovery_recorded": 0,
+  "preserved": {
+    "four_market_endpoints": 200,
+    "tredye_skill": true,
+    "broker_execution_flag": false
+  }
+}

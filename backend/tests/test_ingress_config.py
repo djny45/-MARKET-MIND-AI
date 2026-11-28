@@ -51,7 +51,7 @@ class IngressRateLimitTests(unittest.TestCase):
     def test_trusted_proxy_headers_are_forwarded(self):
         for header in ("Host $host", "X-Real-IP $remote_addr",
                        "X-Forwarded-For $proxy_add_x_forwarded_for",
-                       "X-Forwarded-Proto $scheme"):
+                       "X-Forwarded-Proto $mm_forwarded_proto"):
             self.assertIn(f"proxy_set_header {header}", self.server)
 
     def test_security_headers_and_csp_present(self):
@@ -94,6 +94,25 @@ class IngressRateLimitTests(unittest.TestCase):
         tls_example = (ROOT / "deploy/tls/nginx-tls.conf.example").read_text(encoding="utf-8")
         self.assertIn("return 301 https://", tls_example)
         self.assertIn("Strict-Transport-Security", tls_example)
+
+    def test_tls_chain_preserves_the_outer_forwarded_proto(self):
+        tls_example = (ROOT / "deploy/tls/nginx-tls.conf.example").read_text(encoding="utf-8")
+        self.assertIn("proxy_set_header X-Forwarded-Proto https", tls_example)
+        self.assertIn("map $http_x_forwarded_proto $mm_forwarded_proto", self.limits)
+        self.assertNotIn("proxy_set_header X-Forwarded-Proto $scheme", self.server)
+        self.assertEqual(self.server.count("X-Forwarded-Proto $mm_forwarded_proto"), 3)
+
+    def test_compose_keeps_backend_off_host_and_all_services_unprivileged(self):
+        import yaml
+        compose = yaml.safe_load((ROOT / "docker-compose.yml").read_text(encoding="utf-8"))
+        services = compose["services"]
+        self.assertNotIn("ports", services["backend"])
+        self.assertNotIn("ports", services["agent-supervisor"])
+        for name, service in services.items():
+            self.assertEqual(service.get("security_opt"), ["no-new-privileges:true"], name)
+            self.assertEqual(service.get("cap_drop"), ["ALL"], name)
+            for port in service.get("ports", []):
+                self.assertTrue(str(port).startswith("127.0.0.1:"), (name, port))
 
     def test_nginx_accepts_the_configuration_when_available(self):
         nginx = shutil.which("nginx")

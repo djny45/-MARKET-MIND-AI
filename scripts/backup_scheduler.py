@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shlex
 import sys
 from pathlib import Path
@@ -31,10 +32,33 @@ def run_once() -> dict:
     }
 
 
+def _valid_cron_field(value: str, low: int, high: int) -> bool:
+    if value == "*":
+        return True
+    step_match = re.fullmatch(r"\*/(\d+)", value)
+    if step_match:
+        return int(step_match.group(1)) >= 1
+    for part in value.split(","):
+        range_step = re.fullmatch(r"(\d+)-(\d+)(?:/(\d+))?", part)
+        if range_step:
+            start, end = int(range_step.group(1)), int(range_step.group(2))
+            step = int(range_step.group(3)) if range_step.group(3) else 1
+            if not (low <= start <= end <= high and step >= 1):
+                return False
+            continue
+        if not part.isdigit() or not (low <= int(part) <= high):
+            return False
+    return True
+
+
 def cron_line(schedule: str, log_path: str | None) -> dict:
     fields = schedule.split()
     if len(fields) != 5:
         raise DrError("cron_schedule_must_have_5_fields")
+    bounds = ((0, 59), (0, 23), (1, 31), (1, 12), (0, 7))
+    for index, (value, (low, high)) in enumerate(zip(fields, bounds), start=1):
+        if not _valid_cron_field(value, low, high):
+            raise DrError(f"cron_field_{index}_invalid")
     command = " ".join(shlex.quote(part) for part in (
         sys.executable, str(Path(__file__).resolve()), "run",
     ))
@@ -50,6 +74,11 @@ def cron_line(schedule: str, log_path: str | None) -> dict:
 
 def systemd_units(interval_hours: int, on_calendar: str | None) -> dict:
     hours = positive_int(interval_hours, "interval_hours")
+    if on_calendar is not None:
+        expression = on_calendar.strip()
+        if not expression or len(expression) > 120 or "\n" in expression:
+            raise DrError("on_calendar_invalid")
+        on_calendar = expression
     script = Path(__file__).resolve()
     service = "\n".join([
         "[Unit]",

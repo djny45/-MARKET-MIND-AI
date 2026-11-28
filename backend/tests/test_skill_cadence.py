@@ -35,7 +35,7 @@ class SkillCadenceEngineTests(unittest.TestCase):
     def test_compatibility_testing(self):
         result = self.engine.compatibility_testing()
         self.assertEqual(result["failures"], [])
-        self.assertGreaterEqual(result["tested"], 325)
+        self.assertGreaterEqual(result["tested"], 326)
 
     def test_security_checks_flag_sensitive_keywords(self):
         result = self.engine.security_checks()

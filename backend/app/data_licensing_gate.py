@@ -56,7 +56,34 @@ UNAUTHORIZED_SOURCES = frozenset({
     "free-web-scrapers",
     "third-party-scraped-feeds",
     "unknown-custom-source",
+    # Observed Tredye-owned endpoints are NOT licensed feeds for this platform.
+    "tredye-live-json",
+    "tredye-cfno-okx",
 })
+
+# EXTENSION: public exchange endpoints integrated for research. They are not
+# licensed live feeds: access is pending review and they can never claim
+# LIVE/DELAYED without operator attestation. Listing them here makes the
+# provenance decision auditable instead of implicit in adapter code.
+PUBLIC_RESEARCH_SOURCES: dict[str, DataProviderPolicy] = {
+    name: DataProviderPolicy(
+        name=name,
+        endpoint="official-public-api",
+        requires_license=True,
+        requires_license_review=True,
+        authentication="public_unauthenticated",
+        notes=(
+            "Public research endpoint. Attestation and licensing review are "
+            "required before any live/delayed claim; no credentials are used."
+        ),
+        restricted_use=["redistribution", "execution", "real_money"],
+    )
+    for name in (
+        "okx-public", "coinbase-public", "bybit-public", "kraken-public",
+        "deribit-public", "hyperliquid-public", "alternative-sentiment",
+        "coingecko-gold-token",
+    )
+}
 
 
 class DataLicensingGate:
@@ -66,12 +93,18 @@ class DataLicensingGate:
     def policy(self, provider: str) -> DataProviderPolicy:
         if provider in UNAUTHORIZED_SOURCES:
             raise ValueError(f"{provider} is on the unauthorized sources list")
+        if provider in PUBLIC_RESEARCH_SOURCES:
+            return PUBLIC_RESEARCH_SOURCES[provider]
         if provider not in LICENSED_PROVIDERS:
             raise ValueError(f"unknown provider: {provider}")
         return LICENSED_PROVIDERS[provider]
 
     def is_authorized(self, provider: str) -> bool:
         if provider in UNAUTHORIZED_SOURCES:
+            return False
+        if provider in PUBLIC_RESEARCH_SOURCES:
+            # Research use is permitted; live/delayed claims still require
+            # attestation and a completed licensing review.
             return False
         policy = LICENSED_PROVIDERS.get(provider)
         return policy is not None
@@ -83,6 +116,17 @@ class DataLicensingGate:
                 "status": BLOCKED,
                 "reason": "source is not licensed for this platform",
                 "authorized": False,
+            }
+        if provider in PUBLIC_RESEARCH_SOURCES:
+            return {
+                "provider": provider,
+                "status": PENDING_LICENSE_REVIEW,
+                "reason": (
+                    "public research endpoint; historical only until attested "
+                    "and license review is completed"
+                ),
+                "authorized": False,
+                "policy": PUBLIC_RESEARCH_SOURCES[provider].to_record(),
             }
         policy = self.policy(provider)
         needs_review = policy.requires_license_review and not self.license_review_completed
@@ -102,11 +146,11 @@ class DataLicensingGate:
                 for policy in LICENSED_PROVIDERS.values()
                 if self.validate(policy.name)["authorized"]
             ],
-            "pending_license_review": [
-                policy.name
-                for policy in LICENSED_PROVIDERS.values()
-                if self.validate(policy.name)["status"] == PENDING_LICENSE_REVIEW
-            ],
+            "pending_license_review": sorted(set(
+                [policy.name for policy in LICENSED_PROVIDERS.values()
+                 if self.validate(policy.name)["status"] == PENDING_LICENSE_REVIEW]
+                + list(PUBLIC_RESEARCH_SOURCES)
+            )),
             "unauthorized_sources": sorted(UNAUTHORIZED_SOURCES),
             "credentials_required": [
                 policy.name

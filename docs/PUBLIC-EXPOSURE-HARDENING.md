@@ -102,12 +102,28 @@ Production startup fails closed when mandatory configuration is missing or
 weak (see `backend/app/env_validation.py`). Do not set `API_AUTH_REQUIRED`
 without a strong token; the service intentionally refuses to start.
 
+**Dual-auth behavior (verified 2026-11-24).** With `MARKET_MIND_USER_AUTH=true`,
+per-user sessions are authoritative for every API route: the deployment bearer
+is not required by the browser (which cannot safely hold the server secret).
+`API_AUTH_REQUIRED=true` still enforces the bearer in bearer-only deployments
+where per-user auth is off. The shipped frontend installs a same-origin fetch
+wrapper (`frontend/src/apiClient.ts`) that attaches the `mm_csrf` cookie as
+`X-CSRF-Token` to mutating requests. Evidence: `test_frontend_auth_integration.py`
+(login, CSRF rejection, CSRF-accepted write, bearer-only gate) and
+`tests/ui/api-client.test.ts` (4 tests). The wrapper deliberately attaches the
+CSRF token only to same-origin requests; protocol-relative URLs such as
+`//evil.example` are rejected. A cross-origin `VITE_API_URL` is therefore not
+supported in dual-auth mode — the built Compose stack uses an empty value so
+all API calls stay on the app origin. This does not verify the real TLS ingress
+or the operator's proxy hop count.
+
 ## 6. Real S3-compatible off-host backups
 
-There is **no S3 client in this repository**. Off-host copy is performed by an
-operator-supplied command hook with `{backup}`, `{sha256}`, `{name}` and
-`{destination}` placeholders and no shell interpolation. For an operator-hosted
-deployment:
+The repository provides **two** off-host mechanisms: a stdlib-only S3 adapter
+(`scripts/s3_offhost.py`, env-only credentials, SigV4 PUT/GET, local fake-S3
+integration tests) and a generic operator command hook with `{backup}`,
+`{sha256}`, `{name}` and `{destination}` placeholders and no shell interpolation.
+Neither proves that a real bucket exists. For an operator-hosted deployment:
 
 1. Create a dedicated bucket with object-lock/versioning and server-side
    encryption; block public access.

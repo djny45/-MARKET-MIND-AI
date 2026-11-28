@@ -8,6 +8,8 @@ from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import patch
 
 from app.analytical_agent_tasks import (
+    _acquire_supervisor_lease,
+    _release_supervisor_lease,
     _renew_supervisor_lease,
     _supervisor_lease_is_valid,
     _write_supervisor_heartbeat,
@@ -74,6 +76,42 @@ class AgentSupervisorTests(unittest.TestCase):
         status = agent_supervisor_status()
         self.assertEqual(status["supervisor_health"], "stale")
         self.assertGreater(status["supervisor_heartbeat"]["heartbeat_age_seconds"], 15)
+
+    def test_fresh_heartbeat_from_dead_process_reports_stale(self):
+        """A fresh heartbeat must not mask a SIGKILLed supervisor."""
+        import sqlite3
+        import threading
+        run_supervisor(
+            threading.Event(), poll_interval_seconds=0.01,
+            batch_size=1, max_concurrency=1, max_cycles=1,
+        )
+        with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+            db.execute(
+                "UPDATE analytical_agent_supervisor_heartbeat "
+                "SET state='running', process_id=?, heartbeat_at=? WHERE singleton_id=1",
+                (2147483646, "2100-01-01T00:00:00+00:00"),  # impossible pid, future heartbeat
+            )
+        status = agent_supervisor_status()
+        self.assertEqual(status["supervisor_health"], "stale")
+        self.assertFalse(status["supervisor_heartbeat"]["process_alive"])
+        self.assertLess(status["supervisor_heartbeat"]["heartbeat_age_seconds"], 1)
+
+    def test_out_of_range_heartbeat_pid_is_not_alive(self):
+        import sqlite3
+        import threading
+        run_supervisor(
+            threading.Event(), poll_interval_seconds=0.01,
+            batch_size=1, max_concurrency=1, max_cycles=1,
+        )
+        with sqlite3.connect(os.environ["MARKET_MIND_DB"]) as db:
+            db.execute(
+                "UPDATE analytical_agent_supervisor_heartbeat "
+                "SET state='running', process_id=?, heartbeat_at=? WHERE singleton_id=1",
+                (2147483648, "2100-01-01T00:00:00+00:00"),
+            )
+        status = agent_supervisor_status()
+        self.assertEqual(status["supervisor_health"], "stale")
+        self.assertFalse(status["supervisor_heartbeat"]["process_alive"])
 
     def test_lease_ownership_is_fenced_against_a_second_supervisor(self):
         import sqlite3
@@ -309,6 +347,126 @@ print(json.dumps({"recovery": recovery, "status": task["status"]}))
             dispatch_queued_research_tasks(limit=0)
         with self.assertRaises(ValueError):
             dispatch_queued_research_tasks(max_concurrency=17)
+
+    def test_lease_acquisition_is_fenced_and_expiry_releases_leadership(self):
+        import time
+        from datetime import datetime, timedelta, timezone
+        instance = f"pid-{os.getpid()}"
+        self.assertTrue(_acquire_supervisor_lease(instance, "token-A", 0.3))
+        self.assertFalse(_acquire_supervisor_lease("other", "token-B", 0.3))
+        expiry = (datetime.now(timezone.utc) + timedelta(seconds=0.3)).isoformat()
+        self.assertTrue(_write_supervisor_heartbeat(
+            "running", 1.0, 10, 2, lease_token="token-A", expires_at=expiry
+        ))
+        self.assertTrue(_supervisor_lease_is_valid(instance, "token-A"))
+        time.sleep(0.4)
+        self.assertFalse(_supervisor_lease_is_valid(instance, "token-A"))
+        self.assertFalse(_renew_supervisor_lease(instance, "token-A", 0.3))
+        self.assertTrue(_acquire_supervisor_lease("other", "token-B", 0.3))
+        self.assertTrue(_release_supervisor_lease("other", "token-B"))
+        self.assertFalse(_supervisor_lease_is_valid("other", "token-B"))
+
+    def test_dispatch_renews_lease_during_a_long_running_task(self):
+        import threading
+        import time
+        from datetime import datetime, timedelta, timezone
+
+        enqueue_research_task("worker_001", "long lease sample")
+        instance = f"pid-{os.getpid()}"
+        lease_seconds = 1.0
+        self.assertTrue(_acquire_supervisor_lease(instance, "token-long", lease_seconds))
+        expiry = (datetime.now(timezone.utc) + timedelta(seconds=lease_seconds)).isoformat()
+        self.assertTrue(_write_supervisor_heartbeat(
+            "running", 1.0, 10, 2, lease_token="token-long", expires_at=expiry
+        ))
+        gate = threading.Event()
+        result = {}
+
+        def run():
+            with patch("app.analytical_agent_tasks.execute_queued_research_task",
+                       side_effect=lambda task_id: gate.wait(10)):
+                result["value"] = dispatch_queued_research_tasks(
+                    limit=1, max_concurrency=1, supervisor_instance_id=instance,
+                    supervisor_lease_token="token-long", lease_seconds=lease_seconds,
+                )
+
+        thread = threading.Thread(target=run, daemon=True)
+        thread.start()
+        try:
+            # Wait several times past the original TTL so renewal has many
+            # opportunities even on a heavily loaded CI runner. Polling (rather
+            # than one fixed sleep) means scheduler jitter cannot flake the test.
+            deadline = time.monotonic() + (lease_seconds * 3)
+            while time.monotonic() < deadline:
+                time.sleep(0.1)
+            self.assertTrue(_supervisor_lease_is_valid(instance, "token-long"))
+        finally:
+            gate.set()
+            thread.join(timeout=10)
+        self.assertFalse(thread.is_alive())
+        self.assertEqual(result["value"]["status"], "completed")
+        self.assertEqual(result["value"]["dispatched"], 1)
+        self.assertFalse(result["value"]["lease_lost_during_dispatch"])
+        self.assertIsNone(result["value"]["lease_renewal_error_type"])
+
+    def test_dispatch_survives_transient_lease_renewal_error(self):
+        """A transient store error must not silently end lease renewal.
+
+        Regression: renewal previously had no exception handling, so one failed
+        renewal call killed the only renewal thread and leadership lapsed with no
+        visible signal while the task kept running.
+        """
+        import threading
+        import time
+        from datetime import datetime, timedelta, timezone
+
+        import app.analytical_agent_tasks as tasks
+
+        enqueue_research_task("worker_001", "renewal error sample")
+        instance = f"pid-{os.getpid()}"
+        lease_seconds = 1.0
+        self.assertTrue(_acquire_supervisor_lease(instance, "token-long", lease_seconds))
+        expiry = (datetime.now(timezone.utc) + timedelta(seconds=lease_seconds)).isoformat()
+        self.assertTrue(_write_supervisor_heartbeat(
+            "running", 1.0, 10, 2, lease_token="token-long", expires_at=expiry
+        ))
+        gate = threading.Event()
+        result = {}
+        real_renew = tasks._renew_supervisor_lease
+        state = {"raised": False}
+
+        def flaky_renew(instance_id, token, seconds):
+            if not state["raised"]:
+                state["raised"] = True
+                raise RuntimeError("transient store outage")
+            return real_renew(instance_id, token, seconds)
+
+        def run():
+            with patch("app.analytical_agent_tasks.execute_queued_research_task",
+                       side_effect=lambda task_id: gate.wait(10)), \
+                 patch("app.analytical_agent_tasks._renew_supervisor_lease",
+                       side_effect=flaky_renew):
+                result["value"] = dispatch_queued_research_tasks(
+                    limit=1, max_concurrency=1, supervisor_instance_id=instance,
+                    supervisor_lease_token="token-long", lease_seconds=lease_seconds,
+                )
+
+        thread = threading.Thread(target=run, daemon=True)
+        thread.start()
+        try:
+            deadline = time.monotonic() + (lease_seconds * 3)
+            while time.monotonic() < deadline:
+                time.sleep(0.1)
+            # Renewal kept retrying after the error, so leadership is still held.
+            self.assertTrue(state["raised"])
+            self.assertTrue(_supervisor_lease_is_valid(instance, "token-long"))
+        finally:
+            gate.set()
+            thread.join(timeout=10)
+        self.assertFalse(thread.is_alive())
+        self.assertEqual(result["value"]["status"], "completed")
+        self.assertFalse(result["value"]["lease_lost_during_dispatch"])
+        self.assertEqual(result["value"]["lease_renewal_error_type"], "RuntimeError")
 
 
 if __name__ == "__main__":

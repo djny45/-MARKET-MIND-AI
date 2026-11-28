@@ -115,13 +115,18 @@ though no local `nginx` binary exists.
 The old divergent local `main` (`906b3765`) and all recovery branches remain
 untouched.
 
-1. **Real-browser responsive tests — BLOCKED (host libraries)**: Chromium is
-   downloaded and present in `~/.cache/ms-playwright`, but it cannot launch in
-   this container: `libnss3`, `libnspr4`, `libxcomposite1` and `libxdamage1` are
-   missing, there is no root to install them and this image has no apt sources
-   (`apt-get download` resolves nothing). jsdom continues to check media-query
-   declarations and DOM availability only. A host with `npx playwright
-   install-deps` closes this gap.
+1. **Real-browser responsive tests — RESOLVED locally (2026-11-24)**: Chromium is
+   downloaded and present in `~/.cache/ms-playwright`, but it could not launch in
+   this container because `libnss3`, `libnspr4`, `libxcomposite1`, `libxdamage1`
+   and `libxrandr` were missing and there is no root to install them.
+   Workaround proven on the Phase 6 tree: the NSS libraries are present in
+   `~/.cache/camoufox`, and `xorg-libxcomposite`, `xorg-libxdamage`,
+   `xorg-libxrandr` and `at-spi2-atk` install into an unprivileged conda prefix.
+   With
+   `LD_LIBRARY_PATH=/tmp/opencode/pwlibs/lib:$HOME/.cache/camoufox:$LD_LIBRARY_PATH`
+   and Node 22.23.5, `npx playwright test` passes **9/9** locally, matching CI.
+   This removes a previously recorded local-only blocker; it changes no
+   production code and grants no new capability.
 
 ## Completion boundary
 
@@ -204,3 +209,259 @@ no public ingress was enabled by this audit.
 - Application features: **26/26 (100%)** — `docs/acceptance-inventory.json` module inventory; full local suites pass.
 - Private research-platform verification: **7/10 (70%)** — corrected matrix above; three infrastructure gates BLOCKED.
 - Public deployment readiness: **0/6 (0%)** — no independent external evidence exists.
+
+---
+
+## Re-verification 2026-11-24 — closing locally executable work
+
+Baseline: `main` `1a13bfe28974ebdf2877ba0180889122aeafd7e0` (clean; all six CI
+jobs PASS in run `45268550062`). Work was done on
+`fix/close-remaining-verification-gaps`; code commits `3dab5955` through
+`b07c1d90`. Raw logs: `/tmp/opencode/audit4-20261124/`.
+
+**Recalculated status:** private-platform verification is **still 7/10 (70%)**,
+because all three remaining gates in the 10-gate matrix are external. Application
+features remain **26/26**; public deployment remains **0/6**. The separate
+acceptance inventory was corrected from 27/31 verified (README previously said
+28/31) to **32/40 verified, 5 partial, 3 blocked** after adding explicit items
+for locally verified work and the three external gates.
+
+### Closed with reproducible local evidence
+
+| Item | Evidence (this branch) |
+| --- | --- |
+| Backup freshness never reported a stopped schedule | `GET /api/backup/status` reports `never_run`/`ok`/`stale`, newest age and validated threshold; `test_backup_freshness.py` (7 tests) |
+| S3-compatible transfer/integrity | Stdlib fake-S3 HTTP server verifies SigV4 signatures, SHA-256 parity, bad-secret rejection and fail-closed downloads; `test_s3_offhost_integration.py` (3) + `test_s3_offhost.py` (2) |
+| Docker named-volume drill | `scripts/docker_volume_drill.py`: read-only `plan`, explicit `--apply`, separate target volume, no `down -v`; `test_docker_volume_drill.py` (4) with a fake Docker shim |
+| DR secret leakage | Hook output, manifests and webhook reasons redacted; `test_dr_secret_hygiene.py` (3) |
+| Confirmed security defects | Malformed Origin 500, unaudited rate limits, login actor field, lockout/rate-bucket eviction, identity-row growth, middleware ordering, dual-auth UI; `test_security_defect_regressions.py` (8), `test_frontend_auth_integration.py` (1), `tests/ui/api-client.test.ts` (4) |
+| Offline preflight/ingress | `test_load_check.py` (3), `test_dr_environment_validation.py` (3), TLS forwarded-proto and Compose segmentation guards in `test_ingress_config.py` (14 total, 1 skip) |
+| Documentation accuracy | Corrected 20×28 arithmetic, 325 vs 300+ skills, nonexistent vendored library, stale test filename, literal escapes and duplicate headings |
+
+### Still BLOCKED (external; no evidence invented)
+
+1. Real cloud S3 restore — no endpoint/bucket/credentials; the local fake-S3 test is a prerequisite only.
+2. Docker named-volume restore on a real host — no Docker binary here; the fake-Docker test verifies the command contract only.
+3. Host systemd/cron install, controlled restart and real process-kill drill — no privileges or host init access.
+
+Public deployment remains **0/6** (TLS issuance/scan, segmentation, ingress hardening,
+independent penetration test, formal review, production-scale recovery evidence).
+
+---
+
+## Phase 2 — closing the five partial checks (2026-11-24)
+
+Work branch `fix/phase2-acceptance-gaps`, based on the still-open PR #100 head
+`2f3db51d`. Code-complete at `d9169e81`. Every item below has executed local
+evidence; **no external check was converted to PASS**.
+
+| Check (ID) | Precise missing evidence | Closed with |
+| --- | --- | --- |
+| ACC-016 Worker memory isolation | Durable ownership and cross-user denial evidence | `test_worker_memory_ownership.py` (3); authorization.py docstring corrected |
+| ACC-019 Market-data provenance | Cross-module provenance, stale and failure evidence | `test_research_provenance_verification.py` (6) |
+| ACC-021 Local backup/restore | Aggregated recovery artifact evidence | `scripts/recovery_report.py` + `test_recovery_report.py` (6) using real local artifacts |
+| ACC-025 S3 adapter contract | Orchestrator→S3→download parity evidence | `test_s3_offhost_integration.py` (4, fake S3; mock-based contract test) |
+| ACC-026 Docker volume drill | Failure/cleanup/checksum contract coverage | `test_docker_volume_drill.py` (7, fake Docker shim; mock-based contract tests) |
+
+Additional reliability scaffolding: `scripts/install_schedule.py` (5 tests),
+`scripts/config_preflight.py` (4 tests), backup disk-space preflight with 3 tests,
+and documentation-drift guards (`test_research_inventory_claims.py`, 3 tests).
+Fake S3 and fake Docker tests are explicitly labeled mock contract tests; they
+are **not** infrastructure validation.
+
+### Corrections made during baseline revalidation
+
+- The supplied baseline "application features 28/28" is unsupported by the
+  repository inventory, which documents **26/26** modules. The acceptance
+  inventory now records the correction instead of silently repeating it.
+- Duplicate/overlapping rows ("Backup freshness monitoring", "Throttling audit
+  and flood hardening") were folded into their parent checks and replaced by
+  the distinct host-schedule and preflight checks. IDs `ACC-001`–`ACC-033` plus
+  `OPS-001`–`OPS-007` are now stable and unique.
+- The former three blocked rows were redefined to the externally verifiable
+  checks EXT-01/02/03; the real Docker volume run is a sub-drill of EXT-02
+  rather than a separately counted gap.
+
+**Result: 37/40 verified, 0 partial, 3 BLOCKED.** Private-platform verification
+remains **7/10 (70%)** and public deployment **0/6 (0%)** because the three
+BLOCKED checks require external infrastructure or independent review. External
+procedures, evidence requirements, rollback and responsible operators are in
+[`docs/EXTERNAL-VERIFICATION-CHECKLIST.md`](docs/EXTERNAL-VERIFICATION-CHECKLIST.md).
+
+Final local validation on this branch: backend `unittest discover -s backend/tests -q`
+→ **1,260 OK, 1 skipped**; frontend `npm test` **10/10**, `npm run test:ui`
+**127/127** (21 files), `npm run build` and `npm run typecheck:test` exit 0.
+Raw logs: `/tmp/opencode/phase2-final/`. CI results for the pushed PR head are
+recorded in the PR and final report.
+
+---
+
+## Phase 3 — external verification preparation (2026-11-24)
+
+Branch `feature/phase3-external-prep`, stacked on PR #102. No external access,
+credentials, privileged operations or independent approval were used.
+
+- **PR #102 audit:** all 8 commits and 21 files reviewed. CI on head
+  `e69530045225afd1f0d25ed3c97e3d12ed8019d1` (run `45353077146`) passed all six
+  jobs. Automated reviewers reported 33 findings; genuine ones were fixed in the
+  `fix(audit)` commit: active `EnvironmentFile=` directives, boot activation for
+  the restart unit, calendar timer, symlink-safe writes, broader protected paths,
+  Compose host-network/privilege/new-port checks, applied ingress-limit checks,
+  recovery evidence pairing/state-dir/artifact validation, in-container volume
+  fingerprint parity, GET signature verification in fake S3, and corrected
+  external commands.
+- **ACC-029:** `docs/S3-VERIFICATION-PACKAGE.md` documents supported providers,
+  limits, encryption/checksum/metadata requirements and the real-cloud procedure.
+  DR config validation now rejects partial S3 settings, invalid bucket/region and
+  prefix traversal (tests added).
+- **ACC-030:** `docs/HOST-RECOVERY-PROCEDURE.md` plus `host_recovery_plan.py` give
+  a read-only runbook generator, systemd/cron install guidance, short-threshold
+  restart drill, Docker named-volume commands, preflight and rollback. The volume
+  drill now verifies fingerprints inside the target before cleanup.
+- **ACC-031:** `docs/SECURITY-REVIEW-PACKAGE.md` contains the threat model,
+  architecture references, dependency inventory, CI scan results, control
+  evidence and penetration-test scope/evidence checklist.
+- **Final audit:** `docs/FINAL-ENGINEERING-AUDIT.md` records architecture,
+  database/recovery, 550-worker/325-skill registry verification, provenance and
+  research-only boundary evidence.
+
+Acceptance remains **37/40 verified, 0 partial, 3 BLOCKED**. Private-platform
+verification stays 7/10 and public deployment 0/6; the three blocked checks are
+external by definition.
+
+Final Phase 3 local validation: backend `unittest discover -s backend/tests -q`
+→ **1,260 OK, 1 skipped**; frontend `npm test` **10/10**, `npm run test:ui`
+**127/127** (21 files), `npm run build` and `npm run typecheck:test` exit 0.
+Logs: `/tmp/opencode/phase3-final/`.
+
+---
+
+## Final risk-reduction cycle (2026-11-24)
+
+Branch `feature/final-risks`, stacked on PR #104. Fixed four priority risks with
+regression tests:
+
+- **Supervisor lease:** conditional acquisition, fenced heartbeats/release,
+  expired-renewal rejection and renewal during long dispatch; acquisition and
+  long-dispatch/concurrency tests added. Single-host only; multi-host remains a
+  proposal (`docs/MULTI-HOST-ARCHITECTURE-ASSESSMENT.md`).
+- **Redis cooldown:** the Redis-success path now mirrors the local window, so a
+  backend transition cannot grant a second full budget; transition and
+  concurrency tests added.
+- **Login CSRF:** login requires `application/json` and rejects explicitly
+  cross-site `Origin`; API clients without Origin and all session transitions
+  remain supported; login/logout/expiry/invalid-token tests added.
+- **Container scanning:** CI builds both images and runs failing-closed Trivy
+  image scans with SARIF artifacts. The first real scan found 53 HIGH / 81
+  MEDIUM base-image findings with mostly no fixed versions; `pip` was upgraded
+  to a fixed release and findings are documented in
+  `docs/CONTAINER-SCAN-FINDINGS.md`. The gate remains **FAIL** — no suppression.
+
+Acceptance remains **37/40 PASS, 0 PARTIAL, 0 FAIL, 3 BLOCKED**. Private
+verification 7/10; public deployment 0/6. Local validation after all fixes:
+backend **1,260 OK, 1 skipped**; frontend **10/10**, **127/127**, clean
+build/typecheck. Logs: `/tmp/opencode/risks-final2/`.
+
+---
+
+## Final completion cycle (2026-11-24)
+
+Branch `feature/final-completion`, stacked on PR #103. All three earlier PRs
+(#100/#102/#103) were reviewed end-to-end: no merge conflicts, no weakened
+tests, all six required jobs PASS on their exact head SHAs. Findings and
+dispositions are in `docs/PR-REVIEW-REPORT.md`.
+
+Confirmed defects fixed with regressions in this cycle: failed-upload resume
+finalization, migration-rollback WAL sidecars, login-lock saturation bypass,
+protocol-relative CSRF token leak, unpaired recovery evidence and non-failing
+CLI, content-level DB fingerprints with FK checks and unified Docker snippet,
+restore overwrite rollback with failed reports, S3 config enforcement plus
+bounded retries/atomic digest-checked downloads/response metadata, host-tooling
+preflight, cron/calendar validation, IPv6 loopback bindings, cross-origin API
+fallback and stale "550+" wording, and provider-health clock consistency.
+
+Acceptance is unchanged at **37/40 PASS, 0 PARTIAL, 0 FAIL, 3 BLOCKED**. The
+three BLOCKED checks remain external (EXT-01 real cloud S3 restore, EXT-02 real
+host/Docker recovery, EXT-03 independent security sign-off). Final local
+validation: backend **1,260 OK, 1 skipped**; frontend **10/10** and **127/127**
+with clean build/typecheck; logs `/tmp/opencode/final-run/`.
+
+---
+
+## Phase 5 final risk resolution (2026-11-24)
+
+Branch `feature/phase5-risk-resolution`, stacked on PR #105.
+
+- **Two-process supervisor race:** added an isolated test with two real
+  processes contending for the SQLite lease. Exactly one acquires leadership,
+  recovers and dispatches the single task; the loser has no side effects; the
+  winner releases the lease. ADR-0001 and the multi-host assessment now state
+  that this closes the single-host race check only, not distributed execution.
+- **Container investigation:** evaluated `python:3.12-slim-bookworm` in CI; it
+  was substantially worse (109 HIGH / 152 MEDIUM) than the current Debian 13
+  base (59 HIGH / 78 MEDIUM) and was reverted. Frontend remains clean at 0
+  MEDIUM+ after pinning nginx 1.31.7. All backend findings are preserved, not
+  suppressed.
+- **Redis fallback semantics:** documented that fallback is per-process only
+  and does not claim global enforcement; successful Redis requests are mirrored
+  locally to prevent double allocation on transitions.
+- **Regression validation:** backend **1,260 OK, 1 skipped**; frontend **10/10**
+  and **127/127** with clean build/typecheck. Logs: `/tmp/opencode/phase5-final/`.
+
+No external gate was marked PASS. PR #105 remains unmerged while the container
+security gate fails on real upstream findings.
+
+---
+
+## Phase 6 completion (2026-11-24)
+
+Branch `feature/alpine-backend-runtime`, stacked on PR #106.
+
+### Confirmed defect fixed
+
+`test_dispatch_renews_lease_during_a_long_running_task` flaked on CI. The flake
+was a symptom: the dispatch **renewal thread had no exception handling**, so a
+single transient SQLite error terminated the only renewal loop and leadership
+lapsed silently while the task kept running. Renewal now retries on error and
+reports `lease_renewal_error_type`. Added
+`test_dispatch_survives_transient_lease_renewal_error`, and verified it genuinely
+catches the bug by reverting the fix (test fails) and restoring it (test passes).
+The original test now polls a deadline instead of asserting a fixed
+`sleep(1.4)` against a 0.6 s TTL.
+
+### Container security resolved on evidence
+
+| Backend base | MEDIUM+ | OS findings fixable |
+| --- | --- | --- |
+| `python:3.12-slim` (Debian 13) | 137 | 0 of 129 |
+| `python:3.12-slim-bookworm` (Debian 12) | 261 | 0 |
+| `cgr.dev/chainguard/python:latest` | 8 | 8 of 8, but only a floating tag and Python 3.15 |
+| `python:3.12.16-alpine3.24` (adopted) | **0** | — |
+
+Also corrected an earlier documentation error: the `certifi`/`msgpack`/`urllib3`/
+`setuptools` findings were **pip's vendored copies** (pip's `vendor.txt` pins
+`setuptools==70.3.0` exactly), not Debian duplicates, which is why the earlier
+pip-upgrade pins could not clear them. The runtime image is multi-stage and now
+carries no pip or setuptools at all.
+
+No ignore file, severity downgrade or `continue-on-error` was introduced. CI run
+`45420717539` on `8785e468` passes all seven jobs, and the scan log confirms a
+real scan (`Detected OS family="alpine" version="3.24.4"`, `pkg_num=38`).
+
+### Regression validation (Phase 6 tree)
+
+- Backend: **1,261 OK, 1 skipped** (1,260 + the new renewal regression test).
+- Frontend on Node 22.23.5: `npm test` **10/10**, `npm run test:ui` **127/127**
+  (21 files), `npm run build` and `npm run typecheck:test` exit 0.
+- Playwright: **9/9 passed locally** on Node 22.23.5 once the missing X/NSS
+  libraries were supplied through an unprivileged conda prefix and
+  `LD_LIBRARY_PATH` (see the real-browser note above). This matches CI's browser
+  job and closes a previously documented local-only blocker.
+- Logs: `/tmp/opencode/phase6/`.
+
+### Unchanged
+
+Acceptance stays **37/40 PASS, 3 BLOCKED**; ACC-029/030/031 still need
+authorized external evidence. Acceptance and the container gate are reported
+separately: the container gate is now PASS on reproducible CI evidence, but that
+is not an independent security approval.

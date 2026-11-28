@@ -831,7 +831,13 @@ class AgentSupervisorPollingContractTests(unittest.TestCase):
             side_effect=dispatch_once,
         ) as dispatch, patch(
             "app.analytical_agent_tasks._write_supervisor_heartbeat",
-            side_effect=lambda state, *args, **kwargs: heartbeat_states.append(state),
+            side_effect=lambda state, *args, **kwargs: (
+                heartbeat_states.append(state) or True
+            ),
+        ), patch(
+            "app.analytical_agent_tasks._acquire_supervisor_lease", return_value=True
+        ), patch(
+            "app.analytical_agent_tasks._release_supervisor_lease", return_value=True
         ), patch(
             "app.analytical_agent_tasks._renew_supervisor_lease", return_value=True
         ), patch(
@@ -844,8 +850,9 @@ class AgentSupervisorPollingContractTests(unittest.TestCase):
         self.assertEqual(result["status"], "stopped")
         self.assertEqual(result["cycles"], 1)
         dispatch.assert_called_once()
-        self.assertEqual(heartbeat_states[0], "starting")
-        self.assertIn("running", heartbeat_states)
+        # Conditional acquisition is a separate CAS write; heartbeats now
+        # record the running lifecycle only.
+        self.assertEqual(heartbeat_states[0], "running")
         self.assertEqual(heartbeat_states[-1], "stopped")
 
     def test_supervisor_fails_closed_when_startup_recovery_raises(self):
@@ -860,7 +867,13 @@ class AgentSupervisorPollingContractTests(unittest.TestCase):
             "app.analytical_agent_tasks.dispatch_queued_research_tasks",
         ) as dispatch, patch(
             "app.analytical_agent_tasks._write_supervisor_heartbeat",
-            side_effect=lambda state, *args, **kwargs: heartbeat_states.append(state),
+            side_effect=lambda state, *args, **kwargs: (
+                heartbeat_states.append(state) or True
+            ),
+        ), patch(
+            "app.analytical_agent_tasks._acquire_supervisor_lease", return_value=True
+        ), patch(
+            "app.analytical_agent_tasks._release_supervisor_lease", return_value=True
         ):
             result = run_supervisor(threading.Event(), max_cycles=1)
 
@@ -869,6 +882,6 @@ class AgentSupervisorPollingContractTests(unittest.TestCase):
         self.assertEqual(result["cycles"], 0)
         self.assertEqual(result["dispatch_results"], [])
         dispatch.assert_not_called()
-        self.assertEqual(heartbeat_states, ["starting", "failed"])
+        self.assertEqual(heartbeat_states, ["failed"])
         self.assertNotIn("private database detail", str(result))
 

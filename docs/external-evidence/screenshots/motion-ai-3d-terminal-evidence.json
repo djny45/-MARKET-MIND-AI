@@ -1,0 +1,11 @@
+{
+  "source": "http://127.0.0.1:3000/",
+  "state": "database-unconfigured fallback",
+  "viewports": [
+    "desktop 1280",
+    "tablet 810",
+    "mobile 412"
+  ],
+  "console_errors": 0,
+  "horizontal_overflow": false
+}

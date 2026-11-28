@@ -8,6 +8,11 @@ __pycache__/
 htmlcov/
 *.log
 
+# Operator secrets and private-mode environment files (never commit)
+.env
+*.env
+!*.env.example
+
 # Local application state and databases
 data/
 *.sqlite
@@ -21,6 +26,7 @@ data/
 # Node / frontend build artifacts
 node_modules/
 frontend/dist/
+frontend/dist-dev/
 frontend/.vite/
 npm-debug.log*
 
@@ -32,3 +38,6 @@ npm-debug.log*
 # Playwright artifacts
 frontend/test-results/
 frontend/playwright-report/
+
+# Jupyter checkpoint artifacts
+.ipynb_checkpoints/

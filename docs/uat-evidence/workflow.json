@@ -1,0 +1,54 @@
+{
+  "routing": {
+    "status": 200,
+    "candidate_count": 10,
+    "top": "worker_001"
+  },
+  "queue": {
+    "status": 202,
+    "task_id": "8e89da9e-05e6-4dce-b267-10b7d7c32ebd",
+    "worker_id": "worker_001",
+    "status_field": "queued"
+  },
+  "list_tasks": {
+    "status": 200,
+    "count": 1,
+    "keys": [
+      "agent_id",
+      "worker_id",
+      "count",
+      "total",
+      "tasks"
+    ]
+  },
+  "task_detail": {
+    "status": 200,
+    "task_status": "queued",
+    "agent": "worker_001"
+  },
+  "task_audit": {
+    "status": 200,
+    "keys": [
+      "task_id",
+      "count",
+      "events",
+      "next_before_event_id"
+    ]
+  },
+  "supervisor_dispatch": {
+    "status": 200,
+    "summary": {
+      "selected": 1,
+      "dispatched": 1,
+      "max_concurrency": 1,
+      "status": "completed",
+      "task_ids": "<list>",
+      "dispatch_error_count": 0,
+      "dispatch_errors": "<list>",
+      "lease_lost_during_dispatch": false,
+      "lease_renewal_error_type": null,
+      "dispatch_mode": "bounded_sqlite_queue_snapshot",
+      "note": "Tasks are persisted in the shared SQLite queue; this bounded dispatch runs in the supervisor process. The queue is single-host, not a distributed broker."
+    }
+  }
+}

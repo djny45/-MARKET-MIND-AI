@@ -55,8 +55,8 @@ Local `main` had diverged (56 local commits, 17 origin commits) and tracked
 
 | Check | Result |
 | --- | --- |
-| Backend suite | PASS — 1063 tests; 1078 tests on `feat/dr-and-ingress-verification` (1 skipped: no nginx binary) |
-| Frontend node:test + Vitest | PASS — 10 + 123 tests |
+| Backend suite | PASS — 1,181 tests on this branch (1 skipped: no nginx binary) |
+| Frontend node:test + Vitest | PASS — 10 + 127 tests |
 | Frontend build / audits | PASS |
 | pip-audit / npm audit | PASS — 0 known vulnerabilities |
 | CI-equivalent Trivy scan | PASS — 0 findings at MEDIUM+ |
@@ -84,3 +84,58 @@ an OAuth App to create or update workflow ... without `workflow` scope".
 3. Host/S3/Docker-volume/process-kill drills on an authorized host, plus
    `npx playwright install-deps` to unlock real-browser responsive tests.
 4. Decide on ADR-0001 implementation and data-status attestation fix.
+
+## Re-verified 2026-11-24 (feature branch)
+
+Items 1 and the browser-test part of item 3 above are **stale**: the expanded
+Trivy job and the Playwright job are in `.github/workflows/quality.yml` on
+`main`, and CI run `45268550062` on `1a13bfe2` passed all six jobs.
+
+`fix/close-remaining-verification-gaps` re-verified the current tree and closed
+all locally executable gaps: backup freshness reporting, S3-compatible transfer
+with a stdlib fake-S3 integration test, an operator Docker-volume drill with a
+fake-Docker test, DR secret redaction, eight confirmed auth/rate-limit/audit
+defects, dual-auth browser integration, and offline preflight/ingress guards.
+See `REMAINING_WORK.md` § "Re-verification 2026-11-24" for the exact evidence and
+the updated 32/40 acceptance-inventory counts (previously 27/31). Private
+verification remains **7/10**; public deployment remains **0/6**. Real cloud S3,
+real Docker volumes and host service/restart drills are still operator work.
+
+Phase 2 on `fix/phase2-acceptance-gaps` (code through `d9169e81`) closed the five
+partial checks with local evidence, added host-schedule and config-preflight
+scaffolding, and corrected the unsupported 28/28 feature claim to 26/26.
+Acceptance inventory is now **37/40 verified, 0 partial, 3 BLOCKED**. The three
+external gates have procedures in
+`docs/EXTERNAL-VERIFICATION-CHECKLIST.md`; private verification stays 7/10 and
+public deployment 0/6.
+
+Continuous Phase 4 (PR #105) fixed supervisor lease acquisition/renewal, Redis
+limiter transitions, and login CSRF compatibility with regression tests, and
+added failing-closed container image scanning. The frontend image is clean after
+pinning nginx 1.31.7; the backend image still has OS-level CVEs with no fixed
+version, so the container gate remains **FAIL** and PR #105 must not be merged.
+See `docs/CONTAINER-SCAN-FINDINGS.md` and
+`docs/MULTI-HOST-ARCHITECTURE-ASSESSMENT.md`.
+
+Phase 5 (PR #106) added an isolated two-process supervisor lease race test,
+evaluated and rejected a worse Debian 12 base image, and documented Redis
+fallback as per-process only.
+
+Phase 6 (this branch, stacked on #106) resolved the container gate on evidence
+rather than suppression. A real renewal defect was found and fixed: the dispatch
+renewal thread had no exception handling, so one transient store error silently
+ended leadership while tasks kept running. The backend image moved to a pinned
+`python:3.12.16-alpine3.24` multi-stage runtime with the base system pip removed,
+taking backend findings from 137 MEDIUM+ (0 of 129 OS findings fixable on
+Debian 13) to **0**. Run `45420717539` on head `8785e468` passes all seven CI
+jobs including the container scan, with no ignore file and no threshold change.
+Acceptance remains 37/40 PASS, 0 PARTIAL, 0 FAIL, 3 BLOCKED, because ACC-029/030/
+031 still require authorized external evidence.
+
+Final audit (2026-11-24): `docs/FINAL_RELEASE_AUDIT.md` records HEAD
+`d535277e`, PR #107 MERGEABLE/CLEAN with 7/7 CI jobs passing, a fresh local run
+of 1269 backend tests (1261 baseline + 8 new intake tests), 10/10 frontend unit tests, 127/127 UI tests, 8 evidence-
+intake tests, clean dependency/container scans and no production deployment.
+External intake: `docs/EXTERNAL-EVIDENCE-BUNDLES.md`, drafted requests:
+`docs/EXTERNAL-ACCESS-REQUESTS.md`. Completion is 92.5% of acceptance items;
+public deployment remains NOT READY (0/6). No external validation is claimed.

@@ -11,7 +11,6 @@ No coding harness is guaranteed to load every instruction or skill format automa
 | Harness | Project instructions | Skill guidance |
 |---|---|---|
 | Codex / AGENTS-compatible tools | `AGENTS.md` | Portable catalog in `.agents/skills/` |
-| Claude Code | `CLAUDE.md` imports `AGENTS.md` | Claude-discoverable mirror in `.claude/skills/` |
 | GitHub Copilot | `.github/copilot-instructions.md` | Follow relevant portable skill manually |
 | Cursor | `.cursor/rules/market-mind.mdc` | Follow relevant portable skill manually |
 | Other harnesses | Configure its project-rules feature to include `AGENTS.md` | Point it to the relevant `.agents/skills/<skill>/SKILL.md` |
@@ -35,7 +34,8 @@ python -m pip install -r backend/requirements.txt
 ```
 
 The checked-in launch configurations are:
-- Claude Code: root `.mcp.json`, the project-scoped MCP configuration.
+- Root `.mcp.json`: the portable workspace-root MCP configuration used by
+  OpenCode and other MCP-compatible harnesses.
 - GitHub Copilot: root `.mcp.json`, the portable workspace-root format. Copilot's workspace-root configuration can be managed through its MCP Servers customization; the experimental workspace-root setting affects whether the guided Add Server flow offers this location.
 - Cursor: `.cursor/mcp.json`, the documented project-specific configuration location.
 - Codex: `.codex/config.toml`, the project-scoped configuration (Codex loads it only after the repository is trusted).

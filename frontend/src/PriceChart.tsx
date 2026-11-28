@@ -3,12 +3,13 @@ import { createChart, ColorType, CandlestickSeries, LineSeries, HistogramSeries,
 
 type Bar = {timestamp:string;open:number;high:number;low:number;close:number;volume?:number;source?:string;status?:string;retrieved_at?:string}
 type Cluster = {side:string;mean_price:number;lower_price:number;upper_price:number;touch_count:number;pivot_timestamps:(string|null)[]}
-type Props = {values?:number[];bars?:Bar[];selectedCluster?:Cluster|null;selectedTimestamp?:string|null;interval?:string;retrievedAt?:string|null}
+export type FlowDot = {time:string;side:string;size:number|null;notional:number;colour:string}
+type Props = {values?:number[];bars?:Bar[];selectedCluster?:Cluster|null;selectedTimestamp?:string|null;interval?:string;retrievedAt?:string|null;flowDots?:FlowDot[]}
 function toTime(value:string):Time {
  const date=new Date(value)
  return Math.floor(date.getTime()/1000) as Time
 }
-export default function PriceChart({values=[],bars=[],selectedCluster=null,selectedTimestamp=null,interval='',retrievedAt=null}:Props) {
+export default function PriceChart({values=[],bars=[],selectedCluster=null,selectedTimestamp=null,interval='',retrievedAt=null,flowDots=[]}:Props) {
  const host=useRef<HTMLDivElement|null>(null)
  const chartRef=useRef<IChartApi|null>(null)
  const lineRef=useRef<ISeriesApi<'Line'>|null>(null)
@@ -42,7 +43,18 @@ export default function PriceChart({values=[],bars=[],selectedCluster=null,selec
    candleRef.current.setData(sorted.map(b=>({time:toTime(b.timestamp),open:b.open,high:b.high,low:b.low,close:b.close})))
    volumeRef.current.setData(sorted.filter(b=>Number.isFinite(b.volume)).map(b=>({time:toTime(b.timestamp),value:Number(b.volume),color:b.close>=b.open?'#397c68aa':'#9b514aaa'})))
    const selected=selectedTimestamp?sorted.find(b=>toTime(b.timestamp)===toTime(selectedTimestamp)):undefined
-   markersRef.current?.setMarkers(selected?[{time:toTime(selected.timestamp),position:'aboveBar',color:'#e0b46a',shape:'circle',text:'Selected'}]:[])
+   // EXTENSION: verified trade-flow markers rendered by the existing chart.
+   // Dot size encodes relative notional; colour encodes executed side.
+   const flowMarkers=flowDots.filter(dot=>Number.isFinite(Date.parse(dot.time))).map(dot=>({
+    time:toTime(dot.time),
+    position:(dot.side==='sell'?'belowBar':'aboveBar') as 'aboveBar'|'belowBar',
+    color:dot.colour,
+    shape:'circle' as const,
+    size:dot.side==='liquidation_marker'?2:1,
+    text:dot.side==='liquidation_marker'?'LIQ':undefined,
+   }))
+   const selectionMarker=selected?[{time:toTime(selected.timestamp),position:'aboveBar' as const,color:'#e0b46a',shape:'circle' as const,text:'Selected'}]:[]
+   markersRef.current?.setMarkers([...selectionMarker,...flowMarkers])
    lineRef.current.setData([])
    if(selectedCluster&&sorted.length){
     const first=toTime(sorted[0].timestamp),last=toTime(sorted[sorted.length-1].timestamp)
@@ -60,8 +72,8 @@ export default function PriceChart({values=[],bars=[],selectedCluster=null,selec
    }))
    chartRef.current.timeScale().fitContent()
   }
- },[values,bars,selectedCluster,selectedTimestamp])
+ },[values,bars,selectedCluster,selectedTimestamp,flowDots])
  const source=bars.length?Array.from(new Set(bars.map(b=>b.source||'unknown'))).join(', '):'manual / synthetic input'
  const status=bars.length?Array.from(new Set(bars.map(b=>b.status||'unknown'))).join(', '):'not historical market data'
- return <div className="chart-shell"><div className="chart-heading"><div><b>{bars.length?'STORED OHLCV HISTORY':'PRICE SERIES'}</b><span> · {interval||'SAMPLE INPUT'}</span></div><small>{bars.length?source+' · '+status+' · RETRIEVED '+(retrievedAt||'timestamp unavailable'):'NOT A LIVE QUOTE'}</small></div><div className="chart-legend"><span><i className="legend-candle"/> OHLC candles</span><span><i className="legend-volume"/> Volume histogram</span><span>Volume uses an independent scale</span></div><div ref={host} className="chart-host"/></div>
+ return <div className="chart-shell"><div className="chart-heading"><div><b>{bars.length?'STORED OHLCV HISTORY':'PRICE SERIES'}</b><span> · {interval||'SAMPLE INPUT'}</span></div><small>{bars.length?source+' · '+status+' · RETRIEVED '+(retrievedAt||'timestamp unavailable'):'NOT A LIVE QUOTE'}</small></div><div className="chart-legend"><span><i className="legend-candle"/> OHLC candles</span><span><i className="legend-volume"/> Volume histogram</span><span>Volume uses an independent scale</span>{flowDots.length>0&&<><span><i className="legend-dot-buy"/> Buy flow</span><span><i className="legend-dot-sell"/> Sell flow</span><span><i className="legend-dot-liq"/> Large / liquidation marker</span></>}</div><div ref={host} className="chart-host"/></div>
 }

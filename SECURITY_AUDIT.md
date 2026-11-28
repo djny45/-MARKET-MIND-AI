@@ -73,6 +73,29 @@ testing and formal security review are operator/external responsibilities.
 See `docs/PUBLIC-EXPOSURE-HARDENING.md` for the required configuration and
 the documented process-kill drill. **No public deployment is authorized.**
 
+## Confirmed defects fixed 2026-11-24
+
+Static review of the auth, session, throttling and audit surfaces found eight
+reproducible defects; all were fixed with regressions on
+`fix/close-remaining-verification-gaps`:
+
+| Defect | Fix / evidence |
+| --- | --- |
+| Malformed `Origin`/`Referer` raised an unhandled 500 | `user_session_middleware._origin_allowed` skips unparseable values; 1 test |
+| Rate-limit denials were never audited | both limiters emit `rate_limit`/`throttled` events; 1 test |
+| Failed/throttled logins omitted the targeted account | actor and `attempted_username` recorded; 1 test |
+| Unrelated failures evicted active login lockouts | expired/unlocked entries pruned first, active lockouts never evicted; 1 test |
+| Unique-key floods cleared all rate-limit buckets | one expired bucket evicted, otherwise fail closed; 2 tests |
+| Rejected requests bypassed both rate limiters | rate-limit middleware now wraps session enforcement; 1 end-to-end test |
+| Expired session identity rows were never purged | purged with the session in the same transaction; 1 test |
+| Dual-auth deployment was unusable by the shipped UI | session routes authoritative when per-user auth is on; same-origin CSRF fetch wrapper; 1 backend + 4 Vitest tests |
+
+DR hook output, manifests and webhook detail strings are also redacted before
+storage or delivery (`dr_common.redact_secrets`, 3 tests), and failed S3
+downloads no longer overwrite local files with an error body (3 integration
+tests). The research-only boundary is unchanged; no brokerage capability was
+added.
+
 ## Safe-use statement
 
 Research and paper-simulation platform for private, operator-managed

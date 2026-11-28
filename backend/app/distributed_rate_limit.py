@@ -15,6 +15,8 @@ from typing import Any, Mapping
 
 from starlette.responses import JSONResponse
 
+from .audit_events import audit_log
+
 EXEMPT_PATHS = frozenset({"/api/health", "/api/ready"})
 MAX_TRACKED_CLIENTS = 4_096
 DEFAULT_WINDOW_SECONDS = 60
@@ -52,9 +54,18 @@ class _LocalWindow:
                 retry = max(1, int(self._window - (now - hits[0])))
                 self._hits[key] = hits
                 return RateLimitResult(False, "in-process", 0, retry)
+            if key not in self._hits and len(self._hits) >= MAX_TRACKED_CLIENTS:
+                expired = next(
+                    (name for name, values in self._hits.items()
+                     if not values or all(now - stamp >= self._window for stamp in values)),
+                    None,
+                )
+                if expired is None:
+                    # Every tracked client is still active: fail closed for the
+                    # new key rather than dropping an existing throttle.
+                    return RateLimitResult(False, "in-process", 0, self._window)
+                self._hits.pop(expired)
             hits.append(now)
-            if len(self._hits) >= MAX_TRACKED_CLIENTS and key not in self._hits:
-                self._hits.clear()
             self._hits[key] = hits
             return RateLimitResult(True, "in-process", max(0, limit - len(hits)), 0)
 
@@ -146,11 +157,21 @@ class DistributedRateLimiter:
                 self._redis_retry_after = 0.0
                 if current > self.limit:
                     return RateLimitResult(False, "redis", 0, self.window_seconds)
-                return RateLimitResult(True, "redis", self.limit - current, 0)
+                # Mirror every Redis hit in the local window. Without this,
+                # a Redis outage/recovery transition grants a second full
+                # budget to the same client inside one window.
+                local_result = self._local.check(key, self.limit, now)
+                if not local_result.allowed:
+                    return RateLimitResult(
+                        False, "in-process", 0, local_result.retry_after
+                    )
+                return RateLimitResult(
+                    True, "redis", min(self.limit - current, local_result.remaining), 0
+                )
         return self._local.check(key, self.limit, now)
 
     def reset(self) -> None:
-        """Clear local state (and, when safe, the known Redis keys)."""
+        """Clear local state and cooldown; Redis keys expire on their own."""
         self._local.reset()
         self._redis_disabled = False
         self._redis_retry_after = 0.0
@@ -237,6 +258,9 @@ class DistributedRateLimitMiddleware:
             client_key(scope, trusted_proxies=proxy["count"], header=proxy["header"])
         )
         if not result.allowed:
+            audit_log.record("rate_limit", None, path, "request", "throttled",
+                             metadata={"backend": result.backend,
+                                       "retry_after_seconds": result.retry_after})
             response = JSONResponse(
                 {
                     "detail": "Rate limit exceeded.",

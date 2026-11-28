@@ -1,0 +1,102 @@
+{
+  "scenarios": [
+    {
+      "name": "all_providers_failed",
+      "totals": {
+        "markets": 4,
+        "quotes": 17,
+        "usable": 0,
+        "unavailable": 17,
+        "stale": 0
+      },
+      "markets": [
+        {
+          "market_group": "us",
+          "market_status": "unavailable",
+          "headline": "NO USABLE OBSERVATION",
+          "usable_count": 0
+        },
+        {
+          "market_group": "india",
+          "market_status": "unavailable",
+          "headline": "NO USABLE OBSERVATION",
+          "usable_count": 0
+        },
+        {
+          "market_group": "forex",
+          "market_status": "unavailable",
+          "headline": "NO USABLE OBSERVATION",
+          "usable_count": 0
+        },
+        {
+          "market_group": "crypto",
+          "market_status": "unavailable",
+          "headline": "NO USABLE OBSERVATION",
+          "usable_count": 0
+        }
+      ]
+    },
+    {
+      "name": "us_recovers_others_down",
+      "totals": {
+        "markets": 4,
+        "quotes": 17,
+        "usable": 5,
+        "unavailable": 12,
+        "stale": 0
+      },
+      "markets": [
+        {
+          "market_group": "us",
+          "market_status": "fresh",
+          "headline": "FRESH",
+          "usable_count": 5,
+          "unavailable_count": 0
+        },
+        {
+          "market_group": "india",
+          "market_status": "unavailable",
+          "headline": "NO USABLE OBSERVATION",
+          "usable_count": 0,
+          "unavailable_count": 5
+        },
+        {
+          "market_group": "forex",
+          "market_status": "unavailable",
+          "headline": "NO USABLE OBSERVATION",
+          "usable_count": 0,
+          "unavailable_count": 4
+        },
+        {
+          "market_group": "crypto",
+          "market_status": "unavailable",
+          "headline": "NO USABLE OBSERVATION",
+          "usable_count": 0,
+          "unavailable_count": 3
+        }
+      ]
+    },
+    {
+      "name": "stale_live_quote",
+      "status": "live",
+      "age_seconds": 600,
+      "stale": true,
+      "market_status": "stale"
+    },
+    {
+      "name": "fresh_live_quote",
+      "status": "live",
+      "age_seconds": 10,
+      "stale": false,
+      "market_status": "fresh"
+    },
+    {
+      "name": "no_attestation_means_no_live_label",
+      "status": "historical",
+      "attested_sources": []
+    }
+  ],
+  "generated_at": "2026-11-26T15:47:15.684431+00:00",
+  "mode": "offline_containment_and_recovery",
+  "live_labels_allowed": false
+}

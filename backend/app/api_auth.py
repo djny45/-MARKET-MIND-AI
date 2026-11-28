@@ -23,6 +23,18 @@ class ResearchAPIAuthMiddleware:
         required = os.getenv("API_AUTH_REQUIRED", "false").strip().lower() in {"1", "true", "yes", "on"}
         path = scope.get("path", "")
         method = scope.get("method", "GET").upper()
+        # In the documented dual-auth deployment the browser cannot hold the
+        # deployment bearer secret. Session routes are authenticated by the
+        # session middleware instead; every other route still needs the bearer.
+        user_auth = os.getenv("MARKET_MIND_USER_AUTH", "false").strip().lower() in {
+            "1", "true", "yes", "on"
+        }
+        if user_auth:
+            # Per-user sessions are authoritative in this mode. The browser
+            # cannot hold the deployment bearer secret, so every route is
+            # protected by the session/role middleware instead.
+            await self.app(scope, receive, send)
+            return
         if not required or method == "OPTIONS" or path in {"/api/health", "/api/ready"}:
             await self.app(scope, receive, send)
             return

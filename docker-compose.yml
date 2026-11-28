@@ -4,7 +4,16 @@ services:
       context: ./backend
     environment:
       MARKET_MIND_DB: /data/market_mind.db
-      FRONTEND_ORIGINS: http://localhost:8080
+      # Private-mode defaults keep the documented stack usable without an
+      # operator env file. The owner supplies real settings with
+      # `docker compose --env-file /secure/private.env`; no secret is inlined.
+      FRONTEND_ORIGINS: ${FRONTEND_ORIGINS:-http://localhost:8080}
+      MARKET_MIND_USER_AUTH: ${MARKET_MIND_USER_AUTH:-false}
+      MARKET_MIND_USERS: ${MARKET_MIND_USERS:-}
+      MARKET_MIND_REQUIRE_ORIGIN: ${MARKET_MIND_REQUIRE_ORIGIN:-false}
+      MARKET_MIND_COOKIE_SAMESITE: ${MARKET_MIND_COOKIE_SAMESITE:-strict}
+      MARKET_MIND_SECURE_COOKIES: ${MARKET_MIND_SECURE_COOKIES:-false}
+      API_RATE_LIMIT_PER_MINUTE: ${API_RATE_LIMIT_PER_MINUTE:-0}
       N8N_REVIEWER_TOKENS_JSON: ${N8N_REVIEWER_TOKENS_JSON:-}
       N8N_BASE_URL: ${N8N_BASE_URL:-}
       N8N_API_KEY: ${N8N_API_KEY:-}

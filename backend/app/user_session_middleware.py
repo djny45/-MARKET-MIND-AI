@@ -96,7 +96,12 @@ def _origin_allowed(scope: dict[str, Any]) -> bool:
     if not candidates:
         return False
     for candidate in candidates:
-        parsed = urlparse(candidate.strip())
+        try:
+            parsed = urlparse(candidate.strip())
+        except ValueError:
+            # Origin/Referer are attacker-controlled. A malformed value must
+            # not turn an authorization check into a 500.
+            continue
         origin = f"{parsed.scheme}://{parsed.netloc}".lower()
         if parsed.scheme and parsed.netloc and any(hmac_compare(origin, allowed) for allowed in origins):
             return True
@@ -152,12 +157,27 @@ class UserSessionAuthMiddleware:
                     return
             await self.app(scope, receive, send)
             return
-        if (
-            not enabled()
-            or not scope.get("path", "").startswith("/api/")
-            or scope.get("path", "") in EXEMPT_PATHS
-            or scope.get("method", "GET").upper() == "OPTIONS"
-        ):
+        path = scope.get("path", "")
+        method = scope.get("method", "GET").upper()
+        if not enabled() or not path.startswith("/api/") or method == "OPTIONS":
+            await self.app(scope, receive, send)
+            return
+        if path == "/api/auth/login" and method == "POST":
+            # Login has no session or CSRF token yet, so a token check is
+            # impossible here. A browser-forced login is still prevented by
+            # rejecting an explicitly supplied cross-site Origin, while API
+            # clients that send no Origin keep working. The route separately
+            # requires application/json, blocking text/plain form posts.
+            if _header_values(scope, b"origin") and not _origin_allowed(scope):
+                audit_log.record("csrf", None, path, "login_origin", "denied")
+                response = JSONResponse(
+                    {"detail": "Request origin is not allowed."}, status_code=403
+                )
+                await response(scope, receive, send)
+                return
+            await self.app(scope, receive, send)
+            return
+        if path in EXEMPT_PATHS:
             await self.app(scope, receive, send)
             return
 

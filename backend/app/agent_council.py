@@ -68,6 +68,12 @@ def run_agent_council(agent_ids: list[str], brief: str, data: dict | list | None
             "provider_reason": synthesis.get("reason"),
         })
 
+    from .daily_intelligence import consensus_from_findings
+
+    findings = [
+        member.get("finding") for member in members
+        if isinstance(member.get("finding"), dict)
+    ]
     available = [member for member in members if member["status"] == "completed" and member["analysis"]]
     # No fabricated voting/consensus: report provider outputs and availability honestly.
     return {
@@ -80,6 +86,7 @@ def run_agent_council(agent_ids: list[str], brief: str, data: dict | list | None
         "synthesis_status": "completed" if available else "provider_unavailable_or_not_configured",
         "consensus": None,
         "consensus_note": "No consensus is asserted; cross-agent synthesis and disagreement scoring are future work.",
+        "descriptive_consensus": consensus_from_findings(findings),
         "research_boundary": "supplied_data_only_no_live_market_fetch",
         "paper_trading": False,
         "broker_execution": False,

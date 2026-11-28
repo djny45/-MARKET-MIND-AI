@@ -12,8 +12,8 @@
 | Recovery evidence | `docs/RECOVERY_DRILL_EVIDENCE.md` — real isolated backup/checksum/restore/parity/retention/stale-lock and `kill -9` drills PASS |
 | Previous integrations | PR #83 `46f67732` (run 45197484726), PR #82 `e8d9f328` (run 45184633962) — both all-PASS |
 | Previous integration | PR #82, `e8d9f328`, run 45184633962 — all 5 jobs PASS |
-| Backend | 1078 tests OK, 1 skipped (`unittest discover -s backend/tests -q`) |
-| Frontend | 10 node:test + 123 Vitest; 20 UI test files |
+| Backend | 1078 tests OK at the time of that report; current verified baseline is **1289 OK, 1 skipped** (`PYTHONPATH=backend .venvs/backend/bin/python -m unittest discover -s backend/tests -q`) |
+| Frontend | 10 node:test + 123 Vitest at the time of that report; current verified baseline is **10 + 127 Vitest; 21 UI test files** |
 | Frontend typecheck/build | clean; esbuild bundle produced |
 | Browser tests | **9 passed** — Playwright Chromium desktop/tablet/mobile; CI job still blocked by owner workflow scope |
 | Python audit | `pip-audit`: no known vulnerabilities |
@@ -26,7 +26,7 @@
 
 **A. APPLICATION FEATURE COMPLETE — YES.** All 26 requested frontend modules are implemented or covered inside existing tabs and connected to real backend services. The seven formerly missing modules now have dedicated panels: portfolio analytics, risk analytics, system health, provider health, audit/security events, backup status (`GET /api/backup/status`) and settings. They enforce loading, empty, error and role-denied states; no fabricated market values are displayed.
 
-**B. PRIVATE RESEARCH PLATFORM TEST READY — NOT YET.** Backend (1078), frontend (10+123) and **9 real browser tests** pass, along with builds, audits, Trivy local scan and Docker Compose CI. Isolated backup/restore, checksum, parity, retention, stale-lock, real `kill -9` process-kill and local S3-compatible upload/download (SHA-256 parity) drills pass (`docs/RECOVERY_DRILL_EVIDENCE.md`). Remaining gates: expanded Trivy + browser CI jobs (owner `workflow` permission) and Docker-volume restore / host restart / real cloud S3 restore (no Docker, host access or credentials). Private-platform verification remains **8/10**, not 10/10.
+**B. PRIVATE RESEARCH PLATFORM TEST READY — NOT YET.** Backend (1078 at that time; current 1289), frontend (10+123 at that time; current 10+127) and **9 real browser tests** pass, along with builds, audits, Trivy local scan and Docker Compose CI. Isolated backup/restore, checksum, parity, retention, stale-lock, real `kill -9` process-kill and local S3-compatible upload/download (SHA-256 parity) drills pass (`docs/RECOVERY_DRILL_EVIDENCE.md`). Remaining gates: expanded Trivy + browser CI jobs (owner `workflow` permission) and Docker-volume restore / host restart / real cloud S3 restore (no Docker, host access or credentials). Private-platform verification was recorded as 8/10 in this historical report; the authoritative current figure is **7/10 (70%)** per `docs/acceptance-inventory.json` and `docs/FINAL_RELEASE_AUDIT.md`.
 
 **C. PUBLIC DEPLOYMENT READY — NO.** Requires TLS, network segmentation, ingress security, independent penetration testing, formal review and production recovery evidence. None are verified here.
 
@@ -62,3 +62,14 @@ No real-money brokerage execution, wallet keys, transaction signing, live order 
 ## Recovery preserved
 
 `recovery/local-main-56-commits`, `security/trivy-ci-scope`, and the old divergent local `main` (`906b3765`) are untouched. No force-push, reset or rebase was used.
+
+## Re-verification appendix (2026-11-24)
+
+The historical results above are preserved and apply to their stated SHAs.
+They are **superseded** for current status by `REMAINING_WORK.md` §
+"Re-verification 2026-11-24" and `docs/acceptance-inventory.json` (source
+`b07c1d90`). In particular, the Trivy and browser CI jobs are no longer blocked,
+the stale "8/10" line above is superseded by the corrected 7/10 private score,
+and locally executable S3/Docker/preflight/security gaps have been closed with
+new tests. The three external infrastructure gates and public deployment 0/6
+remain unchanged.

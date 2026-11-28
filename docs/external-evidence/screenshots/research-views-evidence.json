@@ -1,0 +1,29 @@
+{
+  "captured_at": "2026-11-26T15:22:36.475Z",
+  "api_calls": [
+    {
+      "url": "http://127.0.0.1:8011/api/intelligence/board",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:8011/api/intelligence/board",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:8011/api/intelligence/deribit/options",
+      "status": 200
+    }
+  ],
+  "console_errors": [],
+  "research_tabs": [
+    "OVERVIEW",
+    "MONEY FLOW",
+    "ORDER BOOK",
+    "OI / FUNDING / BASIS",
+    "OPTIONS",
+    "LIQUIDATIONS",
+    "BACKTESTING"
+  ],
+  "options_payload": "{\n  \"options\": {\n    \"source\": \"deribit-public\",\n    \"instruments\": [\n      {\n        \"instrument_name\": \"BTC-27NOV26-48000-C\",\n        \"kind\": \"option\",\n        \"strike\": 48000,\n        \"option_type\": \"call\",\n        \"expiry_timestamp\": \"2026-11-27T08:00:00+00:00\"\n      },\n      {\n        \"instrument_name\": \"BTC-27NOV26-48000-P\",\n        \"kind\": \"option\",\n        \"strike\": 48000,\n        \"option_",
+  "venue_cards": 6
+}

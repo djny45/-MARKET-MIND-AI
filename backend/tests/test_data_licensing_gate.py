@@ -39,10 +39,18 @@ class DataLicensingGateTests(unittest.TestCase):
         gate = DataLicensingGate(license_review_completed=True)
         manifest = gate.manifest()
         self.assertTrue(manifest["authorized"])
-        self.assertEqual(manifest["pending_license_review"], [])
+        # Public research sources added for exchange intelligence are honestly
+        # pending review; they can never claim LIVE/DELAYED without attestation.
+        from app.data_licensing_gate import PUBLIC_RESEARCH_SOURCES
+
+        self.assertEqual(
+            set(manifest["pending_license_review"]), set(PUBLIC_RESEARCH_SOURCES)
+        )
         self.assertFalse(manifest["broker_execution"])
         self.assertTrue(manifest["research_only"])
         self.assertTrue(set(LICENSED_PROVIDERS).issubset(set(manifest["authorized"])))
+        self.assertIn("tredye-live-json", manifest["unauthorized_sources"])
+        self.assertIn("tredye-cfno-okx", manifest["unauthorized_sources"])
 
 
 if __name__ == "__main__":

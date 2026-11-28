@@ -15,6 +15,7 @@ from starlette.responses import JSONResponse
 
 from .distributed_rate_limit import client_key
 from .env_validation import trusted_proxy_settings
+from .audit_events import audit_log
 
 EXEMPT_PATHS = frozenset({"/api/health", "/api/ready"})
 MAX_TRACKED_CLIENTS = 4_096
@@ -62,6 +63,8 @@ class RateLimitMiddleware:
         hits = [stamp for stamp in self._hits.get(key, []) if now - stamp < 60]
         if len(hits) >= limit:
             retry_after = max(1, int(60 - (now - hits[0])))
+            audit_log.record("rate_limit", None, path, "request", "throttled",
+                             metadata={"backend": "in-process", "retry_after_seconds": retry_after})
             response = JSONResponse(
                 {"detail": "Rate limit exceeded."},
                 status_code=429,
@@ -70,8 +73,24 @@ class RateLimitMiddleware:
             await response(scope, receive, send)
             return
 
+        if key not in self._hits and len(self._hits) >= MAX_TRACKED_CLIENTS:
+            expired = next(
+                (name for name, values in self._hits.items()
+                 if not values or all(now - stamp >= 60 for stamp in values)),
+                None,
+            )
+            if expired is None:
+                # All tracked buckets are active: fail closed instead of
+                # evicting a client that is still inside its window.
+                audit_log.record("rate_limit", None, path, "request", "throttled",
+                                 metadata={"backend": "in-process", "reason": "client_limit_full"})
+                response = JSONResponse(
+                    {"detail": "Rate limit exceeded."}, status_code=429,
+                    headers={"Retry-After": "60"},
+                )
+                await response(scope, receive, send)
+                return
+            self._hits.pop(expired)
         hits.append(now)
-        if len(self._hits) >= MAX_TRACKED_CLIENTS and key not in self._hits:
-            self._hits.clear()
         self._hits[key] = hits
         await self.app(scope, receive, send)

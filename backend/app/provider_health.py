@@ -17,6 +17,10 @@ from app.market_data import DataStatus
 
 # Maximum acceptable age, in seconds, for a batch of each status. These are
 # descriptive thresholds for the research UI, not trading SLAs.
+#
+# UNAVAILABLE is deliberately absent: it is not an observation, so there is no
+# age to test. ``freshness`` reports "unknown" for it and ``health`` degrades,
+# which is the honest outcome for a provider that has nothing to serve.
 FRESHNESS_THRESHOLDS: dict[DataStatus, int] = {
     DataStatus.LIVE: 60,
     DataStatus.DELAYED: 15 * 60,
@@ -125,12 +129,12 @@ class ProviderHealthRegistry:
             return UNKNOWN, age
         return (FRESH if age <= threshold else STALE), age
 
-    def health(self, observation: ProviderObservation) -> str:
+    def health(self, observation: ProviderObservation, now: datetime | None = None) -> str:
         if observation.consecutive_failures >= 3:
             return UNAVAILABLE
         if observation.consecutive_failures > 0:
             return DEGRADED
-        freshness, age = self.freshness(observation)
+        freshness, age = self.freshness(observation, now)
         if freshness == UNKNOWN or freshness == STALE:
             return DEGRADED
         if age is not None and observation.status == DataStatus.SYNTHETIC:
@@ -142,7 +146,7 @@ class ProviderHealthRegistry:
         for name in sorted(self._providers):
             observation = self._providers[name]
             freshness, age = self.freshness(observation, now)
-            health = self.health(observation)
+            health = self.health(observation, now)
             licensing: dict[str, Any] | None = None
             try:
                 licensing = self.licensing_gate.validate(name)

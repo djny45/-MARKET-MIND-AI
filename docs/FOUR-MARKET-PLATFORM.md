@@ -137,6 +137,37 @@ Provider adapters remain disabled until the project has recorded:
 - timestamp, correction and outage semantics;
 - test fixtures and adapter conformance tests.
 
+**Status of the four quote adapters.** `backend/app/provider_adapters.py` now
+implements one read-only quote adapter per market group:
+
+| Market group | Adapter | Native observation |
+| --- | --- | --- |
+| `us` | `yahoo-us-equities` | NYSE/NASDAQ/ETF/index daily close |
+| `india` | `yahoo-india-nse-bse` | NSE `.NS` / BSE `.BO` daily close |
+| `forex` | `ecb-reference-rates` | ECB daily EUR reference fixing |
+| `crypto` | `coingecko-public` | Aggregated public spot snapshot |
+
+These adapters are deliberately weaker than the licensed-feed path described
+above, and the difference is enforced in code rather than documentation:
+
+- They read **public, unauthenticated** endpoints and hold no credentials.
+- An adapter declares the best label it could support (`preferred_status`) but
+  may only *claim* `LIVE` or `DELAYED` when the operator has attested that exact
+  adapter name via `MARKET_MIND_ATTESTED_DATA_SOURCES`. Otherwise the identical
+  observation is labelled `HISTORICAL`.
+- A failed fetch, unparsable payload, unmapped symbol or non-positive value
+  produces an explicit `UNAVAILABLE` quote carrying a reason. It never produces
+  a zero, a cached guess or a synthetic price.
+- No bid/ask is fabricated. The FX adapter returns a `reference` fixing and the
+  crypto adapter a `mid` snapshot; neither implies executable liquidity.
+- Quotes carry the provider's event timestamp and the ingestion timestamp
+  separately, and report their own status-aware staleness.
+
+None of this constitutes redistribution permission, an entitlement record, or
+adapter conformance sign-off for a licensed feed. The adapters exist so the
+terminal can show *honest historical or unavailable* data today; promoting any
+of them to `LIVE`/`DELAYED` still requires the recorded items above.
+
 Public accessibility is not equivalent to redistribution permission. NSE publishes distinct real-time, snapshot, end-of-day and historical products, and its data policy governs use and redistribution. Review the current agreements and tariffs before enabling Indian exchange data in any shared or commercial deployment:
 - https://www.nse.in/static/nse-data-and-analytics/data-information-vending
 - https://www.nseindia.com/static/market-data/nse-data-policy
@@ -160,8 +191,44 @@ Public accessibility is not equivalent to redistribution permission. NSE publish
 - The instrument reference catalogue has a small sample of Indian, US, crypto and forex instruments.
 - The existing SQLite bar store is still keyed by symbol, interval, timestamp and source. It is not yet a venue-aware global observation store.
 - No live or delayed provider is configured.
+- Four public read-only quote adapters are implemented and wired into a unified terminal board. Their observations are labelled `HISTORICAL` unless the operator attests the exact adapter name; a failure is labelled `UNAVAILABLE` with a reason. See "Provider and licensing controls" above.
 - Synthetic fixtures remain explicitly labelled and must never be presented as market observations.
 - No broker integration, order routing or automated execution is part of this platform.
+
+
+## Four-market terminal board
+
+A single board assembles verified quotes for all four markets.
+
+```text
+GET /api/terminal/four-market                          # full board
+GET /api/terminal/four-market?markets=india,us         # subset of markets
+GET /api/terminal/four-market?symbols=us:AAPL,india:RELIANCE
+GET /api/terminal/four-market?refresh=true             # bypass the 15s cache
+GET /api/terminal/four-market/summary                  # per-market freshness only
+GET /api/terminal/providers                            # adapter capabilities + label legend
+POST /api/terminal/cache/clear                         # operator role; forces a re-fetch
+```
+
+Properties the board guarantees:
+
+- **One panel per market, no cross-market blending.** A market with no usable
+  observation reports `UNAVAILABLE` and a reason; it never borrows another
+  market's number.
+- **Per-quote attribution.** Every row carries `source`, event `timestamp`,
+  `retrieved_at`, `status`, `status_label`, `age_seconds` and `stale`.
+- **Status-aware staleness.** Thresholds are 60s (live), 15m (delayed), 7d
+  (historical), 1h (synthetic). `UNAVAILABLE` has no age to test and is never
+  described as stale.
+- **Contained failure.** A single adapter exception becomes an `UNAVAILABLE` row
+  naming the exception type; it cannot blank the whole board.
+- **Missing coverage is reported, not filled.** A market absent from the
+  instrument master returns `NOT IN CATALOGUE`.
+- **Explicit execution boundary.** Every response states
+  `paper_trading: false`, `broker_execution: false`, `real_money: false`.
+
+Frontend: `frontend/src/FourMarketTerminal.tsx`, reachable from the `FOUR MARKETS`
+tab. It renders only what the backend verified and never computes a price.
 
 
 ## Cross-market agent collaboration

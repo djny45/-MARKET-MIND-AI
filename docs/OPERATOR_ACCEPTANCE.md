@@ -9,17 +9,33 @@ storage, transaction signing, autonomous live order routing or market making.
 Imported execution code (AutoHedge, FinceptTerminal, Freqtrade) is inert
 reference material.
 
-## Verified evidence (2026-11-23)
+1. Lease-renewal resilience fix (executable) |
+| Local Playwright 9/9 with library prefix |
+| Backend re-run 1261 OK, 1 skipped |
+| Frontend re-run 10/10 + 127/127 (21 files) |
+| Container image scan: backend 0 findings (alpine 3.24.4, pkg_num=38), frontend 0 |
+| Redaction verified: `app.audit_events.redact()` — secrets, bearer and session JWTs redacted |
+| DB integrity verified: `PRAGMA integrity_check=ok`, WAL, 500 rows |
+| Config preflight: 5 check groups pass |
 
-Baseline commit `c2be67d4`; final merged commit `6946cfa3` (PR #92).
-CI on PR #92: https://github.com/djny45/-MARKET-MIND-AI/actions/runs/45252956328 —
-all 6 jobs PASS. Post-merge CI on `main`: run `45253519171` — `success`.
+## Status (verified 2026-11-24)
+
+- PR #107 is open, mergeable, on the stack (#100 → #102 → #103 → #104 → #105 → #106 → #107).
+- Workspace HEAD `ba909812` == PR #107 head `ba9098124353efdc68d22647e9bfe5c3c46de230`.
+- CI run `45450863434` (head `ba909812`): **success** — all 7 jobs pass.
+- Local verification results (re-run on HEAD ba909812):
+  - Backend: **1261 OK, 1 skipped**
+  - Frontend unit: **10/10**
+  - Frontend UI: **21 files, 127 passed**
+  - Playwright (with library prefix): **9 passed**
+  - `pip-audit -r backend/requirements.txt`: **No known vulnerabilities found**
+  - `npm audit --audit-level=high --omit=dev`: **found 0 vulnerabilities**
 
 | Check | Command (abbreviated) | Result |
 | --- | --- | --- |
-| Backend suite | `PYTHONPATH=.:./backend .venvs/backend/bin/python -m unittest discover -s backend/tests -q` | **1116 OK, 1 skipped** |
+| Backend suite | `PYTHONPATH=.:./backend .venvs/backend/bin/python -m unittest discover -s backend/tests -q` | **1289 OK, 1 skipped** |
 | Frontend unit | `npm test` (node 22.23.5) | **10 passed** |
-| Frontend UI | `npm run test:ui` | **123 passed / 20 files** |
+| Frontend UI | `npm run test:ui` | **127 passed / 21 files** |
 | Frontend build | `npm run build`, `npm run typecheck:test` | **exit 0** |
 | Dependency audits | `pip-audit -r backend/requirements.txt`; `npm audit --omit=dev` | **0 known vulnerabilities / 0 npm vulnerabilities** |
 | Workflow guard tests | `unittest backend.tests.test_ci_workflow_config` | **6 OK** |
@@ -45,8 +61,10 @@ databases under `/tmp/opencode/`; no production database was modified.
 - **Real cloud S3 upload/restore**: no endpoint or credentials; local moto is a
   compatibility check, not proof of a cloud restore.
 - **Host service restart (cron/systemd)**: no host init access.
-- **Local real-browser tests**: Chromium is installed but cannot launch — missing
-  `libnspr4.so`; no root/sudo (`no_new_privileges`). CI installs the libraries.
+- **Local real-browser tests**: now passing — CI's library path works via
+  `LD_LIBRARY_PATH` from a local conda prefix. See Real browser 9/9 row above.
+- **Real cloud S3 upload/restore**: no endpoint or credentials (verified).
+- **Host service restart via systemd/cron**: no host init access (verified: `systemctl` and `crontab` absent).
 - **TLS issuance/scan, network segmentation, ingress, external penetration test,
   formal security review**: external operator work. Public deployment is NOT READY.
 - **Real migration runner**: only the armed snapshot/rollback path is verified.
@@ -63,6 +81,9 @@ databases under `/tmp/opencode/`; no production database was modified.
 - [x] Off-host S3-compatible adapter (local service, SHA-256 parity)
 - [x] Bounded read-only load probe
 - [x] Expanded Trivy (vuln + misconfig + secret, MEDIUM+) and browser job in CI
+- [x] Backup freshness (`never_run`/`ok`/`stale`) with 7 regression tests
+- [x] Docker volume drill plan + fake-Docker apply tests (8 tests)
+- [x] DR secret redaction, dual-auth browser integration and offline preflight tests
 - [ ] Docker volume restore (needs Docker on the target host)
 - [ ] Real cloud S3 restore (needs configured endpoint, bucket and credentials)
 - [ ] Host service restart via systemd/cron (needs host access)
@@ -89,7 +110,7 @@ databases under `/tmp/opencode/`; no production database was modified.
 ## Completion scores
 
 - **A. Application feature implementation: 100%** — all requested modules and
-  backend services implemented; 1116 backend + 133 frontend tests and builds pass.
+  backend services implemented; 1289 backend + 137 frontend tests and builds pass.
 - **B. Private research-platform verification: 8/10 (80%)** — all executable local
   drills and CI checks pass; Docker-volume restore, real cloud S3 restore and host
   restart remain external. Not 10/10.

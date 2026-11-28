@@ -1,0 +1,14 @@
+# MARKET-MIND-AI private research stack — cron fallback
+#
+# INSTALL (no root needed, on a host that has cron):
+#   tmp=$(mktemp)
+#   crontab -l > "$tmp" 2>/dev/null || true; cat this-file >> "$tmp"
+#   crontab "$tmp"; rm -f "$tmp"
+#
+# The bootstrap is idempotent: it exits immediately when the stack is healthy.
+# Secrets stay in /home/jovyan/.market-mind-ops/private.env (0600).
+
+@reboot /home/jovyan/.market-mind-ops/bootstrap.sh
+
+# Watchdog: every 5 minutes, restart anything that died.
+*/5 * * * * /home/jovyan/.market-mind-ops/bootstrap.sh

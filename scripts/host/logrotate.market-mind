@@ -1,0 +1,17 @@
+# Log rotation for the MARKET-MIND-AI private research stack.
+# Install: sudo cp scripts/host/logrotate.market-mind /etc/logrotate.d/market-mind
+#
+# Logs are owned by the operator account and never contain credentials; the
+# application writes redacted audit events only.
+
+/home/jovyan/.market-mind-ops/logs/*.log {
+    daily
+    rotate 14
+    maxsize 50M
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
+    su jovyan users
+}

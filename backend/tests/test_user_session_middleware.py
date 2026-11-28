@@ -127,6 +127,32 @@ class UserSessionAuthMiddlewareTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(await self._call(path="/api/health"), 204)
             self.assertEqual(await self._call(path="/api/auth/login", method="POST"), 204)
 
+    async def test_login_rejects_an_explicit_cross_site_origin(self):
+        env = dict(self.env, FRONTEND_ORIGINS="https://app.example")
+        with patch.dict(os.environ, env, clear=False):
+            self.assertEqual(
+                await self._call(path="/api/auth/login", method="POST",
+                                 origin="https://evil.example"), 403)
+            self.assertEqual(
+                await self._call(path="/api/auth/login", method="POST",
+                                 origin="https://app.example"), 204)
+            # API clients without an Origin header keep working.
+            self.assertEqual(
+                await self._call(path="/api/auth/login", method="POST"), 204)
+
+    async def test_logout_and_writes_keep_csrf_and_origin_requirements(self):
+        env = dict(self.env, FRONTEND_ORIGINS="https://app.example")
+        with patch.dict(os.environ, env, clear=False):
+            self.assertEqual(await self._call(path="/api/auth/logout", method="POST",
+                                              cookies=self.cookies), 403)
+            self.assertEqual(await self._call(path="/api/auth/logout", method="POST",
+                                              cookies=self.cookies,
+                                              csrf=self.session["csrf_token"]), 204)
+            self.assertEqual(await self._call(path="/api/workers", method="POST",
+                                              cookies=self.cookies, csrf="wrong"), 403)
+            self.assertEqual(await self._call(path="/api/workers", method="POST",
+                                              cookies="mm_session=invalid; mm_csrf=x", csrf="x"), 401)
+
 
 if __name__ == "__main__":
     unittest.main()

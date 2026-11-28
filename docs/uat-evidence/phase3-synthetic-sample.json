@@ -1,0 +1,9 @@
+{
+  "status": "synthetic",
+  "source": "synthetic-fixture",
+  "retrieved_at": "2026-11-25T19:00:30.092777Z",
+  "bars": 3,
+  "warnings": [
+    "Synthetic development fixture only; not live, delayed, or historical market data."
+  ]
+}

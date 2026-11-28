@@ -383,3 +383,147 @@ body{min-width:0}
 .help-dialog ul{margin:0;padding-left:18px;display:grid;gap:8px}
 .help-dialog li b{color:#eab34c}
 @media(max-width:1000px){.coverage-main{padding:10px}.help-dialog{padding:14px}}
+
+/* Four-market terminal board */
+.four-market{flex:1;min-width:0;overflow:auto;padding:clamp(16px,2.6vw,30px);background:#0e141a;color:#dce4eb;display:grid;gap:18px;align-content:start}
+.four-market-head{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;flex-wrap:wrap}
+.four-market-head h1{margin:6px 0 6px;font-size:clamp(18px,2.2vw,25px);letter-spacing:.4px;color:#e8eef4}
+.four-market-head p{margin:0;max-width:70ch;font-size:11px;line-height:1.6;color:#8d9aa6}
+.eyebrow{font:9px 'DM Mono';letter-spacing:1.1px;color:#c99a4b}
+.four-market-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.auto-refresh{display:flex;align-items:center;gap:7px;font:9px 'DM Mono';letter-spacing:.6px;color:#8d9aa6;cursor:pointer}
+.four-market-strip{display:flex;flex-wrap:wrap;gap:10px 18px;padding:10px 13px;border:1px solid #27323c;border-radius:6px;background:#111a21;font:9px 'DM Mono';letter-spacing:.5px;color:#8b98a4}
+.four-market-strip .status-chip{padding:2px 7px;border-radius:4px;border:1px solid currentColor}
+.four-market-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(430px,1fr));gap:16px}
+.market-panel{border:1px solid #2a3540;border-radius:7px;background:#111920;overflow:hidden;display:flex;flex-direction:column}
+.market-panel.market-unavailable{border-color:#4a3a30}
+.market-panel.market-stale{border-color:#4a4430}
+.market-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:12px 13px;border-bottom:1px solid #26313b;background:#141d25}
+.market-head b{display:block;font:11px 'DM Mono';letter-spacing:.8px;color:#e3b56b}
+.market-head small{display:block;margin-top:4px;font-size:9px;color:#7f8c98}
+.market-badges{text-align:right;display:grid;gap:5px;justify-items:end}
+.market-status{font:9px 'DM Mono';letter-spacing:.5px;padding:3px 8px;border-radius:4px;border:1px solid #3a4550;color:#9aa7b3}
+.market-status.fresh{color:#79c69e;border-color:#2e624a}
+.market-status.partially_stale{color:#d9b46a;border-color:#6b5730}
+.market-status.stale{color:#d69b61;border-color:#725034}
+.market-status.unavailable{color:#cf8b7c;border-color:#6b4238}
+.market-adapter{display:flex;flex-wrap:wrap;gap:6px 16px;padding:8px 13px;border-bottom:1px solid #202a33;font:8.5px 'DM Mono';letter-spacing:.4px;color:#76838f}
+.market-adapter b{color:#b9c6d1;font-weight:500}
+.quote-table{width:100%;border-collapse:collapse}
+.quote-table thead th{text-align:left;padding:7px 9px;font:8.5px 'DM Mono';letter-spacing:.6px;color:#6f7c88;border-bottom:1px solid #253039;background:#0f171e;font-weight:400}
+.quote-table tbody th{text-align:left;padding:8px 9px;border-bottom:1px solid #1d262e;font-weight:400}
+.quote-table tbody td{padding:8px 9px;border-bottom:1px solid #1d262e;font:9.5px 'DM Mono';color:#c5d0da;vertical-align:top}
+.quote-table tbody tr:hover{background:#151f27}
+.quote-table tbody th small,.quote-table tbody td small{display:block;font-size:8px;color:#6f7c88;margin-top:3px;overflow-wrap:anywhere}
+.quote-table .neg{color:#d98b7c}
+.quote-table .pos{color:#7fc9a2}
+.quote-table .quote-stale{background:#1b1a14}
+.symbol-link{background:none;border:0;padding:0;color:#e6b96f;font:10px 'DM Mono';letter-spacing:.5px;cursor:pointer;text-decoration:underline dotted}
+.symbol-link:hover{color:#f5d79c}
+.quote-badge{display:inline-block;font:8.5px 'DM Mono';letter-spacing:.5px;padding:2px 6px;border-radius:3px;border:1px solid #3a4550;color:#9aa7b3}
+.quote-badge.q-live{color:#79c69e;border-color:#2e624a;background:#132a20}
+.quote-badge.q-delayed{color:#8fbcd6;border-color:#2f5468;background:#122028}
+.quote-badge.q-historical{color:#b6aee0;border-color:#463f66;background:#1a1726}
+.quote-badge.q-synthetic{color:#d9b46a;border-color:#6b5730;background:#221c10}
+.quote-badge.q-unavailable{color:#cf8b7c;border-color:#6b4238;background:#241512}
+.stale-flag{display:block;margin-top:3px;font-size:8px;color:#d69b61}
+.market-warning{margin:0;padding:8px 13px;font-size:9px;line-height:1.5;color:#cf8b7c;border-top:1px solid #2a2320;background:#1a1412}
+.market-licensing{border-top:1px solid #202a33;padding:8px 13px;font-size:9px;color:#7f8c98}
+.market-licensing summary{font:8.5px 'DM Mono';letter-spacing:.6px;color:#8b98a4;cursor:pointer}
+.market-licensing p{margin:8px 0 6px;line-height:1.6}
+.market-licensing ul{margin:0;padding-left:16px;display:grid;gap:4px;line-height:1.5}
+.four-market-footer{display:grid;gap:8px;padding:12px 13px;border:1px solid #27323c;border-radius:6px;background:#111a21}
+.legend{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.legend b{font:9px 'DM Mono';letter-spacing:.7px;color:#8b98a4;margin-right:4px}
+.four-market-footer .research-note{margin:0;line-height:1.6}
+.visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+@media(max-width:1100px){.four-market-grid{grid-template-columns:1fr}}
+
+/* Four-market OHLCV chart panel */
+.four-market-chart{margin:0 clamp(16px,2.6vw,30px) 30px;padding:14px 16px;border:1px solid #27323c;border-radius:7px;background:#111920;display:grid;gap:12px;color:#cbd6e0}
+.chart-toolbar{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px}
+.chart-toolbar label{display:grid;gap:5px;font:9px 'DM Mono';letter-spacing:.6px;color:#8593a0}
+.chart-toolbar select{background:#0d141a;color:#dbe4ec;border:1px solid #2c3945;border-radius:4px;padding:7px 9px;font:10px 'DM Mono';min-width:150px}
+.chart-provenance{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;padding:9px 11px;border:1px solid #26323c;border-radius:5px;background:#101820;font:9px 'DM Mono';letter-spacing:.4px;color:#8d9aa6}
+.chart-host{height:360px;width:100%;border:1px solid #26323c;border-radius:5px;background:#10161d;overflow:hidden}
+.chart-warnings{margin:0;padding-left:18px;font-size:9px;line-height:1.6;color:#8d9aa6;display:grid;gap:4px}
+.four-market-chart .research-note{margin:0;line-height:1.6}
+
+/* Stack the terminal board and its chart vertically inside the flex layout. */
+.terminal-stack{flex:1;min-width:0;display:flex;flex-direction:column;overflow:auto;background:#0e141a}
+.terminal-stack .four-market{flex:none;min-height:auto;overflow:visible}
+.terminal-stack .four-market-chart{margin-top:0}
+
+/* Trade-flow marker legend (extends the existing chart, no new chart engine) */
+.legend-dot-buy,.legend-dot-sell,.legend-dot-liq{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:3px}
+.legend-dot-buy{background:#62b58e}
+.legend-dot-sell{background:#d77970}
+.legend-dot-liq{background:#d6a34e}
+
+/* Exchange intelligence panel (extends the four-market terminal) */
+.intel-panel{flex:none;margin:0 clamp(16px,2.6vw,30px) 30px;padding:14px 16px;border:1px solid #27323c;border-radius:7px;background:#111920;display:grid;gap:14px;color:#cbd6e0}
+.intel-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
+.intel-head h2{margin:6px 0;font-size:16px;color:#e8eef4}
+.intel-head p{margin:0;max-width:80ch;font-size:11px;line-height:1.6;color:#8d9aa6}
+.intel-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}
+.intel-card{border:1px solid #2c3843;border-radius:6px;background:#0f171e;padding:11px;display:grid;gap:6px;justify-items:start}
+.intel-card b{font:10px 'DM Mono';letter-spacing:.7px;color:#e3b56b}
+.intel-card strong{font:15px 'DM Mono';color:#e8eef4}
+.intel-card small{font:8.5px 'DM Mono';color:#7f8c98;overflow-wrap:anywhere}
+.intel-details{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:10px}
+.intel-details>div{border:1px solid #26323c;border-radius:5px;background:#0e151b;padding:9px;min-width:0}
+.intel-details b{font:9px 'DM Mono';letter-spacing:.6px;color:#9aa7b3}
+.intel-details pre{margin:7px 0 0;max-height:170px;overflow:auto;color:#9fb0be;font:9px/1.5 'DM Mono';white-space:pre-wrap}
+.intel-boundary{display:grid;gap:5px;border-top:1px solid #253039;padding-top:9px}
+.intel-boundary .research-note{margin:0;line-height:1.6}
+
+/* Descriptive volume/volatility strip for the existing chart panel */
+.chart-analytics{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;padding:8px 11px;border:1px solid #26323c;border-radius:5px;background:#0f171e;font:9px 'DM Mono';letter-spacing:.4px;color:#9aa7b3}
+.chart-analytics small{color:#7f8c98;font-size:8px}
+
+/* Market-structure research views (inside the existing terminal) */
+.research-views{flex:none;margin:0 clamp(16px,2.6vw,30px) 30px;padding:14px 16px;border:1px solid #27323c;border-radius:7px;background:#111920;display:grid;gap:12px;color:#cbd6e0}
+.research-views-head{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px}
+.research-views-head>b{font:10px 'DM Mono';letter-spacing:.8px;color:#e3b56b}
+.research-view-tabs{display:flex;flex-wrap:wrap;gap:6px}
+.research-view-tabs button{background:#0d141a;border:1px solid #2c3945;border-radius:4px;color:#8d9aa6;font:9px 'DM Mono';letter-spacing:.4px;padding:6px 8px;cursor:pointer}
+.research-view-tabs button.active{color:#e3b56b;border-color:#9d793e;background:#1a1710}
+.research-view-controls{display:flex;flex-wrap:wrap;gap:10px}
+.research-view-controls label{font:9px 'DM Mono';color:#8593a0;display:grid;gap:4px}
+.research-view-controls input{background:#0d141a;border:1px solid #2c3945;border-radius:4px;padding:6px 8px;color:#dbe4ec;font:10px 'DM Mono'}
+.research-view-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.research-view-actions small{font-size:9px;color:#7f8c98}
+.research-view-result pre{margin:0;max-height:340px;overflow:auto;background:#0d141a;border:1px solid #26323c;border-radius:5px;padding:10px;color:#9fb0be;font:9px/1.5 'DM Mono';white-space:pre-wrap}
+.research-view-result .research-note{margin:0;line-height:1.6}
+
+/* Optional Zulip communication status (additive panel, existing design system) */
+.comm-panel{flex:none;margin:0 clamp(16px,2.6vw,30px) 30px;padding:14px 16px;border:1px solid #27323c;border-radius:7px;background:#111920;display:grid;gap:12px;color:#cbd6e0}
+.comm-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
+.comm-head h2{margin:6px 0;font-size:16px;color:#e8eef4}
+.comm-head p{margin:0;max-width:80ch;font-size:11px;line-height:1.6;color:#8d9aa6}
+.comm-strip{display:flex;flex-wrap:wrap;gap:8px 16px;padding:9px 11px;border:1px solid #26323c;border-radius:5px;background:#101820;font:9px 'DM Mono';letter-spacing:.4px;color:#8d9aa6}
+.comm-streams{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:8px}
+.comm-streams>div{border:1px solid #26323c;border-radius:5px;background:#0f171e;padding:9px;display:grid;gap:5px}
+.comm-streams b{font:9px 'DM Mono';letter-spacing:.6px;color:#e3b56b}
+.comm-streams small{font:8.5px 'DM Mono';color:#7f8c98;line-height:1.5}
+.comm-panel .research-note{margin:0;line-height:1.6}
+
+/* Daily intelligence research cycle panel */
+.daily-panel{flex:1;min-width:0;overflow:auto;padding:clamp(16px,2.6vw,30px);background:#0e141a;display:grid;gap:14px;align-content:start;color:#cbd6e0}
+.daily-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
+.daily-head h2{margin:6px 0;font-size:18px;color:#e8eef4}
+.daily-head p{margin:0;max-width:78ch;font-size:11px;line-height:1.6;color:#8d9aa6}
+.daily-controls{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap}
+.daily-controls label{font:9px 'DM Mono';color:#8593a0;display:grid;gap:5px}
+.daily-controls input{background:#0d141a;border:1px solid #2c3945;border-radius:4px;padding:8px;color:#dbe4ec;font:10px 'DM Mono'}
+.daily-strip{display:flex;flex-wrap:wrap;gap:8px 16px;padding:10px 12px;border:1px solid #27323c;border-radius:6px;background:#111a21;font:9px 'DM Mono';letter-spacing:.4px;color:#8b98a4}
+.daily-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+.daily-grid>div{border:1px solid #27323c;border-radius:6px;background:#111920;padding:11px;display:grid;gap:8px;align-content:start}
+.daily-grid b{font:10px 'DM Mono';letter-spacing:.7px;color:#e3b56b}
+.daily-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:7px 0;border-bottom:1px solid #202a33;font:9px 'DM Mono';color:#aebbc5}
+.daily-row small{width:100%;color:#7f8c98}
+.daily-stats{display:flex;flex-wrap:wrap;gap:6px 12px;font:9px 'DM Mono';color:#9aa7b3}
+.daily-grid small{font-size:9px;line-height:1.5;color:#7f8c98}
+.daily-archive{border:1px solid #27323c;border-radius:6px;background:#111920;padding:11px}
+.daily-archive summary{font:9px 'DM Mono';letter-spacing:.6px;color:#9aa7b3;cursor:pointer}
+.daily-archive .research-note{margin:8px 0 0}

@@ -199,6 +199,38 @@ docker compose up -d
 
 Replace the example timestamp with the actual backup filename. Test restores against a disposable volume before relying on this procedure.
 
+### Volume drill and preflight (added 2026-11-24)
+
+`scripts/docker_volume_drill.py` automates the disposable-volume procedure above
+without ever stopping the running stack:
+
+```bash
+python3 scripts/docker_volume_drill.py plan --source-volume market_mind_data --backup-dir ./backups
+python3 scripts/docker_volume_drill.py backup --apply --image <backend-image> --source-volume market_mind_data --backup-dir ./backups
+python3 scripts/docker_volume_drill.py restore --apply --image <backend-image> \
+  --source-volume market_mind_data --target-volume market_mind_data-drill \
+  --backup ./backups/market_mind-YYYYMMDDTHHMMSSZ.db --backup-dir ./backups
+```
+
+`plan` is the default and invokes no Docker binary. `backup`/`restore` require
+`--apply`; restore refuses the source volume and any existing target, verifies
+the backup checksum, compares the backup fingerprint with an in-container
+fingerprint of the restored volume (using the shared `dr_common` algorithm), and
+only then removes the throwaway target. Success is
+`status=restored_and_verified`, `comparison=matched`. The script never runs
+`docker compose down -v`. Its tests use a fake Docker shim and do **not** prove
+a real volume restore. Run the drill on an authorized Docker host before use.
+
+Validate DR variables without printing values:
+
+```bash
+python3 -c "import sys; sys.path.insert(0,'scripts'); import dr_common, json; print(json.dumps(dr_common.validate_dr_environment()))"
+```
+
+`GET /api/backup/status` now reports `freshness` (`never_run`/`ok`/`stale`) and
+`newest_age_seconds`. Configure `MARKET_MIND_BACKUP_MAX_AGE_SECONDS` (default
+90000) and alert on `stale`; this is monitoring only and never gates `/api/ready`.
+
 ## Release gates
 
 This packaging is not a public production release. Before any public deployment, implement and independently review authentication/authorization, TLS and ingress controls, migration/rollback procedures, observability, and a licensed market-data provider integration. Verify provider entitlements, symbol mapping, rate limits, timestamps, and stale-data handling before enabling any real feed. Automate backup retention and conduct a host-specific recovery drill.

@@ -126,6 +126,9 @@ jobs:
                   with urllib.request.urlopen(base + "/api/health", timeout=3) as response:
                       health = json.load(response)
                   assert health["mode"] == "research-only"
+                  # Research-only startup: paper-trading routes and the
+                  # simulated execution loop are not registered, and no broker
+                  # execution is ever enabled. Both flags must report False.
                   assert health["paper_trading"] is False
                   assert health["broker_execution"] is False
 
@@ -204,11 +207,20 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Install and build frontend
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Frontend unit tests and typecheck
         working-directory: frontend
         run: |
-          npm install
-          npm run build
+          npm test
+          npm run test:ui
+          npm run typecheck:test
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
 
       - name: Capture frontend failure diagnostics
         if: failure()
@@ -225,6 +237,7 @@ jobs:
           path: |
             frontend/frontend-dependency-tree.txt
             frontend/frontend-npm-audit.json
+            active-next-npm-audit.json
           if-no-files-found: warn
 
   container-smoke:
@@ -317,6 +330,9 @@ jobs:
     name: Dependency audit
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    permissions:
+      contents: write
+      actions: write
     defaults:
       run:
         shell: bash
@@ -347,12 +363,80 @@ jobs:
           npm install --ignore-scripts
           npm audit --audit-level=high
 
+      - name: Audit and validate active Next.js terminal dependencies
+        working-directory: landing-pages/motion-ai-3d-terminal
+        run: |
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          npm ci --ignore-scripts
+          npm audit --audit-level=moderate
+          npx drizzle-kit --version
+          if [ -f drizzle/0000_initial_schema.sql ]; then
+            # First conversion: require byte-for-byte preservation of the SQL.
+            original_sql_sha=$(sha256sum drizzle/0000_initial_schema.sql | cut -d' ' -f1)
+            npx drizzle-kit up
+            converted_sql=$(find drizzle -type f -name migration.sql -print -quit)
+            test -n "$converted_sql"
+            converted_sql_sha=$(sha256sum "$converted_sql" | cut -d' ' -f1)
+            test "$original_sql_sha" = "$converted_sql_sha"
+          else
+            # Repeat validation: the original file was renamed by "up" and the
+            # generated lockfile/migration history is already committed.
+            converted_sql=$(find drizzle -mindepth 2 -type f -name migration.sql -print -quit)
+            test -n "$converted_sql"
+            test -f "$(dirname "$converted_sql")/snapshot.json"
+          fi
+          npx drizzle-kit check
+          npm run typecheck
+          npm run lint
+          npm run build
+          # verify-terminal.mjs exercises a running production server on port 3123.
+          # Start the built Next.js server explicitly and always clean it up.
+          node node_modules/next/dist/bin/next start -p 3123 > /tmp/market-mind-terminal.log 2>&1 &
+          server_pid=$!
+          cleanup_terminal_server() {
+            kill "$server_pid" 2>/dev/null || true
+            wait "$server_pid" 2>/dev/null || true
+          }
+          trap cleanup_terminal_server EXIT
+          ready=0
+          for attempt in $(seq 1 40); do
+            if curl --fail --silent http://127.0.0.1:3123/icon.svg >/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 0.5
+          done
+          if [ "$ready" -ne 1 ]; then
+            cat /tmp/market-mind-terminal.log
+            exit 1
+          fi
+          BASE_URL=http://127.0.0.1:3123 node scripts/verify-terminal.mjs
+          cleanup_terminal_server
+          trap - EXIT
+          node scripts/verify-unreachable-db.mjs
+
+      - name: Upload converted Drizzle v1 migration history
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: drizzle-v1-migration-history
+          path: landing-pages/motion-ai-3d-terminal/drizzle
+          if-no-files-found: error
+
+      - name: Audit imported terminal dependency snapshot
+        working-directory: landing-pages/motion-ai-3d-terminal-import
+        run: |
+          npm install --package-lock-only --ignore-scripts
+          npm ci --ignore-scripts
+          npm audit --audit-level=moderate
+
       - name: Capture dependency audit diagnostics
         if: failure()
         run: |
           pip-audit -r backend/requirements.txt --progress-spinner off --format json > backend-pip-audit.json 2>&1 || true
-          cd frontend
-          npm audit --json > frontend-npm-audit.json 2>&1 || true
+          (cd frontend && npm audit --json > frontend-npm-audit.json 2>&1) || true
+          (cd landing-pages/motion-ai-3d-terminal && npm audit --json > ../active-next-npm-audit.json 2>&1) || true
+          (cd landing-pages/motion-ai-3d-terminal-import && npm audit --json > ../imported-next-npm-audit.json 2>&1) || true
 
       - name: Upload dependency audit diagnostics
         if: failure()
@@ -362,7 +446,53 @@ jobs:
           path: |
             backend-pip-audit.json
             frontend/frontend-npm-audit.json
+            landing-pages/active-next-npm-audit.json
+            landing-pages/imported-next-npm-audit.json
           if-no-files-found: warn
+
+      - name: Upload regenerated terminal lockfiles
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: terminal-lockfiles
+          path: |
+            landing-pages/motion-ai-3d-terminal/package-lock.json
+            landing-pages/motion-ai-3d-terminal-import/package-lock.json
+          if-no-files-found: warn
+
+      - name: Commit regenerated lockfiles and dispatch full validation
+        if: success() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_BRANCH: ${{ github.head_ref }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add landing-pages/motion-ai-3d-terminal/package-lock.json landing-pages/motion-ai-3d-terminal-import/package-lock.json
+          # Drizzle v1's offline "up" command also converts the tracked
+          # migration-history files; stage additions, modifications and deletions
+          # so the following rebase has a clean worktree.
+          git add -A landing-pages/motion-ai-3d-terminal/drizzle/
+          if git diff --cached --quiet; then
+            echo "Generated lockfiles already match the committed lockfiles."
+            exit 0
+          fi
+          git commit -m "chore(deps): sync patched terminal lockfiles"
+          pushed=0
+          for attempt in 1 2 3; do
+            git fetch origin "${PR_BRANCH}"
+            git rebase FETCH_HEAD
+            if git push origin "HEAD:${PR_BRANCH}"; then
+              pushed=1
+              break
+            fi
+            echo "Branch advanced during lockfile push; retrying fast-forward rebase (${attempt}/3)."
+          done
+          if [ "$pushed" -ne 1 ]; then
+            echo "Could not safely push regenerated lockfiles after three non-forced attempts."
+            exit 1
+          fi
+          gh workflow run quality.yml --ref "${PR_BRANCH}"
 
   trivy-security:
     name: Trivy filesystem security scan
@@ -390,6 +520,47 @@ jobs:
           exit-code: '1'
           skip-setup-trivy: true
 
+  container-security:
+    name: Container image security scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build backend image for scanning
+        run: docker build -t market-mind-backend:ci ./backend
+      - name: Build frontend image for scanning
+        run: docker build -t market-mind-frontend:ci ./frontend
+      - name: Scan backend image (MEDIUM+)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: image
+          image-ref: market-mind-backend:ci
+          format: sarif
+          output: backend-image.sarif
+          severity: MEDIUM,HIGH,CRITICAL
+          ignore-unfixed: false
+          exit-code: '1'
+      - name: Scan frontend image (MEDIUM+)
+        if: always()
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: image
+          image-ref: market-mind-frontend:ci
+          format: sarif
+          output: frontend-image.sarif
+          severity: MEDIUM,HIGH,CRITICAL
+          ignore-unfixed: false
+          exit-code: '1'
+      - name: Publish container scan reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: container-image-scan-reports
+          path: '*-image.sarif'
+          if-no-files-found: warn
+
   browser:
     name: Real browser responsive tests
     runs-on: ubuntu-latest
@@ -410,3 +581,25 @@ jobs:
           name: playwright-report
           path: frontend/playwright-report
           if-no-files-found: warn
+
+  zulip-notify:
+    name: Optional Zulip CI notification
+    needs: [backend, frontend, container-smoke, dependency-audit, trivy-security, container-security, browser]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - run: python -m pip install --quiet httpx
+      - name: Publish bounded notification (no-op when unconfigured)
+        env:
+          ZULIP_SITE_URL: ${{ secrets.ZULIP_SITE_URL }}
+          ZULIP_BOT_EMAIL: ${{ secrets.ZULIP_BOT_EMAIL }}
+          ZULIP_API_KEY: ${{ secrets.ZULIP_API_KEY }}
+          CI_CONCLUSION: ${{ needs.backend.result == 'success' && needs.frontend.result == 'success' && needs.browser.result == 'success' && needs.container-smoke.result == 'success' && needs.dependency-audit.result == 'success' && needs.trivy-security.result == 'success' && needs.container-security.result == 'success' && 'success' || 'failure' }}
+        run: python scripts/ci_zulip_notify.py

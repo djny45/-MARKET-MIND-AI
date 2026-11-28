@@ -11,13 +11,29 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
+import sqlite3
 from pathlib import Path
 
 from dr_common import (
     DrError, RESTORE_SCRIPT, atomic_write_json, database_fingerprint, env_int,
-    iso_now, parse_bool, read_json, run_repo_script, send_alert, utcstamp,
-    verify_checksum,
+    iso_now, manifest_path, parse_bool, read_json, readonly_uri, remove_sidecars,
+    run_repo_script, send_alert, sha256_file, utcstamp, verify_checksum,
+    write_checksum,
 )
+
+
+def _snapshot_database(source: Path, target: Path) -> None:
+    """Take a consistent, checkpointed single-file snapshot of a WAL database."""
+    try:
+        with sqlite3.connect(readonly_uri(source), uri=True) as origin:
+            with sqlite3.connect(target) as copy:
+                origin.backup(copy)
+    except sqlite3.DatabaseError:
+        # Non-SQLite fixtures (or already-corrupt files) still need a byte-exact
+        # snapshot so rollback cannot destroy the pre-restore artifact.
+        shutil.copy2(source, target)
+    write_checksum(target, sha256_file(target))
 
 
 class RestoreConfig:
@@ -41,10 +57,6 @@ class RestoreConfig:
         self.timeout = env_int("MARKET_MIND_DR_TIMEOUT_SECONDS", 300)
 
 
-def _manifest_path(backup: Path) -> Path:
-    return backup.with_name(backup.name + ".json")
-
-
 def _check_backup(config: RestoreConfig) -> dict:
     if config.backup is None or not config.backup.is_file():
         raise DrError("backup_file_not_found")
@@ -53,7 +65,7 @@ def _check_backup(config: RestoreConfig) -> dict:
         raise DrError("backup_checksum_failed:" + checksum["status"])
     if config.expect_sha256 and config.expect_sha256 != checksum["sha256"]:
         raise DrError("backup_expected_sha256_mismatch")
-    manifest = read_json(_manifest_path(config.backup))
+    manifest = read_json(manifest_path(config.backup))
     if manifest and manifest.get("sha256") and manifest["sha256"] != checksum["sha256"]:
         raise DrError("backup_manifest_sha256_mismatch")
     return {"checksum": checksum, "manifest": manifest}
@@ -90,13 +102,27 @@ def _compare(fingerprint: dict, manifest: dict | None) -> dict:
         != fingerprint.get("table_counts", {}).get(table)
     }
     schema_match = expected.get("schema_version") == fingerprint.get("schema_version")
+    backup_digest = expected.get("content_digest")
+    restored_digest = fingerprint.get("content_digest")
+    content_match = (
+        backup_digest is None or restored_digest is None or backup_digest == restored_digest
+    )
+    # A backup may legitimately contain a pre-existing FK violation; parity
+    # requires the same violations on both sides, not necessarily none.
+    fk_ok = list(expected.get("foreign_key_violations") or []) == list(
+        fingerprint.get("foreign_key_violations") or []
+    )
     return {
-        "status": "matched" if not row_diff and schema_match else "mismatch",
+        "status": "matched" if not row_diff and schema_match and content_match and fk_ok else "mismatch",
         "compared": True,
         "row_count_differences": row_diff,
         "schema_version_backup": expected.get("schema_version"),
         "schema_version_restored": fingerprint.get("schema_version"),
         "schema_version_match": schema_match,
+        "content_digest_backup": backup_digest,
+        "content_digest_restored": restored_digest,
+        "content_match": content_match,
+        "foreign_key_ok": fk_ok,
     }
 
 
@@ -106,10 +132,12 @@ def verify_backup(config: RestoreConfig) -> dict:
     scratch_root = config.state_dir / "verify"
     scratch_root.mkdir(parents=True, exist_ok=True)
     scratch = scratch_root / f"{config.backup.stem}-{utcstamp()}.db"
-    payload = _restore_copy(config, scratch)
-    fingerprint = database_fingerprint(scratch)
-    comparison = _compare(fingerprint, checked["manifest"])
-    scratch.unlink(missing_ok=True)
+    try:
+        payload = _restore_copy(config, scratch)
+        fingerprint = database_fingerprint(scratch)
+        comparison = _compare(fingerprint, checked["manifest"])
+    finally:
+        scratch.unlink(missing_ok=True)
     if fingerprint["integrity"] != "ok":
         raise DrError("restored_scratch_integrity_failed:" + fingerprint["integrity"])
     if config.strict and comparison["status"] == "mismatch":
@@ -132,14 +160,50 @@ def restore_backup(config: RestoreConfig) -> dict:
         if not config.overwrite:
             raise DrError("restore_target_not_clean_use_overwrite")
     config.target.mkdir(parents=True, exist_ok=True)
+    config.state_dir.mkdir(parents=True, exist_ok=True)
     destination = config.target / "market_mind.db"
-    payload = _restore_copy(config, destination)
-    fingerprint = database_fingerprint(destination)
-    comparison = _compare(fingerprint, checked["manifest"])
-    if fingerprint["integrity"] != "ok":
-        raise DrError("restored_database_integrity_failed")
-    if config.strict and comparison["status"] == "mismatch":
-        raise DrError("restored_database_fingerprint_mismatch")
+    snapshot = None
+    if destination.is_file():
+        snapshot = config.state_dir / f"pre-restore-{utcstamp()}.db"
+        try:
+            _snapshot_database(destination, snapshot)
+        except (OSError, sqlite3.Error) as exc:
+            raise DrError("pre_restore_snapshot_failed:" + type(exc).__name__) from exc
+    try:
+        payload = _restore_copy(config, destination)
+        fingerprint = database_fingerprint(destination)
+        comparison = _compare(fingerprint, checked["manifest"])
+        if fingerprint["integrity"] != "ok":
+            raise DrError("restored_database_integrity_failed")
+        if config.strict and comparison["status"] == "mismatch":
+            raise DrError("restored_database_fingerprint_mismatch")
+    except (DrError, OSError, sqlite3.Error) as exc:
+        # Rollback is best-effort but always leaves a failed-report artifact.
+        try:
+            if snapshot is not None and snapshot.is_file():
+                if verify_checksum(snapshot)["status"] != "verified":
+                    raise DrError("rollback_snapshot_checksum_failed")
+                destination.unlink(missing_ok=True)
+                remove_sidecars(destination)
+                shutil.copy2(snapshot, destination)
+                rollback = {"status": "restored", "snapshot": str(snapshot)}
+            else:
+                destination.unlink(missing_ok=True)
+                remove_sidecars(destination)
+                rollback = {"status": "removed_partial"}
+        except Exception as rollback_exc:  # noqa: BLE001 - failure must be reported
+            rollback = {"status": "failed", "error": type(rollback_exc).__name__}
+        finally:
+            failed = {
+                "status": "failed", "error_type": type(exc).__name__,
+                "error": str(exc), "backup": str(config.backup),
+                "destination": str(destination), "rollback": rollback,
+                "failed_at": iso_now(),
+            }
+            atomic_write_json(
+                config.state_dir / f"restore-report-{utcstamp()}.json", failed
+            )
+        raise
     report = {
         "status": "restored_and_verified",
         "backup": str(config.backup),
@@ -148,9 +212,9 @@ def restore_backup(config: RestoreConfig) -> dict:
         "restore_script": payload.get("status"),
         "fingerprint": fingerprint,
         "comparison": comparison,
+        "rollback_snapshot": str(snapshot) if snapshot is not None else None,
         "restored_at": iso_now(),
     }
-    config.state_dir.mkdir(parents=True, exist_ok=True)
     atomic_write_json(
         config.state_dir / f"restore-report-{utcstamp()}.json", report
     )

@@ -96,6 +96,50 @@ swallowed: housekeeping must never turn a successful login into an error.
 **Verified.** An expired session is swept by a later login; a purge inside the
 interval is throttled and does not run twice. `backend/tests/test_auth_session_store.py`.
 
+## 5. Failed logins were unlimited, and account existence leaked by timing
+
+**Failure.** `/api/auth/login` had no per-account throttling: `RateLimitMiddleware`
+is disabled unless an operator sets `API_RATE_LIMIT_PER_MINUTE`, so a default
+deployment accepted unlimited guesses. Unknown usernames also skipped scrypt
+verification, giving a measurable timing signal for username enumeration.
+
+**Fix.** `app/login_guard.py` counts failures per account and client address in a
+sliding window and locks the pair out with doubling backoff. Blocked attempts
+return 429 with `Retry-After` and an audit outcome of `throttled`. Unknown
+usernames perform the same dummy scrypt work as wrong passwords, so the response
+cannot be used as a timing oracle.
+
+**Verified.** 12 tests in `backend/tests/test_login_throttle.py`, 5 in
+`test_login_guard.py` and 4 in `test_auth_timing.py` cover lockout, doubling cap,
+expiry, per-account isolation, bounded key tracking, timing equalisation and an
+end-to-end 401/401/401 → 429 sequence through the real app.
+
+**Boundary.** Counters are in-process because the platform is single-host
+(ADR-0001); a restart clears them, which cannot help an attacker. Multi-host
+deployment is not supported by this design.
+
+## 6. A stopped backup schedule still reported `"status": "ok"`
+
+**Failure.** `GET /api/backup/status` returned a constant `ok`. If the schedule
+stopped — stuck lock, broken cron entry, full disk — the admin panel and any
+monitor kept showing a healthy system while recovery capability decayed
+silently. This is the same failure class as the recycled-PID bug in §1.
+
+**Fix.** The endpoint now reports `freshness`: `never_run`, `stale` or `ok`, with
+`newest_age_seconds` and a validated bound
+(`MARKET_MIND_BACKUP_MAX_AGE_SECONDS`, default 90000 s ≈ 25 h). Overall `status`
+becomes `missing` or `stale` instead of a constant `ok`.
+
+**Verified.** No backups → `missing`/`never_run`; fresh → `ok`; 55 h old →
+`stale`; newest file wins when several exist; the threshold falls back on bad
+input; no database path leaks. Seven tests in
+`backend/tests/test_backup_freshness.py`.
+
+**Deliberate limit.** Backup freshness is *not* part of `/api/ready`: a stale
+backup must never take a serving API out of rotation. It belongs in monitoring,
+not in the load balancer. Freshness is derived from file mtimes and does not
+prove backup integrity; the local recovery scripts remain authoritative.
+
 ## Operational knobs added
 
 | Variable | Default | Purpose |
@@ -105,6 +149,10 @@ interval is throttled and does not run twice. `backend/tests/test_auth_session_s
 | `MARKET_MIND_AUDIT_LOG_KEEP` | `3` | Rotated audit archives retained |
 | `MARKET_MIND_DISK_MIN_FREE_MB` | `512` | Readiness disk headroom threshold |
 | `MARKET_MIND_SESSION_PURGE_INTERVAL` | `3600` | Minimum seconds between session purges |
+| `MARKET_MIND_LOGIN_MAX_FAILURES` | `5` | Failed logins per window before lockout |
+| `MARKET_MIND_LOGIN_WINDOW_SECONDS` | `900` | Sliding window for login failures |
+| `MARKET_MIND_LOGIN_LOCKOUT_SECONDS` | `300` | First lockout length (doubles per offence) |
+| `MARKET_MIND_BACKUP_MAX_AGE_SECONDS` | `90000` | Age at which `/api/backup/status` reports `stale` |
 
 ## Still operator-owned
 

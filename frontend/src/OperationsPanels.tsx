@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { apiFetch } from './apiClient'
 
 type LoadState = 'loading' | 'ready' | 'error'
 
@@ -10,7 +11,7 @@ function useResource(api: string, path: string) {
     setState('loading')
     setError('')
     try {
-      const response = await fetch(api + path, { credentials: 'include' })
+      const response = await apiFetch(api + path, { credentials: 'include' })
       const body = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(body.detail || `Request failed (${response.status})`)
       setData(body)
@@ -44,7 +45,7 @@ function PerformancePanel({ api, kind }: { api: string; kind: 'portfolio' | 'ris
     try {
       const parsed = values.split(',').map(v => Number(v.trim())).filter(Number.isFinite)
       if (parsed.length < 3 || parsed.some(v => v <= 0)) throw new Error('Enter at least three positive numbers')
-      const response = await fetch(api + '/api/analytics/performance', {
+      const response = await apiFetch(api + '/api/analytics/performance', {
         method: 'POST', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ values: parsed, periods_per_year: 252, risk_free_rate: 0 }),

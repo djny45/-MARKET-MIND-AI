@@ -73,7 +73,7 @@ class PromotionEngineTests(unittest.TestCase):
         report = compatibility_report()
         self.assertEqual(report["overlap"], [])
         self.assertTrue(report["compatible"])
-        self.assertEqual(report["catalog_count"], 325)
+        self.assertEqual(report["catalog_count"], 326)
 
     def test_versions(self):
         self.assertEqual(get_skill_version("autohedge-agent-analysis"), "1.0.0")

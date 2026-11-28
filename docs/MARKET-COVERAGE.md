@@ -52,3 +52,39 @@ The product organizes coverage into four top-level groups while retaining asset 
 The API uses `market_group` for these domains and retains `market` for asset class. Example: `GET /api/instruments?market_group=india&market=equities`.
 
 The current directory is a curated reference catalogue, not an exchange-supplied security master. It contains no live quotes and does not prove data availability. See [FOUR-MARKET-PLATFORM.md](FOUR-MARKET-PLATFORM.md) for canonical identity, event schemas and provider readiness.
+
+## Exchange intelligence extension (Tredye research findings)
+
+A research report describing Tredye was studied as an architectural reference;
+its PDF was not available in this workspace, so only the capability description
+supplied by the operator was used. No Tredye source code, assets, branding,
+analytics identifiers, advertising scripts or undocumented endpoints were
+copied. The observed third-party endpoints (`data.tredye.com/data/live.json`
+and `/api/cfno/okx`) are recorded as research leads in
+[TREDYE-INTEGRATION-MAPPING.md](TREDYE-INTEGRATION-MAPPING.md) and are **never
+called**.
+
+Official public endpoints from OKX, Coinbase, Bybit, Kraken, Deribit,
+Hyperliquid, Alternative.me and CoinGecko (PAX Gold) are integrated through the
+**existing** provider registry and policy limiter in
+`backend/app/exchange_intelligence.py`. They are labelled `HISTORICAL`, carry
+source/event/retrieval timestamps and pass through the existing licensing gate
+as `pending_license_review`. No source is attested, so none may claim LIVE or
+DELAYED. Failures become `UNAVAILABLE` with a reason; no price is fabricated.
+
+Specific boundaries:
+
+- Coinbase USD/INR is a **reference rate**, not an executable forex quote.
+- PAX Gold is a **tokenized, exchange-traded instrument**, not spot gold or a
+  gold futures contract. Missing data is reported as `UNAVAILABLE`, never
+  synthesized.
+- OKX order-book depth represents **displayed resting orders**, not executed
+  trades. Imbalance is descriptive and is not evidence of future direction.
+- Funding, open interest and Fear & Greed are observations/indicators with
+  attribution; none is a trading signal.
+- Indian broker connectors (FYERS, Upstox, Angel One, Dhan, Zerodha Kite) are
+  **not enabled**. Official APIs require credentials and approvals not present
+  here. `/api/brokers/status` reports `not_connected` and sample/historical
+  labelling only. No broker credential is accepted by the backend, stored in
+  agent memory, logged, or included in a frontend bundle. Broker order
+  execution, transaction signing and autonomous live trading remain disabled.

@@ -62,3 +62,17 @@ files (including generated artifacts). It was preserved at
 `recovery/local-main-56-commits` with source patches under `/tmp/opencode/`;
 no force-push, reset, rebase, merge or discard was performed. Authoritative
 development continues from `origin/main`.
+
+## ADR-006 — Motion AI terminal PostgreSQL bootstrap remains held in demo mode
+
+**Status:** Accepted for the current terminal release; production database enablement is not authorized by this record.
+
+**Decision.** Keep `DATABASE_URL` unset for the Motion AI 3D terminal. The terminal remains in its explicitly labelled read-only demo mode until a separately reviewed PostgreSQL migration covers every required application store, the migration and adapters have parity/concurrency/security tests, and the maintainer explicitly approves a named deployment and each operational step. A market-data-only PostgreSQL adapter is not a complete application migration.
+
+**Context and evidence.** The terminal's `/api/health` returns an honest `503` with `database=unconfigured` when no DSN is configured. The local demo verification reports `demoMode: true`; `verify-terminal.mjs` passed 34/34 and `verify-unreachable-db.mjs` passed 21/21, with exit code 0 and no production configuration changes. The current `POSTGRES-MIGRATION-GAP.md` identifies remaining SQLite/in-memory stores for workflow lifecycle, agent tasks/leases, auth/sessions, audit events, worker memory, durable recovery, and legacy market data. `POSTGRES-MIGRATION-PLAN.md` defines phased migration work and parity gates. These tests establish demo-mode behavior, not database-backed production readiness.
+
+**Consequences.** Do not set `DATABASE_URL`, provision or migrate a production database, remove demo disclosures, enable public ingress, or promote a deployment as part of this release. `MARKET_MIND_API_URL` is a separate read-only backend integration setting and is not a substitute for `DATABASE_URL`. Do not describe a market-data adapter alone as full application persistence.
+
+**Reversal criteria.** A future ADR or explicit maintainer amendment must identify the target Vercel project/environment and reviewed deployment SHA; document database ownership, backup/restore and rollback; demonstrate migrations/adapters and parity tests for every in-scope store; pass security review; and obtain formal independent approval. TLS, network segmentation and independent penetration testing remain separate prerequisites for public ingress.
+
+**Rollback.** Keep the current demo configuration and revert any proposed environment-variable or deployment change. No production database change is authorized by ADR-006.

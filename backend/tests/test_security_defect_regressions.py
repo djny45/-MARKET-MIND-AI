@@ -16,7 +16,7 @@ from app.audit_events import audit_log
 from app.auth_crypto import generate_session_token, hash_password, hash_session_token
 from app.auth_session_store import initialize_auth_store, purge_expired_sessions
 from app.distributed_rate_limit import _LocalWindow
-from app.main import app
+from app.main import _init_paper_trading, app
 from app.rate_limit import RateLimitMiddleware
 from app.user_session_middleware import UserSessionAuthMiddleware, _origin_allowed
 
@@ -48,6 +48,16 @@ class _MiddlewareCase(unittest.IsolatedAsyncioTestCase):
 
 
 class SecurityRegressions(_MiddlewareCase):
+    def test_paper_subsystem_stays_disabled_without_explicit_opt_in(self):
+        env = os.environ.copy()
+        env.pop("MM_PAPER_ENABLED", None)
+        with patch.dict(os.environ, env, clear=True):
+            with patch("app.paper_trading.engine.VirtualBroker") as broker_class:
+                _init_paper_trading(app)
+                broker_class.assert_not_called()
+        self.assertIsNone(app.state.paper_broker)
+        self.assertIsNone(app.state.paper_trader)
+
     def test_malformed_origin_is_ignored_not_a_server_error(self):
         scope = {"headers": [(b"origin", b"http://[")]}
         with patch.dict(os.environ, {"FRONTEND_ORIGINS": "https://app.example"}):

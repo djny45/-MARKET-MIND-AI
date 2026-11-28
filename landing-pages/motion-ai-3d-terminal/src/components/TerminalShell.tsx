@@ -268,18 +268,18 @@ export function TerminalShell({
                 <span
                   className="h-1.5 w-1.5 rounded-full"
                   style={{
-                    background: connection === "simulated" ? "#a78bfa" : connection === "stale" ? "#a78bfa" : "#fd7f95",
-                    boxShadow: `0 0 8px ${connection === "simulated" ? "#a78bfa" : "#a78bfa"}`,
+                    background: connection === "offline" ? "#fd7f95" : connection === "stale" ? "#fbbf24" : "#a78bfa",
+                    boxShadow: `0 0 8px ${connection === "offline" ? "#fd7f95" : connection === "stale" ? "#fbbf24" : "#a78bfa"}`,
                   }}
                 />
                 <span className="font-mono text-[8.5px] tracking-[0.14em] text-muted uppercase">
-                  {demoReason !== null
-                    ? "demo feed · synthetic"
-                    : connection === "simulated"
-                      ? "simulated feed"
-                      : connection === "stale"
-                        ? "resyncing"
-                        : "offline"}
+                  {connection === "offline"
+                    ? "offline · retrying"
+                    : connection === "stale"
+                      ? "stale feed · resyncing"
+                      : demoReason !== null
+                        ? "demo feed · synthetic"
+                        : "simulated feed"}
                 </span>
               </div>
               <div className="hidden rounded-sm border border-line/70 bg-panel/70 px-2 py-1 sm:block">

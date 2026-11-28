@@ -67,7 +67,17 @@ class DualAuthIntegrationTests(unittest.TestCase):
 
         # Bearer-only mode still fails closed without the deployment token.
         with patch.dict(os.environ, {**self.env, "MARKET_MIND_USER_AUTH": "false"}):
-            self.assertEqual(TestClient(app).get("/api/workers").status_code, 401)
+            bearer_only = TestClient(app)
+            self.assertEqual(bearer_only.get("/api/workers").status_code, 401)
+
+            # A deployment-wide bearer authenticates the service client, not
+            # an operator. The central sensitive-route policy must therefore
+            # deny access to operational details in bearer-only mode.
+            operator_data = bearer_only.get(
+                "/api/ops/status",
+                headers={"Authorization": f"Bearer {self.env['API_AUTH_TOKEN']}"},
+            )
+            self.assertEqual(operator_data.status_code, 403, operator_data.text)
 
 
 if __name__ == "__main__":
